@@ -15,6 +15,7 @@ class Setting extends Model
     public const DEFAULTS = [
         'store_name' => 'SellMeTools',
         'store_tagline' => 'Premium tools & subscriptions, delivered instantly.',
+        'store_logo' => '',
         'usdt_rate' => '295',
         'price_rounding' => '10',
         'order_expiry_minutes' => '15',

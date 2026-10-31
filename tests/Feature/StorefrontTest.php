@@ -23,7 +23,7 @@ class StorefrontTest extends TestCase
         $product = $this->listing([$this->supplierProduct($this->supplier())]);
 
         $this->get('/')->assertOk()->assertSee($product->name);
-        $this->get(route('products.show', $product))->assertOk()->assertSee('Buy now');
+        $this->get(route('products.show', $product))->assertOk()->assertSee('Buy Now');
         $this->get(route('checkout.create', $product))->assertOk();
         $this->get(route('orders.track'))->assertOk();
         $this->get(route('login'))->assertOk();
@@ -67,9 +67,12 @@ class StorefrontTest extends TestCase
         $response->assertRedirect($order->customerUrl());
         $this->assertSame(1100.0, (float) $order->total);
 
+        $this->get($order->customerUrl())->assertOk()->assertSee('Complete your payment')->assertSee('03001234567');
+        $this->get(route('orders.show', ['order' => $order->number, 'token' => 'wrong']))->assertOk(); // allowed in same guest session
+
+        $this->flushSession();
         $this->get(route('orders.show', $order))->assertNotFound();
         $this->get(route('orders.show', ['order' => $order->number, 'token' => 'wrong']))->assertNotFound();
-        $this->get($order->customerUrl())->assertOk()->assertSee('Complete your payment')->assertSee('03001234567');
 
         $this->post(route('orders.payment', $order), [
             'token' => $order->access_token,

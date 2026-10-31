@@ -1,5 +1,18 @@
-<svg {{ $attributes }} viewBox="0 0 32 32" fill="none" aria-hidden="true">
-    <rect width="32" height="32" rx="8" fill="#9B1B30"/>
-    <path d="M9 20.5c1.4 1.3 3.5 2 5.8 2 3.2 0 5.2-1.5 5.2-3.8 0-2.2-1.6-3.1-4.6-3.7l-1.4-.3c-1.6-.3-2.2-.8-2.2-1.6 0-.9.9-1.6 2.5-1.6 1.5 0 2.8.5 3.8 1.4l1.6-2c-1.3-1.2-3.2-1.9-5.4-1.9-3 0-5.1 1.6-5.1 3.9 0 2.1 1.4 3.2 4.3 3.7l1.5.3c1.8.4 2.4.8 2.4 1.7 0 1-1 1.6-2.7 1.6-1.8 0-3.3-.6-4.4-1.7L9 20.5Z" fill="#fff"/>
-    <circle cx="24" cy="9" r="2.5" fill="#FCE4E8"/>
-</svg>
+@php $customLogo = setting('store_logo'); @endphp
+@if ($customLogo)
+    <img src="{{ \Illuminate\Support\Str::startsWith($customLogo, ['http://', 'https://']) ? $customLogo : url('/media/'.ltrim($customLogo, '/')) }}"
+         alt="{{ setting('store_name') }}"
+         {{ $attributes->merge(['class' => 'rounded-lg object-contain']) }} />
+@else
+    <svg {{ $attributes }} viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <defs>
+            <linearGradient id="smtGrad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#C81E3A"/>
+                <stop offset="1" stop-color="#6B0F22"/>
+            </linearGradient>
+        </defs>
+        <rect width="40" height="40" rx="10" fill="url(#smtGrad)"/>
+        <rect x="1.5" y="1.5" width="37" height="37" rx="8.5" stroke="white" stroke-opacity="0.18"/>
+        <path d="M22.2 8L11.5 21.6H19.4L17.8 32L28.5 18.4H20.6L22.2 8Z" fill="white"/>
+    </svg>
+@endif

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Order;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,6 +28,11 @@ class AuthController extends Controller
             return back()->withInput($request->only('email'))->withErrors(['email' => 'These credentials do not match our records.']);
         }
 
+        $guestOrders = (array) $request->session()->get('guest_orders', []);
+        if ($guestOrders !== []) {
+            Order::whereNull('user_id')->whereIn('number', $guestOrders)->update(['user_id' => Auth::id()]);
+        }
+
         $request->session()->regenerate();
 
         return redirect()->intended(route('account.orders'));
@@ -48,8 +54,10 @@ class AuthController extends Controller
 
         $user = User::create($data);
 
-        // Note: earlier guest orders are NOT auto-attached by email, because the email is
-        // unverified and anyone could otherwise claim someone else's delivered credentials.
+        $guestOrders = (array) $request->session()->get('guest_orders', []);
+        if ($guestOrders !== []) {
+            Order::whereNull('user_id')->whereIn('number', $guestOrders)->update(['user_id' => $user->id]);
+        }
 
         Auth::login($user);
         $request->session()->regenerate();

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Support\GalleryPicker;
 use App\Filament\Support\Listings;
 use App\Models\Setting;
 use App\Services\TelegramNotifier;
@@ -28,7 +29,7 @@ class StoreSettings extends Page
 {
     /** Keys managed by this page (all live in Setting::DEFAULTS). */
     protected const KEYS = [
-        'store_name', 'store_tagline', 'announcement', 'currency_symbol',
+        'store_name', 'store_tagline', 'store_logo', 'announcement', 'currency_symbol',
         'usdt_rate', 'price_rounding', 'order_expiry_minutes',
         'telegram_bot_token', 'telegram_admin_chat_id',
         'support_whatsapp', 'support_telegram', 'support_email',
@@ -106,6 +107,7 @@ class StoreSettings extends Page
                             ->label('Short Tagline')
                             ->maxLength(255)
                             ->columnSpanFull(),
+                        GalleryPicker::make('store_logo', 'Custom Store Logo (Optional)', 'gallery'),
                         Textarea::make('announcement')
                             ->label('Top Announcement Bar (Optional)')
                             ->helperText('Shown at the very top of the website. Leave empty to hide.')

@@ -52,9 +52,9 @@ Alpine.data('stockBadge', (id, initialQty, initialUnlimited, initialPriceFormatt
         return this.data.price_formatted ?? initialPriceFormatted;
     },
     get label() {
-        if (!this.data.in_stock) return 'Out of stock';
-        if (this.data.unlimited) return 'In stock';
-        return this.data.qty <= 5 ? `Only ${this.data.qty} left` : `${this.data.qty} in stock`;
+        if (!this.data.in_stock) return 'Sold Out (0)';
+        if (this.data.unlimited) return 'Unlimited Stock';
+        return `Stock: ${this.data.qty}`;
     },
 }));
 

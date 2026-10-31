@@ -18,6 +18,7 @@ Route::get('/storage/{path}', MediaController::class)->where('path', '.*');
 // Catalog
 Route::get('/', [ProductController::class, 'index'])->name('home');
 Route::get('/products/{product:slug}', [ProductController::class, 'show'])->name('products.show');
+Route::post('/products/{product:slug}/reviews', [ProductController::class, 'storeReview'])->middleware('throttle:15,1')->name('products.reviews.store');
 Route::get('/api/stock', StockController::class)->middleware('throttle:300,1')->name('stock');
 
 // Checkout
