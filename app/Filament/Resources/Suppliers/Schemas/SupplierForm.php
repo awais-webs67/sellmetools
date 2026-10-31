@@ -56,14 +56,14 @@ class SupplierForm
                             ->helperText('Currency of supplier prices & balance. Non-PKR amounts use the USDT rate.'),
                         TextInput::make('priority')
                             ->required()
-                            ->numeric()
-                            ->minValue(0)
+                            ->rule('integer')
+                            ->rule('min:0')
                             ->default(100)
                             ->helperText('Lower = preferred when two suppliers have the same cost.'),
                         TextInput::make('low_balance_threshold')
                             ->required()
-                            ->numeric()
-                            ->minValue(0)
+                            ->rule('numeric')
+                            ->rule('min:0')
                             ->default(5)
                             ->helperText('Telegram alert when the balance drops below this.'),
                         Toggle::make('is_active')

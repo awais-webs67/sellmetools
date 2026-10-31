@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class PaymentMethod extends Model
 {
@@ -30,5 +31,16 @@ class PaymentMethod extends Model
         $rate = (float) ($order->usdt_rate ?: Setting::usdtRate());
 
         return round((float) $order->total / $rate, 2);
+    }
+
+    public function logoUrl(): ?string
+    {
+        if (! $this->logo) {
+            return null;
+        }
+
+        return Str::startsWith($this->logo, ['http://', 'https://'])
+            ? $this->logo
+            : url('/media/'.ltrim($this->logo, '/'));
     }
 }

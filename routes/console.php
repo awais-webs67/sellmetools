@@ -30,4 +30,4 @@ Artisan::command('orders:expire', function (OrderService $orders) {
 
 // One cron entry on the server runs everything:  * * * * * php /path/artisan schedule:run
 Schedule::command('orders:expire')->everyMinute()->withoutOverlapping();
-Schedule::command('suppliers:sync')->everyMinute()->withoutOverlapping(10)->runInBackground();
+Schedule::command('suppliers:sync')->everyTenSeconds()->withoutOverlapping(1)->runInBackground();

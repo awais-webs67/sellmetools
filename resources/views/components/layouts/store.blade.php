@@ -12,7 +12,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $pageTitle }}</title>
     <meta name="description" content="{{ $description ?? setting('store_tagline') }}">
-    <meta name="theme-color" content="#FF5B35">
+    <meta name="theme-color" content="#9B1B30">
     <meta property="og:title" content="{{ $pageTitle }}">
     <meta property="og:description" content="{{ $description ?? setting('store_tagline') }}">
     <meta property="og:type" content="website">

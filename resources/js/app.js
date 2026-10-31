@@ -34,14 +34,22 @@ Alpine.store('stock', {
     },
 });
 
-/** Product card / page stock badge. Initial values come from the server render. */
-Alpine.data('stockBadge', (id, initialQty, initialUnlimited) => ({
+/** Product card / page stock & price badge. Initial values come from the server render. */
+Alpine.data('stockBadge', (id, initialQty, initialUnlimited, initialPriceFormatted = null) => ({
     id: String(id),
     get data() {
-        return this.$store.stock.get(this.id) ?? { qty: initialQty, unlimited: initialUnlimited, in_stock: initialUnlimited || initialQty > 0 };
+        return this.$store.stock.get(this.id) ?? {
+            qty: initialQty,
+            unlimited: initialUnlimited,
+            in_stock: initialUnlimited || initialQty > 0,
+            price_formatted: initialPriceFormatted,
+        };
     },
     get inStock() {
         return this.data.in_stock;
+    },
+    get priceText() {
+        return this.data.price_formatted ?? initialPriceFormatted;
     },
     get label() {
         if (!this.data.in_stock) return 'Out of stock';
@@ -107,4 +115,4 @@ Alpine.data('copy', (text) => ({
 
 window.Alpine = Alpine;
 Alpine.start();
-Alpine.store('stock').start();
+Alpine.store('stock').start(10000);

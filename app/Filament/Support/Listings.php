@@ -53,6 +53,7 @@ final class Listings
             $product = Product::create([
                 'name' => $data['name'] ?? $source->name,
                 'category_id' => $data['category_id'] ?? null,
+                'image' => $data['image'] ?? null,
                 'pricing_mode' => $data['pricing_mode'] ?? PricingMode::MarkupPercent,
                 'fixed_price' => $data['fixed_price'] ?? null,
                 'markup_value' => $data['markup_value'] ?? 0,

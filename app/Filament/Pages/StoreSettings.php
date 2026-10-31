@@ -61,84 +61,90 @@ class StoreSettings extends Page
     {
         return $schema
             ->statePath('data')
-            ->columns(2)
+            ->columns(1)
             ->components([
-                Section::make('General')
+                Section::make('Pricing & Dollar Rate')
+                    ->icon(Heroicon::OutlinedCurrencyDollar)
+                    ->description('Set the USDT → PKR conversion rate. Saving automatically recalculates prices for all supplier products.')
+                    ->columns(['default' => 1, 'sm' => 3])
+                    ->schema([
+                        TextInput::make('usdt_rate')
+                            ->label('1 USDT in PKR (Dollar Rate)')
+                            ->placeholder('295')
+                            ->rule('numeric')
+                            ->rule('min:1')
+                            ->required()
+                            ->helperText('Example: 295'),
+                        TextInput::make('price_rounding')
+                            ->label('Round Selling Price To (PKR)')
+                            ->placeholder('10')
+                            ->rule('numeric')
+                            ->rule('min:0')
+                            ->required()
+                            ->helperText('0 = exact price, 10 = round to nearest 10'),
+                        TextInput::make('order_expiry_minutes')
+                            ->label('Order Payment Time (Minutes)')
+                            ->placeholder('15')
+                            ->rule('integer')
+                            ->rule('min:1')
+                            ->required()
+                            ->helperText('Minutes stock stays reserved'),
+                    ]),
+                Section::make('Store Details')
                     ->icon(Heroicon::OutlinedBuildingStorefront)
-                    ->columns(2)
+                    ->columns(['default' => 1, 'sm' => 2])
                     ->schema([
                         TextInput::make('store_name')
+                            ->label('Store Name')
                             ->required()
                             ->maxLength(100),
                         TextInput::make('currency_symbol')
+                            ->label('Currency Symbol')
                             ->required()
                             ->maxLength(10),
                         TextInput::make('store_tagline')
+                            ->label('Short Tagline')
                             ->maxLength(255)
                             ->columnSpanFull(),
                         Textarea::make('announcement')
-                            ->helperText('Optional banner shown across the storefront. Leave empty to hide.')
+                            ->label('Top Announcement Bar (Optional)')
+                            ->helperText('Shown at the very top of the website. Leave empty to hide.')
                             ->rows(2)
                             ->columnSpanFull(),
                     ]),
-                Section::make('Pricing & orders')
-                    ->icon(Heroicon::OutlinedCurrencyDollar)
-                    ->columns(3)
+                Section::make('Support Contacts (WhatsApp / Telegram)')
+                    ->icon(Heroicon::OutlinedLifebuoy)
+                    ->columns(['default' => 1, 'sm' => 3])
                     ->schema([
-                        TextInput::make('usdt_rate')
-                            ->label('USDT → PKR rate')
-                            ->numeric()
-                            ->minValue(0.0001)
-                            ->required()
-                            ->prefix('1 USDT =')
-                            ->suffix('PKR'),
-                        TextInput::make('price_rounding')
-                            ->label('Round prices up to')
-                            ->numeric()
-                            ->minValue(0)
-                            ->required()
-                            ->suffix('PKR')
-                            ->helperText('0 = no rounding'),
-                        TextInput::make('order_expiry_minutes')
-                            ->label('Payment window')
-                            ->integer()
-                            ->minValue(1)
-                            ->required()
-                            ->suffix('min'),
-                    ])
-                    ->description('Changing the rate or rounding re-prices every supplier-sourced product on save.'),
-                Section::make('Telegram alerts')
+                        TextInput::make('support_whatsapp')
+                            ->label('WhatsApp Number')
+                            ->placeholder('+923001234567'),
+                        TextInput::make('support_telegram')
+                            ->label('Telegram Username')
+                            ->placeholder('@sellmetools'),
+                        TextInput::make('support_email')
+                            ->label('Support Email')
+                            ->email(),
+                    ]),
+                Section::make('Telegram Admin Bot Alerts')
                     ->icon(Heroicon::OutlinedBellAlert)
-                    ->description('Admin notifications for new payments, failed deliveries and low supplier balances.')
+                    ->description('Receive instant Telegram alerts on new payments, orders and low supplier balances.')
+                    ->columns(['default' => 1, 'sm' => 2])
                     ->schema([
                         TextInput::make('telegram_bot_token')
-                            ->label('Bot token')
+                            ->label('Bot Token')
                             ->password()
                             ->revealable()
                             ->autocomplete('off'),
                         TextInput::make('telegram_admin_chat_id')
-                            ->label('Admin chat ID'),
+                            ->label('Admin Chat ID'),
                         Actions::make([
                             Action::make('testTelegram')
-                                ->label('Send test message')
+                                ->label('Send Test Message')
                                 ->icon(Heroicon::OutlinedPaperAirplane)
                                 ->color('gray')
                                 ->action(fn () => $this->sendTelegramTest()),
-                        ]),
-                    ]),
-                Section::make('Support contacts')
-                    ->icon(Heroicon::OutlinedLifebuoy)
-                    ->schema([
-                        TextInput::make('support_whatsapp')
-                            ->label('WhatsApp number')
-                            ->tel()
-                            ->placeholder('+923001234567'),
-                        TextInput::make('support_telegram')
-                            ->label('Telegram username / link')
-                            ->placeholder('@sellmetools'),
-                        TextInput::make('support_email')
-                            ->label('Support email')
-                            ->email(),
+                        ])->columnSpanFull(),
                     ]),
             ]);
     }
@@ -152,7 +158,7 @@ class StoreSettings extends Page
                 ->footer([
                     Actions::make([
                         Action::make('save')
-                            ->label('Save settings')
+                            ->label('Save Settings')
                             ->submit('save')
                             ->keyBindings(['mod+s']),
                     ]),

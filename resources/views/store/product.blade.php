@@ -13,7 +13,7 @@
         </nav>
 
         <div class="mt-6 grid gap-10 lg:grid-cols-[1fr_440px]"
-             x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }})"
+             x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, @js(money($product->price)))"
              data-stock-id="{{ $product->id }}">
             <div>
                 <div class="card aspect-[16/10] overflow-hidden bg-grey-soft">
@@ -59,7 +59,7 @@
                             @if ($product->compare_at_price && $product->compare_at_price > $product->price)
                                 <p class="text-sm text-muted line-through">{{ money($product->compare_at_price) }}</p>
                             @endif
-                            <p class="display text-5xl text-ink">{{ money($product->price) }}</p>
+                            <p class="display text-5xl text-ink" x-text="priceText">{{ money($product->price) }}</p>
                         </div>
                         <span :class="inStock ? 'badge badge-success' : 'badge badge-danger'" class="text-sm">
                             <span class="dot" :class="inStock ? 'bg-success live-dot' : 'bg-danger'"></span>

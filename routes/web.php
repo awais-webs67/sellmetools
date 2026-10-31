@@ -3,11 +3,16 @@
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\MediaController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\StockController;
 use Illuminate\Support\Facades\Route;
+
+// Public uploaded media (works without storage:link on shared hosting)
+Route::get('/media/{path}', MediaController::class)->where('path', '.*')->name('media');
+Route::get('/storage/{path}', MediaController::class)->where('path', '.*');
 
 // Catalog
 Route::get('/', [ProductController::class, 'index'])->name('home');

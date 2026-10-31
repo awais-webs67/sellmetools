@@ -33,13 +33,14 @@ class ProductsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->poll('10s')
             ->modifyQueryUsing(fn (Builder $query) => $query->with('category'))
             ->defaultSort('sort')
             ->columns([
                 ImageColumn::make('image')
-                    ->disk('public')
+                    ->state(fn (Product $record): ?string => $record->imageUrl())
                     ->square()
-                    ->imageSize(40)
+                    ->imageSize(44)
                     ->label(''),
                 TextColumn::make('name')
                     ->searchable()

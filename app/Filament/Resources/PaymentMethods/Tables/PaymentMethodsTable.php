@@ -22,7 +22,7 @@ class PaymentMethodsTable
             ->reorderable('sort')
             ->columns([
                 ImageColumn::make('logo')
-                    ->disk('public')
+                    ->state(fn (PaymentMethod $record): ?string => $record->logoUrl())
                     ->imageSize(32)
                     ->label(''),
                 TextColumn::make('name')

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\SupplierProducts\Tables;
 
 use App\Enums\PricingMode;
 use App\Filament\Resources\Products\ProductResource;
+use App\Filament\Support\GalleryPicker;
 use App\Filament\Support\Listings;
 use App\Filament\Support\Money;
 use App\Models\Category;
@@ -34,6 +35,7 @@ class SupplierProductsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->poll('10s')
             ->modifyQueryUsing(fn (Builder $query) => $query->with('supplier')->withCount('listings'))
             ->defaultSort('name')
             ->columns([
@@ -111,7 +113,7 @@ class SupplierProductsTable
                 'is_active' => true,
             ])
             ->schema(fn (SupplierProduct $record): array => [
-                Grid::make(2)->schema([
+                Grid::make(['default' => 1, 'sm' => 2])->schema([
                     TextInput::make('name')
                         ->required()
                         ->maxLength(255)
@@ -123,9 +125,10 @@ class SupplierProductsTable
                     Toggle::make('is_active')
                         ->label('Active on storefront')
                         ->inline(false),
+                    GalleryPicker::make('image', 'Product Picture', 'gallery'),
                 ]),
                 Section::make('Pricing')
-                    ->columns(2)
+                    ->columns(['default' => 1, 'sm' => 2])
                     ->schema([
                         Select::make('pricing_mode')
                             ->options(PricingMode::options())
@@ -133,15 +136,15 @@ class SupplierProductsTable
                             ->live(),
                         TextInput::make('fixed_price')
                             ->label('Fixed price (PKR)')
-                            ->numeric()
-                            ->minValue(0)
+                            ->rule('numeric')
+                            ->rule('min:0')
                             ->live(debounce: 500)
                             ->visible(fn (Get $get): bool => $get('pricing_mode') === PricingMode::Fixed->value)
                             ->required(fn (Get $get): bool => $get('pricing_mode') === PricingMode::Fixed->value),
                         TextInput::make('markup_value')
                             ->label(fn (Get $get): string => $get('pricing_mode') === PricingMode::MarkupPercent->value ? 'Markup (%)' : 'Markup (PKR)')
-                            ->numeric()
-                            ->minValue(0)
+                            ->rule('numeric')
+                            ->rule('min:0')
                             ->live(debounce: 500)
                             ->visible(fn (Get $get): bool => $get('pricing_mode') !== PricingMode::Fixed->value)
                             ->required(fn (Get $get): bool => $get('pricing_mode') !== PricingMode::Fixed->value),

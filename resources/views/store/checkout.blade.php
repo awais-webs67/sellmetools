@@ -40,8 +40,8 @@
                                 <label class="relative flex cursor-pointer items-center gap-3 rounded-md border-2 p-4 transition"
                                        :class="method == '{{ $method->id }}' ? 'border-brand bg-brand-tint' : 'border-line hover:border-line-strong'">
                                     <input type="radio" name="payment_method_id" value="{{ $method->id }}" x-model="method" class="sr-only">
-                                    @if ($method->logo)
-                                        <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($method->logo) }}" alt="" class="h-9 w-9 rounded object-contain">
+                                    @if ($logoUrl = $method->logoUrl())
+                                        <img src="{{ $logoUrl }}" alt="" class="h-9 w-9 rounded object-contain">
                                     @else
                                         <span class="flex h-9 w-9 items-center justify-center rounded bg-ink text-sm font-bold text-white">{{ mb_substr($method->name, 0, 1) }}</span>
                                     @endif

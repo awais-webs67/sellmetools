@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\PaymentMethods\Schemas;
 
-use Filament\Forms\Components\FileUpload;
+use App\Filament\Support\GalleryPicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -15,66 +15,56 @@ class PaymentMethodForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
-            ->columns(3)
+            ->columns(1)
             ->components([
-                Section::make('Method')
-                    ->columnSpan(2)
-                    ->columns(2)
+                Section::make('Payment Account Details')
+                    ->columns(['default' => 1, 'sm' => 2])
                     ->schema([
                         TextInput::make('name')
+                            ->label('Method Name')
                             ->required()
                             ->maxLength(255),
                         TextInput::make('code')
+                            ->label('Unique Code')
                             ->required()
                             ->maxLength(30)
                             ->alphaDash()
                             ->unique(ignoreRecord: true)
-                            ->helperText('Unique identifier, e.g. easypaisa, jazzcash, binance.'),
+                            ->helperText('e.g. easypaisa, jazzcash, binance'),
                         Select::make('type')
                             ->options([
-                                'manual' => 'Manual (admin verifies TID)',
+                                'manual' => 'Manual (Verify TID)',
                                 'auto' => 'Automatic',
                             ])
                             ->default('manual')
-                            ->required()
-                            ->native(false),
+                            ->required(),
                         Select::make('currency')
                             ->options([
-                                'PKR' => 'PKR',
-                                'USDT' => 'USDT',
+                                'PKR' => 'PKR (Rs)',
+                                'USDT' => 'USDT ($)',
                             ])
                             ->default('PKR')
-                            ->required()
-                            ->native(false)
-                            ->helperText('USDT methods show the order total converted at the current rate.'),
+                            ->required(),
                         TextInput::make('account_title')
+                            ->label('Account Holder Name')
                             ->maxLength(255),
                         TextInput::make('account_number')
-                            ->label('Account number / Pay ID')
+                            ->label('Account Number / Binance Pay ID')
                             ->maxLength(255),
+                        GalleryPicker::make('logo', 'Method Logo', 'gallery'),
                         Textarea::make('instructions')
-                            ->rows(4)
+                            ->rows(3)
                             ->columnSpanFull()
-                            ->helperText('Shown to the customer on the payment page.'),
-                    ]),
-                Section::make('Display')
-                    ->columnSpan(1)
-                    ->schema([
-                        FileUpload::make('logo')
-                            ->image()
-                            ->disk('public')
-                            ->directory('payment-methods')
-                            ->visibility('public')
-                            ->maxSize(1024),
+                            ->helperText('Shown to customer on the payment screen.'),
                         Toggle::make('requires_sender_number')
-                            ->label('Require sender number')
+                            ->label('Ask customer for sender phone number')
                             ->default(true),
                         Toggle::make('is_active')
-                            ->label('Active')
+                            ->label('Active on checkout')
                             ->default(true),
                         TextInput::make('sort')
-                            ->numeric()
-                            ->minValue(0)
+                            ->label('Sort Order')
+                            ->rule('integer')
                             ->default(0)
                             ->required(),
                     ]),

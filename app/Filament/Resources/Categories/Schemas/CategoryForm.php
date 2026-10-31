@@ -40,8 +40,8 @@ class CategoryForm
                             ->helperText('Optional icon name or emoji used by the storefront.'),
                         TextInput::make('sort')
                             ->required()
-                            ->numeric()
-                            ->minValue(0)
+                            ->rule('integer')
+                            ->rule('min:0')
                             ->default(0),
                         Toggle::make('is_active')
                             ->label('Active')
