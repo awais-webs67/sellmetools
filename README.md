@@ -1,58 +1,128 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# SellMeTools
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Digital tools & subscriptions store built with **Laravel 13**, **Filament 5** (admin) and **Tailwind 4 + Alpine** (storefront).
 
-## About Laravel
+Sell your own stock (credentials, keys, links) **and** resell products from wholesale supplier APIs (Telegram shop bots) with automatic USDT → PKR conversion, profit markup, live stock and automatic delivery.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Features
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Area | What it does |
+|---|---|
+| **Storefront** | Product catalog, categories, search, product page, checkout, order page with countdown, TID submission, auto-refreshing status, delivered credentials with copy buttons, customer accounts, order tracking, policy pages. |
+| **Live stock** | Stock is reserved under a DB row lock when an order is placed – the last unit can never be sold twice. All open pages refresh stock every 5 s. |
+| **Suppliers** | Pluggable drivers (`app/Services/Suppliers`). Ships with the *Standard Bot API* driver (`/products`, `/balance`, `/order`). Auto sync every minute: products, cost, stock, balance. |
+| **Pricing** | Per product: fixed price, cost + amount, or cost + %. Global USDT rate & rounding. Products are auto-disabled if supplier cost rises above a fixed selling price and re-enabled when profitable again. |
+| **Fulfillment** | Own stock first → cheapest profitable supplier → automatic failover to the next supplier. Idempotent `request_id`s, unknown results stop automation for manual review. |
+| **Payments** | Easypaisa, JazzCash, NayaPay, SadaPay, Binance (manual verification with unique TID enforcement). Gateways can be added as new payment methods later. |
+| **Admin** | `/admin` – orders, payment approval, manual delivery, retry, suppliers, supplier product import, products, own stock upload, payment methods, store settings, dashboard. |
+| **Telegram** | Admin alerts: new payment to verify, order delivered with profit, order needs attention, low supplier balance, product auto-disabled. |
 
-## Learning Laravel
+## Architecture
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```
+app/
+├── Enums/                     Order / payment / stock / pricing states
+├── Models/                    Eloquent models (secrets & credentials use encrypted casts)
+├── Services/
+│   ├── OrderService           create + reserve (row lock), release, expire
+│   ├── PaymentService         submit TID, approve → fulfil, reject
+│   ├── FulfillmentService     own stock → suppliers with failover, manual delivery
+│   ├── PriceCalculator        cost (cheapest source) → selling price, loss guard
+│   ├── InventoryService       live sellable quantity + denormalised snapshot
+│   ├── SupplierSyncService    products / balance sync, listing repricing
+│   ├── TelegramNotifier       admin alerts (never throws)
+│   └── Suppliers/             driver contract, DTOs, exceptions, drivers
+├── Filament/                  admin panel
+└── Http/Controllers/          storefront
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Adding a new supplier API format = one new class implementing `SupplierDriver` + one line in `SupplierManager::DRIVERS`.
 
-## Contributing
+---
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Local setup (XAMPP)
 
-## Code of Conduct
+```bash
+composer install
+cp .env.example .env          # DB_DATABASE=sellmetools, root / no password
+php artisan key:generate
+php artisan migrate --seed    # creates admin + payment methods + categories
+php artisan storage:link
+npm install && npm run build
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+- Store: http://localhost/sellmetools/public
+- Admin: http://localhost/sellmetools/public/admin – `admin@sellmetools.test` / `password` (**change immediately**)
 
-## Security Vulnerabilities
+Run the scheduler locally when testing sync/expiry:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+php artisan schedule:work
+# or once: php artisan suppliers:sync   |   php artisan orders:expire
+```
 
-## License
+Tests: `php artisan test`
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+---
+
+## Deployment (Git → hosting)
+
+Built frontend assets (`public/build`) are committed, so the server does **not** need Node.js.
+
+### First deploy
+
+```bash
+git clone https://github.com/awais-webs67/sellmetools.git
+cd sellmetools
+composer install --no-dev --optimize-autoloader
+cp .env.example .env
+# edit .env: APP_ENV=production, APP_DEBUG=false, APP_URL=https://yourdomain.com, DB_* credentials
+php artisan key:generate
+php artisan migrate --force --seed
+php artisan storage:link
+php artisan optimize
+```
+
+Point the domain's **document root to `/public`**. If your host does not allow that, the root `.htaccess` forwards everything to `/public` automatically.
+
+### Cron (required – one entry runs everything)
+
+```
+* * * * * cd /path/to/sellmetools && php artisan schedule:run >> /dev/null 2>&1
+```
+
+This runs supplier sync and unpaid-order expiry every minute. No queue worker is required.
+
+### Updating
+
+```bash
+git pull
+composer install --no-dev --optimize-autoloader
+php artisan migrate --force
+php artisan optimize
+```
+
+---
+
+## First-time configuration (admin)
+
+1. **Settings → Store settings**: store name, USDT rate, Telegram bot token + your chat ID (send a test message), support contacts.
+2. **Settings → Payment methods**: enter your real Easypaisa / JazzCash / NayaPay / SadaPay account numbers and Binance Pay ID.
+3. **Suppliers → Suppliers**: add a supplier (base URL + API key) → *Sync now*.
+4. **Suppliers → Supplier products**: *Create listing* with your price rule.
+5. Own stock: **Catalog → Products → Stock items → Bulk add stock** (one item per line).
+
+## Security notes
+
+- Supplier API keys, own stock and delivered credentials are encrypted at rest (`APP_KEY` – back it up; losing it makes them unreadable).
+- Guest order pages require a 48-character secret token; logged-in customers only see their own orders.
+- Transaction IDs are unique per payment method; checkout, payment and lookup endpoints are rate limited.
+
+## Roadmap
+
+- Auto payment verification (SMS forwarder webhook for wallets, Binance API)
+- Telegram approve/reject buttons and customer bot
+- WebSocket push (Pusher/Reverb) in addition to polling
+- Customer wallet & deposits

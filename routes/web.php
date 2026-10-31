@@ -1,7 +1,42 @@
 <?php
 
+use App\Http\Controllers\AccountController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\PageController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\StockController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
+// Catalog
+Route::get('/', [ProductController::class, 'index'])->name('home');
+Route::get('/products/{product:slug}', [ProductController::class, 'show'])->name('products.show');
+Route::get('/api/stock', StockController::class)->middleware('throttle:120,1')->name('stock');
+
+// Checkout
+Route::get('/checkout/{product:slug}', [CheckoutController::class, 'create'])->name('checkout.create');
+Route::post('/checkout/{product:slug}', [CheckoutController::class, 'store'])->middleware('throttle:10,1')->name('checkout.store');
+
+// Orders (guest access via secret token, or owner when logged in)
+Route::get('/orders/{order:number}', [OrderController::class, 'show'])->name('orders.show');
+Route::get('/orders/{order:number}/status', [OrderController::class, 'status'])->middleware('throttle:60,1')->name('orders.status');
+Route::post('/orders/{order:number}/payment', [OrderController::class, 'submitPayment'])->middleware('throttle:6,1')->name('orders.payment');
+Route::post('/orders/{order:number}/cancel', [OrderController::class, 'cancel'])->middleware('throttle:6,1')->name('orders.cancel');
+Route::get('/track', [OrderController::class, 'track'])->name('orders.track');
+Route::post('/track', [OrderController::class, 'lookup'])->middleware('throttle:10,1')->name('orders.lookup');
+
+// Customer auth
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:8,1');
+    Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
 });
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
+Route::get('/account/orders', [AccountController::class, 'orders'])->middleware('auth')->name('account.orders');
+
+// Static pages (required by payment gateways)
+Route::get('/pages/{page}', PageController::class)
+    ->whereIn('page', ['terms', 'privacy', 'refund', 'contact', 'faq'])
+    ->name('pages.show');

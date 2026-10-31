@@ -17,7 +17,7 @@ class PaymentService
 {
     public function __construct(
         protected FulfillmentService $fulfillment,
-        protected TelegramNotifier $telegram,
+        protected T $telegram,
     ) {}
 
     /** Customer submits a transaction ID for manual / semi-automatic verification. */

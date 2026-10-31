@@ -43,7 +43,7 @@ class FulfillmentService
         protected SupplierSyncService $sync,
         protected PriceCalculator $pricing,
         protected InventoryService $inventory,
-        protected TelegramNotifier $telegram,
+        protected T $telegram,
     ) {}
 
     public function fulfill(Order $order): Order

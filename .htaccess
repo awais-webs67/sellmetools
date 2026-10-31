@@ -1,0 +1,7 @@
+# Fallback for shared hosting where the document root cannot point to /public.
+# Every request is served from /public, so files like .env are never exposed.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
