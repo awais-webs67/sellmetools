@@ -162,6 +162,43 @@ LOCK TABLES `failed_jobs` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `incoming_payments`
+--
+
+DROP TABLE IF EXISTS `incoming_payments`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `incoming_payments` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `provider` varchar(40) DEFAULT NULL,
+  `transaction_id` varchar(100) NOT NULL,
+  `amount` decimal(12,2) NOT NULL,
+  `currency` varchar(10) NOT NULL DEFAULT 'PKR',
+  `sender` varchar(100) DEFAULT NULL,
+  `raw_message` text DEFAULT NULL,
+  `matched_payment_id` bigint(20) unsigned DEFAULT NULL,
+  `matched_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `incoming_payments_provider_transaction_id_unique` (`provider`,`transaction_id`),
+  KEY `incoming_payments_matched_payment_id_foreign` (`matched_payment_id`),
+  KEY `incoming_payments_provider_index` (`provider`),
+  KEY `incoming_payments_transaction_id_index` (`transaction_id`),
+  CONSTRAINT `incoming_payments_matched_payment_id_foreign` FOREIGN KEY (`matched_payment_id`) REFERENCES `payments` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `incoming_payments`
+--
+
+LOCK TABLES `incoming_payments` WRITE;
+/*!40000 ALTER TABLE `incoming_payments` DISABLE KEYS */;
+/*!40000 ALTER TABLE `incoming_payments` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `job_batches`
 --
 
@@ -261,7 +298,7 @@ CREATE TABLE `migrations` (
   `migration` varchar(255) NOT NULL,
   `batch` int(11) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -270,7 +307,7 @@ CREATE TABLE `migrations` (
 
 LOCK TABLES `migrations` WRITE;
 /*!40000 ALTER TABLE `migrations` DISABLE KEYS */;
-INSERT INTO `migrations` VALUES (1,'0001_01_01_000000_create_users_table',1),(2,'0001_01_01_000001_create_cache_table',1),(3,'0001_01_01_000002_create_jobs_table',1),(4,'2026_10_31_000001_add_store_fields_to_users_table',1),(5,'2026_10_31_000002_create_settings_table',1),(6,'2026_10_31_000003_create_suppliers_tables',1),(7,'2026_10_31_000004_create_catalog_tables',1),(8,'2026_10_31_000005_create_orders_tables',1),(9,'2026_10_31_000006_create_media_items_table',2),(10,'2026_10_31_000007_create_reviews_table',3);
+INSERT INTO `migrations` VALUES (1,'0001_01_01_000000_create_users_table',1),(2,'0001_01_01_000001_create_cache_table',1),(3,'0001_01_01_000002_create_jobs_table',1),(4,'2026_10_31_000001_add_store_fields_to_users_table',1),(5,'2026_10_31_000002_create_settings_table',1),(6,'2026_10_31_000003_create_suppliers_tables',1),(7,'2026_10_31_000004_create_catalog_tables',1),(8,'2026_10_31_000005_create_orders_tables',1),(9,'2026_10_31_000006_create_media_items_table',2),(10,'2026_10_31_000007_create_reviews_table',3),(11,'2026_10_31_000008_create_incoming_payments_table',4),(12,'2026_10_31_000009_seed_additional_payment_gateways',4);
 /*!40000 ALTER TABLE `migrations` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -409,7 +446,7 @@ CREATE TABLE `payment_methods` (
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `payment_methods_code_unique` (`code`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -418,7 +455,7 @@ CREATE TABLE `payment_methods` (
 
 LOCK TABLES `payment_methods` WRITE;
 /*!40000 ALTER TABLE `payment_methods` DISABLE KEYS */;
-INSERT INTO `payment_methods` VALUES (1,'Easypaisa','easypaisa','manual','PKR','Set in admin','Set in admin','Send the exact amount to the Easypaisa account below, then enter the Transaction ID (TID) and the number you paid from.',NULL,1,1,0,NULL,'2026-10-31 10:16:18','2026-10-31 10:16:18'),(2,'JazzCash','jazzcash','manual','PKR','Set in admin','Set in admin','Send the exact amount to the JazzCash account below, then enter the Transaction ID (TID) and the number you paid from.',NULL,1,1,1,NULL,'2026-10-31 10:16:18','2026-10-31 10:16:18'),(3,'NayaPay','nayapay','manual','PKR','Set in admin','Set in admin','Send the exact amount to the NayaPay account below, then enter the Transaction ID (TID) and the number you paid from.',NULL,1,1,2,NULL,'2026-10-31 10:16:18','2026-10-31 10:16:18'),(4,'SadaPay','sadapay','manual','PKR','Set in admin','Set in admin','Send the exact amount to the SadaPay account below, then enter the Transaction ID (TID) and the number you paid from.',NULL,1,1,3,NULL,'2026-10-31 10:16:18','2026-10-31 10:16:18'),(5,'Binance Pay','binance','manual','USDT','Set in admin','Set in admin','Send the exact USDT amount via Binance Pay to the Binance Pay ID below, then enter the Binance Pay Order ID / TxID from your payment history.',NULL,0,1,4,NULL,'2026-10-31 10:16:18','2026-10-31 10:16:18');
+INSERT INTO `payment_methods` VALUES (1,'Easypaisa','easypaisa','manual','PKR','Set in admin','Set in admin','Send the exact amount to the Easypaisa account below, then enter the Transaction ID (TID) and the number you paid from.',NULL,1,1,0,NULL,'2026-10-31 10:16:18','2026-10-31 10:16:18'),(2,'JazzCash','jazzcash','manual','PKR','Set in admin','Set in admin','Send the exact amount to the JazzCash account below, then enter the Transaction ID (TID) and the number you paid from.',NULL,1,1,1,NULL,'2026-10-31 10:16:18','2026-10-31 10:16:18'),(3,'NayaPay','nayapay','manual','PKR','Set in admin','Set in admin','Send the exact amount to the NayaPay account below, then enter the Transaction ID (TID) and the number you paid from.',NULL,1,1,2,NULL,'2026-10-31 10:16:18','2026-10-31 10:16:18'),(4,'SadaPay','sadapay','manual','PKR','Set in admin','Set in admin','Send the exact amount to the SadaPay account below, then enter the Transaction ID (TID) and the number you paid from.',NULL,1,1,3,NULL,'2026-10-31 10:16:18','2026-10-31 10:16:18'),(5,'Binance Pay','binance','manual','USDT','Set in admin','Set in admin','Send the exact USDT amount via Binance Pay to the Binance Pay ID below, then enter the Binance Pay Order ID / TxID from your payment history.',NULL,0,1,4,NULL,'2026-10-31 10:16:18','2026-10-31 10:16:18'),(6,'Bank Transfer / Raast IBAN','bank','manual','PKR','Set in admin','Set in admin','Transfer the exact amount via Raast or Bank Transfer to the IBAN / Account Number below, then submit your Transaction Reference ID.',NULL,0,1,5,NULL,'2026-10-31 16:25:13','2026-10-31 16:25:13'),(7,'USDT (TRC20 / BEP20)','usdt_trc20','manual','USDT','Set in admin','Set in admin','Send the exact USDT amount to the wallet address below and enter your Transaction Hash (TxID).',NULL,0,1,6,NULL,'2026-10-31 16:25:13','2026-10-31 16:25:13'),(8,'Manual / WhatsApp Verification','whatsapp_manual','manual','PKR','Set in admin','Set in admin','Send payment to any of our official accounts, then click the WhatsApp button below to send the pre-filled order message & screenshot to our team.',NULL,0,1,7,NULL,'2026-10-31 16:25:13','2026-10-31 16:25:13'),(9,'PayFast (Cards & Wallets)','payfast','auto','PKR','Set in admin','Set in admin','Pay online via Debit/Credit Card or Mobile Wallet through PayFast.',NULL,0,0,8,NULL,'2026-10-31 16:25:13','2026-10-31 16:25:13'),(10,'Paymob Pakistan (Auto Gateway)','paymob','auto','PKR','Set in admin','Set in admin','Pay online via Paymob Pakistan gateway.',NULL,0,0,9,NULL,'2026-10-31 16:25:13','2026-10-31 16:25:13'),(11,'Cryptomus (Auto Crypto Gateway)','cryptomus','auto','USDT','Set in admin','Set in admin','Pay automatically with USDT or any cryptocurrency via Cryptomus.',NULL,0,0,10,NULL,'2026-10-31 16:25:13','2026-10-31 16:25:13');
 /*!40000 ALTER TABLE `payment_methods` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -829,4 +866,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-10-31 23:46:43
+-- Dump completed on 2026-11-01  2:26:21

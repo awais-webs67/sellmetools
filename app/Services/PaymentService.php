@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\TelegramNotifier as T;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 
 class PaymentService
 {
@@ -64,6 +65,20 @@ class PaymentService
 
         $order->refresh()->load('items', 'paymentMethod');
 
+        // Attempt instant automatic verification (SMS webhook match or Binance API)
+        if (app(AutoPaymentVerifier::class)->tryAutoVerify($payment)) {
+            return $payment->refresh();
+        }
+
+        $approveUrl = URL::signedRoute('webhooks.payment.quick-action', [
+            'payment' => $payment->id,
+            'action' => 'approve',
+        ]);
+        $rejectUrl = URL::signedRoute('webhooks.payment.quick-action', [
+            'payment' => $payment->id,
+            'action' => 'reject',
+        ]);
+
         $this->telegram->notifyAdmin(
             "💰 <b>New payment to verify</b>\n".
             "Order: <b>{$order->number}</b>\n".
@@ -71,8 +86,13 @@ class PaymentService
             'Method: '.T::e($order->paymentMethod?->name)."\n".
             "Amount: <b>{$payment->currency} {$payment->amount}</b>\n".
             'TID: <code>'.T::e($payment->transaction_id).'</code>'.
-            ($payment->sender_number ? "\nSender: ".T::e($payment->sender_number) : '').
-            "\n\nApprove in admin → Payments."
+            ($payment->sender_number ? "\nSender: ".T::e($payment->sender_number) : ''),
+            [
+                [
+                    ['text' => '✅ Approve & Auto-Deliver', 'url' => $approveUrl],
+                    ['text' => '❌ Reject TID', 'url' => $rejectUrl],
+                ],
+            ]
         );
 
         return $payment;

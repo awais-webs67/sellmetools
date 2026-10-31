@@ -20,6 +20,7 @@ class Setting extends Model
         'price_rounding' => '10',
         'order_expiry_minutes' => '15',
         'currency_symbol' => 'Rs',
+        'sms_webhook_secret' => 'smt_auto_pay_secret_2026',
         'telegram_bot_token' => '',
         'telegram_admin_chat_id' => '',
         'support_whatsapp' => '',

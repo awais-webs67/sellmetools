@@ -6,6 +6,7 @@ use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\PaymentWebhookController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\StockController;
 use App\Models\Order;
@@ -37,6 +38,14 @@ Route::post('/api/sync', [StockController::class, 'sync'])
     ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
     ->middleware('throttle:30,1')
     ->name('stock.sync');
+
+// Auto-Payment Webhooks (SMS/Notification forwarder + 1-click Telegram approve)
+Route::match(['get', 'post'], '/api/webhooks/payment-sms', [PaymentWebhookController::class, 'sms'])
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
+    ->middleware('throttle:120,1')
+    ->name('webhooks.payment.sms');
+Route::get('/webhooks/payment/{payment}/{action}', [PaymentWebhookController::class, 'quickAction'])
+    ->name('webhooks.payment.quick-action');
 
 // Checkout
 Route::get('/checkout/{product:slug}', [CheckoutController::class, 'create'])->name('checkout.create');

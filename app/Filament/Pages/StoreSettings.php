@@ -31,6 +31,7 @@ class StoreSettings extends Page
     protected const KEYS = [
         'store_name', 'store_tagline', 'store_logo', 'announcement', 'currency_symbol',
         'usdt_rate', 'price_rounding', 'order_expiry_minutes',
+        'sms_webhook_secret',
         'telegram_bot_token', 'telegram_admin_chat_id',
         'support_whatsapp', 'support_telegram', 'support_email',
     ];
@@ -127,6 +128,16 @@ class StoreSettings extends Page
                         TextInput::make('support_email')
                             ->label('Support Email')
                             ->email(),
+                    ]),
+                Section::make('Auto-SMS Payment Gateway (Easypaisa / JazzCash / NayaPay / SadaPay)')
+                    ->icon(Heroicon::OutlinedBolt)
+                    ->description('Forward payment SMS from your phone to: '.url('/api/webhooks/payment-sms').' — orders with matching TID & amount will auto-approve and auto-deliver instantly!')
+                    ->columns(['default' => 1, 'sm' => 2])
+                    ->schema([
+                        TextInput::make('sms_webhook_secret')
+                            ->label('SMS Webhook Secret Key')
+                            ->required()
+                            ->helperText('Send as ?secret=YOUR_KEY or header X-Webhook-Secret from your SMS Forwarder app.'),
                     ]),
                 Section::make('Telegram Admin Bot Alerts')
                     ->icon(Heroicon::OutlinedBellAlert)
