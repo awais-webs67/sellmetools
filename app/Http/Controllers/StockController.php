@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\Supplier;
+use App\Services\OrderService;
 use App\Services\SupplierSyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -54,6 +55,8 @@ class StockController extends Controller
             }
 
             try {
+                app(OrderService::class)->expireStale();
+
                 $sync = app(SupplierSyncService::class);
                 Supplier::query()->where('is_active', true)->each(function (Supplier $supplier) use ($sync) {
                     try {
