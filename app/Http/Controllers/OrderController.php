@@ -10,17 +10,18 @@ use App\Services\PaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class OrderController extends Controller
 {
-    /** Only the owner (logged in) or someone holding the secret token may see an order. */
+    /** Only the owner (logged in), guest session owner, or someone holding the secret token may see an order. */
     protected function authorizeAccess(Request $request, Order $order): void
     {
         $token = (string) $request->input('token', $request->query('token', ''));
+        $guestOrders = (array) $request->session()->get('guest_orders', []);
 
         $allowed = ($token !== '' && hash_equals($order->access_token, $token))
+            || in_array($order->number, $guestOrders, true)
             || ($request->user() && $order->user_id === $request->user()->id)
             || ($request->user()?->is_admin);
 
@@ -56,17 +57,15 @@ class OrderController extends Controller
         $this->authorizeAccess($request, $order);
 
         $data = $request->validate([
-            'transaction_id' => ['required', 'string', 'min:4', 'max:100', 'regex:/^[A-Za-z0-9\-_.]+$/'],
+            'transaction_id' => ['required', 'string', 'min:3', 'max:120'],
             'sender_number' => [$order->paymentMethod?->requires_sender_number ? 'required' : 'nullable', 'string', 'max:64'],
-            'screenshot' => ['nullable', 'image', 'max:4096'],
-        ], [
-            'transaction_id.regex' => 'Transaction ID may only contain letters, numbers and dashes.',
+            'screenshot' => ['nullable', 'image', 'max:8192'],
         ]);
 
         try {
             $payments->submit($order, $data['transaction_id'], $data['sender_number'] ?? null, $request->file('screenshot'));
         } catch (StoreException $e) {
-            throw ValidationException::withMessages(['transaction_id' => $e->getMessage()]);
+            return redirect()->to($order->customerUrl())->withInput()->with('error', $e->getMessage());
         }
 
         return redirect()->to($order->customerUrl())->with('success', 'Payment submitted! We are verifying it – your order will be delivered automatically.');
