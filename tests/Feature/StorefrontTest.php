@@ -47,8 +47,8 @@ class StorefrontTest extends TestCase
 
         $this->getJson(route('stock', ['ids' => $product->id]))
             ->assertOk()
-            ->assertJsonPath("{$product->id}.qty", 7)
-            ->assertJsonPath("{$product->id}.in_stock", true);
+            ->assertJsonPath("items.{$product->id}.qty", 7)
+            ->assertJsonPath("items.{$product->id}.in_stock", true);
     }
 
     public function test_checkout_creates_order_and_order_page_requires_token(): void

@@ -23,7 +23,14 @@ Alpine.store('stock', {
             const url = new URL(window.SMT.stockUrl);
             url.searchParams.set('ids', ids.join(','));
             const res = await fetch(url, { headers: { Accept: 'application/json' }, cache: 'no-store' });
-            if (res.ok) this.items = { ...this.items, ...(await res.json()) };
+            if (res.ok) {
+                const payload = await res.json();
+                const items = payload.items ?? payload;
+                this.items = { ...this.items, ...items };
+                if (payload.need_sync && window.SMT.syncUrl) {
+                    fetch(window.SMT.syncUrl, { method: 'POST', keepalive: true }).catch(() => {});
+                }
+            }
         } catch (_) {
             /* network hiccup – try again next tick */
         }

@@ -19,7 +19,7 @@
     <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
     @fonts
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <script>window.SMT = { stockUrl: @json(route('stock')) };</script>
+    <script>window.SMT = { stockUrl: @json(route('stock')), syncUrl: @json(route('stock.sync')) };</script>
 </head>
 <body class="flex min-h-screen flex-col">
     <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded focus:bg-ink focus:px-4 focus:py-2 focus:text-white">Skip to content</a>

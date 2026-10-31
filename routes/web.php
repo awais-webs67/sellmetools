@@ -9,17 +9,34 @@ use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\StockController;
 use App\Models\Order;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 
-// Public uploaded media (works without storage:link on shared hosting)
-Route::get('/media/{path}', MediaController::class)->where('path', '.*')->name('media');
-Route::get('/storage/{path}', MediaController::class)->where('path', '.*');
+// Public uploaded media (stateless, no session lock)
+Route::get('/media/{path}', MediaController::class)
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, VerifyCsrfToken::class])
+    ->where('path', '.*')
+    ->name('media');
+Route::get('/storage/{path}', MediaController::class)
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, VerifyCsrfToken::class])
+    ->where('path', '.*');
 
 // Catalog
 Route::get('/', [ProductController::class, 'index'])->name('home');
 Route::get('/products/{product:slug}', [ProductController::class, 'show'])->name('products.show');
 Route::post('/products/{product:slug}/reviews', [ProductController::class, 'storeReview'])->middleware('throttle:15,1')->name('products.reviews.store');
-Route::get('/api/stock', StockController::class)->middleware('throttle:300,1')->name('stock');
+
+// Stateless live-stock & background supplier sync (no session lock -> never slows down user clicks!)
+Route::get('/api/stock', StockController::class)
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, VerifyCsrfToken::class])
+    ->middleware('throttle:300,1')
+    ->name('stock');
+Route::post('/api/sync', [StockController::class, 'sync'])
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, VerifyCsrfToken::class])
+    ->middleware('throttle:30,1')
+    ->name('stock.sync');
 
 // Checkout
 Route::get('/checkout/{product:slug}', [CheckoutController::class, 'create'])->name('checkout.create');

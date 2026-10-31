@@ -11,13 +11,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
-/** Lightweight endpoint polled by the storefront for live stock updates & background supplier sync. */
+/** Lightweight endpoint polled by the storefront for live stock updates. */
 class StockController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
-        $this->triggerBackgroundSyncIfNeeded();
-
         $ids = collect(explode(',', (string) $request->query('ids', '')))
             ->map(fn ($id) => (int) $id)
             ->filter()
@@ -35,39 +33,42 @@ class StockController extends Controller
                 'price_formatted' => money($p->price),
             ]]);
 
-        return response()->json($stock)->header('Cache-Control', 'no-store');
+        return response()
+            ->json(['items' => $stock, 'need_sync' => ! Cache::has('auto_supplier_sync_tick')])
+            ->header('Cache-Control', 'no-store')
+            ->header('Session-Driver', 'none');
     }
 
     /**
-     * Automatically syncs active suppliers in the background at most once every 10 seconds
-     * after the HTTP response is sent, so live hosting stays in sync even without a cron job.
+     * Separate stateless endpoint for background supplier sync so customer clicks
+     * and session locks are NEVER blocked while waiting for external supplier APIs.
      */
-    protected function triggerBackgroundSyncIfNeeded(): void
+    public function sync(): JsonResponse
     {
-        if (app()->runningUnitTests() || ! Cache::add('auto_supplier_sync_tick', 1, 10)) {
-            return;
+        if (app()->runningUnitTests() || ! Cache::add('auto_supplier_sync_tick', 1, 20)) {
+            return response()->json(['synced' => false]);
         }
 
-        dispatch(function () {
-            $lock = Cache::lock('auto_supplier_sync_running', 25);
-            if (! $lock->get()) {
-                return;
-            }
+        $lock = Cache::lock('auto_supplier_sync_running', 30);
+        if (! $lock->get()) {
+            return response()->json(['synced' => false]);
+        }
 
-            try {
-                app(OrderService::class)->expireStale();
+        try {
+            app(OrderService::class)->expireStale();
 
-                $sync = app(SupplierSyncService::class);
-                Supplier::query()->where('is_active', true)->each(function (Supplier $supplier) use ($sync) {
-                    try {
-                        $sync->sync($supplier);
-                    } catch (Throwable $e) {
-                        report($e);
-                    }
-                });
-            } finally {
-                $lock->release();
-            }
-        })->afterResponse();
+            $sync = app(SupplierSyncService::class);
+            Supplier::query()->where('is_active', true)->each(function (Supplier $supplier) use ($sync) {
+                try {
+                    $sync->sync($supplier);
+                } catch (Throwable $e) {
+                    report($e);
+                }
+            });
+        } finally {
+            $lock->release();
+        }
+
+        return response()->json(['synced' => true]);
     }
 }

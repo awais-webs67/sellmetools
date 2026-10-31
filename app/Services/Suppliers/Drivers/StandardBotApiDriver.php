@@ -43,7 +43,7 @@ class StandardBotApiDriver implements SupplierDriver
 
     public function products(): array
     {
-        $response = $this->send(fn () => $this->http(30)->retry(2, 1000, throw: false)->get('/products'));
+        $response = $this->send(fn () => $this->http(12)->get('/products'));
         $this->guard($response);
 
         $rows = $response->json('products');
