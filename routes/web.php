@@ -9,18 +9,18 @@ use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\StockController;
 use App\Models\Order;
-use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 // Public uploaded media (stateless, no session lock)
 Route::get('/media/{path}', MediaController::class)
-    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, VerifyCsrfToken::class])
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
     ->where('path', '.*')
     ->name('media');
 Route::get('/storage/{path}', MediaController::class)
-    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, VerifyCsrfToken::class])
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
     ->where('path', '.*');
 
 // Catalog
@@ -30,11 +30,11 @@ Route::post('/products/{product:slug}/reviews', [ProductController::class, 'stor
 
 // Stateless live-stock & background supplier sync (no session lock -> never slows down user clicks!)
 Route::get('/api/stock', StockController::class)
-    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, VerifyCsrfToken::class])
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
     ->middleware('throttle:300,1')
     ->name('stock');
 Route::post('/api/sync', [StockController::class, 'sync'])
-    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, VerifyCsrfToken::class])
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
     ->middleware('throttle:30,1')
     ->name('stock.sync');
 
