@@ -110,6 +110,7 @@
 
                     <div class="mt-7 flex flex-wrap items-center justify-center gap-3">
                         <a href="#products" class="btn bg-white text-ink hover:bg-brand-tint px-6 py-3 text-sm font-bold shadow-md">Browse All Products ↓</a>
+                        <a href="{{ route('shop') }}" class="btn border border-white/25 text-white hover:bg-white/10 px-6 py-3 text-sm font-semibold">Open Full Shop →</a>
                         @if ($waNumber !== '')
                             <a href="https://wa.me/{{ $waNumber }}" target="_blank" rel="noopener" class="btn border border-white/25 text-white hover:bg-white/10 px-6 py-3 text-sm font-semibold">
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.5 14.4c-.3-.1-1.8-.9-2-1s-.5-.1-.7.1-.8 1-1 1.2-.4.2-.7.1a8.2 8.2 0 0 1-4-3.5c-.3-.5.3-.5.9-1.6.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6a1.2 1.2 0 0 0-.9.4 3.6 3.6 0 0 0-1.1 2.7 6.3 6.3 0 0 0 1.3 3.3 14.4 14.4 0 0 0 5.5 4.9c2 .9 2.8 1 3.9.8a3.3 3.3 0 0 0 2.1-1.5 2.7 2.7 0 0 0 .2-1.5c-.1-.1-.3-.2-.6-.3zM12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2z"/></svg>
@@ -119,7 +120,7 @@
                     </div>
 
                     @if ($categories->isNotEmpty())
-                        <nav class="mx-auto mt-5 flex max-w-xl flex-wrap items-center justify-center gap-x-2 gap-y-2 text-xs" aria-label="Popular categories">
+                        <nav class="mx-auto mt-5 hidden sm:flex max-w-xl flex-wrap items-center justify-center gap-x-2 gap-y-2 text-xs" aria-label="Popular categories">
                             <span class="text-white/55">Popular:</span>
                             @foreach ($categories->take(5) as $category)
                                 <a href="{{ route('categories.show', $category) }}#products" class="rounded-full border border-white/15 bg-white/[.06] px-3 py-1 font-semibold text-white/85 transition hover:border-white/40 hover:bg-white/10 active:scale-95">{{ $category->name }}</a>
@@ -129,9 +130,9 @@
                 </div>
             </div>
 
-            {{-- Payment strip --}}
+            {{-- Payment strip (Desktop/Tablet only as requested) --}}
             @if ($paymentMethods !== [])
-                <div class="relative border-t border-white/10 bg-black/25">
+                <div class="relative hidden sm:block border-t border-white/10 bg-black/25">
                     <div class="container-x flex flex-col items-center justify-center gap-2.5 py-4 sm:flex-row sm:gap-4">
                         <p class="shrink-0 text-[11px] font-semibold tracking-wider text-white/50 uppercase">Pay securely with</p>
                         <div class="flex flex-wrap items-center justify-center gap-1.5">
@@ -160,12 +161,15 @@
                     @endif
                 </h2>
             </div>
-            <p class="text-xs sm:text-sm text-muted">
-                {{ $products->total() }} {{ \Illuminate\Support\Str::plural('product', $products->total()) }}
-                @if ($search || $activeCategory)
-                    · <a href="{{ route('home') }}#products" class="font-semibold text-brand hover:underline">Clear filter</a>
-                @endif
-            </p>
+            <div class="flex items-center gap-3">
+                <p class="text-xs sm:text-sm text-muted">
+                    {{ $products->total() }} {{ \Illuminate\Support\Str::plural('product', $products->total()) }}
+                    @if ($search || $activeCategory)
+                        · <a href="{{ route('home') }}#products" class="font-semibold text-brand hover:underline">Clear filter</a>
+                    @endif
+                </p>
+                <a href="{{ route('shop') }}" class="text-xs sm:text-sm font-bold text-brand hover:underline">Full Shop →</a>
+            </div>
         </div>
 
         {{-- Filter bar --}}
@@ -277,32 +281,143 @@
             </div>
         </section>
 
-        {{-- ================= SEO GUIDE (visible, helpful text + keyword internal links) ================= --}}
-        <section class="border-t border-line bg-white py-12 sm:py-16" aria-labelledby="guide-heading">
-            <div class="container-x grid gap-8 lg:grid-cols-[1fr_1fr] lg:gap-14">
-                <div>
-                    <span class="eyebrow">Buying guide</span>
-                    <h2 id="guide-heading" class="display mt-1 text-3xl sm:text-4xl">Buy AI tools &amp; digital subscriptions in Pakistan at local PKR prices</h2>
-                    <div class="prose-store mt-4">
-                        <p>International USD billing for ChatGPT Plus, Claude Pro, Google AI Pro (Gemini), Canva Pro, CapCut Pro, Cursor or Microsoft 365 often fails on Pakistani debit cards and adds foreign transaction taxes. {{ $storeName }} makes it simple for freelancers, students, creators and agencies across Pakistan to buy verified digital subscriptions in local rupees.</p>
-                        <p>You can pay with Easypaisa, JazzCash, NayaPay, SadaPay, bank transfer or Binance USDT. Every product page displays the live price in Pakistan, available stock count and warranty coverage upfront, with credentials delivered straight to your private order page and email.</p>
+        {{-- ================= ABOUT & TRUST SECTION ================= --}}
+        <section class="border-t border-line bg-[#120408] text-white py-14 sm:py-20" aria-labelledby="about-heading">
+            <div class="container-x">
+                <div class="grid gap-10 lg:grid-cols-[1.15fr_1fr] lg:items-center">
+                    <div>
+                        <span class="eyebrow text-[#ff8fa3]">About {{ $storeName }}</span>
+                        <h2 id="about-heading" class="display mt-1.5 text-3xl sm:text-5xl text-white">Pakistan’s Trusted Marketplace for AI Tools &amp; Subscriptions</h2>
+                        <div class="mt-4 space-y-3.5 text-sm sm:text-base leading-relaxed text-white/80">
+                            <p>
+                                International subscriptions like <strong>ChatGPT Plus, Claude Pro, Google AI Pro (Gemini), Canva Pro, CapCut Pro, Cursor</strong> and <strong>Netflix</strong> normally charge in USD and require international credit cards that carry hefty cross-border banking taxes or fail outright in Pakistan.
+                            </p>
+                            <p>
+                                Built by <strong>AivraSol Softwares</strong>, {{ $storeName }} bridges that gap by offering verified digital tools and subscriptions in Pakistani Rupees (PKR). Whether you are a student completing university research, a video editor producing client reels, a graphic designer, or a software developer coding with AI, our automated platform reserves your stock at checkout and delivers credentials directly to your private order page.
+                            </p>
+                        </div>
+                        <div class="mt-6 flex flex-wrap items-center gap-3">
+                            <a href="{{ route('pages.show', 'about') }}" class="btn bg-white text-ink hover:bg-brand-tint px-5 py-2.5 text-xs sm:text-sm font-bold">Read More About Us →</a>
+                            <a href="{{ route('pages.show', 'contact') }}" class="btn border border-white/25 text-white hover:bg-white/10 px-5 py-2.5 text-xs sm:text-sm font-semibold">Contact Support Desk</a>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-3.5 sm:grid-cols-2">
+                        @foreach ([
+                            ['100% Local PKR Wallets', 'Pay with Easypaisa, JazzCash, NayaPay, SadaPay, Raast bank transfer or Binance USDT without card declines.'],
+                            ['Automated Order Delivery', 'In-stock credentials, invite links and license keys are delivered to your private order page and email upon verification.'],
+                            ['Clear Warranty Protection', 'Every listing clearly states whether it includes Full Warranty (FW) or Login Warranty, backed by our WhatsApp team.'],
+                            ['Permanent Order Vault', 'Sign in to your customer dashboard anytime to filter orders by date and view all past credentials in one place.'],
+                        ] as [$cardTitle, $cardDesc])
+                            <div class="rounded-2xl border border-white/12 bg-white/[0.05] p-5 backdrop-blur-xs">
+                                <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white">✓</span>
+                                <h3 class="mt-3 text-base font-bold text-white">{{ $cardTitle }}</h3>
+                                <p class="mt-1.5 text-xs sm:text-sm leading-relaxed text-white/70">{{ $cardDesc }}</p>
+                            </div>
+                        @endforeach
                     </div>
                 </div>
-                <div>
-                    <h3 class="text-sm font-bold uppercase tracking-wider text-muted">Popular price checks</h3>
-                    <ul class="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-                        @foreach ($products->getCollection()->take(10) as $p)
-                            <li><a href="{{ route('products.show', $p) }}" class="font-medium text-ink transition hover:text-brand hover:underline">{{ $p->name }} price in Pakistan</a></li>
-                        @endforeach
-                    </ul>
-                    @if ($categories->isNotEmpty())
-                        <h3 class="mt-6 text-sm font-bold uppercase tracking-wider text-muted">Browse by category</h3>
-                        <div class="mt-3 flex flex-wrap gap-2">
-                            @foreach ($categories as $category)
-                                <a href="{{ route('categories.show', $category) }}" class="rounded-full border border-line-strong px-3 py-1.5 text-xs font-semibold text-ink transition hover:border-brand hover:text-brand active:scale-95">{{ $category->name }}</a>
-                            @endforeach
+            </div>
+        </section>
+
+        {{-- ================= SEO BUYING GUIDE & STRUCTURED PRICE DIRECTORY ================= --}}
+        <section class="border-t border-line bg-white py-14 sm:py-20" aria-labelledby="guide-heading">
+            <div class="container-x">
+                <div class="grid gap-10 lg:grid-cols-[1.15fr_1fr] lg:items-start">
+                    <div>
+                        <span class="eyebrow">Pakistan Buying Guide</span>
+                        <h2 id="guide-heading" class="display mt-1 text-3xl sm:text-5xl text-ink">Buy AI Tools &amp; Digital Subscriptions in Pakistan at Local PKR Prices</h2>
+                        <div class="prose-store mt-4 space-y-4 text-sm sm:text-base leading-relaxed text-body">
+                            <p>
+                                Finding genuine digital subscriptions in Pakistan at fair local prices should not require risky social media deals or complicated dollar cards. On <strong>{{ $storeName }}</strong>, every product page shows the exact price in PKR, real-time stock count, delivery format and warranty terms before you place an order.
+                            </p>
                         </div>
-                    @endif
+
+                        <div class="mt-6 grid gap-4 sm:grid-cols-2">
+                            <div class="rounded-xl border border-line bg-grey-soft/60 p-4 sm:p-5">
+                                <h3 class="text-sm sm:text-base font-bold text-ink">AI Writing, Coding &amp; Research</h3>
+                                <p class="mt-1.5 text-xs sm:text-sm leading-relaxed text-body">
+                                    Upgrade your workflow with <strong>ChatGPT Plus, Claude Pro, Google AI Pro (Gemini), Cursor Pro</strong> and <strong>Perplexity</strong> for coding, content creation, academic research and automation in Pakistan.
+                                </p>
+                            </div>
+                            <div class="rounded-xl border border-line bg-grey-soft/60 p-4 sm:p-5">
+                                <h3 class="text-sm sm:text-base font-bold text-ink">Design, Video &amp; Creative Suites</h3>
+                                <p class="mt-1.5 text-xs sm:text-sm leading-relaxed text-body">
+                                    Get official team invites and pro access for <strong>Canva Pro, CapCut Pro, Envato Elements</strong> and creative assets so your agency or freelance studio can export 4K projects without watermarks.
+                                </p>
+                            </div>
+                            <div class="rounded-xl border border-line bg-grey-soft/60 p-4 sm:p-5">
+                                <h3 class="text-sm sm:text-base font-bold text-ink">Streaming, Mail &amp; Cloud Accounts</h3>
+                                <p class="mt-1.5 text-xs sm:text-sm leading-relaxed text-body">
+                                    Order verified <strong>Netflix, Prime Video, Microsoft 365, Grammarly</strong> and ready mail or cloud accounts with instant credential delivery on your private order page.
+                                </p>
+                            </div>
+                            <div class="rounded-xl border border-line bg-grey-soft/60 p-4 sm:p-5">
+                                <h3 class="text-sm sm:text-base font-bold text-ink">Instant PKR Wallet Checkout</h3>
+                                <p class="mt-1.5 text-xs sm:text-sm leading-relaxed text-body">
+                                    Pay in rupees from anywhere in Pakistan via <strong>Easypaisa, JazzCash, NayaPay, SadaPay</strong> or <strong>Binance Pay (USDT)</strong> and track verification live on screen.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Structured Live Price Directory Card (replaces old unstyled floating list) --}}
+                    <div class="card overflow-hidden border border-line bg-white shadow-sm">
+                        <div class="flex items-center justify-between gap-3 border-b border-line bg-[#120408] px-5 py-4 text-white">
+                            <div>
+                                <span class="text-[10px] font-bold tracking-widest text-[#ff8fa3] uppercase">Live PKR Directory</span>
+                                <h3 class="display text-2xl text-white">Popular Price Checks in Pakistan</h3>
+                            </div>
+                            <a href="{{ route('shop') }}" class="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20">
+                                Full Catalog →
+                            </a>
+                        </div>
+
+                        <div class="divide-y divide-line">
+                            @forelse ($products->getCollection()->take(8) as $p)
+                                <a href="{{ route('products.show', $p) }}" class="group flex items-center justify-between gap-3 px-5 py-3.5 transition hover:bg-brand-tint/40">
+                                    <div class="min-w-0">
+                                        <p class="truncate text-xs sm:text-sm font-bold text-ink group-hover:text-brand">
+                                            {{ $p->name }} <span class="font-normal text-muted">price in Pakistan</span>
+                                        </p>
+                                        <div class="mt-0.5 flex items-center gap-2 text-[11px] text-muted">
+                                            @if ($p->category)
+                                                <span class="font-semibold text-brand">{{ $p->category->name }}</span>
+                                                <span>·</span>
+                                            @endif
+                                            <span class="{{ $p->inStock() ? 'text-success font-medium' : 'text-danger' }}">
+                                                {{ $p->inStock() ? 'In Stock' : 'Out of Stock' }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="flex shrink-0 items-center gap-2">
+                                        <span class="rounded-lg bg-grey-soft px-2.5 py-1 text-xs sm:text-sm font-bold text-ink group-hover:bg-brand group-hover:text-white transition">
+                                            {{ money($p->priceFor(auth()->user())) }}
+                                        </span>
+                                        <svg class="h-4 w-4 text-muted transition group-hover:translate-x-0.5 group-hover:text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+                                    </div>
+                                </a>
+                            @empty
+                                <p class="px-5 py-6 text-sm text-muted">Products will appear here once added.</p>
+                            @endforelse
+                        </div>
+
+                        @if ($categories->isNotEmpty())
+                            <div class="border-t border-line bg-grey-soft/60 px-5 py-4">
+                                <p class="text-[11px] font-bold uppercase tracking-wider text-muted">Browse by Category</p>
+                                <div class="mt-2.5 flex flex-wrap gap-1.5">
+                                    @foreach ($categories as $category)
+                                        <a href="{{ route('categories.show', $category) }}" class="inline-flex items-center gap-1 rounded-full border border-line-strong bg-white px-3 py-1 text-xs font-semibold text-ink transition hover:border-brand hover:text-brand active:scale-95">
+                                            @if ($category->icon)
+                                                <span>{{ $category->icon }}</span>
+                                            @endif
+                                            <span>{{ $category->name }}</span>
+                                        </a>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                    </div>
                 </div>
             </div>
         </section>

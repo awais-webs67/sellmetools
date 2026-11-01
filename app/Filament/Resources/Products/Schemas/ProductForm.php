@@ -17,6 +17,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Str;
 
 class ProductForm
 {
@@ -36,7 +37,46 @@ class ProductForm
                             ->label('Category')
                             ->relationship('category', 'name')
                             ->searchable()
-                            ->preload(),
+                            ->preload()
+                            ->createOptionForm([
+                                TextInput::make('name')
+                                    ->label('Category Name')
+                                    ->required()
+                                    ->maxLength(255)
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(fn ($state, callable $set) => $set('slug', Str::slug((string) $state))),
+                                TextInput::make('slug')
+                                    ->label('URL Slug')
+                                    ->required()
+                                    ->maxLength(255)
+                                    ->alphaDash()
+                                    ->unique('categories', 'slug', ignoreRecord: true),
+                                TextInput::make('icon')
+                                    ->label('Icon / Emoji (Optional)')
+                                    ->placeholder('e.g. 🤖 or 🎨')
+                                    ->maxLength(255),
+                                Toggle::make('is_active')
+                                    ->label('Active on Storefront')
+                                    ->default(true),
+                            ])
+                            ->editOptionForm([
+                                TextInput::make('name')
+                                    ->label('Category Name')
+                                    ->required()
+                                    ->maxLength(255),
+                                TextInput::make('slug')
+                                    ->label('URL Slug')
+                                    ->required()
+                                    ->maxLength(255)
+                                    ->alphaDash()
+                                    ->unique('categories', 'slug', ignoreRecord: true),
+                                TextInput::make('icon')
+                                    ->label('Icon / Emoji (Optional)')
+                                    ->maxLength(255),
+                                Toggle::make('is_active')
+                                    ->label('Active on Storefront')
+                                    ->default(true),
+                            ]),
                         GalleryPicker::make('image', 'Product Picture', 'gallery'),
                         TextInput::make('short_description')
                             ->label('Short Tag / Subtitle (optional)')

@@ -212,7 +212,7 @@
                 <img src="{{ asset('images/logo.png') }}" alt="{{ $storeName }}" class="h-8 sm:h-9 lg:h-10 w-auto object-contain">
             </a>
 
-            <form action="{{ route('home') }}" method="get" class="relative hidden max-w-md flex-1 md:block" role="search"
+            <form action="{{ route('shop') }}" method="get" class="relative hidden max-w-md flex-1 md:block" role="search"
                   x-data="liveSearch" @click.outside="open = false">
                 <label for="site-search" class="sr-only">Search products</label>
                 <div class="relative">
@@ -223,8 +223,10 @@
             </form>
 
             <nav class="hidden items-center gap-1 lg:flex" aria-label="Main">
-                <a href="{{ route('home') }}" class="btn btn-ghost">Shop</a>
-                <a href="{{ route('orders.track') }}" class="btn btn-ghost">Track order</a>
+                <a href="{{ route('shop') }}" @class(['btn btn-ghost', 'text-brand font-bold' => request()->routeIs('shop')])>Shop</a>
+                <a href="{{ route('orders.track') }}" @class(['btn btn-ghost', 'text-brand font-bold' => request()->routeIs('orders.track')])>Track order</a>
+                <a href="{{ route('pages.show', 'about') }}" @class(['btn btn-ghost', 'text-brand font-bold' => request()->fullUrlIs(route('pages.show', 'about'))])>About</a>
+                <a href="{{ route('pages.show', 'contact') }}" @class(['btn btn-ghost', 'text-brand font-bold' => request()->fullUrlIs(route('pages.show', 'contact'))])>Contact</a>
                 @auth
                     @if (auth()->user()->is_reseller && filled(auth()->user()->reseller_slug))
                         <a href="{{ route('reseller.portal', auth()->user()->reseller_slug) }}" class="btn btn-ghost font-bold text-brand">★ Reseller Portal</a>
@@ -251,14 +253,16 @@
 
         <div id="mobile-nav" x-show="open" x-cloak x-transition.origin.top class="border-t border-line bg-white lg:hidden">
             <div class="container-x space-y-1 py-4">
-                <form action="{{ route('home') }}" method="get" class="relative mb-3 md:hidden" role="search" x-data="liveSearch" @click.outside="open = false">
+                <form action="{{ route('shop') }}" method="get" class="relative mb-3 md:hidden" role="search" x-data="liveSearch" @click.outside="open = false">
                     <label for="mobile-search" class="sr-only">Search products</label>
                     <svg class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
                     <input id="mobile-search" type="search" name="q" value="{{ request('q') }}" placeholder="Search ChatGPT, Canva, CapCut..." class="input py-2 pl-9 text-sm" x-bind="field">
                     <x-search-suggest />
                 </form>
-                <a href="{{ route('home') }}" class="block rounded px-3 py-2 font-medium text-ink hover:bg-grey-soft">Shop</a>
+                <a href="{{ route('shop') }}" class="block rounded px-3 py-2 font-medium text-ink hover:bg-grey-soft">Shop All Products</a>
                 <a href="{{ route('orders.track') }}" class="block rounded px-3 py-2 font-medium text-ink hover:bg-grey-soft">Track order</a>
+                <a href="{{ route('pages.show', 'about') }}" class="block rounded px-3 py-2 font-medium text-ink hover:bg-grey-soft">About Us</a>
+                <a href="{{ route('pages.show', 'contact') }}" class="block rounded px-3 py-2 font-medium text-ink hover:bg-grey-soft">Contact &amp; Support</a>
                 @auth
                     @if (auth()->user()->is_reseller && filled(auth()->user()->reseller_slug))
                         <a href="{{ route('reseller.portal', auth()->user()->reseller_slug) }}" class="block rounded px-3 py-2 font-bold text-brand hover:bg-grey-soft">★ My Reseller Portal (/{{ auth()->user()->reseller_slug }})</a>
@@ -309,10 +313,11 @@
             <div>
                 <h2 class="text-sm font-semibold tracking-wider text-white uppercase">Store</h2>
                 <ul class="mt-4 space-y-2 text-sm">
-                    <li><a class="hover:text-white" href="{{ route('home') }}">All products</a></li>
+                    <li><a class="hover:text-white" href="{{ route('shop') }}">Shop all products</a></li>
                     <li><a class="hover:text-white" href="{{ route('orders.track') }}">Track your order</a></li>
-                    <li><a class="hover:text-white" href="{{ route('pages.show', 'faq') }}">FAQ</a></li>
-                    <li><a class="hover:text-white" href="{{ route('pages.show', 'contact') }}">Contact & support</a></li>
+                    <li><a class="hover:text-white" href="{{ route('pages.show', 'about') }}">About {{ $storeName }}</a></li>
+                    <li><a class="hover:text-white" href="{{ route('pages.show', 'faq') }}">FAQ &amp; help guide</a></li>
+                    <li><a class="hover:text-white" href="{{ route('pages.show', 'contact') }}">Contact &amp; support</a></li>
                 </ul>
             </div>
             <div>

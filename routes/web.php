@@ -45,6 +45,7 @@ Route::get('/robots.txt', [SeoController::class, 'robots'])
 
 // Catalog
 Route::get('/', [ProductController::class, 'index'])->name('home');
+Route::get('/shop', [ProductController::class, 'shop'])->name('shop');
 Route::get('/category/{category:slug}', [ProductController::class, 'category'])->name('categories.show');
 Route::get('/products/{product:slug}', [ProductController::class, 'show'])->name('products.show');
 Route::post('/products/{product:slug}/reviews', [ProductController::class, 'storeReview'])->middleware('throttle:15,1')->name('products.reviews.store');
@@ -108,10 +109,15 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 Route::get('/account/orders', [AccountController::class, 'orders'])->middleware('auth')->name('account.orders');
 Route::post('/account/profile', [AccountController::class, 'updateProfile'])->middleware('auth')->name('account.profile.update');
 
-// Static pages (required by payment gateways)
+// Static pages (required by payment gateways & SEO)
+Route::get('/about', fn () => redirect()->route('pages.show', 'about', 301));
+Route::get('/contact', fn () => redirect()->route('pages.show', 'contact', 301));
 Route::get('/pages/{page}', PageController::class)
-    ->whereIn('page', ['terms', 'privacy', 'refund', 'contact', 'faq'])
+    ->whereIn('page', ['about', 'terms', 'privacy', 'refund', 'contact', 'faq'])
     ->name('pages.show');
+Route::post('/pages/contact', [PageController::class, 'submitContact'])
+    ->middleware('throttle:10,1')
+    ->name('pages.contact.submit');
 
 // Secret VIP Reseller Portals (e.g. mydomain.com/ali or mydomain.com/r/ali)
 Route::get('/r/{slug}', [ResellerController::class, 'portal'])
@@ -125,5 +131,5 @@ Route::post('/{slug}/wallet-buy/{product:slug}', [ResellerController::class, 'qu
     ->middleware(['auth', 'throttle:30,1'])
     ->name('reseller.wallet-buy');
 Route::get('/{slug}', [ResellerController::class, 'portal'])
-    ->where('slug', '^(?!admin|livewire|filament|api|media|storage|feed|category|products|checkout|orders|track|login|register|logout|account|pages|webhooks|quick-order|up)[a-z0-9\-]+$')
+    ->where('slug', '^(?!admin|livewire|filament|api|media|storage|feed|shop|about|contact|faq|category|products|checkout|orders|track|login|register|logout|account|pages|webhooks|quick-order|up)[a-z0-9\-]+$')
     ->name('reseller.portal');

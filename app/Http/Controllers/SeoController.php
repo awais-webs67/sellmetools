@@ -14,7 +14,6 @@ class SeoController extends Controller
     {
         $categories = Category::query()
             ->where('is_active', true)
-            ->whereHas('products', fn ($q) => $q->visible())
             ->orderBy('sort')
             ->get();
 
@@ -23,7 +22,7 @@ class SeoController extends Controller
             ->orderByDesc('updated_at')
             ->get();
 
-        $staticPages = ['faq', 'contact', 'terms', 'refund', 'privacy'];
+        $staticPages = ['about', 'faq', 'contact', 'terms', 'refund', 'privacy'];
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>'."\n";
         $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">'."\n";
@@ -34,6 +33,14 @@ class SeoController extends Controller
             now()->toAtomString(),
             'hourly',
             '1.0'
+        );
+
+        // Full Shop / Catalog page
+        $xml .= $this->urlNode(
+            route('shop'),
+            now()->toAtomString(),
+            'hourly',
+            '0.9'
         );
 
         // Categories (clean SEO URLs)

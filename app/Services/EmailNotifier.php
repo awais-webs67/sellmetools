@@ -245,6 +245,51 @@ class EmailNotifier
         }
     }
 
+    /**
+     * Send a customer inquiry from the Contact Us form to the store's support inbox via SMTP.
+     *
+     * @param  array{name: string, email: string, phone?: ?string, order_number?: ?string, subject: string, message: string}  $data
+     */
+    public function sendContactMessage(array $data): bool
+    {
+        $recipient = collect([
+            Setting::get('support_email'),
+            Setting::get('mail_from_address'),
+            Setting::get('mail_username'),
+        ])->map(fn ($v) => trim((string) $v))
+            ->first(fn ($v) => $v !== '' && filter_var($v, FILTER_VALIDATE_EMAIL));
+
+        if (! $recipient || ! $this->isEnabled() || ! $this->configure()) {
+            Log::info('Contact inquiry received (SMTP not configured):', $data);
+
+            return false;
+        }
+
+        try {
+            $storeName = (string) Setting::get('store_name', 'SellMeTools');
+
+            Mail::mailer(self::MAILER)->send('emails.contact-message', [
+                'inquiry' => $data,
+                'storeName' => $storeName,
+            ], function ($message) use ($recipient, $data, $storeName) {
+                $subjectLine = "[{$storeName} Contact] {$data['subject']} - {$data['name']}";
+                $message->to($recipient)->subject($subjectLine);
+                if (filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+                    $message->replyTo($data['email'], $data['name']);
+                }
+            });
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send contact form email: '.$e->getMessage(), [
+                'email' => $data['email'] ?? null,
+                'subject' => $data['subject'] ?? null,
+            ]);
+
+            return false;
+        }
+    }
+
     private function applyReplyTo($message): void
     {
         $support = trim((string) Setting::get('support_email', ''));

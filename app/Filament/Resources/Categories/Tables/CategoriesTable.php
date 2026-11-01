@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Categories\Tables;
 
+use App\Models\Category;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -21,12 +23,13 @@ class CategoriesTable
             ->columns([
                 TextColumn::make('name')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->weight('bold'),
                 TextColumn::make('slug')
                     ->searchable()
                     ->color('gray'),
                 TextColumn::make('icon')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->label('Icon'),
                 TextColumn::make('products_count')
                     ->label('Products')
                     ->counts('products')
@@ -46,6 +49,11 @@ class CategoriesTable
                 TernaryFilter::make('is_active')->label('Active'),
             ])
             ->recordActions([
+                Action::make('view_store')
+                    ->label('View')
+                    ->icon('heroicon-o-arrow-top-right-on-square')
+                    ->url(fn (Category $record): string => route('categories.show', $record))
+                    ->openUrlInNewTab(),
                 EditAction::make(),
                 DeleteAction::make(),
             ])

@@ -1,23 +1,40 @@
-@php $store = setting('store_name'); @endphp
-<x-page title="Privacy Policy" eyebrow="Policies">
-    <p>{{ $store }} respects your privacy. This policy explains what we collect and why.</p>
-    <h2>What we collect</h2>
-    <ul>
-        <li>Contact details you provide: email, name and phone number.</li>
-        <li>Order details: products, amounts, payment method, transaction ID, sender account number and optional payment screenshot.</li>
-        <li>Technical data: IP address and basic logs used for fraud prevention and security.</li>
-    </ul>
-    <h2>How we use it</h2>
-    <ul>
-        <li>To process, verify and deliver your orders.</li>
-        <li>To provide support and handle warranty requests.</li>
-        <li>To prevent fraud and abuse.</li>
-    </ul>
-    <h2>Security</h2>
-    <p>Delivered credentials and stock are stored encrypted. Access to your order page requires a private link or your account login.</p>
-    <h2>Sharing</h2>
-    <p>We do not sell your data. Information is shared only with payment providers and fulfilment partners when strictly required to complete your order, or when required by law.</p>
-    <h2>Your rights</h2>
-    <p>You may request a copy or deletion of your personal data by contacting us.</p>
-</x-page>
+@php $store = (string) setting('store_name', 'SellMeTools'); @endphp
+<x-page
+    title="Privacy Policy"
+    eyebrow="Data & Security"
+    description="Learn how {{ $store }} protects your personal information, order history, PKR payment details and encrypted digital credentials."
+    subtitle="How we collect, encrypt and safeguard your account and order information."
+>
+    <p>
+        <strong>{{ $store }}</strong> (operated by <strong>AivraSol Softwares</strong>) respects your privacy and is committed to protecting the personal data you share with us when ordering digital tools and subscriptions.
+    </p>
 
+    <h2>1. Information We Collect</h2>
+    <ul>
+        <li><strong>Customer Contact Information:</strong> Your name, email address and phone / WhatsApp number provided at checkout, registration or via our support form.</li>
+        <li><strong>Order &amp; Payment Verification Data:</strong> Purchased products, order totals, selected payment method, Transaction ID (TID), sender account number and optional payment receipt screenshots.</li>
+        <li><strong>Technical &amp; Security Logs:</strong> Basic browser, device and IP address logs used strictly to prevent duplicate TID fraud, unauthorized login attempts and automated abuse.</li>
+    </ul>
+
+    <h2>2. How We Use Your Information</h2>
+    <ul>
+        <li>To reserve inventory, verify your local wallet or Binance payment and deliver your digital credentials on your private order page and by email.</li>
+        <li>To maintain your customer order history so you can look up past purchases and credentials anytime.</li>
+        <li>To provide customer support, warranty replacements and important order status notifications.</li>
+    </ul>
+
+    <h2>3. Credential Encryption &amp; Order Privacy</h2>
+    <p>
+        Delivered account credentials and license keys are protected behind unique cryptographic access tokens on your private order page or behind your authenticated customer account. We never store credit card numbers on our servers.
+    </p>
+
+    <h2>4. Data Sharing &amp; Third Parties</h2>
+    <p>
+        We do not sell, rent or trade your personal information to third-party marketers. Data is shared only with essential infrastructure or fulfillment providers when strictly necessary to complete your order or comply with applicable Pakistani law.
+    </p>
+
+    <h2>5. Your Privacy Rights</h2>
+    <p>
+        You may update your profile details inside your customer account at any time or contact us via our <a href="{{ route('pages.show', 'contact') }}">Contact &amp; Support page</a> to request access to or deletion of your personal account records.
+    </p>
+</x-page>
