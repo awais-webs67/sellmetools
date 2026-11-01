@@ -52,7 +52,9 @@ class AppServiceProvider extends ServiceProvider
 
         try {
             $files = glob(database_path('migrations/*.php')) ?: [];
-            $hash = md5(implode('|', array_map('basename', $files)));
+            $gitHeadFile = base_path('.git/refs/heads/main');
+            $gitRev = is_file($gitHeadFile) ? trim((string) @file_get_contents($gitHeadFile)) : '';
+            $hash = md5(implode('|', array_map('basename', $files)).'|'.$gitRev);
             $stampFile = storage_path('framework/migration_hash.txt');
 
             if (is_file($stampFile) && trim((string) file_get_contents($stampFile)) === $hash) {
@@ -60,6 +62,8 @@ class AppServiceProvider extends ServiceProvider
             }
 
             Artisan::call('migrate', ['--force' => true]);
+            Artisan::call('view:clear');
+            Artisan::call('cache:clear');
 
             if (Schema::hasTable('users') && User::query()->count() === 0) {
                 Artisan::call('db:seed', ['--class' => DatabaseSeeder::class, '--force' => true]);

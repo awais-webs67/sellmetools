@@ -18,6 +18,7 @@ use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use UnitEnum;
 
@@ -63,6 +64,47 @@ class StoreSettings extends Page
     public function mount(): void
     {
         $this->form->fill(array_intersect_key(Setting::values(), array_flip(self::KEYS)));
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('syncServerUpdate')
+                ->label('🔄 Update Site, Migrate DB & Clear Cache (No Terminal Needed)')
+                ->icon(Heroicon::OutlinedArrowPath)
+                ->color('primary')
+                ->action(function (): void {
+                    $gitOutput = '';
+                    try {
+                        if (function_exists('shell_exec') && is_dir(base_path('.git'))) {
+                            $gitOutput = trim((string) @shell_exec('cd '.escapeshellarg(base_path()).' && git pull origin main 2>&1'));
+                        }
+                    } catch (\Throwable) {
+                        // Ignore if shell_exec is disabled on shared hosting
+                    }
+
+                    try {
+                        Artisan::call('migrate', ['--force' => true]);
+                        Artisan::call('view:clear');
+                        Artisan::call('cache:clear');
+                        Artisan::call('route:clear');
+                    } catch (\Throwable $e) {
+                        Notification::make()
+                            ->title('Migration / Cache Error')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    Notification::make()
+                        ->title('✅ Database Migrated & Cache Cleared!')
+                        ->body($gitOutput !== '' ? "Git: {$gitOutput}" : 'All new database tables/columns and views are now live.')
+                        ->success()
+                        ->send();
+                }),
+        ];
     }
 
     public function form(Schema $schema): Schema

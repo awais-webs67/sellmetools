@@ -203,7 +203,7 @@ class Product extends Model
         }
 
         $added = 0;
-        \Illuminate\Support\Facades\DB::transaction(function () use ($items, $skipDuplicates, &$existingAvailable, &$added): void {
+        DB::transaction(function () use ($items, $skipDuplicates, &$existingAvailable, &$added): void {
             foreach ($items as $unitContent) {
                 if ($skipDuplicates && isset($existingAvailable[$unitContent])) {
                     continue;
@@ -221,7 +221,7 @@ class Product extends Model
             }
         });
 
-        app(\App\Services\InventoryService::class)->refresh($this);
+        app(InventoryService::class)->refresh($this);
 
         return $added;
     }

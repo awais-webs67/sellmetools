@@ -246,8 +246,8 @@ class StorefrontTest extends TestCase
 
         // Customer 1 buys 2 PCs
         $order1 = app(OrderService::class)->create($product, 2, $this->customer(), $method);
-        $payment1 = app(\App\Services\PaymentService::class)->submit($order1, 'TIDTXT0001', '03001112222');
-        $order1 = app(\App\Services\PaymentService::class)->approve($payment1);
+        $payment1 = app(PaymentService::class)->submit($order1, 'TIDTXT0001', '03001112222');
+        $order1 = app(PaymentService::class)->approve($payment1);
 
         $this->assertSame(OrderStatus::Completed, $order1->status);
         $delivered1 = $order1->deliveries()->pluck('content')->all();
@@ -261,8 +261,8 @@ class StorefrontTest extends TestCase
 
         // Customer 2 buys 1 PC -> gets Account C (never A or B)
         $order2 = app(OrderService::class)->create($product, 1, $this->customer(), $method);
-        $payment2 = app(\App\Services\PaymentService::class)->submit($order2, 'TIDTXT0002', '03001112222');
-        $order2 = app(\App\Services\PaymentService::class)->approve($payment2);
+        $payment2 = app(PaymentService::class)->submit($order2, 'TIDTXT0002', '03001112222');
+        $order2 = app(PaymentService::class)->approve($payment2);
 
         $this->assertSame(OrderStatus::Completed, $order2->status);
         $delivered2 = $order2->deliveries()->pluck('content')->all();

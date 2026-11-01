@@ -289,7 +289,7 @@ class PaymentWebhookController extends Controller
                         $message = "✅ Order {$order->number} Payment Confirmed & Credentials Delivered!";
                     } else {
                         $actionResult = 'needs_attention';
-                        $message = "✅ Payment is Approved, BUT Delivery is On Hold: ".($order->admin_note ?: 'Check supplier balance or paste credentials below to deliver manually.');
+                        $message = '✅ Payment is Approved, BUT Delivery is On Hold: '.($order->admin_note ?: 'Check supplier balance or paste credentials below to deliver manually.');
                     }
                 } elseif ($do === 'whatsapp_delivered') {
                     $customNote = trim((string) $request->input('credentials', ''));
