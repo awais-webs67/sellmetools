@@ -76,46 +76,47 @@ class PaymentMethodForm
                             ->required(),
                     ]),
 
-                Section::make('Auto-Gateway & WhatsApp Settings (Optional)')
-                    ->description('Configure automatic API credentials or custom WhatsApp number for this gateway.')
+                Section::make('Wallet Auto-Verification & Gateway Linking')
+                    ->description('Link this wallet (Easypaisa, JazzCash, NayaPay, SadaPay, or Binance) to Auto-SMS, Binance Read-Only API, or a Merchant Checkout Link.')
                     ->columns(['default' => 1, 'sm' => 2])
                     ->schema([
-                        TextInput::make('meta.whatsapp_number')
-                            ->label('WhatsApp Number for this Method (Optional)')
-                            ->placeholder('Uses global Support WhatsApp if left blank (e.g. 923001234567)'),
                         Select::make('meta.gateway')
-                            ->label('Auto Gateway Driver')
+                            ->label('How to Auto-Verify this Wallet')
                             ->options([
-                                'sms_auto' => 'SMS / Notification Forwarder Auto-Match (Easypaisa/JazzCash/NayaPay/SadaPay)',
-                                'binance' => 'Binance Pay API Auto-Verify',
-                                'custom_link' => 'External Payment Link / Gateway Redirect (PayFast, Paymob, Cryptomus)',
+                                'sms_auto' => 'Auto-SMS / Notification Match + Manual TID (Easypaisa, JazzCash, NayaPay, SadaPay)',
+                                'binance' => 'Binance Auto-Verify API (Binance Pay Order ID + On-Chain USDT TxID)',
+                                'custom_link' => 'Link Wallet via Merchant Gateway (PayFast / Paymob / Custom URL)',
                             ])
-                            ->placeholder('Standard TID + SMS Auto-Match')
+                            ->default('sms_auto')
                             ->live(),
+                        TextInput::make('meta.whatsapp_number')
+                            ->label('WhatsApp Number for Receipt Template (Optional)')
+                            ->placeholder('Uses Store Support WhatsApp if blank (e.g. 923001234567)'),
                         TextInput::make('meta.binance_api_key')
-                            ->label('Binance Read-Only API Key')
+                            ->label('Binance Read-Only API Key (From Binance -> API Management)')
                             ->password()
                             ->revealable()
-                            ->visible(fn (Get $get): bool => $get('meta.gateway') === 'binance' || $get('code') === 'binance'),
+                            ->helperText('Create a normal API Key in your Binance account with ONLY "Enable Reading" checked. System will auto-verify Binance Pay Order IDs & USDT TxIDs in 1 second!')
+                            ->visible(fn (Get $get): bool => $get('meta.gateway') === 'binance' || in_array($get('code'), ['binance', 'usdt_trc20'], true)),
                         TextInput::make('meta.binance_api_secret')
-                            ->label('Binance API Secret')
+                            ->label('Binance Read-Only API Secret')
                             ->password()
                             ->revealable()
-                            ->visible(fn (Get $get): bool => $get('meta.gateway') === 'binance' || $get('code') === 'binance'),
+                            ->visible(fn (Get $get): bool => $get('meta.gateway') === 'binance' || in_array($get('code'), ['binance', 'usdt_trc20'], true)),
                         TextInput::make('meta.checkout_url')
-                            ->label('Gateway Payment / Checkout URL')
+                            ->label('Linked Merchant Gateway URL (PayFast / Paymob / Wallet Link)')
                             ->placeholder('https://your-gateway-link.com/pay?order={order}&amount={amount}')
-                            ->helperText('You can use {order}, {amount}, and {currency} placeholders.')
+                            ->helperText('Supports {order}, {amount}, and {currency} placeholders.')
                             ->columnSpanFull()
                             ->visible(fn (Get $get): bool => $get('meta.gateway') === 'custom_link' || $get('type') === 'auto'),
                         TextInput::make('meta.merchant_id')
-                            ->label('Merchant ID / App ID')
-                            ->visible(fn (Get $get): bool => $get('type') === 'auto'),
+                            ->label('Merchant ID (If using PayFast / Paymob)')
+                            ->visible(fn (Get $get): bool => $get('meta.gateway') === 'custom_link' || $get('type') === 'auto'),
                         TextInput::make('meta.merchant_secret')
-                            ->label('Merchant Secret / API Key')
+                            ->label('Merchant Secret Key')
                             ->password()
                             ->revealable()
-                            ->visible(fn (Get $get): bool => $get('type') === 'auto'),
+                            ->visible(fn (Get $get): bool => $get('meta.gateway') === 'custom_link' || $get('type') === 'auto'),
                     ]),
             ]);
     }

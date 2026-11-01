@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Exceptions\StoreException;
+use App\Models\IncomingPayment;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Setting;
@@ -21,10 +22,27 @@ class PaymentService
         protected T $telegram,
     ) {}
 
+    /**
+     * Normalizes a Transaction ID (TID / Order ID / TxHash) so users cannot bypass
+     * duplicate checks by adding spaces, dashes, or "TID:" prefixes.
+     */
+    public static function normalizeTid(string $raw): string
+    {
+        $clean = trim($raw);
+        $clean = preg_replace('/^(?:tid|trx\s*id|tx\s*id|trans(?:action)?\s*id|order\s*id|ref(?:\s*no|\s*id|#)?)\s*[:#\-]?\s*/i', '', $clean) ?? $clean;
+        $clean = preg_replace('/[^A-Z0-9]/', '', strtoupper($clean)) ?? '';
+
+        return $clean;
+    }
+
     /** Customer submits a transaction ID for manual / semi-automatic verification. */
     public function submit(Order $order, string $transactionId, ?string $senderNumber = null, ?UploadedFile $screenshot = null): Payment
     {
-        $transactionId = strtoupper(trim($transactionId));
+        $transactionId = self::normalizeTid($transactionId);
+
+        if (strlen($transactionId) < 5 || in_array($transactionId, ['PAID', 'DONE', 'TEST', 'NONE', 'NULL', '00000', '11111', '12345', '123456'], true)) {
+            throw new StoreException('Please enter a valid, real Transaction ID (TID / Order ID) from your payment receipt.');
+        }
 
         $payment = DB::transaction(function () use ($order, $transactionId, $senderNumber, $screenshot) {
             $order = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
@@ -37,13 +55,19 @@ class PaymentService
                 throw new StoreException('Payment has already been submitted for this order.');
             }
 
-            $used = Payment::query()
-                ->where('payment_method_id', $order->payment_method_id)
+            // Global duplicate TID check across ALL payment methods & orders
+            $usedInPayments = Payment::query()
                 ->where('transaction_id', $transactionId)
+                ->lockForUpdate()
                 ->exists();
 
-            if ($used) {
-                throw new StoreException('This transaction ID has already been used.');
+            $usedInIncoming = IncomingPayment::query()
+                ->where('transaction_id', $transactionId)
+                ->whereNotNull('matched_payment_id')
+                ->exists();
+
+            if ($usedInPayments || $usedInIncoming) {
+                throw new StoreException('This Transaction ID (TID) has already been used. Duplicate TIDs are strictly blocked.');
             }
 
             $method = $order->paymentMethod;

@@ -136,6 +136,32 @@
         </div>
     @endif
 
+    {{-- Background Tab Return Banner: Syncs prices & stock in-place WITHOUT clearing form inputs --}}
+    <div x-data x-show="$store.stock.stale || $store.stock.justSynced" x-cloak
+         class="sticky top-0 z-50 border-b border-brand/30 bg-[#1F070E] text-white shadow-lg">
+        <div class="container-x flex flex-wrap items-center justify-between gap-2 py-2.5 text-xs sm:text-sm">
+            <div class="flex items-center gap-2">
+                <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#22c55e] live-dot"></span>
+                <span x-show="!$store.stock.justSynced">
+                    <strong>Welcome back!</strong> Sync live prices &amp; stock now (your typed order details will stay safe).
+                </span>
+                <span x-show="$store.stock.justSynced" class="font-semibold text-[#4ade80]">
+                    ✓ Latest prices &amp; live stock synced! Your form details are untouched.
+                </span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button"
+                        @click="$store.stock.manualSync()"
+                        :disabled="$store.stock.syncing"
+                        class="btn btn-primary px-3.5 py-1.5 text-xs font-bold">
+                    <span x-show="!$store.stock.syncing">↻ Sync Live Price &amp; Stock</span>
+                    <span x-show="$store.stock.syncing">Syncing...</span>
+                </button>
+                <button type="button" @click="$store.stock.stale = false" class="px-2 py-1 text-white/60 hover:text-white" aria-label="Dismiss">✕</button>
+            </div>
+        </div>
+    </div>
+
     <header x-data="{ open: false }" class="sticky top-0 z-40 border-b border-line bg-white/95 shadow-[0_1px_2px_rgba(0,0,0,.06)] backdrop-blur">
         <div class="container-x flex h-16 items-center justify-between gap-6 lg:h-[76px]">
             <a href="{{ route('home') }}" class="flex items-center gap-2.5" aria-label="{{ $storeName }} home">

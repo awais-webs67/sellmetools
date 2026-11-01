@@ -10,4 +10,18 @@ Disallow: /track
 Disallow: /login
 Disallow: /register
 
+# Welcome AI Search & Answer Engines (AEO / GEO)
+User-agent: GPTBot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+
 Sitemap: https://tool.skillsnexuspro.com/sitemap.xml

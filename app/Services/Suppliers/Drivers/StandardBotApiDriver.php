@@ -15,6 +15,7 @@ use App\Services\Suppliers\Exceptions\SupplierUnknownResultException;
 use App\Support\TextCleaner;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -29,7 +30,7 @@ class StandardBotApiDriver implements SupplierDriver
 {
     public function __construct(protected Supplier $supplier) {}
 
-    protected function http(int $timeout = 20): PendingRequest
+    protected function http(int $timeout = 12): PendingRequest
     {
         return Http::baseUrl(rtrim($this->supplier->base_url, '/'))
             ->withHeaders([
@@ -38,15 +39,79 @@ class StandardBotApiDriver implements SupplierDriver
             ])
             ->acceptJson()
             ->timeout($timeout)
-            ->connectTimeout(10);
+            ->connectTimeout(5);
+    }
+
+    /**
+     * Fetches /products and /balance in parallel using Http::pool for 2x faster live sync.
+     *
+     * @return array{products: SupplierProductData[], balance: ?SupplierBalance}
+     */
+    public function productsAndBalance(): array
+    {
+        $baseUrl = rtrim($this->supplier->base_url, '/');
+        $headers = [
+            'x-api-key' => $this->supplier->api_key,
+            'Authorization' => 'Bearer '.$this->supplier->api_key,
+        ];
+
+        $responses = Http::pool(fn (Pool $pool) => [
+            $pool->as('products')->baseUrl($baseUrl)->withHeaders($headers)->acceptJson()->connectTimeout(5)->timeout(10)->get('/products'),
+            $pool->as('balance')->baseUrl($baseUrl)->withHeaders($headers)->acceptJson()->connectTimeout(5)->timeout(8)->get('/balance'),
+        ]);
+
+        $prodResponse = $responses['products'] ?? null;
+        if (! $prodResponse instanceof Response) {
+            throw new SupplierException('Could not connect to supplier /products endpoint.');
+        }
+        $this->guard($prodResponse);
+
+        $products = $this->parseProductsResponse($prodResponse);
+
+        $balanceObj = null;
+        $balResponse = $responses['balance'] ?? null;
+        if ($balResponse instanceof Response && $balResponse->successful() && $balResponse->json('ok') !== false) {
+            $rawBal = $balResponse->json('balance')
+                ?? $balResponse->json('data.balance')
+                ?? $balResponse->json('user.balance')
+                ?? $balResponse->json('wallet')
+                ?? $balResponse->json('credits');
+
+            if ($rawBal !== null && is_numeric($rawBal)) {
+                $balanceObj = new SupplierBalance(
+                    balance: (float) $rawBal,
+                    currency: (string) ($balResponse->json('currency') ?? $balResponse->json('data.currency') ?? $this->supplier->currency),
+                    raw: $balResponse->json() ?? [],
+                );
+            }
+        } elseif (($inlineBal = $prodResponse->json('balance') ?? $prodResponse->json('user.balance')) !== null && is_numeric($inlineBal)) {
+            $balanceObj = new SupplierBalance(
+                balance: (float) $inlineBal,
+                currency: (string) ($prodResponse->json('currency') ?? $this->supplier->currency),
+                raw: $prodResponse->json() ?? [],
+            );
+        }
+
+        return [
+            'products' => $products,
+            'balance' => $balanceObj,
+        ];
     }
 
     public function products(): array
     {
-        $response = $this->send(fn () => $this->http(12)->get('/products'));
+        $response = $this->send(fn () => $this->http(10)->get('/products'));
         $this->guard($response);
 
-        $rows = $response->json('products');
+        return $this->parseProductsResponse($response);
+    }
+
+    /**
+     * @return SupplierProductData[]
+     */
+    protected function parseProductsResponse(Response $response): array
+    {
+        $rows = $response->json('products') ?? $response->json('data.products') ?? $response->json('items');
         if (! is_array($rows)) {
             throw new SupplierException('Unexpected products response format.');
         }
@@ -79,12 +144,19 @@ class StandardBotApiDriver implements SupplierDriver
 
     public function balance(): SupplierBalance
     {
-        $response = $this->send(fn () => $this->http()->get('/balance'));
+        $response = $this->send(fn () => $this->http(8)->get('/balance'));
         $this->guard($response);
 
+        $rawBal = $response->json('balance')
+            ?? $response->json('data.balance')
+            ?? $response->json('user.balance')
+            ?? $response->json('wallet')
+            ?? $response->json('credits')
+            ?? 0;
+
         return new SupplierBalance(
-            balance: (float) $response->json('balance', 0),
-            currency: (string) $response->json('currency', $this->supplier->currency),
+            balance: (float) $rawBal,
+            currency: (string) ($response->json('currency') ?? $response->json('data.currency') ?? $this->supplier->currency),
             raw: $response->json() ?? [],
         );
     }

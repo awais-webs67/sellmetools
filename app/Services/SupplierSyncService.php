@@ -28,10 +28,19 @@ class SupplierSyncService
     public function sync(Supplier $supplier): array
     {
         $driver = $this->manager->driver($supplier);
+        $balanceResult = null;
 
         try {
-            $rows = $driver->products();
+            if (method_exists($driver, 'productsAndBalance')) {
+                $both = $driver->productsAndBalance();
+                $rows = $both['products'];
+                $balanceResult = $both['balance'] ?? null;
+            } else {
+                $rows = $driver->products();
+            }
         } catch (Throwable $e) {
+            // Even if /products failed, still try to update balance so balance stays fresh
+            $this->syncBalance($supplier);
             $supplier->forceFill(['last_sync_error' => $e->getMessage()])->save();
             throw $e;
         }
@@ -65,7 +74,11 @@ class SupplierSyncService
                 ->update(['is_available' => false, 'stock' => 0]);
         });
 
-        $this->syncBalance($supplier);
+        if ($balanceResult !== null) {
+            $this->recordBalance($supplier, $balanceResult->balance);
+        } else {
+            $this->syncBalance($supplier);
+        }
 
         $supplier->forceFill(['last_synced_at' => $now, 'last_sync_error' => null])->save();
 

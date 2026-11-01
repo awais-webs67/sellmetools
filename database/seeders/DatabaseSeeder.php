@@ -71,33 +71,6 @@ class DatabaseSeeder extends Seeder
                 'requires_sender_number' => false,
                 'instructions' => 'Send payment to any of our official accounts, then click the WhatsApp button below to send the pre-filled order message & screenshot to our team.',
             ],
-            [
-                'code' => 'payfast',
-                'name' => 'PayFast (Cards & Wallets)',
-                'type' => 'auto',
-                'currency' => 'PKR',
-                'requires_sender_number' => false,
-                'is_active' => false,
-                'instructions' => 'Pay online via Debit/Credit Card or Mobile Wallet through PayFast.',
-            ],
-            [
-                'code' => 'paymob',
-                'name' => 'Paymob Pakistan (Auto Gateway)',
-                'type' => 'auto',
-                'currency' => 'PKR',
-                'requires_sender_number' => false,
-                'is_active' => false,
-                'instructions' => 'Pay online via Paymob Pakistan gateway.',
-            ],
-            [
-                'code' => 'cryptomus',
-                'name' => 'Cryptomus (Auto Crypto Gateway)',
-                'type' => 'auto',
-                'currency' => 'USDT',
-                'requires_sender_number' => false,
-                'is_active' => false,
-                'instructions' => 'Pay automatically with USDT or any cryptocurrency via Cryptomus.',
-            ],
         ];
 
         foreach ($methods as $sort => $method) {

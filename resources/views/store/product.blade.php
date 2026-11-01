@@ -90,6 +90,53 @@
         '@type' => 'BreadcrumbList',
         'itemListElement' => $breadcrumbItems,
     ];
+
+    $storeName = setting('store_name', 'SellMeTools');
+    $priceStr = money($product->price);
+    $productFaqs = [
+        [
+            'q' => "What is the price of {$product->name} in Pakistan?",
+            'a' => "You can buy {$product->name} in Pakistan for just {$priceStr} on {$storeName}. We offer wholesale rates in Pakistani Rupees (PKR) and USDT with zero hidden charges.",
+        ],
+        [
+            'q' => "How to buy {$product->name} in Pakistan with Easypaisa, JazzCash, or Binance?",
+            'a' => "Click 'Buy Now' on this page, enter your email, choose Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer/Raast, or Binance Pay, and submit your unique Transaction ID (TID). Your order is verified and delivered automatically.",
+        ],
+        [
+            'q' => "How fast will I receive {$product->name} after payment?",
+            'a' => "Delivery is instant! As soon as your payment is verified, your {$product->name} login credentials or activation link appear immediately on your order screen and are saved forever in your account history.",
+        ],
+        [
+            'q' => "Does {$product->name} include a replacement warranty?",
+            'a' => $product->warranty
+                ? trim($product->warranty)
+                : "Yes, {$product->name} comes with our full replacement warranty and fast WhatsApp support in Pakistan.",
+        ],
+    ];
+
+    $productFaqSchema = [
+        '@context' => 'https://schema.org',
+        '@type' => 'FAQPage',
+        'mainEntity' => collect($productFaqs)->map(fn ($f) => [
+            '@type' => 'Question',
+            'name' => $f['q'],
+            'acceptedAnswer' => [
+                '@type' => 'Answer',
+                'text' => $f['a'],
+            ],
+        ])->all(),
+    ];
+
+    $speakableSchema = [
+        '@context' => 'https://schema.org',
+        '@type' => 'WebPage',
+        'name' => $product->seoTitle(),
+        'url' => $productUrl,
+        'speakable' => [
+            '@type' => 'SpeakableSpecification',
+            'cssSelector' => ['h1', '#product-aeo-faq'],
+        ],
+    ];
 @endphp
 @push('seo')
     <meta property="product:price:amount" content="{{ number_format((float) $product->price, 2, '.', '') }}">
@@ -97,6 +144,8 @@
     <meta property="product:availability" content="{{ $product->inStock() ? 'in stock' : 'out of stock' }}">
     <script type="application/ld+json">{!! json_encode($productSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
     <script type="application/ld+json">{!! json_encode($breadcrumbSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    <script type="application/ld+json">{!! json_encode($productFaqSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    <script type="application/ld+json">{!! json_encode($speakableSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
 @endpush
 <x-layouts.store
     :title="$product->seoTitle()"
@@ -198,6 +247,39 @@
                             </div>
                             <button type="submit" class="btn btn-outline text-xs">Submit Review</button>
                         </form>
+                    </section>
+
+                    {{-- Auto-Generated AEO / GEO Product Q&A Section --}}
+                    <section id="product-aeo-faq" class="card p-5 sm:p-6">
+                        <h2 class="text-lg font-bold">Frequently Asked Questions about {{ $product->name }}</h2>
+                        <div class="mt-4 space-y-2.5">
+                            @foreach ($productFaqs as $faq)
+                                <details class="group rounded-xl border border-line bg-grey-soft/60 p-3.5 sm:p-4" @if ($loop->first) open @endif>
+                                    <summary class="flex cursor-pointer list-none items-center justify-between gap-3 text-xs sm:text-sm font-bold text-ink">
+                                        <span>{{ $faq['q'] }}</span>
+                                        <span class="text-brand transition group-open:rotate-45 text-base leading-none">+</span>
+                                    </summary>
+                                    <p class="mt-2 text-xs sm:text-sm leading-relaxed text-body">{{ $faq['a'] }}</p>
+                                </details>
+                            @endforeach
+                        </div>
+
+                        <div class="mt-5 border-t border-line pt-4">
+                            <p class="text-[11px] font-semibold tracking-wider text-muted uppercase">Popular Searches in Pakistan</p>
+                            <div class="mt-2 flex flex-wrap gap-1.5">
+                                @foreach ([
+                                    "Buy {$product->name} in Pakistan",
+                                    "{$product->name} Price in Pakistan ({$priceStr})",
+                                    "{$product->name} Easypaisa JazzCash",
+                                    "{$product->name} Instant Delivery",
+                                    $product->category ? "Cheap {$product->category->name} Pakistan" : null,
+                                ] as $tag)
+                                    @if ($tag)
+                                        <a href="{{ $productUrl }}" class="rounded-full border border-line bg-white px-2.5 py-1 text-[11px] text-muted hover:border-brand hover:text-brand">{{ $tag }}</a>
+                                    @endif
+                                @endforeach
+                            </div>
+                        </div>
                     </section>
                 </div>
             </div>

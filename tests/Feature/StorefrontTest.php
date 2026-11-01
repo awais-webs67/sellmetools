@@ -34,6 +34,8 @@ class StorefrontTest extends TestCase
         }
 
         $this->get(route('sitemap'))->assertOk()->assertSee(route('products.show', $product), false);
+        $this->get(route('feed.google-shopping'))->assertOk()->assertSee($product->name);
+        $this->get(route('llms'))->assertOk()->assertSee($product->name);
         $this->get(route('robots'))->assertOk()->assertSee('Sitemap:');
     }
 
@@ -79,11 +81,19 @@ class StorefrontTest extends TestCase
 
         $this->post(route('orders.payment', $order), [
             'token' => $order->access_token,
-            'transaction_id' => 'ABC123456',
+            'transaction_id' => 'ABC1234567',
             'sender_number' => '03009998888',
         ])->assertRedirect($order->customerUrl());
 
         $this->get($order->customerUrl())->assertSee('Verifying your payment');
+
+        // Duplicate TID (even with dashes or TID: prefix on a second order) must be blocked
+        $order2 = app(OrderService::class)->create($product, 1, $this->customer(), $method);
+        $this->post(route('orders.payment', $order2), [
+            'token' => $order2->access_token,
+            'transaction_id' => 'TID: ABC-123-4567',
+            'sender_number' => '03009998888',
+        ])->assertSessionHas('error');
     }
 
     public function test_track_lookup_requires_matching_email(): void

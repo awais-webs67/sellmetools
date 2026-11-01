@@ -65,6 +65,11 @@ class AutoPaymentVerifier
             return null;
         }
 
+        $tid = PaymentService::normalizeTid($tid);
+        if (strlen($tid) < 5) {
+            return null;
+        }
+
         $sender = null;
         if (preg_match('/\b(03\d{2}[\s\-]?\d{7})\b/', $text, $m)) {
             $sender = preg_replace('/\D/', '', $m[1]);
@@ -84,7 +89,7 @@ class AutoPaymentVerifier
      */
     public function recordIncoming(string $tid, float $amount, string $provider = 'sms', string $currency = 'PKR', ?string $sender = null, ?string $raw = null): IncomingPayment
     {
-        $tid = strtoupper(trim($tid));
+        $tid = PaymentService::normalizeTid($tid);
 
         $incoming = IncomingPayment::updateOrCreate(
             ['provider' => $provider, 'transaction_id' => $tid],
@@ -102,7 +107,7 @@ class AutoPaymentVerifier
                 ->where('transaction_id', $tid)
                 ->first();
 
-            if ($pending && (float) $incoming->amount >= (float) $pending->amount) {
+            if ($pending && (float) $incoming->amount >= ((float) $pending->amount - 0.02)) {
                 $this->matchAndApprove($incoming, $pending);
             }
         }
@@ -114,7 +119,7 @@ class AutoPaymentVerifier
      * Called right after a customer submits a Payment TID on the website.
      * Checks:
      *   1. Unmatched IncomingPayment table (from SMS forwarder / gateway webhook)
-     *   2. Binance API (if payment method is Binance and API credentials are set)
+     *   2. Binance API (if payment method is Binance / USDT and API credentials are set)
      */
     public function tryAutoVerify(Payment $payment): bool
     {
@@ -122,21 +127,23 @@ class AutoPaymentVerifier
             return false;
         }
 
-        // 1. Check incoming SMS / webhook payments
+        $tid = PaymentService::normalizeTid($payment->transaction_id);
+
+        // 1. Check incoming SMS / webhook payments (never match an already-used incoming record)
         $incoming = IncomingPayment::query()
             ->whereNull('matched_payment_id')
-            ->where('transaction_id', $payment->transaction_id)
+            ->where('transaction_id', $tid)
             ->first();
 
-        if ($incoming && (float) $incoming->amount >= (float) $payment->amount) {
+        if ($incoming && (float) $incoming->amount >= ((float) $payment->amount - 0.02)) {
             $this->matchAndApprove($incoming, $payment);
 
             return true;
         }
 
-        // 2. Check Binance API if applicable
+        // 2. Check Binance API if applicable (Binance Pay OR On-chain USDT deposit)
         $method = $payment->paymentMethod;
-        if ($method && ($method->code === 'binance' || ($method->meta['gateway'] ?? '') === 'binance')) {
+        if ($method && (in_array($method->code, ['binance', 'usdt_trc20'], true) || ($method->meta['gateway'] ?? '') === 'binance')) {
             if ($this->verifyViaBinanceApi($payment, $method)) {
                 $this->payments->approve($payment);
 
@@ -158,7 +165,9 @@ class AutoPaymentVerifier
     }
 
     /**
-     * Checks Binance Pay / Deposit history using read-only Binance API Key & Secret stored in method meta.
+     * Checks Binance Pay History (`/sapi/v1/pay/transactions`) AND On-Chain Crypto Deposit History
+     * (`/sapi/v1/capital/deposit/hisrec`) using a Read-Only Binance API Key & Secret.
+     * Locks matched transactions in `incoming_payments` so the same Binance Order ID / TxID can never be reused.
      */
     public function verifyViaBinanceApi(Payment $payment, PaymentMethod $method): bool
     {
@@ -169,7 +178,16 @@ class AutoPaymentVerifier
             return false;
         }
 
+        $submittedTid = PaymentService::normalizeTid($payment->transaction_id);
+        $requiredAmount = (float) $payment->amount - 0.02;
+
+        // Ensure this Binance TID was never matched before
+        if (IncomingPayment::query()->where('transaction_id', $submittedTid)->whereNotNull('matched_payment_id')->exists()) {
+            return false;
+        }
+
         try {
+            // A) Check Binance Pay Transactions (/sapi/v1/pay/transactions)
             $timestamp = (int) round(microtime(true) * 1000);
             $query = "timestamp={$timestamp}&limit=50";
             $signature = hash_hmac('sha256', $query, $apiSecret);
@@ -178,21 +196,69 @@ class AutoPaymentVerifier
                 ->withHeaders(['X-MBX-APIKEY' => $apiKey])
                 ->get("https://api.binance.com/sapi/v1/pay/transactions?{$query}&signature={$signature}");
 
-            if (! $response->successful()) {
-                return false;
+            if ($response->successful()) {
+                $rows = $response->json('data') ?? [];
+                foreach ($rows as $row) {
+                    $orderId = PaymentService::normalizeTid((string) ($row['orderId'] ?? ''));
+                    $txId = PaymentService::normalizeTid((string) ($row['transactionId'] ?? ''));
+                    $amount = (float) ($row['amount'] ?? 0);
+                    $currency = strtoupper((string) ($row['currency'] ?? 'USDT'));
+
+                    // Only incoming payments (amount > 0)
+                    if (($orderId === $submittedTid || $txId === $submittedTid)
+                        && $amount >= $requiredAmount
+                        && $currency === strtoupper($payment->currency)) {
+                        IncomingPayment::updateOrCreate(
+                            ['provider' => 'binance_pay', 'transaction_id' => $submittedTid],
+                            [
+                                'amount' => $amount,
+                                'currency' => $currency,
+                                'matched_payment_id' => $payment->id,
+                                'matched_at' => now(),
+                                'raw_message' => json_encode($row),
+                            ]
+                        );
+
+                        return true;
+                    }
+                }
             }
 
-            $rows = $response->json('data') ?? [];
-            foreach ($rows as $row) {
-                $orderId = strtoupper((string) ($row['orderId'] ?? ''));
-                $txId = strtoupper((string) ($row['transactionId'] ?? ''));
-                $amount = (float) ($row['amount'] ?? 0);
-                $currency = strtoupper((string) ($row['currency'] ?? 'USDT'));
+            // B) Check Binance On-Chain Deposit History (/sapi/v1/capital/deposit/hisrec) for USDT TRC20/BEP20
+            $ts2 = (int) round(microtime(true) * 1000);
+            $query2 = "timestamp={$ts2}&status=1&limit=50";
+            $sig2 = hash_hmac('sha256', $query2, $apiSecret);
 
-                if (($orderId === $payment->transaction_id || $txId === $payment->transaction_id)
-                    && $amount >= (float) $payment->amount
-                    && $currency === strtoupper($payment->currency)) {
-                    return true;
+            $depResponse = Http::timeout(10)
+                ->withHeaders(['X-MBX-APIKEY' => $apiKey])
+                ->get("https://api.binance.com/sapi/v1/capital/deposit/hisrec?{$query2}&signature={$sig2}");
+
+            if ($depResponse->successful()) {
+                $deposits = $depResponse->json() ?? [];
+                if (is_array($deposits)) {
+                    foreach ($deposits as $dep) {
+                        $txId = PaymentService::normalizeTid((string) ($dep['txId'] ?? ''));
+                        $depId = PaymentService::normalizeTid((string) ($dep['id'] ?? ''));
+                        $amount = (float) ($dep['amount'] ?? 0);
+                        $coin = strtoupper((string) ($dep['coin'] ?? 'USDT'));
+
+                        if (($txId === $submittedTid || $depId === $submittedTid)
+                            && $amount >= $requiredAmount
+                            && $coin === strtoupper($payment->currency)) {
+                            IncomingPayment::updateOrCreate(
+                                ['provider' => 'binance_deposit', 'transaction_id' => $submittedTid],
+                                [
+                                    'amount' => $amount,
+                                    'currency' => $coin,
+                                    'matched_payment_id' => $payment->id,
+                                    'matched_at' => now(),
+                                    'raw_message' => json_encode($dep),
+                                ]
+                            );
+
+                            return true;
+                        }
+                    }
                 }
             }
         } catch (Throwable $e) {

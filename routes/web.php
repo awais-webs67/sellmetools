@@ -25,10 +25,18 @@ Route::get('/storage/{path}', MediaController::class)
     ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
     ->where('path', '.*');
 
-// SEO Sitemap & Robots (stateless)
+// SEO, AEO & GEO Sitemaps / Feeds (stateless)
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])
     ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
     ->name('sitemap');
+Route::get('/feed/google-shopping.xml', [SeoController::class, 'googleShoppingFeed'])
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
+    ->name('feed.google-shopping');
+Route::get('/llms.txt', [SeoController::class, 'llmsTxt'])
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
+    ->name('llms');
+Route::get('/llms-full.txt', [SeoController::class, 'llmsTxt'])
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class]);
 Route::get('/robots.txt', [SeoController::class, 'robots'])
     ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
     ->name('robots');

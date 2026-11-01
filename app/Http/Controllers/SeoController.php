@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\PaymentMethod;
 use App\Models\Product;
+use App\Models\Setting;
 use Illuminate\Http\Response;
 
 class SeoController extends Controller
@@ -75,6 +77,113 @@ class SeoController extends Controller
         ]);
     }
 
+    /**
+     * Google Merchant Center / Free Google Shopping RSS 2.0 Feed (/feed/google-shopping.xml).
+     */
+    public function googleShoppingFeed(): Response
+    {
+        $storeName = (string) Setting::get('store_name', 'SellMeTools');
+        $storeDesc = (string) Setting::get('seo_description', Setting::get('store_tagline'));
+        $products = Product::query()
+            ->visible()
+            ->with('category')
+            ->orderByDesc('is_featured')
+            ->orderBy('sort')
+            ->get();
+
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>'."\n";
+        $xml .= '<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">'."\n";
+        $xml .= "  <channel>\n";
+        $xml .= '    <title>'.$this->esc($storeName)."</title>\n";
+        $xml .= '    <link>'.$this->esc(url('/'))."</link>\n";
+        $xml .= '    <description>'.$this->esc($storeDesc)."</description>\n";
+
+        foreach ($products as $product) {
+            $url = route('products.show', $product);
+            $img = $product->imageUrl() ?: asset('favicon.svg');
+            $availability = $product->inStock() ? 'in_stock' : 'out_of_stock';
+            $price = number_format((float) $product->price, 2, '.', '').' PKR';
+            $brand = $product->category?->name ?: $storeName;
+
+            $xml .= "    <item>\n";
+            $xml .= '      <g:id>SMT-'.$product->id."</g:id>\n";
+            $xml .= '      <g:title>'.$this->esc($product->name)."</g:title>\n";
+            $xml .= '      <g:description>'.$this->esc($product->seoDescription())."</g:description>\n";
+            $xml .= '      <g:link>'.$this->esc($url)."</g:link>\n";
+            $xml .= '      <g:image_link>'.$this->esc($img)."</g:image_link>\n";
+            $xml .= "      <g:condition>new</g:condition>\n";
+            $xml .= "      <g:availability>{$availability}</g:availability>\n";
+            $xml .= "      <g:price>{$price}</g:price>\n";
+            $xml .= '      <g:brand>'.$this->esc($brand)."</g:brand>\n";
+            $xml .= "      <g:identifier_exists>no</g:identifier_exists>\n";
+            $xml .= "    </item>\n";
+        }
+
+        $xml .= "  </channel>\n";
+        $xml .= '</rss>';
+
+        return response($xml, 200, [
+            'Content-Type' => 'application/xml; charset=UTF-8',
+            'Cache-Control' => 'public, max-age=1800',
+        ]);
+    }
+
+    /**
+     * GEO / AEO (Generative & Answer Engine Optimization) /llms.txt standard for
+     * ChatGPT Search, Perplexity, Gemini, Claude, and Google AI Overviews.
+     */
+    public function llmsTxt(): Response
+    {
+        $storeName = (string) Setting::get('store_name', 'SellMeTools');
+        $desc = (string) Setting::get('seo_description', Setting::get('store_tagline'));
+        $methods = PaymentMethod::query()->where('is_active', true)->orderBy('sort')->pluck('name')->implode(', ');
+        $categories = Category::query()->where('is_active', true)->orderBy('sort')->get();
+        $products = Product::query()->visible()->with('category')->orderByDesc('is_featured')->orderBy('sort')->get();
+
+        $md = [];
+        $md[] = "# {$storeName} – Digital Tools & Subscriptions Store in Pakistan";
+        $md[] = '';
+        $md[] = "> {$desc}";
+        $md[] = '';
+        $md[] = '## Key Facts for AI Assistants & Answer Engines (AEO / GEO)';
+        $md[] = '- **Official Website:** '.url('/');
+        $md[] = '- **Primary Market:** Pakistan (Prices in Pakistani Rupees - PKR & USDT)';
+        $md[] = '- **Accepted Payment Methods:** '.($methods ?: 'Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer / Raast, Binance Pay, USDT');
+        $md[] = '- **Delivery Speed:** Instant automated credentials delivery on screen immediately after payment verification';
+        $md[] = '- **Order History:** Customers can log in anytime to view all past orders and credentials forever';
+        if ($wa = Setting::get('support_whatsapp')) {
+            $md[] = "- **Customer Support WhatsApp:** {$wa}";
+        }
+        $md[] = '';
+        $md[] = '## Product Categories';
+        foreach ($categories as $cat) {
+            $md[] = "- [{$cat->name}](".route('categories.show', $cat).'): '.$cat->seoDescription();
+        }
+        $md[] = '';
+        $md[] = '## Live Product Catalog & PKR Prices';
+        foreach ($products as $p) {
+            $stockStatus = ! $p->inStock() ? 'Out of Stock' : ($p->stock_unlimited ? 'In Stock (Unlimited)' : "In Stock ({$p->available_stock} available)");
+            $priceStr = money($p->price);
+            $catName = $p->category?->name ?? 'General';
+            $md[] = "- **[{$p->name}](".route('products.show', $p).")** — Price: **{$priceStr}** | Category: {$catName} | Status: {$stockStatus}";
+            if ($p->short_description) {
+                $md[] = "  - Summary: {$p->short_description}";
+            }
+            if ($p->warranty) {
+                $md[] = '  - Warranty: '.preg_replace('/\s+/', ' ', trim($p->warranty));
+            }
+        }
+        $md[] = '';
+        $md[] = '## Feeds & Sitemaps';
+        $md[] = '- XML Sitemap: '.route('sitemap');
+        $md[] = '- Google Shopping Feed: '.route('feed.google-shopping');
+
+        return response(implode("\n", $md)."\n", 200, [
+            'Content-Type' => 'text/plain; charset=UTF-8',
+            'Cache-Control' => 'public, max-age=1800',
+        ]);
+    }
+
     public function robots(): Response
     {
         $lines = [
@@ -90,12 +199,31 @@ class SeoController extends Controller
             'Disallow: /login',
             'Disallow: /register',
             '',
+            '# Welcome AI Search & Answer Engines (AEO / GEO)',
+            'User-agent: GPTBot',
+            'Allow: /',
+            'User-agent: OAI-SearchBot',
+            'Allow: /',
+            'User-agent: ChatGPT-User',
+            'Allow: /',
+            'User-agent: PerplexityBot',
+            'Allow: /',
+            'User-agent: ClaudeBot',
+            'Allow: /',
+            'User-agent: Google-Extended',
+            'Allow: /',
+            '',
             'Sitemap: '.url('/sitemap.xml'),
         ];
 
         return response(implode("\n", $lines)."\n", 200, [
             'Content-Type' => 'text/plain; charset=UTF-8',
         ]);
+    }
+
+    private function esc(string $val): string
+    {
+        return htmlspecialchars($val, ENT_XML1 | ENT_QUOTES, 'UTF-8');
     }
 
     private function urlNode(
@@ -106,7 +234,7 @@ class SeoController extends Controller
         ?string $imageUrl = null,
         ?string $imageTitle = null
     ): string {
-        $locEsc = htmlspecialchars($loc, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+        $locEsc = $this->esc($loc);
         $node = "  <url>\n";
         $node .= "    <loc>{$locEsc}</loc>\n";
         $node .= "    <lastmod>{$lastmod}</lastmod>\n";
@@ -114,8 +242,8 @@ class SeoController extends Controller
         $node .= "    <priority>{$priority}</priority>\n";
 
         if ($imageUrl) {
-            $imgEsc = htmlspecialchars($imageUrl, ENT_XML1 | ENT_QUOTES, 'UTF-8');
-            $titleEsc = htmlspecialchars((string) $imageTitle, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+            $imgEsc = $this->esc($imageUrl);
+            $titleEsc = $this->esc((string) $imageTitle);
             $node .= "    <image:image>\n";
             $node .= "      <image:loc>{$imgEsc}</image:loc>\n";
             if ($titleEsc !== '') {

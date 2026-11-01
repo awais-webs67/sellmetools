@@ -45,11 +45,11 @@ class StockController extends Controller
      */
     public function sync(): JsonResponse
     {
-        if (app()->runningUnitTests() || ! Cache::add('auto_supplier_sync_tick', 1, 20)) {
+        if (app()->runningUnitTests() || ! Cache::add('auto_supplier_sync_tick', 1, 8)) {
             return response()->json(['synced' => false]);
         }
 
-        $lock = Cache::lock('auto_supplier_sync_running', 30);
+        $lock = Cache::lock('auto_supplier_sync_running', 20);
         if (! $lock->get()) {
             return response()->json(['synced' => false]);
         }
@@ -69,6 +69,6 @@ class StockController extends Controller
             $lock->release();
         }
 
-        return response()->json(['synced' => true]);
+        return response()->json(['synced' => true, 'at' => now()->toIso8601String()]);
     }
 }

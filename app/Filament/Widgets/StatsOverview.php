@@ -17,7 +17,7 @@ class StatsOverview extends StatsOverviewWidget
 {
     protected static ?int $sort = 1;
 
-    protected ?string $pollingInterval = '30s';
+    protected ?string $pollingInterval = '10s';
 
     /** Paid orders that were not reversed. */
     protected const PAID_STATUSES = [OrderStatus::Processing, OrderStatus::Completed, OrderStatus::NeedsAttention];

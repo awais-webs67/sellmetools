@@ -49,6 +49,7 @@ final class SupplierActions
             ->action(function (Supplier $record): void {
                 try {
                     $balance = app(SupplierManager::class)->driver($record)->balance();
+                    app(SupplierSyncService::class)->recordBalance($record, $balance->balance);
                 } catch (Throwable $e) {
                     Notification::make()
                         ->title('Connection failed')
