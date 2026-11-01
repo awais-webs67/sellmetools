@@ -4,7 +4,8 @@
             <section class="card overflow-hidden border-2 border-line shadow-2xl">
                 {{-- Branded Top Header --}}
                 <div class="bg-gradient-to-br from-[#1F070E] via-[#2B0912] to-[#120408] p-6 sm:p-8 text-white text-center">
-                    <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 border border-white/20 text-white shadow-inner">
+                    <img src="{{ asset('images/logo-white.png') }}" alt="{{ setting('store_name') }}" class="h-8 sm:h-9 w-auto mx-auto mb-4 object-contain">
+                    <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 border border-white/20 text-white shadow-inner">
                         <svg class="h-7 w-7 text-[#ff6b81]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="m21 2-2 2m-6 6 4-4m-6 6 4-4m-2 6-4-4"/>
                             <circle cx="7.5" cy="15.5" r="5.5"/>

@@ -208,7 +208,7 @@
     <header x-data="{ open: false }" class="sticky top-0 z-40 border-b border-line bg-white/95 shadow-[0_1px_2px_rgba(0,0,0,.06)] backdrop-blur">
         <div class="container-x flex h-16 items-center justify-between gap-6 lg:h-[76px]">
             <a href="{{ route('home') }}" class="flex items-center transition active:scale-95" aria-label="{{ $storeName }} home">
-                <img src="{{ asset('images/logo.png') }}" alt="{{ $storeName }}" class="h-8 sm:h-9 w-auto object-contain">
+                <img src="{{ asset('images/logo.png') }}" alt="{{ $storeName }}" class="h-8 sm:h-9 lg:h-10 w-auto object-contain">
             </a>
 
             <form action="{{ route('home') }}" method="get" class="hidden max-w-md flex-1 md:block" role="search">
@@ -291,7 +291,7 @@
         <div class="container-x grid gap-10 py-14 md:grid-cols-2 lg:grid-cols-4">
             <div class="lg:col-span-2">
                 <a href="{{ route('home') }}" class="flex items-center">
-                    <img src="{{ asset('images/logo-white.png') }}" alt="{{ $storeName }}" class="h-8 sm:h-9 w-auto object-contain">
+                    <img src="{{ asset('images/logo-white.png') }}" alt="{{ $storeName }}" class="h-8 sm:h-9 md:h-10 w-auto object-contain">
                 </a>
                 <p class="mt-4 max-w-md text-sm leading-6">{{ setting('store_tagline') }} Pay with Easypaisa, JazzCash, NayaPay, SadaPay or Binance and receive your product automatically after verification.</p>
                 <div class="mt-5 flex flex-wrap gap-2">
