@@ -47,20 +47,20 @@
 
     $faqs = [
         [
-            'q' => 'How fast will I receive my order?',
-            'a' => 'In-stock products are delivered automatically on your order page as soon as your payment is verified. Payments that need manual checking are usually verified within 15 minutes during working hours, and you can follow the live status on your order page.',
+            'q' => 'How fast will I receive my ChatGPT Plus, Canva Pro or CapCut Pro order?',
+            'a' => 'In-stock subscriptions are delivered automatically on your private order page as soon as your payment is verified. Manual wallet transfers are normally checked within 15 minutes during working hours, and you can track live status on your order page.',
         ],
         [
-            'q' => 'Which payment methods do you accept?',
-            'a' => 'You can pay with the methods listed at checkout, including Pakistani wallets such as Easypaisa, JazzCash, NayaPay and SadaPay, bank transfer, and Binance Pay / USDT. Every Transaction ID can only be used once.',
+            'q' => 'Which Pakistani payment methods do you accept?',
+            'a' => 'You can pay in PKR using Easypaisa, JazzCash, NayaPay, SadaPay or local bank transfer, as well as USDT via Binance Pay. You do not need an international credit or debit card, and every Transaction ID is protected against duplicate use.',
         ],
         [
-            'q' => 'Where can I find my credentials later?',
-            'a' => 'Your delivered credentials stay on your private order page. If you create an account, all of your orders and credentials are saved in your customer panel.',
+            'q' => 'Where do I get my login credentials or activation link after buying?',
+            'a' => 'Your delivered account details, invite link or activation steps appear directly on your private order page and are also sent to your email. If you create a customer account, all of your past orders and credentials stay saved in one dashboard.',
         ],
         [
-            'q' => 'What happens if something stops working?',
-            'a' => 'Each product page lists its warranty terms. If you face an issue within the warranty period, contact us on WhatsApp with your Order ID and we will help you with a fix or replacement.',
+            'q' => 'Do subscriptions include a replacement warranty?',
+            'a' => 'Yes. Every product page clearly states its plan type and warranty coverage. If you face any login or subscription issue during the covered period, message our support team on WhatsApp with your Order ID for a fast fix or replacement.',
         ],
     ];
 
@@ -101,35 +101,14 @@
 
                     <h1 class="display mt-4 text-[clamp(34px,7vw,80px)] leading-[0.95] text-white">
                         Premium AI Tools &amp;<br class="hidden sm:block">
-                        <span class="text-[#ff6b81]">Subscriptions</span> in PKR
+                        <span class="text-[#ff6b81]">Subscriptions</span> in Pakistan
                     </h1>
 
                     <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base leading-relaxed text-white/75">
-                        Buy ChatGPT Plus, Canva Pro, CapCut Pro, Cursor and more in Pakistan with Easypaisa, JazzCash or Binance. Clear prices, live stock and delivery straight to your order page.
+                        Buy genuine ChatGPT Plus, Canva Pro, CapCut Pro, Claude, Gemini, Cursor and Netflix at local PKR prices. Pay easily with Easypaisa, JazzCash, NayaPay, SadaPay or Binance for instant delivery on your order page.
                     </p>
 
-                    <form action="{{ route('home') }}#products" method="get" role="search" class="relative z-30 mx-auto mt-7 max-w-xl"
-                          x-data="liveSearch" @click.outside="open = false">
-                        <div class="flex items-center gap-2 rounded-xl bg-white p-1.5 shadow-2xl ring-1 ring-white/10 transition focus-within:ring-4 focus-within:ring-white/20">
-                            <label for="hero-search" class="sr-only">Search products</label>
-                            <svg class="ml-2.5 h-5 w-5 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                            <input id="hero-search" type="search" name="q" placeholder="Start typing: ChatGPT, Canva, CapCut..." class="min-w-0 flex-1 border-0 bg-transparent px-1 py-2.5 text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-0" x-bind="field">
-                            <span x-show="loading" x-cloak class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-line border-t-brand" aria-hidden="true"></span>
-                            <button type="submit" class="btn btn-primary shrink-0 px-5 py-2.5 text-sm font-bold">Search</button>
-                        </div>
-                        <x-search-suggest />
-                    </form>
-
-                    @if ($categories->isNotEmpty())
-                        <nav class="mx-auto mt-4 flex max-w-xl flex-wrap items-center justify-center gap-x-2 gap-y-2 text-xs" aria-label="Popular categories">
-                            <span class="text-white/55">Popular:</span>
-                            @foreach ($categories->take(5) as $category)
-                                <a href="{{ route('categories.show', $category) }}#products" class="rounded-full border border-white/15 bg-white/[.06] px-3 py-1 font-semibold text-white/85 transition hover:border-white/40 hover:bg-white/10 active:scale-95">{{ $category->name }}</a>
-                            @endforeach
-                        </nav>
-                    @endif
-
-                    <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+                    <div class="mt-7 flex flex-wrap items-center justify-center gap-3">
                         <a href="#products" class="btn bg-white text-ink hover:bg-brand-tint px-6 py-3 text-sm font-bold shadow-md">Browse All Products ↓</a>
                         @if ($waNumber !== '')
                             <a href="https://wa.me/{{ $waNumber }}" target="_blank" rel="noopener" class="btn border border-white/25 text-white hover:bg-white/10 px-6 py-3 text-sm font-semibold">
@@ -138,6 +117,15 @@
                             </a>
                         @endif
                     </div>
+
+                    @if ($categories->isNotEmpty())
+                        <nav class="mx-auto mt-5 flex max-w-xl flex-wrap items-center justify-center gap-x-2 gap-y-2 text-xs" aria-label="Popular categories">
+                            <span class="text-white/55">Popular:</span>
+                            @foreach ($categories->take(5) as $category)
+                                <a href="{{ route('categories.show', $category) }}#products" class="rounded-full border border-white/15 bg-white/[.06] px-3 py-1 font-semibold text-white/85 transition hover:border-white/40 hover:bg-white/10 active:scale-95">{{ $category->name }}</a>
+                            @endforeach
+                        </nav>
+                    @endif
                 </div>
             </div>
 
@@ -294,10 +282,10 @@
             <div class="container-x grid gap-8 lg:grid-cols-[1fr_1fr] lg:gap-14">
                 <div>
                     <span class="eyebrow">Buying guide</span>
-                    <h2 id="guide-heading" class="display mt-1 text-3xl sm:text-4xl">AI tools &amp; subscriptions at local prices in Pakistan</h2>
+                    <h2 id="guide-heading" class="display mt-1 text-3xl sm:text-4xl">Buy AI tools &amp; digital subscriptions in Pakistan at local PKR prices</h2>
                     <div class="prose-store mt-4">
-                        <p>Paying for ChatGPT Plus, Canva Pro, CapCut Pro, Claude or Cursor with a Pakistani card often fails or adds heavy bank charges. {{ $storeName }} lets you pay in rupees with Easypaisa, JazzCash, NayaPay, SadaPay, bank transfer or Binance, and your access is delivered to a private order page.</p>
-                        <p>Every product page shows the current price in Pakistan, live stock and its warranty terms, so you know exactly what you get before you pay.</p>
+                        <p>International USD billing for ChatGPT Plus, Claude Pro, Google AI Pro (Gemini), Canva Pro, CapCut Pro, Cursor or Microsoft 365 often fails on Pakistani debit cards and adds foreign transaction taxes. {{ $storeName }} makes it simple for freelancers, students, creators and agencies across Pakistan to buy verified digital subscriptions in local rupees.</p>
+                        <p>You can pay with Easypaisa, JazzCash, NayaPay, SadaPay, bank transfer or Binance USDT. Every product page displays the live price in Pakistan, available stock count and warranty coverage upfront, with credentials delivered straight to your private order page and email.</p>
                     </div>
                 </div>
                 <div>

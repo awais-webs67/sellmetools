@@ -249,18 +249,14 @@
             </button>
         </div>
 
-        {{-- Always-visible search on phones --}}
-        <div class="container-x pb-3 md:hidden">
-            <form action="{{ route('home') }}" method="get" class="relative" role="search" x-data="liveSearch" @click.outside="open = false">
-                <label for="mobile-search" class="sr-only">Search products</label>
-                <svg class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                <input id="mobile-search" type="search" name="q" value="{{ request('q') }}" placeholder="Search ChatGPT, Canva, CapCut..." class="input py-2 pl-9 text-sm" x-bind="field">
-                <x-search-suggest />
-            </form>
-        </div>
-
         <div id="mobile-nav" x-show="open" x-cloak x-transition.origin.top class="border-t border-line bg-white lg:hidden">
             <div class="container-x space-y-1 py-4">
+                <form action="{{ route('home') }}" method="get" class="relative mb-3 md:hidden" role="search" x-data="liveSearch" @click.outside="open = false">
+                    <label for="mobile-search" class="sr-only">Search products</label>
+                    <svg class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                    <input id="mobile-search" type="search" name="q" value="{{ request('q') }}" placeholder="Search ChatGPT, Canva, CapCut..." class="input py-2 pl-9 text-sm" x-bind="field">
+                    <x-search-suggest />
+                </form>
                 <a href="{{ route('home') }}" class="block rounded px-3 py-2 font-medium text-ink hover:bg-grey-soft">Shop</a>
                 <a href="{{ route('orders.track') }}" class="block rounded px-3 py-2 font-medium text-ink hover:bg-grey-soft">Track order</a>
                 @auth
