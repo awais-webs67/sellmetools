@@ -57,13 +57,20 @@ Route::post('/api/sync', [StockController::class, 'sync'])
     ->middleware('throttle:30,1')
     ->name('stock.sync');
 
-// Auto-Payment Webhooks (SMS/Notification forwarder + 1-click Telegram approve)
+// Auto-Payment Webhooks (SMS/Notification forwarder + 1-click Telegram & WhatsApp approve/decline)
 Route::match(['get', 'post'], '/api/webhooks/payment-sms', [PaymentWebhookController::class, 'sms'])
     ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
     ->middleware('throttle:120,1')
     ->name('webhooks.payment.sms');
+Route::post('/api/webhooks/telegram', [PaymentWebhookController::class, 'telegram'])
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
+    ->middleware('throttle:120,1')
+    ->name('webhooks.telegram');
 Route::get('/webhooks/payment/{payment}/{action}', [PaymentWebhookController::class, 'quickAction'])
     ->name('webhooks.payment.quick-action');
+Route::match(['get', 'post'], '/quick-order/{order:number}', [PaymentWebhookController::class, 'quickOrder'])
+    ->middleware('throttle:60,1')
+    ->name('webhooks.order.quick');
 
 // Checkout
 Route::get('/checkout/{product:slug}', [CheckoutController::class, 'create'])->name('checkout.create');

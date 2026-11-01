@@ -31,7 +31,8 @@ class StoreSettings extends Page
     protected const KEYS = [
         'store_name', 'store_tagline', 'store_logo', 'announcement', 'currency_symbol',
         'usdt_rate', 'price_rounding', 'order_expiry_minutes',
-        'sms_webhook_secret',
+        'sms_webhook_secret', 'admin_quick_pin',
+        'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
         'telegram_bot_token', 'telegram_admin_chat_id',
         'support_whatsapp', 'support_telegram', 'support_email',
         'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'google_analytics_id',
@@ -169,9 +170,29 @@ class StoreSettings extends Page
                             ->label('Google Analytics 4 ID (Optional)')
                             ->placeholder('G-XXXXXXXXXX'),
                     ]),
-                Section::make('Telegram Admin Bot Alerts')
+                Section::make('1-Tap WhatsApp & Telegram Order Approval / Decline')
+                    ->icon(Heroicon::OutlinedCheckBadge)
+                    ->description('Approve or decline orders in 1 tap directly from WhatsApp or Telegram! When you tap an Approve/Decline link in WhatsApp on your phone, enter this Admin PIN once — your phone will be remembered for 1 year.')
+                    ->columns(['default' => 1, 'sm' => 3])
+                    ->schema([
+                        TextInput::make('admin_quick_pin')
+                            ->label('Admin 1-Tap WhatsApp PIN')
+                            ->placeholder('7860')
+                            ->required()
+                            ->maxLength(20)
+                            ->helperText('Protects WhatsApp 1-tap links so only YOU can approve/decline orders.'),
+                        TextInput::make('whatsapp_callmebot_apikey')
+                            ->label('CallMeBot WhatsApp API Key (Optional)')
+                            ->placeholder('e.g. 1234567')
+                            ->helperText('Optional: auto-send WhatsApp alerts with 1-tap buttons to your Support WhatsApp number.'),
+                        TextInput::make('whatsapp_admin_webhook_url')
+                            ->label('Custom WhatsApp Bot Webhook URL (Optional)')
+                            ->placeholder('https://your-wa-bot.com/send')
+                            ->helperText('Optional: POST JSON {phone, message, approve_url, reject_url}.'),
+                    ]),
+                Section::make('Telegram Admin Bot Alerts (With 1-Tap Approve & Decline Buttons)')
                     ->icon(Heroicon::OutlinedBellAlert)
-                    ->description('Receive instant Telegram alerts on new payments, orders and low supplier balances.')
+                    ->description('Receive instant Telegram messages with [✅ Approve & Deliver] and [❌ Decline] buttons on every payment.')
                     ->columns(['default' => 1, 'sm' => 2])
                     ->schema([
                         TextInput::make('telegram_bot_token')
@@ -183,9 +204,9 @@ class StoreSettings extends Page
                             ->label('Admin Chat ID'),
                         Actions::make([
                             Action::make('testTelegram')
-                                ->label('Send Test Message')
+                                ->label('Send Test Message & Register 1-Tap Webhook')
                                 ->icon(Heroicon::OutlinedPaperAirplane)
-                                ->color('gray')
+                                ->color('primary')
                                 ->action(fn () => $this->sendTelegramTest()),
                         ])->columnSpanFull(),
                     ]),
@@ -243,7 +264,9 @@ class StoreSettings extends Page
         }
 
         $storeName = TelegramNotifier::e((string) ($this->data['store_name'] ?? 'SellMeTools'));
-        $sent = app(TelegramNotifier::class)->send($token, $chatId, "✅ <b>{$storeName}</b>\nTelegram alerts are working.");
+        $notifier = app(TelegramNotifier::class);
+        $notifier->registerWebhook($token);
+        $sent = $notifier->send($token, $chatId, "✅ <b>{$storeName}</b>\nTelegram 1-Tap Approve &amp; Decline alerts are active!");
 
         $sent
             ? Notification::make()->title('Test message sent')->success()->send()

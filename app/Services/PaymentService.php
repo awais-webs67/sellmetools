@@ -104,20 +104,27 @@ class PaymentService
         ]);
 
         $this->telegram->notifyAdmin(
-            "💰 <b>New payment to verify</b>\n".
+            "💰 <b>New Payment to Verify</b>\n".
             "Order: <b>{$order->number}</b>\n".
             $order->items->map(fn ($i) => '• '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
             'Method: '.T::e($order->paymentMethod?->name)."\n".
             "Amount: <b>{$payment->currency} {$payment->amount}</b>\n".
             'TID: <code>'.T::e($payment->transaction_id).'</code>'.
-            ($payment->sender_number ? "\nSender: ".T::e($payment->sender_number) : ''),
+            ($payment->sender_number ? "\nSender: ".T::e($payment->sender_number) : '').
+            "\nCustomer: ".T::e($order->email).($order->phone ? ' ('.T::e($order->phone).')' : ''),
             [
                 [
                     ['text' => '✅ Approve & Auto-Deliver', 'url' => $approveUrl],
-                    ['text' => '❌ Reject TID', 'url' => $rejectUrl],
+                    ['text' => '❌ Decline Payment', 'url' => $rejectUrl],
+                ],
+                [
+                    ['text' => '⚡ In-Chat Approve', 'callback_data' => "approve:{$payment->id}"],
+                    ['text' => '🚫 In-Chat Decline', 'callback_data' => "reject:{$payment->id}"],
                 ],
             ]
         );
+
+        app(WhatsAppNotifier::class)->notifyAdminPayment($order, $payment, $approveUrl, $rejectUrl);
 
         return $payment;
     }

@@ -17,15 +17,19 @@
     $amountFormatted = $method && $method->currency !== 'PKR' ? $amountDue.' '.$method->currency : money($amountDue ?? $order->total);
     $isBinance = $method && in_array($method->code, ['binance', 'usdt_trc20'], true);
 
+    $quickApproveUrl = route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']);
+    $quickRejectUrl = route('webhooks.order.quick', ['order' => $order->number, 'do' => 'reject']);
+
     $waTemplate = "Assalam o Alaikum! I have placed an order on ".setting('store_name').".\n\n"
         ."🧾 *Order ID:* {$order->number}\n"
         ."📦 *Product:* {$itemsSummary}\n"
         ."💰 *Amount:* {$amountFormatted}\n"
         ."💳 *Payment Method:* ".($method?->name ?? 'Manual')."\n"
         ."🔑 *Transaction ID (TID):* ".($order->latestPayment?->transaction_id ?? '[Enter TID / Attached Screenshot]')."\n"
-        ."📧 *Email:* {$order->email}\n"
-        ."🔗 *Order Link:* ".$order->customerUrl()."\n\n"
-        ."Please verify my payment and deliver my order. Thank you!";
+        .($order->latestPayment?->sender_number || $order->phone ? "📱 *Sender:* ".($order->latestPayment?->sender_number ?: $order->phone)."\n" : '')
+        ."📧 *Email:* {$order->email}\n\n"
+        ."✅ *Admin 1-Tap Approve & Deliver:*\n{$quickApproveUrl}\n\n"
+        ."❌ *Admin 1-Tap Decline:*\n{$quickRejectUrl}";
 @endphp
 <x-layouts.store :title="'Order '.$order->number" robots="noindex, nofollow">
     <div class="container-x py-8 lg:py-12" x-data="orderWatcher(@js($statusUrl), @js($s->value))">

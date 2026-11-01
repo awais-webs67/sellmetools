@@ -94,6 +94,16 @@ class StorefrontTest extends TestCase
             'transaction_id' => 'TID: ABC-123-4567',
             'sender_number' => '03009998888',
         ])->assertSessionHas('error');
+
+        // 1-Tap WhatsApp link requires Admin PIN for unauthenticated visitor, then approves once PIN is provided
+        $this->get(route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']))
+            ->assertOk()
+            ->assertSee('Unlock 1-Tap WhatsApp Approval');
+
+        $this->post(route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']), [
+            'pin' => '7860',
+            'do' => 'approve',
+        ])->assertRedirect();
     }
 
     public function test_track_lookup_requires_matching_email(): void

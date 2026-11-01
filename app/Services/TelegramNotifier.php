@@ -5,11 +5,12 @@ namespace App\Services;
 use App\Models\Setting;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Sends admin alerts to Telegram. Never throws – notifications must not break business flows.
- * In web requests the message is sent after the response is flushed to the browser.
+ * Sends admin alerts to Telegram with 1-Tap Approve & Decline buttons.
+ * Supports both in-chat callback buttons (via webhook) and signed 1-tap web links.
  */
 class TelegramNotifier
 {
@@ -24,8 +25,8 @@ class TelegramNotifier
             return;
         }
 
-        $token = Setting::get('telegram_bot_token');
-        $chatId = Setting::get('telegram_admin_chat_id');
+        $token = (string) Setting::get('telegram_bot_token');
+        $chatId = (string) Setting::get('telegram_admin_chat_id');
 
         if (app()->runningInConsole() || app()->runningUnitTests()) {
             $this->send($token, $chatId, $html, $inlineKeyboard);
@@ -62,6 +63,65 @@ class TelegramNotifier
             Log::warning('Telegram send exception: '.$e->getMessage());
 
             return false;
+        }
+    }
+
+    public function registerWebhook(string $token): bool
+    {
+        $webhookUrl = url('/api/webhooks/telegram');
+        if (! Str::startsWith($webhookUrl, 'https://')) {
+            return false;
+        }
+
+        try {
+            $secret = substr(hash('sha256', (string) Setting::get('sms_webhook_secret', 'smt_tg_secret')), 0, 32);
+            $response = Http::timeout(8)->post("https://api.telegram.org/bot{$token}/setWebhook", [
+                'url' => $webhookUrl,
+                'secret_token' => $secret,
+                'allowed_updates' => ['callback_query', 'message'],
+            ]);
+
+            return $response->successful();
+        } catch (Throwable $e) {
+            Log::warning('Telegram setWebhook error: '.$e->getMessage());
+
+            return false;
+        }
+    }
+
+    public function answerCallback(string $callbackQueryId, string $text, bool $alert = true): void
+    {
+        $token = (string) Setting::get('telegram_bot_token');
+        if ($token === '') {
+            return;
+        }
+
+        try {
+            Http::timeout(6)->post("https://api.telegram.org/bot{$token}/answerCallbackQuery", [
+                'callback_query_id' => $callbackQueryId,
+                'text' => Str::limit($text, 190),
+                'show_alert' => $alert,
+            ]);
+        } catch (Throwable) {
+        }
+    }
+
+    public function editMessage(string $chatId, int $messageId, string $html): void
+    {
+        $token = (string) Setting::get('telegram_bot_token');
+        if ($token === '') {
+            return;
+        }
+
+        try {
+            Http::timeout(6)->post("https://api.telegram.org/bot{$token}/editMessageText", [
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+                'text' => $html,
+                'parse_mode' => 'HTML',
+                'disable_web_page_preview' => true,
+            ]);
+        } catch (Throwable) {
         }
     }
 
