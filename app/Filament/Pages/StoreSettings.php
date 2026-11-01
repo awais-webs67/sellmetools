@@ -5,11 +5,14 @@ namespace App\Filament\Pages;
 use App\Filament\Support\GalleryPicker;
 use App\Filament\Support\Listings;
 use App\Models\Setting;
+use App\Services\EmailNotifier;
 use App\Services\TelegramNotifier;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Actions;
@@ -41,6 +44,9 @@ class StoreSettings extends Page
         'telegram_bot_token', 'telegram_admin_chat_id',
         'support_whatsapp', 'support_telegram', 'support_email',
         'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'google_analytics_id',
+        'mail_enabled', 'mail_send_order_delivered',
+        'mail_host', 'mail_port', 'mail_username', 'mail_password',
+        'mail_encryption', 'mail_from_address', 'mail_from_name',
     ];
 
     /** Changing these re-prices every supplier-sourced product. */
@@ -317,6 +323,79 @@ class StoreSettings extends Page
                                 ->icon(Heroicon::OutlinedCheck)
                                 ->color('primary')
                                 ->action(fn () => $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'google_analytics_id'], 'SEO settings saved')),
+                        ])->columnSpanFull(),
+                    ]),
+
+                Section::make('Email & SMTP Settings (Order Delivery & Password Reset)')
+                    ->icon(Heroicon::OutlinedEnvelope)
+                    ->description('Configure SMTP to automatically email delivered credentials to customers and send password reset links.')
+                    ->columns(['default' => 1, 'sm' => 2])
+                    ->schema([
+                        Toggle::make('mail_enabled')
+                            ->label('Enable Email Notifications via SMTP')
+                            ->default(true)
+                            ->helperText('Turns on all outgoing emails from this store.'),
+                        Toggle::make('mail_send_order_delivered')
+                            ->label('Auto-Email Delivered Credentials to Customers')
+                            ->default(true)
+                            ->helperText('When enabled, customers receive their credentials in their inbox as soon as an order is verified.'),
+                        TextInput::make('mail_host')
+                            ->label('SMTP Host')
+                            ->placeholder('e.g. smtp.titan.email or smtp.gmail.com or smtp.hostinger.com'),
+                        TextInput::make('mail_port')
+                            ->label('SMTP Port')
+                            ->placeholder('465 or 587')
+                            ->default('465'),
+                        Select::make('mail_encryption')
+                            ->label('Encryption')
+                            ->options([
+                                'ssl' => 'SSL (Port 465)',
+                                'tls' => 'TLS (Port 587)',
+                                'none' => 'None',
+                            ])
+                            ->default('ssl'),
+                        TextInput::make('mail_username')
+                            ->label('SMTP Username / Email')
+                            ->placeholder('support@yourdomain.com'),
+                        TextInput::make('mail_password')
+                            ->label('SMTP Password / App Password')
+                            ->password()
+                            ->revealable()
+                            ->placeholder('••••••••'),
+                        TextInput::make('mail_from_address')
+                            ->label('From Email Address (Optional)')
+                            ->placeholder('Leave empty to use SMTP Username'),
+                        TextInput::make('mail_from_name')
+                            ->label('From Display Name')
+                            ->placeholder('SellMeTools'),
+                        Actions::make([
+                            Action::make('saveMailSection')
+                                ->label('Save Email & SMTP Settings')
+                                ->icon(Heroicon::OutlinedCheck)
+                                ->color('primary')
+                                ->action(fn () => $this->saveKeys([
+                                    'mail_enabled', 'mail_send_order_delivered', 'mail_host', 'mail_port',
+                                    'mail_encryption', 'mail_username', 'mail_password', 'mail_from_address', 'mail_from_name',
+                                ], 'Email & SMTP settings saved')),
+                            Action::make('testSmtpEmail')
+                                ->label('Send Test Email')
+                                ->icon(Heroicon::OutlinedPaperAirplane)
+                                ->color('gray')
+                                ->form([
+                                    TextInput::make('recipient')
+                                        ->label('Recipient Email Address')
+                                        ->email()
+                                        ->required()
+                                        ->default(fn () => Setting::get('support_email') ?: 'test@example.com'),
+                                ])
+                                ->action(function (array $data): void {
+                                    $res = app(EmailNotifier::class)->sendTest($data['recipient']);
+                                    if ($res['success']) {
+                                        Notification::make()->title('Email Sent')->body($res['message'])->success()->send();
+                                    } else {
+                                        Notification::make()->title('SMTP Test Failed')->body($res['message'])->danger()->send();
+                                    }
+                                }),
                         ])->columnSpanFull(),
                     ]),
             ]);

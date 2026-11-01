@@ -35,15 +35,32 @@ class Setting extends Model
         'announcement' => '',
         'seo_title' => 'Buy ChatGPT Plus, Canva Pro, CapCut Pro & Digital Subscriptions in Pakistan',
         'seo_description' => 'Pakistan\'s #1 digital tools & subscriptions store. Buy genuine ChatGPT Plus, Canva Pro, CapCut Pro, Cursor, Netflix, VPNs & cloud accounts at wholesale rates. Instant delivery via Easypaisa, JazzCash, NayaPay, SadaPay & Binance.',
-        'seo_keywords' => 'buy chatgpt plus in pakistan, canva pro pakistan, capcut pro price in pakistan, digital subscriptions pakistan, buy ai tools easypaisa jazzcash, cheap premium accounts pakistan, sellmetools',
+        'seo_keywords' => 'buy chatgpt plus in pakistan, chatgpt 4o price in pakistan, canva pro 1 year pakistan, capcut pro subscription pkr, midjourney subscription pakistan, cursor pro subscription pakistan, claude pro ai pakistan, netflix shared account pkr, cheap premium tools pakistan, buy digital subscriptions easypaisa, buy software jazzcash, binance usdt digital store pakistan, sellmetools pakistan',
         'google_site_verification' => '',
         'google_analytics_id' => '',
+        'mail_enabled' => '1',
+        'mail_send_order_delivered' => '1',
+        'mail_host' => '',
+        'mail_port' => '465',
+        'mail_username' => '',
+        'mail_password' => '',
+        'mail_encryption' => 'ssl',
+        'mail_from_address' => '',
+        'mail_from_name' => 'SellMeTools',
     ];
 
     public static function values(): array
     {
         return Cache::rememberForever(self::CACHE_KEY, function () {
-            return array_merge(self::DEFAULTS, static::query()->pluck('value', 'key')->all());
+            $db = static::query()->pluck('value', 'key')->all();
+            $out = self::DEFAULTS;
+            foreach ($db as $k => $v) {
+                if ($v !== null && $v !== '') {
+                    $out[$k] = $v;
+                }
+            }
+
+            return $out;
         });
     }
 

@@ -152,56 +152,20 @@
             $hasResellerDiscount = $effectivePrice < (float) $product->price;
         @endphp
 
-        {{-- TOP SECTION: Product Image Showcase + Sticky Buy Card --}}
-        <div class="grid gap-6 lg:grid-cols-[1.1fr_.9fr] lg:items-start"
+        {{-- TOP SECTION: Product Image + Sticky Buy Card --}}
+        <div class="mt-4 grid gap-6 lg:grid-cols-[1fr_440px] lg:items-start"
              x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, @js(money($effectivePrice)), {{ (float) $effectivePrice }})"
              data-stock-id="{{ $product->id }}">
 
-            {{-- Product Media Display --}}
-            <div class="space-y-4">
-                <div class="card relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-[#1F070E] to-[#120408] border border-line shadow-lg">
-                    @if ($img = $product->imageUrl())
-                        <img src="{{ $img }}" alt="{{ $product->name }}" class="h-full w-full object-cover">
-                    @else
-                        <div class="flex h-full w-full items-center justify-center p-6 text-center">
-                            <div>
-                                <span class="display text-4xl sm:text-6xl text-white">{{ $product->name }}</span>
-                                <p class="mt-2 text-xs sm:text-sm text-white/60 uppercase tracking-widest">Digital Subscription</p>
-                            </div>
-                        </div>
-                    @endif
-
-                    {{-- Badges floating over image --}}
-                    <div class="absolute top-3.5 left-3.5 flex flex-wrap gap-2">
-                        @if ($product->category)
-                            <span class="rounded-full bg-black/60 px-3 py-1 text-[11px] font-bold text-white backdrop-blur">
-                                {{ $product->category->name }}
-                            </span>
-                        @endif
-                        <span class="rounded-full bg-[#16794B] px-3 py-1 text-[11px] font-bold text-white shadow">
-                            ⚡ Instant Delivery
-                        </span>
+            {{-- Product Image --}}
+            <div class="card aspect-[16/10] overflow-hidden bg-grey-soft">
+                @if ($img = $product->imageUrl())
+                    <img src="{{ $img }}" alt="{{ $product->name }}" class="h-full w-full object-cover">
+                @else
+                    <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand to-ink">
+                        <span class="display px-6 text-center text-3xl sm:text-6xl text-white">{{ $product->name }}</span>
                     </div>
-                </div>
-
-                {{-- Quick Trust Strip under Image --}}
-                <div class="grid grid-cols-3 gap-2.5 sm:gap-3 text-center">
-                    <div class="card p-3 sm:p-3.5 bg-white">
-                        <span class="block text-lg sm:text-xl">⚡</span>
-                        <p class="font-bold text-xs sm:text-sm text-ink mt-0.5">Instant Access</p>
-                        <p class="text-[10px] sm:text-xs text-muted">Auto credentials</p>
-                    </div>
-                    <div class="card p-3 sm:p-3.5 bg-white">
-                        <span class="block text-lg sm:text-xl">🛡️</span>
-                        <p class="font-bold text-xs sm:text-sm text-ink mt-0.5">Full Warranty</p>
-                        <p class="text-[10px] sm:text-xs text-muted">Replacement backup</p>
-                    </div>
-                    <div class="card p-3 sm:p-3.5 bg-white">
-                        <span class="block text-lg sm:text-xl">🇵🇰</span>
-                        <p class="font-bold text-xs sm:text-sm text-ink mt-0.5">Local Pay</p>
-                        <p class="text-[10px] sm:text-xs text-muted">Easypaisa &amp; JazzCash</p>
-                    </div>
-                </div>
+                @endif
             </div>
 
             {{-- Main Buy Box (Sticky on Desktop) --}}

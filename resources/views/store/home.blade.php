@@ -98,72 +98,37 @@
             <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(155,27,48,.55),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(94,16,33,.6),transparent_50%)]" aria-hidden="true"></div>
             <div class="pointer-events-none absolute inset-0 opacity-[.07] [background-image:linear-gradient(rgba(255,255,255,.6)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.6)_1px,transparent_1px)] [background-size:40px_40px]" aria-hidden="true"></div>
 
-            <div class="container-x relative py-10 sm:py-14 lg:py-20">
-                <div class="grid items-center gap-10 lg:grid-cols-[1.15fr_.85fr]">
-                    {{-- Left: headline + search --}}
-                    <div class="text-center lg:text-left">
-                        <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-wider text-white/90 uppercase">
-                            <span class="h-2 w-2 rounded-full bg-[#22c55e] live-dot"></span>
-                            Verified Digital Store · Pakistan 🇵🇰
-                        </span>
+            <div class="container-x relative py-12 sm:py-16 lg:py-20 text-center">
+                <div class="mx-auto max-w-3xl">
+                    <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1 text-[11px] font-semibold tracking-wider text-white/90 uppercase">
+                        <span class="h-2 w-2 rounded-full bg-[#22c55e] live-dot"></span>
+                        Verified Digital Store
+                    </span>
 
-                        <h1 class="display mt-4 text-[clamp(38px,6.5vw,76px)] leading-[0.95] text-white">
-                            Premium AI Tools &amp;<br class="hidden sm:block">
-                            <span class="text-[#ff6b81]">Subscriptions</span> in PKR
-                        </h1>
+                    <h1 class="display mt-4 text-[clamp(40px,7vw,80px)] leading-[0.95] text-white">
+                        Premium AI Tools &amp;<br class="hidden sm:block">
+                        <span class="text-[#ff6b81]">Subscriptions</span> in PKR
+                    </h1>
 
-                        <p class="mx-auto mt-4 max-w-xl text-sm sm:text-base leading-relaxed text-white/75 lg:mx-0">
-                            Buy ChatGPT, Canva, CapCut, Cursor and more with local payment methods. Clear prices, live stock and delivery straight to your order page.
-                        </p>
+                    <p class="mx-auto mt-4 max-w-xl text-sm sm:text-base leading-relaxed text-white/75">
+                        Buy ChatGPT, Canva, CapCut, Cursor and more with local payment methods. Clear prices, live stock and delivery straight to your order page.
+                    </p>
 
-                        <form action="{{ route('home') }}#products" method="get" role="search" class="mx-auto mt-6 flex max-w-xl items-center gap-2 rounded-xl bg-white p-1.5 shadow-2xl lg:mx-0">
-                            <label for="hero-search" class="sr-only">Search products</label>
-                            <svg class="ml-2.5 h-5 w-5 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                            <input id="hero-search" type="search" name="q" placeholder="Search e.g. ChatGPT, Canva, CapCut…" class="min-w-0 flex-1 border-0 bg-transparent px-1 py-2.5 text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-0">
-                            <button type="submit" class="btn btn-primary shrink-0 px-4 py-2.5 text-sm">Search</button>
-                        </form>
+                    <form action="{{ route('home') }}#products" method="get" role="search" class="mx-auto mt-7 flex max-w-xl items-center gap-2 rounded-xl bg-white p-1.5 shadow-2xl">
+                        <label for="hero-search" class="sr-only">Search products</label>
+                        <svg class="ml-2.5 h-5 w-5 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                        <input id="hero-search" type="search" name="q" placeholder="Search e.g. ChatGPT, Canva, CapCut…" class="min-w-0 flex-1 border-0 bg-transparent px-1 py-2.5 text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-0">
+                        <button type="submit" class="btn btn-primary shrink-0 px-5 py-2.5 text-sm font-bold">Search</button>
+                    </form>
 
-                        <div class="mt-5 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
-                            <a href="#products" class="btn bg-white text-ink hover:bg-brand-tint px-5 py-2.5 text-sm font-bold">Browse All Products ↓</a>
-                            @if ($waNumber !== '')
-                                <a href="https://wa.me/{{ $waNumber }}" target="_blank" rel="noopener" class="btn border border-white/25 text-white hover:bg-white/10 px-5 py-2.5 text-sm">
-                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.5 14.4c-.3-.1-1.8-.9-2-1s-.5-.1-.7.1-.8 1-1 1.2-.4.2-.7.1a8.2 8.2 0 0 1-4-3.5c-.3-.5.3-.5.9-1.6.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6a1.2 1.2 0 0 0-.9.4 3.6 3.6 0 0 0-1.1 2.7 6.3 6.3 0 0 0 1.3 3.3 14.4 14.4 0 0 0 5.5 4.9c2 .9 2.8 1 3.9.8a3.3 3.3 0 0 0 2.1-1.5 2.7 2.7 0 0 0 .2-1.5c-.1-.1-.3-.2-.6-.3zM12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2z"/></svg>
-                                    Ask on WhatsApp
-                                </a>
-                            @endif
-                        </div>
-                    </div>
-
-                    {{-- Right: trust panel --}}
-                    <div class="mx-auto w-full max-w-md lg:max-w-none">
-                        <div class="rounded-2xl border border-white/10 bg-white/[.06] p-5 backdrop-blur-sm sm:p-6">
-                            <div class="grid grid-cols-2 gap-3">
-                                <div class="rounded-xl bg-white/[.07] p-4">
-                                    <p class="display text-4xl text-white">{{ number_format($stats['products']) }}</p>
-                                    <p class="mt-1 text-[11px] font-medium tracking-wide text-white/60 uppercase">Products listed</p>
-                                </div>
-                                <div class="rounded-xl bg-white/[.07] p-4">
-                                    <p class="display text-4xl text-white">{{ $stats['delivered'] >= 100 ? number_format($stats['delivered']) : 'Instant' }}</p>
-                                    <p class="mt-1 text-[11px] font-medium tracking-wide text-white/60 uppercase">{{ $stats['delivered'] >= 100 ? 'Orders delivered' : 'Auto Delivery' }}</p>
-                                </div>
-                            </div>
-
-                            <ul class="mt-4 space-y-2.5 text-sm">
-                                @foreach ([
-                                    ['⚡', 'Auto delivery for in-stock items', 'Credentials appear on your order page after verification.'],
-                                    ['🔒', 'Unique Transaction ID check', 'Every TID is verified once — no duplicate payments.'],
-                                    ['🛡️', 'Warranty on every product', 'Terms are listed clearly on each product page.'],
-                                ] as [$icon, $title, $text])
-                                    <li class="flex gap-3 rounded-xl border border-white/10 bg-white/[.04] p-3">
-                                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/40 text-base" aria-hidden="true">{{ $icon }}</span>
-                                        <div class="min-w-0">
-                                            <p class="font-semibold text-white">{{ $title }}</p>
-                                            <p class="text-xs text-white/60">{{ $text }}</p>
-                                        </div>
-                                    </li>
-                                @endforeach
-                            </ul>
-                        </div>
+                    <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+                        <a href="#products" class="btn bg-white text-ink hover:bg-brand-tint px-6 py-3 text-sm font-bold shadow-md">Browse All Products ↓</a>
+                        @if ($waNumber !== '')
+                            <a href="https://wa.me/{{ $waNumber }}" target="_blank" rel="noopener" class="btn border border-white/25 text-white hover:bg-white/10 px-6 py-3 text-sm font-semibold">
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.5 14.4c-.3-.1-1.8-.9-2-1s-.5-.1-.7.1-.8 1-1 1.2-.4.2-.7.1a8.2 8.2 0 0 1-4-3.5c-.3-.5.3-.5.9-1.6.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6a1.2 1.2 0 0 0-.9.4 3.6 3.6 0 0 0-1.1 2.7 6.3 6.3 0 0 0 1.3 3.3 14.4 14.4 0 0 0 5.5 4.9c2 .9 2.8 1 3.9.8a3.3 3.3 0 0 0 2.1-1.5 2.7 2.7 0 0 0 .2-1.5c-.1-.1-.3-.2-.6-.3zM12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2z"/></svg>
+                                Ask on WhatsApp
+                            </a>
+                        @endif
                     </div>
                 </div>
             </div>

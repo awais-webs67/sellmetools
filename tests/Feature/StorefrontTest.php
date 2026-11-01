@@ -10,6 +10,8 @@ use App\Services\InventoryService;
 use App\Services\OrderService;
 use App\Services\PaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Tests\Concerns\CreatesStore;
 use Tests\TestCase;
 
@@ -33,6 +35,7 @@ class StorefrontTest extends TestCase
         $this->get(route('orders.track'))->assertOk();
         $this->get(route('login'))->assertOk();
         $this->get(route('register'))->assertOk();
+        $this->get(route('password.request'))->assertOk();
 
         foreach (['terms', 'privacy', 'refund', 'contact', 'faq'] as $page) {
             $this->get(route('pages.show', $page))->assertOk();
@@ -310,5 +313,30 @@ class StorefrontTest extends TestCase
 
         $this->post(route('orders.lookup'), ['number' => strtolower($order->number), 'email' => 'buyer@example.com'])
             ->assertRedirect($order->customerUrl());
+    }
+
+    public function test_customer_can_reset_password(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'resetuser@example.com',
+            'password' => bcrypt('oldpassword123'),
+        ]);
+
+        $this->get(route('password.request'))->assertOk();
+
+        $token = Password::broker()->createToken($user);
+
+        $this->get(route('password.reset', ['token' => $token, 'email' => $user->email]))
+            ->assertOk()
+            ->assertSee($user->email);
+
+        $this->post(route('password.update'), [
+            'token' => $token,
+            'email' => $user->email,
+            'password' => 'newpassword786',
+            'password_confirmation' => 'newpassword786',
+        ])->assertRedirect(route('login'));
+
+        $this->assertTrue(Hash::check('newpassword786', $user->refresh()->password));
     }
 }

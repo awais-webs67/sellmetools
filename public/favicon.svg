@@ -1,39 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
     <defs>
-        <linearGradient id="smtHexBg" x1="6" y1="4" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+        <linearGradient id="smtBrandGrad" x1="4" y1="4" x2="60" y2="60" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stop-color="#E11D48"/>
-            <stop offset="45%" stop-color="#9B1B30"/>
-            <stop offset="100%" stop-color="#1F040A"/>
+            <stop offset="50%" stop-color="#9B1B30"/>
+            <stop offset="100%" stop-color="#1A0308"/>
         </linearGradient>
-        <linearGradient id="smtGleam" x1="12" y1="8" x2="52" y2="28" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.35"/>
-            <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.0"/>
+        <linearGradient id="smtSheen" x1="8" y1="6" x2="48" y2="28" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
         </linearGradient>
-        <linearGradient id="smtSymbol" x1="18" y1="14" x2="46" y2="50" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="#FFFFFF"/>
-            <stop offset="60%" stop-color="#FFF1F2"/>
-            <stop offset="100%" stop-color="#FECDD3"/>
-        </linearGradient>
-        <filter id="smtShadow" x="12" y="10" width="40" height="46" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-            <feDropShadow dx="0" dy="2.5" stdDeviation="2" flood-color="#000000" flood-opacity="0.45"/>
-        </filter>
     </defs>
 
-    <!-- Outer Hexagonal Squircle Brand Base -->
-    <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#smtHexBg)"/>
-    <rect x="4" y="4" width="56" height="56" rx="16" stroke="#FFFFFF" stroke-opacity="0.2" stroke-width="1.5"/>
+    <!-- Clean Rounded Squircle Badge Base -->
+    <rect x="3" y="3" width="58" height="58" rx="16" fill="url(#smtBrandGrad)"/>
+    <rect x="3" y="3" width="58" height="58" rx="16" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="1.5"/>
 
-    <!-- Subtle Glass Corner Highlight -->
-    <path d="M6 20C6 11.1634 13.1634 4 22 4H42C30 4 6 16 6 36V20Z" fill="url(#smtGleam)"/>
+    <!-- Subtle Glass Sheen Top Corner -->
+    <path d="M5 19C5 11.268 11.268 5 19 5H38C26 5 5 18 5 35V19Z" fill="url(#smtSheen)"/>
 
-    <!-- Inner Modern "S" + Digital Speed Blade Emblem -->
-    <g filter="url(#smtShadow)">
-        <!-- Upper Hook / Flow -->
-        <path d="M42 16H24C20.6863 16 18 18.6863 18 22C18 25.3137 20.6863 28 24 28H38L29 39H44L47 34H36.5L42.5 26.5C44.4 24.2 44.2 20.8 42 18.5L42 16Z" fill="url(#smtSymbol)" fill-rule="evenodd"/>
-        <!-- Lower Hook / Flow -->
-        <path d="M22 48H40C43.3137 48 46 45.3137 46 42C46 38.6863 43.3137 36 40 36H26L35 25H20L17 30H27.5L21.5 37.5C19.6 39.8 19.8 43.2 22 45.5L22 48Z" fill="url(#smtSymbol)" fill-rule="evenodd"/>
-        <!-- Central Tech Core Spark -->
-        <circle cx="32" cy="32" r="3.2" fill="#E11D48"/>
-        <circle cx="32" cy="32" r="1.6" fill="#FFFFFF"/>
-    </g>
+    <!-- Professional Tech Monogram "S" with Integrated Lightning Power Bolt -->
+    <!-- Top Arc & Bolt Tail -->
+    <path d="M43 17H25C20.5817 17 17 20.5817 17 25C17 29.4183 20.5817 33 25 33H39L30 45H43L47 39H35L41 31C43.5 28.5 43.5 24 41 20.5L43 17Z" fill="#FFFFFF"/>
+    <!-- Bottom Hook Arc -->
+    <path d="M21 47H39C43.4183 47 47 43.4183 47 39C47 34.5817 43.4183 31 39 31H25L34 19H21L17 25H29L23 33C20.5 35.5 20.5 40 23 43.5L21 47Z" fill="#FFFFFF" fill-opacity="0.95"/>
+    <!-- Central Energy Spark Diamond -->
+    <polygon points="32,27 36,32 32,37 28,32" fill="#E11D48"/>
 </svg>

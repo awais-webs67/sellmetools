@@ -383,6 +383,7 @@ class FulfillmentService
                 '👤 <b>Customer:</b> '.T::e($order->email)
             );
             app(WhatsAppNotifier::class)->notifyOrderDelivered($order);
+            app(EmailNotifier::class)->sendOrderDelivered($order);
         } else {
             $reasonText = implode(' | ', array_unique($problems)) ?: 'Order on hold — awaiting admin stock dispatch';
             $order->update([
@@ -390,7 +391,7 @@ class FulfillmentService
                 'admin_note' => $reasonText,
             ]);
 
-            $adminOrderUrl = url('/admin/orders/'.$order->id);
+            $adminOrderUrl = route('filament.admin.resources.orders.view', ['record' => $order->number]);
             $quickControlUrl = route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']);
 
             $this->telegram->notifyAdmin(
