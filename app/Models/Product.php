@@ -168,43 +168,4 @@ class Product extends Model
             (string) Setting::get('store_name', 'SellMeTools'),
         ]));
     }
-
-    public function seoTitle(): string
-    {
-        if (filled($this->meta_title)) {
-            return (string) $this->meta_title;
-        }
-
-        return "Buy {$this->name} in Pakistan – Instant Delivery";
-    }
-
-    public function seoDescription(): string
-    {
-        if (filled($this->meta_description)) {
-            return (string) $this->meta_description;
-        }
-
-        $base = trim(preg_replace('/\s+/', ' ', strip_tags((string) ($this->short_description ?: $this->description))));
-        if ($base !== '') {
-            return Str::limit("{$this->name} (".money($this->price)."): {$base} Pay via Easypaisa, JazzCash, NayaPay, SadaPay or Binance.", 160);
-        }
-
-        return Str::limit("Buy {$this->name} online in Pakistan for just ".money($this->price).'. Instant credentials delivery with Easypaisa, JazzCash, NayaPay, SadaPay & Binance.', 160);
-    }
-
-    public function seoKeywords(): string
-    {
-        if (filled($this->meta_keywords)) {
-            return (string) $this->meta_keywords;
-        }
-
-        return implode(', ', array_filter([
-            $this->name,
-            "buy {$this->name} in Pakistan",
-            "{$this->name} price in Pakistan",
-            "{$this->name} Easypaisa JazzCash",
-            $this->category?->name,
-            (string) Setting::get('store_name', 'SellMeTools'),
-        ]));
-    }
 }
