@@ -141,7 +141,7 @@ class SeoController extends Controller
         $products = Product::query()->visible()->with('category')->orderByDesc('is_featured')->orderBy('sort')->get();
 
         $md = [];
-        $md[] = "# {$storeName} – Digital Tools & Subscriptions Store in Pakistan";
+        $md[] = "# {$storeName}: Digital Tools & Subscriptions Store in Pakistan";
         $md[] = '';
         $md[] = "> {$desc}";
         $md[] = '';
@@ -165,7 +165,7 @@ class SeoController extends Controller
             $stockStatus = ! $p->inStock() ? 'Out of Stock' : ($p->stock_unlimited ? 'In Stock (Unlimited)' : "In Stock ({$p->available_stock} available)");
             $priceStr = money($p->price);
             $catName = $p->category?->name ?? 'General';
-            $md[] = "- **[{$p->name}](".route('products.show', $p).")** — Price: **{$priceStr}** | Category: {$catName} | Status: {$stockStatus}";
+            $md[] = "- **[{$p->name}](".route('products.show', $p).")**: Price: **{$priceStr}** | Category: {$catName} | Status: {$stockStatus}";
             if ($p->short_description) {
                 $md[] = "  - Summary: {$p->short_description}";
             }

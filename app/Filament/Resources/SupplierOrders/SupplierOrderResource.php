@@ -95,12 +95,12 @@ class SupplierOrderResource extends Resource
                     ->label('Vendor Order ID')
                     ->searchable()
                     ->copyable()
-                    ->placeholder('—'),
+                    ->placeholder('-'),
                 TextColumn::make('cost')
                     ->label('Cost')
                     ->formatStateUsing(fn ($state, SupplierOrder $r): string => $state !== null
                         ? Money::currency($state, $r->supplier?->currency ?? 'USDT')
-                        : '—')
+                        : '-')
                     ->sortable(),
                 TextColumn::make('status')
                     ->badge()
@@ -109,7 +109,7 @@ class SupplierOrderResource extends Resource
                     ->label('Error / Info')
                     ->limit(45)
                     ->color('danger')
-                    ->placeholder('—'),
+                    ->placeholder('-'),
                 TextColumn::make('created_at')
                     ->label('Time')
                     ->since()
@@ -140,7 +140,7 @@ class SupplierOrderResource extends Resource
                             ->columns(2)
                             ->schema([
                                 TextEntry::make('supplier.name')->label('Vendor'),
-                                TextEntry::make('external_order_id')->label('Vendor Order ID')->placeholder('—'),
+                                TextEntry::make('external_order_id')->label('Vendor Order ID')->placeholder('-'),
                                 TextEntry::make('request_id')->label('Request ID'),
                                 TextEntry::make('status')->badge()->color(fn (SupplierOrderStatus $state): string => $state->color()),
                                 TextEntry::make('error')->label('Error Message')->color('danger')->columnSpanFull()->visible(fn (): bool => filled($r->error)),
@@ -181,7 +181,7 @@ class SupplierOrderResource extends Resource
                         $order = app(FulfillmentService::class)->fulfill($order);
 
                         Notification::make()
-                            ->title('Fulfillment retried — Order is now '.$order->status->label())
+                            ->title('Fulfillment retried: Order is now '.$order->status->label())
                             ->color($order->status === OrderStatus::Completed ? 'success' : 'warning')
                             ->send();
                     }),
@@ -213,7 +213,7 @@ class SupplierOrderResource extends Resource
                             ->orderBy('name')
                             ->get()
                             ->mapWithKeys(fn (SupplierProduct $sp) => [
-                                $sp->id => "{$sp->name} — {$sp->cost} {$sp->supplier->currency} (Stock: ".($sp->unlimited_stock ? '∞' : (int) $sp->stock).')',
+                                $sp->id => "{$sp->name}: {$sp->cost} {$sp->supplier->currency} (Stock: ".($sp->unlimited_stock ? '∞' : (int) $sp->stock).')',
                             ])
                             ->all()
                         : [])

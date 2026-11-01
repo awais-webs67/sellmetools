@@ -1,37 +1,42 @@
 @props(['title', 'eyebrow' => 'Information'])
 <x-layouts.store :title="$title">
-    <header class="border-b border-line bg-paper">
+    {{-- Header Banner --}}
+    <div class="bg-gradient-to-br from-[#1F070E] via-[#2B0912] to-[#120408] text-white py-10 sm:py-14">
         <div class="container-x">
-            <div class="mx-auto max-w-3xl py-12 sm:py-16">
-                <nav class="text-sm text-muted" aria-label="Breadcrumb">
+            <div class="mx-auto max-w-4xl">
+                <nav class="text-xs text-white/60 mb-3" aria-label="Breadcrumb">
                     <ol class="flex items-center gap-2">
-                        <li><a href="{{ route('home') }}" class="transition hover:text-ink">Home</a></li>
+                        <li><a href="{{ route('home') }}" class="hover:text-white transition">Home</a></li>
                         <li aria-hidden="true">/</li>
-                        <li class="text-ink" aria-current="page">{{ $eyebrow }}</li>
+                        <li class="text-white font-medium">{{ $eyebrow }}</li>
                     </ol>
                 </nav>
-                <h1 class="display mt-4 text-4xl sm:text-5xl">{{ $title }}</h1>
-                <p class="mt-3 text-sm text-muted">Last updated {{ now()->format('F Y') }}</p>
+                <span class="eyebrow text-[#ff8fa3]">{{ $eyebrow }}</span>
+                <h1 class="display mt-2 text-3xl sm:text-5xl text-white">{{ $title }}</h1>
+                <p class="mt-2 text-xs sm:text-sm text-white/70">Official Policy &amp; Terms · Last updated {{ now()->format('F Y') }}</p>
             </div>
         </div>
-    </header>
+    </div>
 
-    <div class="container-x py-12 sm:py-16">
-        <div class="mx-auto max-w-3xl">
-            <div class="prose-store max-w-none">
-                {{ $slot }}
-            </div>
-
-            <div class="mt-14 flex flex-col gap-4 rounded-2xl border border-line bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <p class="font-semibold text-ink">Still have a question?</p>
-                    <p class="mt-0.5 text-sm text-muted">Our support team usually replies within a few minutes.</p>
+    {{-- Content Body --}}
+    <div class="container-x py-8 sm:py-12">
+        <div class="mx-auto max-w-4xl">
+            <div class="card p-6 sm:p-10 shadow-sm border border-line bg-white">
+                <div class="prose-store text-body leading-relaxed max-w-none">
+                    {{ $slot }}
                 </div>
-                @if ($wa = admin_whatsapp_number())
-                    <a href="https://wa.me/{{ $wa }}" target="_blank" rel="noopener" class="btn btn-dark shrink-0">Message us on WhatsApp</a>
-                @else
-                    <a href="{{ route('pages.show', 'contact') }}" class="btn btn-dark shrink-0">Contact support</a>
-                @endif
+
+                {{-- Support Note --}}
+                <div class="mt-10 border-t border-line pt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <p class="text-xs text-muted">
+                        Questions about this policy? Our support team is available 24/7.
+                    </p>
+                    @if ($wa = admin_whatsapp_number())
+                        <a href="https://wa.me/{{ $wa }}" target="_blank" rel="noopener" class="btn btn-outline py-2 px-4 text-xs font-bold shrink-0">
+                            Ask Support on WhatsApp →
+                        </a>
+                    @endif
+                </div>
             </div>
         </div>
     </div>

@@ -29,7 +29,7 @@ class SourcesRelationManager extends RelationManager
     {
         return $table
             ->recordTitle(fn (SupplierProduct $record): string => sprintf(
-                '%s — %s (%s)',
+                '%s: %s (%s)',
                 $record->supplier?->name,
                 $record->name,
                 Money::currency($record->cost, $record->supplier?->currency),

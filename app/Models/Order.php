@@ -100,7 +100,7 @@ class Order extends Model
         return $this->status === OrderStatus::PendingPayment && ! $this->isExpired();
     }
 
-    /** Signed customer URL – works for guests without login. */
+    /** Signed customer URL, works for guests without login. */
     public function customerUrl(): string
     {
         return route('orders.show', ['order' => $this->number, 'token' => $this->access_token]);

@@ -30,7 +30,7 @@ use Throwable;
  *   1. our own stock reserved at checkout (from .txt file / StockItem vault)
  *   2. any newly added own stock (Available in StockItem vault)
  *   3. if product delivery_type is 'manual_admin' or 'whatsapp_handover', holds for Admin / WhatsApp handover
- *   4. supplier APIs – cheapest profitable source first, automatic failover to the next one
+ *   4. supplier APIs, cheapest profitable source first, automatic failover to the next one
  *
  * Safety rules:
  *   - NEVER marks an order Completed if credentials are empty or supplier failed!
@@ -91,11 +91,11 @@ class FulfillmentService
         $deliveryType = $item->product->delivery_type ?: 'auto';
 
         if ($deliveryType === 'manual_admin') {
-            return ['Payment confirmed — awaiting Admin manual credential delivery.'];
+            return ['Payment confirmed, awaiting Admin manual credential delivery.'];
         }
 
         if ($deliveryType === 'whatsapp_handover') {
-            return ['Payment confirmed — customer directed to WhatsApp for order handover.'];
+            return ['Payment confirmed, customer directed to WhatsApp for order handover.'];
         }
 
         // 3: suppliers (for 'auto' products).
@@ -114,7 +114,7 @@ class FulfillmentService
             $outcome = $this->orderFromSupplier($order, $item, $source);
 
             if ($outcome === 'unknown') {
-                $problems[] = "Unknown result from {$source->supplier->name} – check supplier panel before retrying.";
+                $problems[] = "Unknown result from {$source->supplier->name}, check supplier panel before retrying.";
                 break;
             }
 
@@ -124,7 +124,7 @@ class FulfillmentService
         }
 
         if ($item->remainingQty() > 0 && $problems === []) {
-            $problems[] = 'No own stock or supplier source available — awaiting manual delivery.';
+            $problems[] = 'No own stock or supplier source available, awaiting manual delivery.';
         }
 
         return $problems;
@@ -277,7 +277,7 @@ class FulfillmentService
 
             return $e->getMessage();
         } catch (Throwable $e) {
-            // Unexpected error after the request may have been sent – treat as unknown.
+            // Unexpected error after the request may have been sent, treat as unknown.
             $attempt->update(['status' => SupplierOrderStatus::Unknown, 'error' => $e->getMessage()]);
             report($e);
 
@@ -294,7 +294,7 @@ class FulfillmentService
         if ($delivered === []) {
             $attempt->update([
                 'status' => SupplierOrderStatus::Failed,
-                'error' => 'Supplier returned empty credentials — order held for safety.',
+                'error' => 'Supplier returned empty credentials, order held for safety.',
                 'response' => $result->raw,
             ]);
 
@@ -385,7 +385,7 @@ class FulfillmentService
             app(WhatsAppNotifier::class)->notifyOrderDelivered($order);
             app(EmailNotifier::class)->sendOrderDelivered($order);
         } else {
-            $reasonText = implode(' | ', array_unique($problems)) ?: 'Order on hold — awaiting admin stock dispatch';
+            $reasonText = implode(' | ', array_unique($problems)) ?: 'Order on hold, awaiting admin stock dispatch';
             $order->update([
                 'status' => OrderStatus::NeedsAttention,
                 'admin_note' => $reasonText,
@@ -395,7 +395,7 @@ class FulfillmentService
             $quickControlUrl = route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']);
 
             $this->telegram->notifyAdmin(
-                "⏸️⚠️ <b>PAYMENT CONFIRMED — DELIVERY PENDING / FAILED!</b>\n".
+                "⏸️⚠️ <b>PAYMENT CONFIRMED: DELIVERY PENDING / FAILED!</b>\n".
                 "━━━━━━━━━━━━━━━━━━\n".
                 "✅ <b>Payment Status:</b> CONFIRMED (Rs {$order->total})\n".
                 "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
@@ -457,7 +457,7 @@ class FulfillmentService
      */
     public function markDeliveredViaWhatsApp(Order $order, ?string $note = null): Order
     {
-        $text = 'Delivered to customer on WhatsApp'.(filled($note) ? ' — '.trim($note) : '');
+        $text = 'Delivered to customer on WhatsApp'.(filled($note) ? ': '.trim($note) : '');
 
         DB::transaction(function () use ($order, $text) {
             foreach ($order->items()->get() as $item) {

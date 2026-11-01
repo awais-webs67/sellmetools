@@ -169,7 +169,7 @@ class SupplierProductsTable
 
                 Notification::make()
                     ->title('Listing created')
-                    ->body("{$product->name} — ".Money::pkr($product->price))
+                    ->body("{$product->name}: ".Money::pkr($product->price))
                     ->success()
                     ->actions([
                         Action::make('edit')
@@ -277,7 +277,7 @@ class SupplierProductsTable
     protected static function pricePreview(float $costPkr, ?string $mode, mixed $fixedPrice, mixed $markup): string
     {
         if (blank($mode)) {
-            return '—';
+            return '-';
         }
 
         $price = Listings::previewPrice(round($costPkr, 2), $mode, $fixedPrice, $markup);

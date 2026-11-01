@@ -12,8 +12,8 @@ export default defineConfig({
                 bunny('Inter', {
                     weights: [400, 500, 600, 700],
                 }),
-                bunny('Outfit', {
-                    weights: [500, 600, 700],
+                bunny('Bebas Neue', {
+                    weights: [400],
                 }),
             ],
         }),

@@ -67,7 +67,7 @@ class StoreSettings extends Page
     /** @var array<string, mixed>|null */
     public ?array $data = [];
 
-    /** Boolean toggles — stored as '1' / '0' strings. */
+    /** Boolean toggles, stored as '1' / '0' strings. */
     protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered'];
 
     public function mount(): void
@@ -167,7 +167,7 @@ class StoreSettings extends Page
                         TextInput::make('support_whatsapp')
                             ->label('Admin WhatsApp Number (Exact Format: 923XXXXXXXXX)')
                             ->placeholder('923001234567')
-                            ->helperText('Enter 03001234567 or 923001234567 — auto-converted to 923001234567. Customer WhatsApp buttons go directly to this number!'),
+                            ->helperText('Enter 03001234567 or 923001234567, auto-converted to 923001234567. Customer WhatsApp buttons go directly to this number!'),
                         TextInput::make('admin_quick_pin')
                             ->label('Admin 1-Tap WhatsApp PIN')
                             ->placeholder('7860')
@@ -285,7 +285,7 @@ class StoreSettings extends Page
                         ])->columnSpanFull(),
                     ]),
 
-                Section::make('Auto-SMS Payment Gateway (Optional — Leave Blank if Not Using)')
+                Section::make('Auto-SMS Payment Gateway (Optional: Leave Blank if Not Using)')
                     ->icon(Heroicon::OutlinedBolt)
                     ->description('Optional: Forward payment SMS from your phone to '.url('/api/webhooks/payment-sms').' to auto-approve matching TIDs.')
                     ->columns(['default' => 1, 'sm' => 2])
@@ -377,7 +377,7 @@ class StoreSettings extends Page
                             ->password()
                             ->revealable()
                             ->autocomplete('new-password')
-                            ->placeholder(fn () => filled(Setting::get('mail_password')) ? 'Saved securely — leave empty to keep' : 'Enter SMTP password')
+                            ->placeholder(fn () => filled(Setting::get('mail_password')) ? 'Saved securely, leave empty to keep' : 'Enter SMTP password')
                             ->helperText('Stored encrypted. Gmail needs a 16-character App Password, not your normal password.'),
                         TextInput::make('mail_from_address')
                             ->label('From Email Address (Optional)')
@@ -519,7 +519,7 @@ class StoreSettings extends Page
         try {
             $res = Http::timeout(6)
                 ->withHeaders([
-                    'Title' => 'SellMeTools – ntfy Push Active!',
+                    'Title' => 'SellMeTools, ntfy Push Active!',
                     'Priority' => 'high',
                     'Tags' => 'white_check_mark,bell',
                 ])

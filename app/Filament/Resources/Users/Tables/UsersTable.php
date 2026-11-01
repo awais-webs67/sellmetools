@@ -37,14 +37,14 @@ class UsersTable
                     ->label('WhatsApp')
                     ->searchable()
                     ->copyable()
-                    ->placeholder('—'),
+                    ->placeholder('-'),
                 IconColumn::make('is_reseller')
                     ->label('Reseller')
                     ->boolean()
                     ->sortable(),
                 TextColumn::make('reseller_slug')
                     ->label('Reseller Portal URL')
-                    ->formatStateUsing(fn (?string $state) => $state ? url('/'.$state) : '—')
+                    ->formatStateUsing(fn (?string $state) => $state ? url('/'.$state) : '-')
                     ->url(fn (User $record) => $record->is_reseller && $record->reseller_slug ? url('/'.$record->reseller_slug) : null, shouldOpenInNewTab: true)
                     ->color('primary')
                     ->searchable(),

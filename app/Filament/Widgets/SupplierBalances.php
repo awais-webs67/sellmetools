@@ -31,7 +31,7 @@ class SupplierBalances extends TableWidget
                     ->weight('bold'),
                 TextColumn::make('balance')
                     ->formatStateUsing(fn (Supplier $record): string => Money::currency($record->balance, $record->currency))
-                    ->placeholder('—')
+                    ->placeholder('-')
                     ->badge()
                     ->color(fn (Supplier $record): string => $record->balance !== null
                         && (float) $record->balance < (float) $record->low_balance_threshold ? 'danger' : 'success'),

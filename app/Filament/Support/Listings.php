@@ -80,7 +80,7 @@ final class Listings
         self::refresh($product);
     }
 
-    /** Price preview for a supplier cost (PKR) under the given pricing rule — mirrors PriceCalculator. */
+    /** Price preview for a supplier cost (PKR) under the given pricing rule, mirrors PriceCalculator. */
     public static function previewPrice(?float $costPkr, string|PricingMode|null $mode, mixed $fixedPrice, mixed $markup): float
     {
         $product = new Product([

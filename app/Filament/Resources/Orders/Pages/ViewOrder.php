@@ -192,7 +192,7 @@ class ViewOrder extends ViewRecord
             ->color('danger')
             ->visible(fn (): bool => ! in_array($this->record->status, [OrderStatus::Refunded, OrderStatus::Cancelled, OrderStatus::Expired], true))
             ->requiresConfirmation()
-            ->modalDescription('Only records the refund — send the money back to the customer yourself.')
+            ->modalDescription('Only records the refund, send the money back to the customer yourself.')
             ->schema([
                 Textarea::make('note')
                     ->label('Refund note (optional)')
@@ -202,7 +202,7 @@ class ViewOrder extends ViewRecord
                 $order = $this->record;
 
                 if (in_array($order->status, [OrderStatus::PendingPayment, OrderStatus::PaymentReview], true)) {
-                    // Unpaid orders still hold reservations — release them.
+                    // Unpaid orders still hold reservations, release them.
                     app(OrderService::class)->release($order, OrderStatus::Refunded);
                 } else {
                     $order->update(['status' => OrderStatus::Refunded]);

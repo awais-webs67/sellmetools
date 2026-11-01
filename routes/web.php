@@ -9,6 +9,7 @@ use App\Http\Controllers\PageController;
 use App\Http\Controllers\PaymentWebhookController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ResellerController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SeoController;
 use App\Http\Controllers\StockController;
 use App\Models\Order;
@@ -47,6 +48,12 @@ Route::get('/', [ProductController::class, 'index'])->name('home');
 Route::get('/category/{category:slug}', [ProductController::class, 'category'])->name('categories.show');
 Route::get('/products/{product:slug}', [ProductController::class, 'show'])->name('products.show');
 Route::post('/products/{product:slug}/reviews', [ProductController::class, 'storeReview'])->middleware('throttle:15,1')->name('products.reviews.store');
+
+// Instant search suggestions (stateless, cached)
+Route::get('/api/search', SearchController::class)
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
+    ->middleware('throttle:120,1')
+    ->name('search.suggest');
 
 // Stateless live-stock & background supplier sync (no session lock -> never slows down user clicks!)
 Route::get('/api/stock', StockController::class)

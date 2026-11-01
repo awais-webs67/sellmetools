@@ -32,7 +32,7 @@ class PaymentsTable
                         : null),
                 TextColumn::make('paymentMethod.name')
                     ->label('Method')
-                    ->placeholder('—'),
+                    ->placeholder('-'),
                 TextColumn::make('amount')
                     ->formatStateUsing(fn (Payment $record): string => Money::currency($record->amount, $record->currency))
                     ->description(fn (Payment $record): ?string => strtoupper($record->currency) !== 'PKR' && $record->order
@@ -48,7 +48,7 @@ class PaymentsTable
                     ->label('Sender')
                     ->searchable()
                     ->copyable()
-                    ->placeholder('—'),
+                    ->placeholder('-'),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (PaymentStatus $state): string => ucfirst($state->value))
@@ -56,7 +56,7 @@ class PaymentsTable
                     ->description(fn (Payment $record): ?string => $record->reject_reason),
                 TextColumn::make('reviewer.name')
                     ->label('Reviewed by')
-                    ->placeholder('—')
+                    ->placeholder('-')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
                     ->label('Submitted')

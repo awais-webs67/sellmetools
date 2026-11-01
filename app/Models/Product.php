@@ -32,9 +32,9 @@ class Product extends Model
     public static function deliveryTypeOptions(): array
     {
         return [
-            'auto' => '⚡ Auto Delivery — From .TXT Stock Vault or Linked Supplier API',
-            'manual_admin' => '👨‍💻 Admin Manual Delivery — Admin Delivers Credentials After Payment Confirmed',
-            'whatsapp_handover' => '📲 Direct WhatsApp Delivery — Show WhatsApp Claim Button After Payment Confirmed',
+            'auto' => '⚡ Auto Delivery: From .TXT Stock Vault or Linked Supplier API',
+            'manual_admin' => '👨‍💻 Admin Manual Delivery: Admin Delivers Credentials After Payment Confirmed',
+            'whatsapp_handover' => '📲 Direct WhatsApp Delivery: Show WhatsApp Claim Button After Payment Confirmed',
         ];
     }
 
@@ -282,7 +282,7 @@ class Product extends Model
             return (string) $this->meta_title;
         }
 
-        return "Buy {$this->name} in Pakistan – Instant Delivery";
+        return "{$this->name} Price in Pakistan | Buy Online";
     }
 
     public function seoDescription(): string
@@ -293,10 +293,10 @@ class Product extends Model
 
         $base = trim(preg_replace('/\s+/', ' ', strip_tags((string) ($this->short_description ?: $this->description))));
         if ($base !== '') {
-            return Str::limit("{$this->name} (".money($this->price)."): {$base} Pay via Easypaisa, JazzCash, NayaPay, SadaPay or Binance.", 160);
+            return Str::limit("{$this->name} price in Pakistan: ".money($this->price).". {$base}", 160);
         }
 
-        return Str::limit("Buy {$this->name} online in Pakistan for just ".money($this->price).'. Instant credentials delivery with Easypaisa, JazzCash, NayaPay, SadaPay & Binance.', 160);
+        return Str::limit("Buy {$this->name} in Pakistan for ".money($this->price).'. Genuine access delivered to your order page. Pay with Easypaisa, JazzCash, NayaPay, SadaPay or Binance.', 160);
     }
 
     public function seoKeywords(): string
@@ -306,11 +306,11 @@ class Product extends Model
         }
 
         return implode(', ', array_filter([
-            $this->name,
-            "buy {$this->name} in Pakistan",
             "{$this->name} price in Pakistan",
+            "buy {$this->name} in Pakistan",
+            "{$this->name} subscription Pakistan",
             "{$this->name} Easypaisa JazzCash",
-            $this->category?->name,
+            $this->category ? "{$this->category->name} price in Pakistan" : null,
             (string) Setting::get('store_name', 'SellMeTools'),
         ]));
     }

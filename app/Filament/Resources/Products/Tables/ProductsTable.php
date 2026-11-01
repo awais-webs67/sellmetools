@@ -53,7 +53,7 @@ class ProductsTable
                 TextColumn::make('cost_price')
                     ->label('Cost')
                     ->formatStateUsing(fn ($state): string => Money::pkr($state))
-                    ->placeholder('—')
+                    ->placeholder('-')
                     ->sortable()
                     ->toggleable(),
                 TextColumn::make('profit')
@@ -62,7 +62,7 @@ class ProductsTable
                         : (float) $record->price - (float) $record->cost_price)
                     ->formatStateUsing(fn ($state): string => Money::pkr($state))
                     ->color(fn ($state): ?string => $state !== null && $state < 0 ? 'danger' : 'success')
-                    ->placeholder('—'),
+                    ->placeholder('-'),
                 TextColumn::make('available_stock')
                     ->label('Stock')
                     ->state(fn (Product $record): string => $record->stock_unlimited ? '∞' : (string) $record->available_stock)
@@ -94,7 +94,7 @@ class ProductsTable
                     ->label('Auto-disabled')
                     ->badge()
                     ->color('danger')
-                    ->placeholder('—')
+                    ->placeholder('-')
                     ->toggleable(),
                 TextColumn::make('category.name')
                     ->label('Category')

@@ -22,7 +22,7 @@ class ListIncomingPayments extends ListRecords
                 ->icon(Heroicon::OutlinedDocumentText)
                 ->color('primary')
                 ->modalHeading('Paste Payment SMS (Easypaisa / JazzCash / NayaPay / SadaPay)')
-                ->modalDescription('Paste the confirmation SMS you received — the system will extract the TID & Amount and auto-deliver any matching order.')
+                ->modalDescription('Paste the confirmation SMS you received, the system will extract the TID & Amount and auto-deliver any matching order.')
                 ->schema([
                     Textarea::make('sms')
                         ->label('SMS Text')

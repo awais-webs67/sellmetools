@@ -36,7 +36,7 @@ class PaymentMethodsTable
                     ->badge(),
                 TextColumn::make('account_title')
                     ->description(fn (PaymentMethod $record): ?string => $record->account_number)
-                    ->placeholder('—'),
+                    ->placeholder('-'),
                 IconColumn::make('requires_sender_number')
                     ->label('Sender no.')
                     ->boolean(),

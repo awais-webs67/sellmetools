@@ -154,7 +154,7 @@ class PaymentWebhookController extends Controller
                         $telegram->editMessage(
                             $chatId,
                             $messageId,
-                            "✅ <b>PAYMENT APPROVED — ⚠️ DELIVERY ON HOLD</b>\n".
+                            "✅ <b>PAYMENT APPROVED: ⚠️ DELIVERY ON HOLD</b>\n".
                             "Order: <b>{$order->number}</b>\n".
                             'TID: <code>'.TelegramNotifier::e($payment->transaction_id)."</code>\n".
                             '⚠️ <b>Reason:</b> '.TelegramNotifier::e($reason)."\n".

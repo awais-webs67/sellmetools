@@ -10,7 +10,7 @@
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
             <div>
                 <span class="eyebrow">Encrypted Checkout</span>
-                <h1 class="display mt-1 text-3xl sm:text-4xl">Complete Your Order</h1>
+                <h1 class="display mt-1 text-3xl sm:text-5xl">Complete Your Order</h1>
             </div>
             <a href="{{ route('products.show', $product) }}"
                onclick="try { localStorage.removeItem('smt_checkout_draft_{{ $product->id }}'); } catch(e) {}"
@@ -189,7 +189,7 @@
                     {{-- Total Price Bar --}}
                     <div class="mt-4 flex items-end justify-between border-t border-line pt-4">
                         <span class="text-sm font-medium text-ink">Total Payable</span>
-                        <span class="display text-3xl sm:text-3xl text-brand">{{ setting('currency_symbol') }} <span x-text="totalFormatted"></span></span>
+                        <span class="display text-3xl sm:text-4xl text-brand">{{ setting('currency_symbol') }} <span x-text="totalFormatted"></span></span>
                     </div>
 
                     {{-- Agreement Checkbox --}}

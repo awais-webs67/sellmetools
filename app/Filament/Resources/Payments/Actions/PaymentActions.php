@@ -96,7 +96,7 @@ final class PaymentActions
             ->icon(Heroicon::OutlinedPhoto)
             ->color('gray')
             ->visible(fn (Model $record): bool => filled($resolve($record)?->screenshot))
-            ->modalHeading(fn (Model $record): string => 'Screenshot — TID '.$resolve($record)?->transaction_id)
+            ->modalHeading(fn (Model $record): string => 'Screenshot: TID '.$resolve($record)?->transaction_id)
             ->modalWidth('4xl')
             ->modalSubmitAction(false)
             ->modalCancelActionLabel('Close')
@@ -118,7 +118,7 @@ final class PaymentActions
             'Order %s · %s via %s · TID %s.',
             $payment->order?->number,
             Money::currency($payment->amount, $payment->currency),
-            $payment->paymentMethod?->name ?? '—',
+            $payment->paymentMethod?->name ?? '-',
             $payment->transaction_id,
         );
     }

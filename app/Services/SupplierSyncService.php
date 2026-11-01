@@ -144,7 +144,7 @@ class SupplierSyncService
 
             if ($result['enabled']) {
                 $stats['enabled']++;
-                $this->telegram->notifyAdmin("✅ <b>Product re-enabled</b>\n".T::e($product->name).' – supplier price is profitable again.');
+                $this->telegram->notifyAdmin("✅ <b>Product re-enabled</b>\n".T::e($product->name).', supplier price is profitable again.');
             }
         }
 

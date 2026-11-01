@@ -13,7 +13,7 @@ final class Money
     }
 
     /** Formats a PKR amount, e.g. "Rs 1,250". Decimals are shown only when present. */
-    public static function pkr(float|int|string|null $amount, string $placeholder = '—'): string
+    public static function pkr(float|int|string|null $amount, string $placeholder = '-'): string
     {
         if ($amount === null || $amount === '') {
             return $placeholder;
@@ -26,13 +26,13 @@ final class Money
     }
 
     /**
-     * Formats an amount in an arbitrary currency keeping 2–4 decimals,
+     * Formats an amount in an arbitrary currency keeping 2 to 4 decimals,
      * e.g. 12.5000 → "12.50 USDT", 0.0350 → "0.035 USDT".
      */
     public static function currency(float|int|string|null $amount, ?string $currency): string
     {
         if ($amount === null || $amount === '') {
-            return '—';
+            return '-';
         }
 
         if (strtoupper((string) $currency) === 'PKR') {

@@ -1,12 +1,12 @@
 <x-layouts.store title="Account Login" robots="noindex, nofollow">
     <div class="container-x py-10 sm:py-16 lg:py-20">
         <div class="mx-auto max-w-md">
-            <section class="card overflow-hidden shadow-[var(--shadow-pop)]">
+            <section class="card overflow-hidden border-2 border-line shadow-2xl">
                 {{-- Branded Top Header --}}
-                <div class="bg-brand bg-[radial-gradient(120%_120%_at_100%_0%,rgba(255,255,255,.10),transparent_55%)] p-6 sm:p-8 text-white text-center">
+                <div class="bg-gradient-to-br from-[#1F070E] via-[#2B0912] to-[#120408] p-6 sm:p-8 text-white text-center">
                     <img src="{{ asset('images/logo-white.png') }}" alt="{{ setting('store_name') }}" class="h-9 sm:h-10 w-auto mx-auto object-contain">
-                    <span class="eyebrow mt-4 text-white/70 justify-center">Member Access</span>
-                    <h1 class="display mt-2 text-3xl sm:text-3xl text-white">Welcome Back</h1>
+                    <span class="eyebrow mt-4 text-[#ff8fa3] justify-center">Member Access</span>
+                    <h1 class="display mt-2 text-3xl sm:text-4xl text-white">Welcome Back</h1>
                     <p class="mt-2 text-xs sm:text-sm text-white/75">
                         Access your private credentials vault, order history, and account wallet balance.
                     </p>

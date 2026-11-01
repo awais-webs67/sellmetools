@@ -45,7 +45,7 @@ class StockItemsRelationManager extends RelationManager
                     ->sortable(),
                 TextColumn::make('preview')
                     ->label('Credential Preview (1 Row = 1 PC)')
-                    ->state(fn (StockItem $record): string => Str::limit(preg_replace('/\s+/', ' ↵ ', trim((string) $record->content)) ?: '—', 55))
+                    ->state(fn (StockItem $record): string => Str::limit(preg_replace('/\s+/', ' ↵ ', trim((string) $record->content)) ?: '-', 55))
                     ->fontFamily('mono')
                     ->color('gray'),
                 TextColumn::make('status')
@@ -53,7 +53,7 @@ class StockItemsRelationManager extends RelationManager
                     ->formatStateUsing(fn (StockStatus $state): string => match ($state) {
                         StockStatus::Available => 'Available (Ready to Sell)',
                         StockStatus::Reserved => 'Reserved (In Checkout)',
-                        StockStatus::Sold => 'Sold (Delivered — Locked)',
+                        StockStatus::Sold => 'Sold (Delivered: Locked)',
                     })
                     ->color(fn (StockStatus $state): string => match ($state) {
                         StockStatus::Available => 'success',
@@ -62,7 +62,7 @@ class StockItemsRelationManager extends RelationManager
                     }),
                 TextColumn::make('orderItem.order.number')
                     ->label('Sold To Order')
-                    ->placeholder('—'),
+                    ->placeholder('-'),
                 TextColumn::make('created_at')
                     ->label('Added')
                     ->dateTime()

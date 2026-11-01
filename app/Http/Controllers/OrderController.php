@@ -69,7 +69,7 @@ class OrderController extends Controller
             return redirect()->to($order->customerUrl())->withInput()->with('error', $e->getMessage());
         }
 
-        return redirect()->to($order->customerUrl())->with('success', 'Payment submitted! We are verifying it – your order will be delivered automatically.');
+        return redirect()->to($order->customerUrl())->with('success', 'Payment submitted! We are verifying it, your order will be delivered automatically.');
     }
 
     public function cancel(Request $request, Order $order, OrderService $orders): RedirectResponse

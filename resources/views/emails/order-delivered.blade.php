@@ -54,7 +54,7 @@
 
                             {{-- Action Button --}}
                             <div style="text-align: center; margin: 30px 0 20px;">
-                                <a href="{{ $orderUrl }}" style="display: inline-block; background-color: #8A0F27; color: #FFFFFF; font-weight: 700; font-size: 14px; padding: 14px 28px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 10px rgba(155,27,48,0.25);">
+                                <a href="{{ $orderUrl }}" style="display: inline-block; background-color: #9B1B30; color: #FFFFFF; font-weight: 700; font-size: 14px; padding: 14px 28px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 10px rgba(155,27,48,0.25);">
                                     View Live Order Page &amp; Receipt →
                                 </a>
                             </div>

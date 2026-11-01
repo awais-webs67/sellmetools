@@ -34,7 +34,7 @@ class LatestOrders extends TableWidget
                     ->formatStateUsing(fn ($state): string => Money::pkr($state)),
                 TextColumn::make('paymentMethod.name')
                     ->label('Payment')
-                    ->placeholder('—'),
+                    ->placeholder('-'),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (OrderStatus $state): string => $state->label())

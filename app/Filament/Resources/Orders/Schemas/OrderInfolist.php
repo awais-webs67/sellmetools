@@ -40,36 +40,36 @@ class OrderInfolist
                             ->color(fn (OrderStatus $state): string => $state->color()),
                         TextEntry::make('paymentMethod.name')
                             ->label('Payment method')
-                            ->placeholder('—'),
+                            ->placeholder('-'),
                         TextEntry::make('total')
                             ->formatStateUsing(fn ($state): string => Money::pkr($state)),
                         TextEntry::make('total_cost')
                             ->label('Cost')
                             ->formatStateUsing(fn ($state): string => Money::pkr($state))
-                            ->placeholder('—'),
+                            ->placeholder('-'),
                         TextEntry::make('profit')
                             ->state(fn (Order $record): ?float => $record->profit())
                             ->formatStateUsing(fn ($state): string => Money::pkr($state))
                             ->color(fn ($state): ?string => $state !== null && $state < 0 ? 'danger' : 'success')
-                            ->placeholder('—'),
+                            ->placeholder('-'),
                         TextEntry::make('created_at')
                             ->label('Placed')
                             ->dateTime(),
                         TextEntry::make('paid_at')
                             ->dateTime()
-                            ->placeholder('—'),
+                            ->placeholder('-'),
                         TextEntry::make('completed_at')
                             ->dateTime()
-                            ->placeholder('—'),
+                            ->placeholder('-'),
                         TextEntry::make('expires_at')
                             ->label('Payment deadline')
                             ->dateTime()
-                            ->placeholder('—'),
+                            ->placeholder('-'),
                         TextEntry::make('usdt_rate')
                             ->label('USDT rate (snapshot)')
-                            ->placeholder('—'),
+                            ->placeholder('-'),
                         TextEntry::make('admin_note')
-                            ->placeholder('—')
+                            ->placeholder('-')
                             ->columnSpanFull(),
                     ]),
                 Section::make('Customer')
@@ -77,18 +77,18 @@ class OrderInfolist
                     ->schema([
                         TextEntry::make('customer_name')
                             ->label('Name')
-                            ->placeholder('—'),
+                            ->placeholder('-'),
                         TextEntry::make('email')
                             ->copyable(),
                         TextEntry::make('phone')
                             ->copyable()
-                            ->placeholder('—'),
+                            ->placeholder('-'),
                         TextEntry::make('user.email')
                             ->label('Account')
                             ->placeholder('Guest'),
                         TextEntry::make('ip')
                             ->label('IP')
-                            ->placeholder('—'),
+                            ->placeholder('-'),
                     ]),
                 Section::make('Items & deliveries')
                     ->columnSpanFull()
@@ -111,7 +111,7 @@ class OrderInfolist
                                         ->color(fn (OrderItem $record): string => $record->delivered_qty >= $record->quantity ? 'success' : 'warning'),
                                     TextEntry::make('cost')
                                         ->formatStateUsing(fn ($state): string => Money::pkr($state))
-                                        ->placeholder('—'),
+                                        ->placeholder('-'),
                                 ]),
                                 RepeatableEntry::make('deliveries')
                                     ->label('Delivered content')
@@ -148,12 +148,12 @@ class OrderInfolist
                                         ->columnSpan(2),
                                     TextEntry::make('sender_number')
                                         ->label('Sender')
-                                        ->placeholder('—'),
+                                        ->placeholder('-'),
                                     TextEntry::make('amount')
                                         ->state(fn (Payment $record): string => Money::currency($record->amount, $record->currency)),
                                     TextEntry::make('paymentMethod.name')
                                         ->label('Method')
-                                        ->placeholder('—'),
+                                        ->placeholder('-'),
                                     TextEntry::make('status')
                                         ->badge()
                                         ->formatStateUsing(fn (PaymentStatus $state): string => ucfirst($state->value))
@@ -164,10 +164,10 @@ class OrderInfolist
                                         ->columnSpan(2),
                                     TextEntry::make('reviewer.name')
                                         ->label('Reviewed by')
-                                        ->placeholder('—')
+                                        ->placeholder('-')
                                         ->columnSpan(2),
                                     TextEntry::make('reject_reason')
-                                        ->placeholder('—')
+                                        ->placeholder('-')
                                         ->columnSpan(2),
                                     TextEntry::make('screenshot')
                                         ->label('Screenshot')
@@ -200,7 +200,7 @@ class OrderInfolist
                             ])
                             ->schema([
                                 TextEntry::make('supplier.name'),
-                                TextEntry::make('supplierProduct.name')->placeholder('—'),
+                                TextEntry::make('supplierProduct.name')->placeholder('-'),
                                 TextEntry::make('request_id')->copyable()->fontFamily('mono'),
                                 TextEntry::make('quantity'),
                                 TextEntry::make('status')
@@ -209,7 +209,7 @@ class OrderInfolist
                                     ->color(fn (SupplierOrderStatus $state): string => $state->color()),
                                 TextEntry::make('cost')
                                     ->state(fn (SupplierOrder $record): string => Money::currency($record->cost, $record->supplier?->currency)),
-                                TextEntry::make('error')->color('danger')->placeholder('—')->wrap(),
+                                TextEntry::make('error')->color('danger')->placeholder('-')->wrap(),
                             ]),
                     ]),
             ]);

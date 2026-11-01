@@ -93,7 +93,7 @@ class ProductForm
                                 TextEntry::make('profit')
                                     ->label('Your Profit')
                                     ->state(fn (?Product $record): string => $record?->cost_price === null
-                                        ? '—'
+                                        ? '-'
                                         : Money::pkr((float) $record->price - (float) $record->cost_price)),
                                 TextEntry::make('stock')
                                     ->label('Live Stock')
@@ -141,7 +141,7 @@ class ProductForm
                             ->helperText('Upload a .txt file here to immediately add stock units when you click Save.'),
 
                         Textarea::make('quick_stock_text')
-                            ->label('Or Quick Paste Stock Credentials (Optional — Added to Vault on Save)')
+                            ->label('Or Quick Paste Stock Credentials (Optional: Added to Vault on Save)')
                             ->rows(5)
                             ->dehydrated(false)
                             ->columnSpanFull()
@@ -184,13 +184,13 @@ class ProductForm
                             ->columnSpanFull(),
                     ]),
 
-                Section::make('SEO & Google Search (Optional — Auto-Generated if Left Blank)')
+                Section::make('SEO & Google Search (Optional: Auto-Generated if Left Blank)')
                     ->collapsed()
                     ->columns(['default' => 1, 'md' => 2])
                     ->schema([
                         TextInput::make('meta_title')
                             ->label('Custom SEO Meta Title')
-                            ->placeholder('Buy ChatGPT Plus in Pakistan – Instant Delivery')
+                            ->placeholder('Auto: ChatGPT Plus Price in Pakistan | Buy Online')
                             ->maxLength(255),
                         TextInput::make('meta_keywords')
                             ->label('Custom SEO Keywords')

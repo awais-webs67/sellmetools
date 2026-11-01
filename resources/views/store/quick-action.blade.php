@@ -21,7 +21,7 @@
         $customerWaText = "Assalam o Alaikum! ✅ Your payment for Order *{$order->number}* ({$itemsSummary}) on ".setting('store_name')." has been verified! Here are your order details:\n".$order->customerUrl();
     }
 @endphp
-<x-layouts.store :title="'1-Tap Order Control – '.$order->number" robots="noindex, nofollow">
+<x-layouts.store :title="'1-Tap Order Control: '.$order->number" robots="noindex, nofollow">
     <div class="container-x py-6 sm:py-10">
         <div class="mx-auto max-w-xl">
             <section class="card overflow-hidden border-2 border-brand/20 shadow-2xl">
@@ -41,13 +41,13 @@
                         <span class="badge bg-white/25 text-white font-mono text-xs">{{ $order->status->label() }}</span>
                     </div>
 
-                    <h1 class="display mt-3 text-3xl sm:text-3xl text-white tracking-wide">
+                    <h1 class="display mt-3 text-3xl sm:text-4xl text-white tracking-wide">
                         @if ($isAlreadyCompleted)
                             ⚠️ Already Confirmed &amp; Delivered!
                         @elseif ($isCompleted)
                             ✅ Order Approved &amp; Delivered!
                         @elseif ($isNeedsAttention)
-                            ✅ Payment Confirmed — ⚠️ Delivery On Hold
+                            ✅ Payment Confirmed: ⚠️ Delivery On Hold
                         @elseif ($isRejected)
                             ❌ Order Declined
                         @else

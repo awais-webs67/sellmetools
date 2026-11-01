@@ -21,7 +21,7 @@ class WhatsAppNotifier
     }
 
     /**
-     * 1. Manual Payment Submitted (Order at 85% — Awaiting Admin 1-Tap Approval)
+     * 1. Manual Payment Submitted (Order at 85%: Awaiting Admin 1-Tap Approval)
      */
     public function notifyAdminPayment(Order $order, Payment $payment, string $approveUrl, string $rejectUrl): void
     {
@@ -151,7 +151,7 @@ class WhatsAppNotifier
         $customerPhone = self::formatPhone((string) ($order->phone ?? ''));
         if ($customerPhone !== '') {
             $storeName = (string) Setting::get('store_name', 'SellMeTools');
-            $customerMsg = "🎉 *{$storeName} – Order Confirmed & Delivered!*\n\n"
+            $customerMsg = "🎉 *{$storeName}: Order Confirmed & Delivered!*\n\n"
                 ."🧾 *Order ID:* `{$order->number}`\n"
                 ."📦 *Product:* {$items}\n\n"
                 ."🔑 *Your Credentials / Activation:*\n{$creds}\n\n"
@@ -187,7 +187,7 @@ class WhatsAppNotifier
                         'Actions' => "view, ⚡ Deliver Manually Now, {$quickOrderUrl}, clear=true",
                     ])
                     ->withBody(
-                        "Payment is VERIFIED (Rs {$order->total}), but Supplier Funds are low!\n📦 {$items}\n⚠️ {$reason}\nCustomer sees 'Order On Hold – Admin is checking'.",
+                        "Payment is VERIFIED (Rs {$order->total}), but Supplier Funds are low!\n📦 {$items}\n⚠️ {$reason}\nCustomer sees 'Order On Hold: Admin is checking'.",
                         'text/plain'
                     )
                     ->post('https://ntfy.sh/'.urlencode($ntfyTopic));
@@ -196,7 +196,7 @@ class WhatsAppNotifier
         }
 
         if ($greenId !== '' && $greenToken !== '' && $adminPhone !== '') {
-            $msg = "⏸️⚠️ *ORDER ON HOLD — SUPPLIER FUNDS LOW!*\n"
+            $msg = "⏸️⚠️ *ORDER ON HOLD: SUPPLIER FUNDS LOW!*\n"
                 ."━━━━━━━━━━━━━━━━━━\n"
                 ."✅ *Payment Status:* VERIFIED (Rs {$order->total})\n"
                 ."🧾 *Order ID:* `{$order->number}`\n"
@@ -204,7 +204,7 @@ class WhatsAppNotifier
                 ."⚠️ *Issue:* {$reason}\n"
                 ."👤 *Customer:* {$order->email}\n"
                 ."━━━━━━━━━━━━━━━━━━\n"
-                ."Customer screen is showing: *Order On Hold — Admin is checking your order.*\n"
+                ."Customer screen is showing: *Order On Hold: Admin is checking your order.*\n"
                 ."👉 *Top-up supplier or deliver manually here:*\n{$quickOrderUrl}";
 
             $this->sendGreenApi($greenId, $greenToken, $adminPhone, $msg);

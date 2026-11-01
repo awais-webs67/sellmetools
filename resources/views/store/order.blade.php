@@ -43,16 +43,16 @@
         <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div class="min-w-0">
                 <span class="eyebrow">Order {{ $order->number }}</span>
-                <h1 class="display mt-1 text-3xl sm:text-4xl">
+                <h1 class="display mt-1 text-3xl sm:text-5xl">
                     @switch($s)
                         @case(OrderStatus::PendingPayment) Complete your payment @break
                         @case(OrderStatus::PaymentReview)
                             <span x-show="!reviewTimeout">Admin Verifying Payment (85%)</span>
-                            <span x-show="reviewTimeout" x-cloak>Order On Hold — Admin Checking</span>
+                            <span x-show="reviewTimeout" x-cloak>Order On Hold: Admin Checking</span>
                             @break
                         @case(OrderStatus::Processing) Delivering your order @break
                         @case(OrderStatus::Completed) Order Delivered &amp; Ready @break
-                        @case(OrderStatus::NeedsAttention) Order On Hold — Admin Checking @break
+                        @case(OrderStatus::NeedsAttention) Order On Hold: Admin Checking @break
                         @default Order {{ strtolower($s->label()) }}
                     @endswitch
                 </h1>
@@ -99,7 +99,7 @@
 
                         <div class="p-4 sm:p-6">
                             <div class="flex flex-wrap items-center justify-between gap-2">
-                                <h2 class="text-base sm:text-lg font-bold">Step 1 — Send Payment via {{ $method->name }}</h2>
+                                <h2 class="text-base sm:text-lg font-bold">Step 1: Send Payment via {{ $method->name }}</h2>
                                 <span class="badge badge-brand text-[11px]">
                                     {{ $isBinance ? '⚡ Binance Auto-Verify' : ($method->type === 'auto' ? 'Instant Auto Gateway' : 'Instant Verify') }}
                                 </span>
@@ -165,7 +165,7 @@
                             @csrf
                             <input type="hidden" name="token" value="{{ $token }}">
                             <div class="flex flex-wrap items-center justify-between gap-2">
-                                <h2 class="text-base sm:text-lg font-bold">Step 2 — Submit Transaction ID (TID)</h2>
+                                <h2 class="text-base sm:text-lg font-bold">Step 2: Submit Transaction ID (TID)</h2>
                                 <span class="badge bg-ink text-white text-[10px]">🔒 Unique TID Check</span>
                             </div>
 
@@ -231,7 +231,7 @@
                             </div>
                         @endif
 
-                        {{-- State A: Within 15-minute window (85% — Admin Verifying Payment, Please Wait) --}}
+                        {{-- State A: Within 15-minute window (85%: Admin Verifying Payment, Please Wait) --}}
                         <div x-show="!reviewTimeout" class="p-5 sm:p-8">
                             <div class="flex flex-col items-center text-center">
                                 <div class="relative flex h-16 w-16 items-center justify-center">
@@ -240,7 +240,7 @@
                                 </div>
 
                                 <h2 class="mt-4 text-lg sm:text-2xl font-bold text-ink">
-                                    {{ $s === OrderStatus::PaymentReview ? 'Admin is Verifying Your Payment — Please Wait...' : 'Payment Confirmed — Delivering Credentials...' }}
+                                    {{ $s === OrderStatus::PaymentReview ? 'Admin is Verifying Your Payment: Please Wait...' : 'Payment Confirmed: Delivering Credentials...' }}
                                 </h2>
                                 <p class="mt-1 text-xs sm:text-sm text-body" x-text="stageText">
                                     Admin is verifying your payment, please wait...
@@ -268,7 +268,7 @@
                                     <span class="font-semibold text-success shrink-0">Locked</span>
                                 </li>
                                 <li class="flex items-center justify-between gap-2">
-                                    <span class="font-medium text-ink">⟳ Admin Verifying Payment — Please Wait ({{ $method?->name }})</span>
+                                    <span class="font-medium text-ink">⟳ Admin Verifying Payment: Please Wait ({{ $method?->name }})</span>
                                     <span class="font-semibold text-brand shrink-0" x-text="progress + '%'">85%</span>
                                 </li>
                             </ul>
@@ -283,8 +283,8 @@
                                     </span>
                                     <span class="font-mono text-xs text-white/90">Order #{{ $order->number }}</span>
                                 </div>
-                                <h2 class="display mt-3 text-3xl sm:text-3xl text-white">
-                                    Order On Hold — Admin is Checking Your Order
+                                <h2 class="display mt-3 text-3xl sm:text-4xl text-white">
+                                    Order On Hold: Admin is Checking Your Order
                                 </h2>
                                 <p class="mt-1 text-xs sm:text-sm text-white/90">
                                     Your payment TID (<strong class="font-mono">{{ $order->latestPayment?->transaction_id }}</strong>) is safely recorded. Because the 15-minute window has passed, your order is now on hold for priority admin verification.
@@ -332,22 +332,22 @@
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <span class="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-bold tracking-wider text-white uppercase">
                                     @if ($isWhatsAppHandover)
-                                        📲 Payment Verified — Receive on WhatsApp
+                                        📲 Payment Verified: Receive on WhatsApp
                                     @elseif ($isManualAdmin)
-                                        👨‍💻 Payment Verified — Admin Preparing Credentials
+                                        👨‍💻 Payment Verified: Admin Preparing Credentials
                                     @else
-                                        ⏸️ Order On Hold — Payment Verified
+                                        ⏸️ Order On Hold: Payment Verified
                                     @endif
                                 </span>
                                 <span class="font-mono text-xs text-white/90">Order #{{ $order->number }}</span>
                             </div>
-                            <h2 class="display mt-3 text-3xl sm:text-3xl text-white">
+                            <h2 class="display mt-3 text-3xl sm:text-4xl text-white">
                                 @if ($isWhatsAppHandover)
                                     Payment Confirmed! Click Below to Get Your Product on WhatsApp
                                 @elseif ($isManualAdmin)
-                                    Payment Confirmed — Admin is Preparing Your Credentials
+                                    Payment Confirmed: Admin is Preparing Your Credentials
                                 @else
-                                    Order On Hold — Admin is Checking Your Order
+                                    Order On Hold: Admin is Checking Your Order
                                 @endif
                             </h2>
                             <p class="mt-1 text-xs sm:text-sm text-white/90">
@@ -362,7 +362,7 @@
                         <div class="p-5 sm:p-6 space-y-4">
                             <div class="rounded-xl border {{ $isWhatsAppHandover ? 'border-[#16794B]/30 bg-[#16794B]/10' : 'border-amber-500/30 bg-amber-500/10' }} p-4 text-xs sm:text-sm text-ink">
                                 <p class="font-bold {{ $isWhatsAppHandover ? 'text-[#0F291E]' : 'text-amber-950' }}">
-                                    {{ $isWhatsAppHandover ? '✓ Instant WhatsApp Delivery Ready' : '✓ Payment Confirmed — Admin Notified' }}
+                                    {{ $isWhatsAppHandover ? '✓ Instant WhatsApp Delivery Ready' : '✓ Payment Confirmed: Admin Notified' }}
                                 </p>
                                 <p class="mt-1 text-body">
                                     @if ($isWhatsAppHandover)
@@ -408,7 +408,7 @@
                                 </span>
                                 <span class="font-mono text-xs text-white/80">Order #{{ $order->number }}</span>
                             </div>
-                            <h2 class="display mt-3 text-3xl sm:text-3xl text-white">
+                            <h2 class="display mt-3 text-3xl sm:text-4xl text-white">
                                 Your Subscription Credentials Are Ready!
                             </h2>
                             <p class="mt-1 text-xs sm:text-sm text-white/85">
@@ -541,7 +541,7 @@
                     <dl class="mt-3.5 space-y-2 border-t border-line pt-3.5 text-xs sm:text-sm">
                         <div class="flex justify-between gap-2"><dt class="text-muted">Order ID</dt><dd class="font-mono font-bold text-ink">{{ $order->number }}</dd></div>
                         <div class="flex justify-between gap-2"><dt class="text-muted">Status</dt><dd class="font-semibold text-ink">{{ $s->label() }}</dd></div>
-                        <div class="flex justify-between gap-2"><dt class="text-muted">Gateway</dt><dd class="text-ink truncate">{{ $method?->name ?? '—' }}</dd></div>
+                        <div class="flex justify-between gap-2"><dt class="text-muted">Gateway</dt><dd class="text-ink truncate">{{ $method?->name ?? '-' }}</dd></div>
                         @if ($order->latestPayment)
                             <div class="flex justify-between gap-2"><dt class="text-muted">TID</dt><dd class="font-mono text-ink truncate max-w-[160px]">{{ $order->latestPayment->transaction_id }}</dd></div>
                         @endif

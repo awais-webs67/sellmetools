@@ -1,12 +1,12 @@
 <x-layouts.store title="Create Account" robots="noindex, nofollow">
     <div class="container-x py-10 sm:py-14 lg:py-18">
         <div class="mx-auto max-w-lg">
-            <section class="card overflow-hidden shadow-[var(--shadow-pop)]">
+            <section class="card overflow-hidden border-2 border-line shadow-2xl">
                 {{-- Branded Top Header --}}
-                <div class="bg-brand bg-[radial-gradient(120%_120%_at_100%_0%,rgba(255,255,255,.10),transparent_55%)] p-6 sm:p-8 text-white text-center">
+                <div class="bg-gradient-to-br from-[#1F070E] via-[#2B0912] to-[#120408] p-6 sm:p-8 text-white text-center">
                     <img src="{{ asset('images/logo-white.png') }}" alt="{{ setting('store_name') }}" class="h-9 sm:h-10 w-auto mx-auto object-contain">
-                    <span class="eyebrow mt-4 text-white/70 justify-center">Instant Registration</span>
-                    <h1 class="display mt-2 text-3xl sm:text-3xl text-white">Create Your Account</h1>
+                    <span class="eyebrow mt-4 text-[#ff8fa3] justify-center">Instant Registration</span>
+                    <h1 class="display mt-2 text-3xl sm:text-4xl text-white">Create Your Account</h1>
                     <p class="mt-2 text-xs sm:text-sm text-white/75">
                         Keep every tool purchase, wallet balance, and delivered credential safe in your personal Customer Vault.
                     </p>
@@ -40,7 +40,7 @@
                                title="Enter valid WhatsApp number e.g. 923001234567 or 03001234567"
                                class="input font-mono py-2.5 text-sm"
                                placeholder="923001234567">
-                        <p class="mt-1 text-[11px] text-muted">Enter <code>03001234567</code> or <code>923001234567</code> — automatically converted to WhatsApp format.</p>
+                        <p class="mt-1 text-[11px] text-muted">Enter <code>03001234567</code> or <code>923001234567</code>, automatically converted to WhatsApp format.</p>
                         @error('phone')<p class="field-error text-xs">{{ $message }}</p>@enderror
                     </div>
 

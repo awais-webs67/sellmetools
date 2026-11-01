@@ -175,7 +175,7 @@ class PaymentService
             '🔑 <b>TID:</b> <code>'.T::e($payment->transaction_id).'</code>'.
             ($payment->sender_number ? "\n📱 <b>Sender:</b> ".T::e($payment->sender_number) : '').
             "\n👤 <b>Customer:</b> ".T::e($order->email).($order->phone ? ' (+'.T::e($order->phone).')' : '').
-            "\n⏳ <i>Customer is waiting at 85% — Tap below to Approve or Decline:</i>",
+            "\n⏳ <i>Customer is waiting at 85%: Tap below to Approve or Decline:</i>",
             [
                 [
                     ['text' => '✅ Approve & Deliver', 'callback_data' => "approve:{$payment->id}"],

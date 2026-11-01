@@ -45,9 +45,9 @@
     <div class="mt-10 rounded-xl bg-grey-soft p-5 border border-line">
         <h3 class="text-sm font-bold text-ink">Typical Response Times</h3>
         <ul class="mt-2 space-y-1 text-xs text-body">
-            <li>• <strong>WhatsApp:</strong> 5 – 15 minutes during standard Pakistan working hours (10 AM – 1 AM PKT).</li>
+            <li>• <strong>WhatsApp:</strong> 5 to 15 minutes during standard Pakistan working hours (10 AM to 1 AM PKT).</li>
             <li>• <strong>Telegram:</strong> Under 30 minutes.</li>
-            <li>• <strong>Email:</strong> Within 2 – 4 hours.</li>
+            <li>• <strong>Email:</strong> Within 2 to 4 hours.</li>
         </ul>
     </div>
 </x-page>

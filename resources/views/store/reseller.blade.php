@@ -2,7 +2,7 @@
     use App\Enums\OrderStatus;
     $waAdmin = admin_whatsapp_number();
 @endphp
-<x-layouts.store :title="'VIP Reseller Portal – '.$reseller->name" robots="noindex, nofollow">
+<x-layouts.store :title="'VIP Reseller Portal: '.$reseller->name" robots="noindex, nofollow">
     <div class="container-x py-6 sm:py-10">
         @if (! $authorized)
             {{-- Secret Reseller Login Screen --}}
@@ -15,7 +15,7 @@
                             </span>
                             <span class="font-mono text-xs text-[#ff8fa3]">/{{ $reseller->reseller_slug }}</span>
                         </div>
-                        <h1 class="display mt-3 text-3xl sm:text-3xl text-white">{{ $reseller->name }}</h1>
+                        <h1 class="display mt-3 text-3xl sm:text-4xl text-white">{{ $reseller->name }}</h1>
                         <p class="mt-1 text-xs sm:text-sm text-white/75">
                             Sign in with your authorized reseller credentials to unlock wholesale pricing &amp; instant wallet checkout.
                         </p>
@@ -54,7 +54,7 @@
                                 </span>
                             @endif
                         </div>
-                        <h1 class="display mt-2 text-3xl sm:text-4xl text-white">{{ $reseller->name }} — Wholesale Portal</h1>
+                        <h1 class="display mt-2 text-3xl sm:text-5xl text-white">{{ $reseller->name }}: Wholesale Portal</h1>
                         <p class="mt-1 text-xs sm:text-sm text-white/75">
                             All prices below reflect your private reseller rates. Buy in 1 click using your Wallet Balance or any payment gateway.
                         </p>
@@ -63,7 +63,7 @@
                     <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 rounded-xl border border-white/15 bg-white/5 p-4">
                         <div>
                             <span class="block text-[10px] font-bold uppercase tracking-wider text-[#ff8fa3]">Reseller Wallet Balance</span>
-                            <span class="display text-3xl sm:text-3xl text-white">{{ money($reseller->wallet_balance) }}</span>
+                            <span class="display text-3xl sm:text-4xl text-white">{{ money($reseller->wallet_balance) }}</span>
                         </div>
                         @if ($waAdmin !== '')
                             <a href="https://wa.me/{{ $waAdmin }}?text={{ urlencode('Assalam o Alaikum! I want to add funds to my Reseller Wallet (@'.$reseller->reseller_slug.' / '.$reseller->email.')') }}"
@@ -79,20 +79,23 @@
 
             {{-- Search & Category Filter --}}
             <div class="card mt-6 p-4">
-                <form method="get" action="{{ route('reseller.portal', $reseller->reseller_slug) }}" class="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <input type="search" name="q" value="{{ $search }}" placeholder="Search wholesale catalog..." class="input flex-1 text-xs sm:text-sm">
-                    <select name="category" onchange="this.form.submit()" class="input sm:w-56 text-xs sm:text-sm">
+                <form method="get" action="{{ route('reseller.portal', $reseller->reseller_slug) }}" class="flex flex-col gap-3 sm:flex-row sm:items-center"
+                      x-data="liveFilter('#reseller-results')" @submit.prevent="run()">
+                    <div class="relative flex-1">
+                        <input type="search" name="q" value="{{ $search }}" placeholder="Search wholesale catalog as you type" autocomplete="off" aria-label="Search wholesale catalog" class="input pr-9 text-xs sm:text-sm" @input.debounce.300ms="run()">
+                        <span x-show="loading" x-cloak class="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-line border-t-brand" aria-hidden="true"></span>
+                    </div>
+                    <select name="category" @change="run()" aria-label="Category" class="input sm:w-56 text-xs sm:text-sm">
                         <option value="">All Categories</option>
                         @foreach ($categories as $cat)
                             <option value="{{ $cat->slug }}" @selected($categorySlug === $cat->slug)>{{ $cat->name }}</option>
                         @endforeach
                     </select>
-                    <button type="submit" class="btn btn-primary px-5 py-2.5 text-xs sm:text-sm">Filter</button>
                 </form>
             </div>
 
             {{-- Reseller Wholesale Product Table / Grid --}}
-            <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div id="reseller-results" class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-live="polite">
                 @forelse ($products as $product)
                     @php
                         $retail = (float) $product->price;

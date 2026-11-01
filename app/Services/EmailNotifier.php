@@ -260,7 +260,7 @@ class EmailNotifier
 
         $hint = match (true) {
             str_contains($lower, '535') || str_contains($lower, 'authentication') || str_contains($lower, 'username and password not accepted') => 'Login rejected. Check the username/password. For Gmail you must use a 16-character App Password (Google Account → Security → App passwords), not your normal password.',
-            str_contains($lower, 'timed out') || str_contains($lower, 'timeout') => 'Connection timed out. Your host may block this port — try 587 with TLS, or 465 with SSL.',
+            str_contains($lower, 'timed out') || str_contains($lower, 'timeout') => 'Connection timed out. Your host may block this port, try 587 with TLS, or 465 with SSL.',
             str_contains($lower, 'connection refused') || str_contains($lower, 'unable to connect') => 'Could not connect to the SMTP server. Check the host name and port, and that Encryption matches the port (465 = SSL, 587 = TLS).',
             str_contains($lower, 'ssl') || str_contains($lower, 'tls') || str_contains($lower, 'certificate') || str_contains($lower, 'wrong version number') => 'Encryption mismatch. Use SSL with port 465, or TLS with port 587.',
             str_contains($lower, 'getaddrinfo') || str_contains($lower, 'name or service not known') || str_contains($lower, 'no such host') => 'SMTP host name not found. Double-check the host (e.g. smtp.hostinger.com, smtp.gmail.com).',

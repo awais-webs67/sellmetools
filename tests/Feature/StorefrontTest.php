@@ -158,7 +158,7 @@ class StorefrontTest extends TestCase
         $this->post(route('webhooks.order.quick', ['order' => $order->number]), [
             'pin' => '7860',
             'do' => 'approve',
-        ])->assertOk()->assertSee('Payment Confirmed — ⚠️ Delivery On Hold', false);
+        ])->assertOk()->assertSee('Payment Confirmed: ⚠️ Delivery On Hold', false);
 
         $this->assertSame(OrderStatus::NeedsAttention, $order->refresh()->status);
         $this->assertCount(0, $order->deliveries);

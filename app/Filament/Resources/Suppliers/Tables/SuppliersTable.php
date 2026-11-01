@@ -30,7 +30,7 @@ class SuppliersTable
                     ->label('Active'),
                 TextColumn::make('balance')
                     ->formatStateUsing(fn (Supplier $record): string => Money::currency($record->balance, $record->currency))
-                    ->placeholder('—')
+                    ->placeholder('-')
                     ->color(fn (Supplier $record): ?string => $record->balance !== null
                         && (float) $record->balance < (float) $record->low_balance_threshold ? 'danger' : null)
                     ->sortable(),
@@ -54,7 +54,7 @@ class SuppliersTable
                     ->color('danger')
                     ->limit(60)
                     ->tooltip(fn (Supplier $record): ?string => $record->last_sync_error)
-                    ->placeholder('—')
+                    ->placeholder('-')
                     ->wrap(),
             ])
             ->headerActions([

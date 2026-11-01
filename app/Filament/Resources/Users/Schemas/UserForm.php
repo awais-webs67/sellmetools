@@ -44,7 +44,7 @@ class UserForm
                         TextInput::make('phone')
                             ->label('WhatsApp Number (Exact Format: 923XXXXXXXXX)')
                             ->placeholder('923001234567')
-                            ->helperText('Enter 03001234567 or 923001234567 — auto-converted to 923001234567 on save.')
+                            ->helperText('Enter 03001234567 or 923001234567, auto-converted to 923001234567 on save.')
                             ->maxLength(32)
                             ->dehydrateStateUsing(fn (?string $state) => filled($state) ? format_whatsapp($state) : null),
                         TextInput::make('password')

@@ -51,7 +51,7 @@ class IncomingPaymentResource extends Resource
                     ->formatStateUsing(fn ($state, IncomingPayment $r): string => $r->currency.' '.number_format((float) $state, 2))
                     ->sortable(),
                 TextColumn::make('sender')
-                    ->placeholder('—'),
+                    ->placeholder('-'),
                 IconColumn::make('matched_payment_id')
                     ->label('Auto-Matched')
                     ->boolean(fn (IncomingPayment $r): bool => $r->matched_payment_id !== null),

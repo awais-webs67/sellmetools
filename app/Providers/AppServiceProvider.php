@@ -42,7 +42,7 @@ class AppServiceProvider extends ServiceProvider
 
     /**
      * Automatically runs pending database migrations (and initial seed if empty) whenever
-     * new migration files are deployed via Git — no SSH or phpMyAdmin import needed.
+     * new migration files are deployed via Git, no SSH or phpMyAdmin import needed.
      */
     protected function autoMigrateDatabaseIfChanged(): void
     {

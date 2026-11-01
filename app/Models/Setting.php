@@ -33,9 +33,11 @@ class Setting extends Model
         'support_telegram' => '',
         'support_email' => '',
         'announcement' => '',
-        'seo_title' => 'Buy ChatGPT Plus, Canva Pro, CapCut Pro & Digital Subscriptions in Pakistan',
-        'seo_description' => 'Pakistan\'s #1 digital tools & subscriptions store. Buy genuine ChatGPT Plus, Canva Pro, CapCut Pro, Cursor, Netflix, VPNs & cloud accounts at wholesale rates. Instant delivery via Easypaisa, JazzCash, NayaPay, SadaPay & Binance.',
-        'seo_keywords' => 'buy chatgpt plus in pakistan, chatgpt 4o price in pakistan, canva pro 1 year pakistan, capcut pro subscription pkr, midjourney subscription pakistan, cursor pro subscription pakistan, claude pro ai pakistan, netflix shared account pkr, cheap premium tools pakistan, buy digital subscriptions easypaisa, buy software jazzcash, binance usdt digital store pakistan, sellmetools pakistan',
+        // Keyword targets researched against Pakistani competitors (SasteTools, DigiFaizan, digitaltools.com.pk):
+        // "<tool> price in pakistan" and "buy <tool> in pakistan" are the highest-intent search patterns.
+        'seo_title' => 'AI Tools & Premium Subscriptions Price in Pakistan',
+        'seo_description' => 'Buy ChatGPT Plus, Canva Pro, CapCut Pro, Claude, Cursor and more in Pakistan at local prices. Pay with Easypaisa, JazzCash, NayaPay, SadaPay or Binance.',
+        'seo_keywords' => 'ai tools price in pakistan, premium tools pakistan, buy digital subscriptions in pakistan, chatgpt plus price in pakistan, buy chatgpt plus in pakistan, canva pro price in pakistan, capcut pro price in pakistan, claude pro price in pakistan, gemini pro price in pakistan, cursor pro price in pakistan, grammarly premium price in pakistan, netflix subscription price in pakistan, midjourney price in pakistan, premium accounts easypaisa jazzcash, cheap ai tools pakistan, sellmetools',
         'google_site_verification' => '',
         'google_analytics_id' => '',
         'mail_enabled' => '1',

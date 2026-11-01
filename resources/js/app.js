@@ -1,4 +1,7 @@
 import Alpine from 'alpinejs';
+import { registerSearch } from './search';
+
+registerSearch(Alpine);
 
 /**
  * Live stock & price store: every element with [data-stock-id] is refreshed by polling /api/stock.
@@ -75,7 +78,7 @@ Alpine.store('stock', {
                 }
             }
         } catch (_) {
-            /* network hiccup – try again next tick */
+            /* network hiccup, try again next tick */
         }
     },
 
@@ -202,7 +205,7 @@ Alpine.data('orderWatcher', (statusUrl, currentStatus, initialReviewTimeout = fa
     stageText: currentStatus === 'processing'
         ? 'Payment verified! Delivering your subscription credentials...'
         : (initialReviewTimeout
-            ? 'Order On Hold — Admin is checking your order. You may also contact support on WhatsApp below.'
+            ? 'Order On Hold: Admin is checking your order. You may also contact support on WhatsApp below.'
             : 'Admin is verifying your payment, please wait...'),
 
     init() {
@@ -237,7 +240,7 @@ Alpine.data('orderWatcher', (statusUrl, currentStatus, initialReviewTimeout = fa
                 if (data.review_timeout && !this.reviewTimeout) {
                     this.reviewTimeout = true;
                     this.progress = 85;
-                    this.stageText = 'Order On Hold — Admin is checking your order. You may also contact support on WhatsApp below.';
+                    this.stageText = 'Order On Hold: Admin is checking your order. You may also contact support on WhatsApp below.';
                 }
                 if (data.status !== currentStatus || data.expired) {
                     setTimeout(() => window.location.reload(), 250);

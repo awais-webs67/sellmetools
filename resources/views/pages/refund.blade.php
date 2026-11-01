@@ -12,10 +12,10 @@
         <li>Products marked “No warranty” (NW) once delivered.</li>
         <li>Issues reported after the warranty period.</li>
         <li>Changes you made to an account (password, email, region) that caused it to stop working.</li>
-        <li>Buying the wrong product – please read product details first.</li>
+        <li>Buying the wrong product, please read product details first.</li>
     </ul>
     <h2>How refunds are paid</h2>
-    <p>Approved refunds are sent back to the original payment method within 1–3 business days, or as a replacement product if you prefer.</p>
+    <p>Approved refunds are sent back to the original payment method within 1 to 3 business days, or as a replacement product if you prefer.</p>
     <h2>Contact</h2>
     <p>Reach us via the <a href="{{ route('pages.show', 'contact') }}">contact page</a> with your order number.</p>
 </x-page>

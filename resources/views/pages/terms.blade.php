@@ -10,7 +10,7 @@
         <li>Fraudulent or fake payment submissions will result in cancellation and may be reported.</li>
     </ul>
     <h2>3. Delivery</h2>
-    <p>Products are delivered digitally on your order page after payment is verified – usually within minutes. In rare cases manual delivery may take longer.</p>
+    <p>Products are delivered digitally on your order page after payment is verified, usually within minutes. In rare cases manual delivery may take longer.</p>
     <h2>4. Use of products</h2>
     <p>You are responsible for using products in accordance with the terms of the respective service provider. {{ $store }} is not affiliated with the brands whose products are listed; all trademarks belong to their owners.</p>
     <h2>5. Liability</h2>

@@ -44,10 +44,10 @@ class OrdersTable
                     ->state(fn (Order $record): ?float => $record->profit())
                     ->formatStateUsing(fn ($state): string => Money::pkr($state))
                     ->color(fn ($state): ?string => $state !== null && $state < 0 ? 'danger' : 'success')
-                    ->placeholder('—'),
+                    ->placeholder('-'),
                 TextColumn::make('paymentMethod.name')
                     ->label('Payment')
-                    ->placeholder('—')
+                    ->placeholder('-')
                     ->toggleable(),
                 TextColumn::make('status')
                     ->badge()
