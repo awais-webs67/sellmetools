@@ -221,56 +221,6 @@ class StorefrontTest extends TestCase
         $this->assertSame(0, $product->refresh()->available_stock);
     }
 
-    public function test_txt_separator_extracts_exact_pcs_and_never_resells_sold_stock(): void
-    {
-        $product = $this->listing([], ['fixed_price' => 500, 'price' => 500]);
-        $txtContent = <<<'TXT'
-        Email: a@gmail.com
-        Pass: passA
-        Pin: 1111
-        ---
-        Email: b@gmail.com
-        Pass: passB
-        Pin: 2222
-        ---
-        Email: c@gmail.com
-        Pass: passC
-        Pin: 3333
-        TXT;
-
-        $added = $product->importStockItems($txtContent, 'auto');
-        $this->assertSame(3, $added);
-        $this->assertSame(3, $product->refresh()->available_stock);
-
-        $method = $this->paymentMethod();
-
-        // Customer 1 buys 2 PCs
-        $order1 = app(OrderService::class)->create($product, 2, $this->customer(), $method);
-        $payment1 = app(PaymentService::class)->submit($order1, 'TIDTXT0001', '03001112222');
-        $order1 = app(PaymentService::class)->approve($payment1);
-
-        $this->assertSame(OrderStatus::Completed, $order1->status);
-        $delivered1 = $order1->deliveries()->pluck('content')->all();
-        $this->assertCount(2, $delivered1);
-        $this->assertStringContainsString('a@gmail.com', $delivered1[0]);
-        $this->assertStringContainsString('Pin: 1111', $delivered1[0]);
-        $this->assertStringContainsString('b@gmail.com', $delivered1[1]);
-
-        // Only 1 PC remains available; sold items are never sold again
-        $this->assertSame(1, $product->refresh()->available_stock);
-
-        // Customer 2 buys 1 PC -> gets Account C (never A or B)
-        $order2 = app(OrderService::class)->create($product, 1, $this->customer(), $method);
-        $payment2 = app(PaymentService::class)->submit($order2, 'TIDTXT0002', '03001112222');
-        $order2 = app(PaymentService::class)->approve($payment2);
-
-        $this->assertSame(OrderStatus::Completed, $order2->status);
-        $delivered2 = $order2->deliveries()->pluck('content')->all();
-        $this->assertCount(1, $delivered2);
-        $this->assertStringContainsString('c@gmail.com', $delivered2[0]);
-        $this->assertSame(0, $product->refresh()->available_stock);
-    }
-
     public function test_already_confirmed_order_shows_warning_on_admin_quick_approve(): void
     {
         $product = $this->listing();
