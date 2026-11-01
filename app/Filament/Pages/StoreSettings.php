@@ -18,6 +18,7 @@ use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\Http;
 use UnitEnum;
 
 /**
@@ -134,6 +135,11 @@ class StoreSettings extends Page
                                     'support_whatsapp', 'admin_quick_pin', 'ntfy_topic', 'greenapi_instance_id', 'greenapi_api_token',
                                     'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
                                 ], 'WhatsApp & Push settings saved')),
+                            Action::make('testNtfyPush')
+                                ->label('Save & Send Test ntfy Notification')
+                                ->icon(Heroicon::OutlinedBellAlert)
+                                ->color('gray')
+                                ->action(fn () => $this->sendNtfyTest()),
                         ])->columnSpanFull(),
                     ]),
 
@@ -338,6 +344,55 @@ class StoreSettings extends Page
     public function save(): void
     {
         $this->saveKeys(self::KEYS, 'All settings saved');
+    }
+
+    protected function sendNtfyTest(): void
+    {
+        $topic = trim((string) ($this->data['ntfy_topic'] ?? ''));
+        if ($topic === '') {
+            Notification::make()
+                ->title('Enter a secret ntfy Topic name first')
+                ->body('For example: sellmetools_awais_786')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        Setting::set('ntfy_topic', $topic);
+
+        try {
+            $res = Http::timeout(6)
+                ->withHeaders([
+                    'Title' => 'SellMeTools – ntfy Push Active!',
+                    'Priority' => 'high',
+                    'Tags' => 'white_check_mark,bell',
+                ])
+                ->withBody("Your ntfy mobile alerts are connected for topic: {$topic}", 'text/plain')
+                ->post('https://ntfy.sh/'.urlencode($topic));
+
+            if ($res->successful()) {
+                Notification::make()
+                    ->title('Test Notification Sent to ntfy!')
+                    ->body("Check the ntfy app on your phone (subscribed to '{$topic}').")
+                    ->success()
+                    ->send();
+
+                return;
+            }
+        } catch (\Throwable $e) {
+            Notification::make()
+                ->title('ntfy Error: '.$e->getMessage())
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->title('Could not send ntfy notification')
+            ->danger()
+            ->send();
     }
 
     protected function sendTelegramTest(): void
