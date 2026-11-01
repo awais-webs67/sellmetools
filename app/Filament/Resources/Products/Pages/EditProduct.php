@@ -8,7 +8,9 @@ use App\Models\Product;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\On;
 
 class EditProduct extends EditRecord
@@ -39,9 +41,41 @@ class EditProduct extends EditRecord
         /** @var Product $product */
         $product = $this->record;
 
+        $this->processQuickStockUpload($product);
+
         Listings::refresh($product);
 
         $this->reloadListing();
+    }
+
+    protected function processQuickStockUpload(Product $product): void
+    {
+        $rawState = $this->form->getRawState();
+        $combined = '';
+
+        $file = $rawState['quick_stock_file'] ?? null;
+        if (is_array($file)) {
+            $file = reset($file);
+        }
+        if (is_string($file) && $file !== '' && Storage::disk('local')->exists($file)) {
+            $combined .= (string) Storage::disk('local')->get($file)."\n";
+            Storage::disk('local')->delete($file);
+        }
+
+        $text = trim((string) ($rawState['quick_stock_text'] ?? ''));
+        if ($text !== '') {
+            $combined .= "\n".$text;
+        }
+
+        if (trim($combined) !== '') {
+            $separator = (string) ($rawState['quick_stock_separator'] ?? 'auto');
+            $added = $product->importStockItems($combined, $separator);
+
+            Notification::make()
+                ->title("{$added} stock unit(s) imported into vault!")
+                ->success()
+                ->send();
+        }
     }
 
     /** Fired by the relation managers after sources / stock change so computed values stay current. */
@@ -49,6 +83,6 @@ class EditProduct extends EditRecord
     public function reloadListing(): void
     {
         $this->record->refresh();
-        $this->refreshFormData(['is_active']);
+        $this->refreshFormData(['is_active', 'quick_stock_file', 'quick_stock_text']);
     }
 }

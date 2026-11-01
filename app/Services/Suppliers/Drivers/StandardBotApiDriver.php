@@ -181,10 +181,19 @@ class StandardBotApiDriver implements SupplierDriver
         $this->guard($response);
 
         $order = $response->json('order');
-        $items = is_array($order['items'] ?? null) ? array_values(array_map('strval', $order['items'])) : [];
+        $rawItems = is_array($order['items'] ?? null)
+            ? $order['items']
+            : ($response->json('items') ?? $response->json('data.items') ?? []);
+
+        $items = is_array($rawItems)
+            ? array_values(array_filter(
+                array_map(fn ($v): string => is_scalar($v) ? trim((string) $v) : '', $rawItems),
+                fn (string $v): bool => $v !== ''
+            ))
+            : [];
 
         if ($items === []) {
-            throw SupplierUnknownResultException::withContext('Order accepted but no items were returned.', ['body' => $response->json()]);
+            throw SupplierUnknownResultException::withContext('Order accepted by supplier but returned empty credentials.', ['body' => $response->json()]);
         }
 
         return new SupplierOrderResult(

@@ -14,6 +14,7 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Icons\Heroicon;
@@ -38,6 +39,7 @@ class ViewOrder extends ViewRecord
                 ->after(fn () => $this->refreshRecord()),
             $this->retryFulfillmentAction(),
             $this->deliverManuallyAction(),
+            $this->markWhatsappDeliveredAction(),
             ActionGroup::make([
                 PaymentActions::screenshot($latestPayment)->label('Payment screenshot'),
                 $this->adminNoteAction(),
@@ -50,12 +52,12 @@ class ViewOrder extends ViewRecord
     protected function retryFulfillmentAction(): Action
     {
         return Action::make('retryFulfillment')
-            ->label('Retry fulfillment')
+            ->label('Retry Supplier / Stock')
             ->icon(Heroicon::OutlinedArrowPath)
             ->color('primary')
             ->visible(fn (): bool => in_array($this->record->status, [OrderStatus::Processing, OrderStatus::NeedsAttention], true))
             ->requiresConfirmation()
-            ->modalDescription('Tries own stock first, then suppliers (cheapest first) for every undelivered unit.')
+            ->modalDescription('Tries own .TXT stock vault first, then calls Supplier APIs (cheapest first) for every undelivered unit.')
             ->action(function (): void {
                 $order = $this->record;
 
@@ -81,9 +83,9 @@ class ViewOrder extends ViewRecord
     protected function deliverManuallyAction(): Action
     {
         return Action::make('deliverManually')
-            ->label('Deliver manually')
+            ->label('Deliver Credentials Manually')
             ->icon(Heroicon::OutlinedPaperAirplane)
-            ->color('gray')
+            ->color('success')
             ->visible(fn (): bool => in_array($this->record->status, [OrderStatus::Processing, OrderStatus::NeedsAttention], true)
                 && $this->undeliveredItems() !== [])
             ->modalWidth('2xl')
@@ -93,19 +95,32 @@ class ViewOrder extends ViewRecord
                     ->options(fn (): array => $this->undeliveredItems())
                     ->default(fn (): ?int => array_key_first($this->undeliveredItems()))
                     ->required(),
+                Select::make('separator_mode')
+                    ->label('How Are Multiple Units Separated?')
+                    ->options([
+                        'auto' => '✨ Smart Auto-Detect (Splits by --- or === if present, otherwise 1 Line = 1 PC)',
+                        'separator' => '✂️ Multi-Line Credentials Separated by --- or ===',
+                        'line' => '📏 Single-Line Credentials (1 Line = 1 PC)',
+                    ])
+                    ->default('auto')
+                    ->required(),
                 Textarea::make('lines')
-                    ->label('Delivery content')
-                    ->helperText('One unit per line (e.g. email:password). Extra lines beyond the remaining quantity are ignored.')
+                    ->label('Delivery Credentials')
+                    ->helperText('For multi-line credentials, put --- on a line between Unit 1 and Unit 2.')
+                    ->placeholder("Email: user1@gmail.com\nPass: 12345\n---\nEmail: user2@gmail.com\nPass: 67890")
                     ->rows(8)
                     ->required(),
             ])
             ->action(function (array $data): void {
                 /** @var OrderItem $item */
                 $item = $this->record->items()->findOrFail($data['order_item_id']);
-                $lines = preg_split('/\r\n|\r|\n/', (string) $data['lines']) ?: [];
 
                 try {
-                    $order = app(FulfillmentService::class)->deliverManually($item, $lines);
+                    $order = app(FulfillmentService::class)->deliverManually(
+                        $item,
+                        (string) $data['lines'],
+                        (string) ($data['separator_mode'] ?? 'auto')
+                    );
                 } catch (Throwable $e) {
                     report($e);
                     Notification::make()->title('Manual delivery failed')->body($e->getMessage())->danger()->send();
@@ -114,6 +129,40 @@ class ViewOrder extends ViewRecord
                 }
 
                 $this->notifyStatus($order, 'Delivered');
+                $this->refreshRecord();
+            });
+    }
+
+    protected function markWhatsappDeliveredAction(): Action
+    {
+        return Action::make('markWhatsappDelivered')
+            ->label('Mark Delivered on WhatsApp')
+            ->icon(Heroicon::OutlinedCheckBadge)
+            ->color('gray')
+            ->visible(fn (): bool => in_array($this->record->status, [OrderStatus::Processing, OrderStatus::NeedsAttention], true)
+                && $this->undeliveredItems() !== [])
+            ->requiresConfirmation()
+            ->modalHeading('Mark Order Delivered via WhatsApp')
+            ->modalDescription('Use this when you have already handed over the product/activation to the customer directly on WhatsApp.')
+            ->schema([
+                TextInput::make('note')
+                    ->label('Optional Delivery Note (shown to customer)')
+                    ->placeholder('e.g. Activated on customer email / Sent on WhatsApp'),
+            ])
+            ->action(function (array $data): void {
+                try {
+                    $order = app(FulfillmentService::class)->markDeliveredViaWhatsApp(
+                        $this->record,
+                        $data['note'] ?? null
+                    );
+                } catch (Throwable $e) {
+                    report($e);
+                    Notification::make()->title('Failed to mark delivered')->body($e->getMessage())->danger()->send();
+
+                    return;
+                }
+
+                $this->notifyStatus($order, 'Marked Delivered via WhatsApp');
                 $this->refreshRecord();
             });
     }
@@ -201,7 +250,7 @@ class ViewOrder extends ViewRecord
     {
         $notification = Notification::make()
             ->title($title)
-            ->body("Order status: {$order->status->label()}");
+            ->body("Order status: {$order->status->label()}".($order->admin_note ? " ({$order->admin_note})" : ''));
 
         match ($order->status) {
             OrderStatus::Completed => $notification->success(),

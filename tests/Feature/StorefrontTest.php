@@ -8,6 +8,7 @@ use App\Models\ResellerProductPrice;
 use App\Models\User;
 use App\Services\InventoryService;
 use App\Services\OrderService;
+use App\Services\PaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\CreatesStore;
 use Tests\TestCase;
@@ -62,7 +63,8 @@ class StorefrontTest extends TestCase
 
     public function test_checkout_creates_order_and_order_page_requires_token(): void
     {
-        $product = $this->listing([$this->supplierProduct($this->supplier())]);
+        $product = $this->listing();
+        $product->importStockItems("acc1@example.com:pass1\n---\nacc2@example.com:pass2", 'separator');
         $method = $this->paymentMethod();
 
         $response = $this->post(route('checkout.store', $product), [
@@ -105,7 +107,8 @@ class StorefrontTest extends TestCase
             ->assertJsonPath('review_timeout', true);
 
         // Duplicate TID (even with dashes or TID: prefix on a second order) must be blocked
-        $order2 = app(OrderService::class)->create($product, 1, $this->customer(), $method);
+        $product->importStockItems('acc3@example.com:pass3');
+        $order2 = app(OrderService::class)->create($product->refresh(), 1, $this->customer(), $method);
         $this->post(route('orders.payment', $order2), [
             'token' => $order2->access_token,
             'transaction_id' => 'TID: ABC-123-4567',
@@ -126,9 +129,10 @@ class StorefrontTest extends TestCase
         ])->assertOk()->assertSee('Order Approved &amp; Delivered!', false);
 
         $this->assertSame(OrderStatus::Completed, $order->refresh()->status);
+        $this->assertCount(2, $order->deliveries);
     }
 
-    public function test_one_tap_approve_directly_completes_order_even_with_low_supplier_balance(): void
+    public function test_one_tap_approve_holds_order_when_supplier_balance_is_low_and_delivers_when_admin_pastes_credentials(): void
     {
         $supplier = $this->supplier(['balance' => 0.10]); // Low supplier balance ($0.10 < $1.00 cost)
         $sp = $this->supplierProduct($supplier, ['cost' => 1.0, 'stock' => 5]);
@@ -146,15 +150,125 @@ class StorefrontTest extends TestCase
         // Manual payment stays in PaymentReview until Admin approves via 1-Tap
         $this->assertSame(OrderStatus::PaymentReview, $order->refresh()->status);
 
-        // Admin approves via 1-Tap with Secret Key & custom credentials -> goes directly to Completed (never stuck on NeedsAttention!)
+        // 1) Admin approves payment WITHOUT custom credentials when supplier balance is low ->
+        // Payment is confirmed, SupplierOrder attempt is recorded as Failed, and Order stays on NeedsAttention (never delivered empty!)
         $this->post(route('webhooks.order.quick', ['order' => $order->number]), [
             'pin' => '7860',
             'do' => 'approve',
+        ])->assertOk()->assertSee('Payment Confirmed — ⚠️ Delivery On Hold', false);
+
+        $this->assertSame(OrderStatus::NeedsAttention, $order->refresh()->status);
+        $this->assertCount(0, $order->deliveries);
+
+        // 2) Admin pastes custom credentials on the 1-Tap page -> Order completes immediately!
+        $this->post(route('webhooks.order.quick', ['order' => $order->number]), [
+            'pin' => '7860',
+            'do' => 'retry',
             'credentials' => 'manual_account@test.com:pass786',
         ])->assertOk()->assertSee('Order Approved &amp; Delivered!', false);
 
         $this->assertSame(OrderStatus::Completed, $order->refresh()->status);
         $this->assertSame('manual_account@test.com:pass786', $order->deliveries()->first()->content);
+    }
+
+    public function test_txt_separator_extracts_exact_pcs_and_never_resells_sold_stock(): void
+    {
+        $product = $this->listing([], ['fixed_price' => 500, 'price' => 500]);
+        $txtContent = <<<'TXT'
+        Email: a@gmail.com
+        Pass: passA
+        Pin: 1111
+        ---
+        Email: b@gmail.com
+        Pass: passB
+        Pin: 2222
+        ---
+        Email: c@gmail.com
+        Pass: passC
+        Pin: 3333
+        TXT;
+
+        $added = $product->importStockItems($txtContent, 'auto');
+        $this->assertSame(3, $added);
+        $this->assertSame(3, $product->refresh()->available_stock);
+
+        $method = $this->paymentMethod();
+
+        // Customer 1 buys 2 PCs
+        $order1 = app(OrderService::class)->create($product, 2, $this->customer(), $method);
+        $payment1 = app(PaymentService::class)->submit($order1, 'TIDTXT0001', '03001112222');
+        $order1 = app(PaymentService::class)->approve($payment1);
+
+        $this->assertSame(OrderStatus::Completed, $order1->status);
+        $delivered1 = $order1->deliveries()->pluck('content')->all();
+        $this->assertCount(2, $delivered1);
+        $this->assertStringContainsString('a@gmail.com', $delivered1[0]);
+        $this->assertStringContainsString('Pin: 1111', $delivered1[0]);
+        $this->assertStringContainsString('b@gmail.com', $delivered1[1]);
+
+        // Only 1 PC remains available; sold items are never sold again
+        $this->assertSame(1, $product->refresh()->available_stock);
+
+        // Customer 2 buys 1 PC -> gets Account C (never A or B)
+        $order2 = app(OrderService::class)->create($product, 1, $this->customer(), $method);
+        $payment2 = app(PaymentService::class)->submit($order2, 'TIDTXT0002', '03001112222');
+        $order2 = app(PaymentService::class)->approve($payment2);
+
+        $this->assertSame(OrderStatus::Completed, $order2->status);
+        $delivered2 = $order2->deliveries()->pluck('content')->all();
+        $this->assertCount(1, $delivered2);
+        $this->assertStringContainsString('c@gmail.com', $delivered2[0]);
+        $this->assertSame(0, $product->refresh()->available_stock);
+    }
+
+    public function test_txt_separator_extracts_exact_pcs_and_never_resells_sold_stock(): void
+    {
+        $product = $this->listing([], ['fixed_price' => 500, 'price' => 500]);
+        $txtContent = <<<'TXT'
+        Email: a@gmail.com
+        Pass: passA
+        Pin: 1111
+        ---
+        Email: b@gmail.com
+        Pass: passB
+        Pin: 2222
+        ---
+        Email: c@gmail.com
+        Pass: passC
+        Pin: 3333
+        TXT;
+
+        $added = $product->importStockItems($txtContent, 'auto');
+        $this->assertSame(3, $added);
+        $this->assertSame(3, $product->refresh()->available_stock);
+
+        $method = $this->paymentMethod();
+
+        // Customer 1 buys 2 PCs
+        $order1 = app(OrderService::class)->create($product, 2, $this->customer(), $method);
+        $payment1 = app(\App\Services\PaymentService::class)->submit($order1, 'TIDTXT0001', '03001112222');
+        $order1 = app(\App\Services\PaymentService::class)->approve($payment1);
+
+        $this->assertSame(OrderStatus::Completed, $order1->status);
+        $delivered1 = $order1->deliveries()->pluck('content')->all();
+        $this->assertCount(2, $delivered1);
+        $this->assertStringContainsString('a@gmail.com', $delivered1[0]);
+        $this->assertStringContainsString('Pin: 1111', $delivered1[0]);
+        $this->assertStringContainsString('b@gmail.com', $delivered1[1]);
+
+        // Only 1 PC remains available; sold items are never sold again
+        $this->assertSame(1, $product->refresh()->available_stock);
+
+        // Customer 2 buys 1 PC -> gets Account C (never A or B)
+        $order2 = app(OrderService::class)->create($product, 1, $this->customer(), $method);
+        $payment2 = app(\App\Services\PaymentService::class)->submit($order2, 'TIDTXT0002', '03001112222');
+        $order2 = app(\App\Services\PaymentService::class)->approve($payment2);
+
+        $this->assertSame(OrderStatus::Completed, $order2->status);
+        $delivered2 = $order2->deliveries()->pluck('content')->all();
+        $this->assertCount(1, $delivered2);
+        $this->assertStringContainsString('c@gmail.com', $delivered2[0]);
+        $this->assertSame(0, $product->refresh()->available_stock);
     }
 
     public function test_already_confirmed_order_shows_warning_on_admin_quick_approve(): void

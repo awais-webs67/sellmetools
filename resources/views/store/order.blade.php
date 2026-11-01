@@ -300,38 +300,78 @@
                         </div>
                     </section>
 
-                {{-- ============ ORDER ON HOLD (Payment Verified, Supplier Balance Low / Admin Checking) ============ --}}
+                {{-- ============ ORDER ON HOLD / WHATSAPP HANDOVER / MANUAL ADMIN DISPATCH ============ --}}
                 @elseif ($s === OrderStatus::NeedsAttention)
-                    <section class="card overflow-hidden border-2 border-amber-500/40">
-                        <div class="bg-[#b45309] p-5 sm:p-6 text-white">
+                    @php
+                        $primaryDeliveryType = $order->items->first()?->product?->delivery_type ?: 'auto';
+                        $isWhatsAppHandover = $primaryDeliveryType === 'whatsapp_handover';
+                        $isManualAdmin = $primaryDeliveryType === 'manual_admin';
+
+                        $claimWaTemplate = "Assalam o Alaikum! ✅ My payment for Order *{$order->number}* ({$itemsSummary}) on ".setting('store_name')." is CONFIRMED & VERIFIED!\n\n"
+                            ."🧾 *Order ID:* {$order->number}\n"
+                            ."📦 *Product:* {$itemsSummary}\n"
+                            ."💰 *Paid:* {$amountFormatted}\n"
+                            ."🔑 *TID:* ".($order->latestPayment?->transaction_id ?? 'Verified')."\n"
+                            ."📧 *Email:* {$order->email}\n\n"
+                            ."Please deliver my order here on WhatsApp.\n"
+                            ."🔗 *Admin 1-Tap Control:* {$quickApproveUrl}";
+
+                        $claimWaHref = $waNumber !== ''
+                            ? "https://wa.me/{$waNumber}?text=".urlencode($claimWaTemplate)
+                            : 'https://api.whatsapp.com/send?text='.urlencode($claimWaTemplate);
+                    @endphp
+                    <section class="card overflow-hidden border-2 {{ $isWhatsAppHandover ? 'border-[#16794B]/40' : 'border-amber-500/40' }}">
+                        <div class="{{ $isWhatsAppHandover ? 'bg-gradient-to-r from-[#0F291E] via-[#143D2B] to-[#16794B]' : 'bg-[#b45309]' }} p-5 sm:p-6 text-white">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <span class="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-bold tracking-wider text-white uppercase">
-                                    ⏸️ Order On Hold — Payment Verified
+                                    @if ($isWhatsAppHandover)
+                                        📲 Payment Verified — Receive on WhatsApp
+                                    @elseif ($isManualAdmin)
+                                        👨‍💻 Payment Verified — Admin Preparing Credentials
+                                    @else
+                                        ⏸️ Order On Hold — Payment Verified
+                                    @endif
                                 </span>
                                 <span class="font-mono text-xs text-white/90">Order #{{ $order->number }}</span>
                             </div>
                             <h2 class="display mt-3 text-3xl sm:text-4xl text-white">
-                                Order On Hold — Admin is Checking Your Order
+                                @if ($isWhatsAppHandover)
+                                    Payment Confirmed! Click Below to Get Your Product on WhatsApp
+                                @elseif ($isManualAdmin)
+                                    Payment Confirmed — Admin is Preparing Your Credentials
+                                @else
+                                    Order On Hold — Admin is Checking Your Order
+                                @endif
                             </h2>
                             <p class="mt-1 text-xs sm:text-sm text-white/90">
-                                Your payment (TID: <strong class="font-mono">{{ $order->latestPayment?->transaction_id ?? 'Verified' }}</strong>) has been confirmed! Your order is currently on hold while our admin dispatches your subscription credentials.
+                                @if ($isWhatsAppHandover)
+                                    Your payment (TID: <strong class="font-mono">{{ $order->latestPayment?->transaction_id ?? 'Verified' }}</strong>) is 100% confirmed! Tap the WhatsApp button below to receive your account/activation directly on WhatsApp.
+                                @else
+                                    Your payment (TID: <strong class="font-mono">{{ $order->latestPayment?->transaction_id ?? 'Verified' }}</strong>) has been confirmed! Your order is currently being processed while our admin dispatches your subscription credentials.
+                                @endif
                             </p>
                         </div>
 
                         <div class="p-5 sm:p-6 space-y-4">
-                            <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs sm:text-sm text-ink">
-                                <p class="font-bold text-amber-950">✓ Payment Confirmed — Admin Notified</p>
+                            <div class="rounded-xl border {{ $isWhatsAppHandover ? 'border-[#16794B]/30 bg-[#16794B]/10' : 'border-amber-500/30 bg-amber-500/10' }} p-4 text-xs sm:text-sm text-ink">
+                                <p class="font-bold {{ $isWhatsAppHandover ? 'text-[#0F291E]' : 'text-amber-950' }}">
+                                    {{ $isWhatsAppHandover ? '✓ Instant WhatsApp Delivery Ready' : '✓ Payment Confirmed — Admin Notified' }}
+                                </p>
                                 <p class="mt-1 text-body">
-                                    Our admin has received an urgent alert on WhatsApp &amp; Telegram to complete your delivery. This page will update automatically as soon as your credentials are dispatched, or you can message us on WhatsApp below:
+                                    @if ($isWhatsAppHandover)
+                                        This product is delivered directly via WhatsApp. Click the green button below to open WhatsApp with your verified Order ID and receive your product immediately!
+                                    @else
+                                        Our admin has received an urgent alert on WhatsApp &amp; Telegram to complete your delivery. This page will update automatically as soon as your credentials are dispatched, or you can message us on WhatsApp below:
+                                    @endif
                                 </p>
                             </div>
 
                             @if ($waNumber !== '')
-                                <a href="{{ $waHref }}"
+                                <a href="{{ $claimWaHref }}"
                                    target="_blank"
                                    rel="noopener"
                                    class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full py-3.5 text-sm sm:text-base font-bold shadow-lg">
-                                    📲 Contact Admin on WhatsApp →
+                                    {{ $isWhatsAppHandover ? '📲 Receive Your Order on WhatsApp Now →' : '📲 Contact Admin on WhatsApp →' }}
                                 </a>
                             @endif
                         </div>

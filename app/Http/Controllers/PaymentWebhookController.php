@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\Product;
 use App\Models\Setting;
 use App\Services\AutoPaymentVerifier;
 use App\Services\FulfillmentService;
@@ -23,7 +24,7 @@ use Throwable;
  *  - POST /api/webhooks/payment-sms         (Android SMS/Notification Forwarder)
  *  - POST /api/webhooks/telegram            (Telegram Bot In-Chat 1-Tap Callback Buttons)
  *  - GET|POST /webhooks/payment/{payment}/{action} (Signed 1-Tap Approve / Decline from Auto-WhatsApp / ntfy)
- *  - GET|POST /quick-order/{order:number}   (1-Tap Approve / Decline from WhatsApp Receipt Message)
+ *  - GET|POST /quick-order/{order:number}   (1-Tap Approve / Decline / Manual Deliver from WhatsApp / Telegram / ntfy)
  */
 class PaymentWebhookController extends Controller
 {
@@ -130,17 +131,36 @@ class PaymentWebhookController extends Controller
 
         try {
             if ($action === 'approve') {
-                $order = $this->forceApproveAndComplete($order, $payment, $payments, $fulfillment);
-                $telegram->answerCallback($callbackId, "✅ Order {$order->number} Approved & Delivered!");
-                if ($messageId > 0) {
-                    $telegram->editMessage(
-                        $chatId,
-                        $messageId,
-                        "✅ <b>APPROVED &amp; DELIVERED</b>\n".
-                        "Order: <b>{$order->number}</b>\n".
-                        'TID: <code>'.TelegramNotifier::e($payment->transaction_id)."</code>\n".
-                        "Status: <b>{$order->status->label()}</b>"
-                    );
+                $order = $this->approveAndFulfill($order, $payment, $payments, $fulfillment);
+
+                if ($order->status === OrderStatus::Completed) {
+                    $telegram->answerCallback($callbackId, "✅ Order {$order->number} Approved & Delivered!");
+                    if ($messageId > 0) {
+                        $telegram->editMessage(
+                            $chatId,
+                            $messageId,
+                            "✅ <b>APPROVED &amp; DELIVERED</b>\n".
+                            "Order: <b>{$order->number}</b>\n".
+                            'TID: <code>'.TelegramNotifier::e($payment->transaction_id)."</code>\n".
+                            "Status: <b>{$order->status->label()}</b>"
+                        );
+                    }
+                } else {
+                    $reason = $order->admin_note ?: 'Awaiting stock/supplier delivery';
+                    $adminUrl = url('/admin/orders/'.$order->id);
+                    $quickUrl = route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']);
+                    $telegram->answerCallback($callbackId, "✅ Payment Confirmed! ⚠️ Delivery On Hold: {$reason}");
+                    if ($messageId > 0) {
+                        $telegram->editMessage(
+                            $chatId,
+                            $messageId,
+                            "✅ <b>PAYMENT APPROVED — ⚠️ DELIVERY ON HOLD</b>\n".
+                            "Order: <b>{$order->number}</b>\n".
+                            'TID: <code>'.TelegramNotifier::e($payment->transaction_id)."</code>\n".
+                            '⚠️ <b>Reason:</b> '.TelegramNotifier::e($reason)."\n".
+                            "🔗 <a href=\"{$adminUrl}\">Open in Admin Panel</a> · <a href=\"{$quickUrl}\">1-Tap Manual Deliver</a>"
+                        );
+                    }
                 }
             } else {
                 if ($payment->status === PaymentStatus::Pending) {
@@ -178,14 +198,14 @@ class PaymentWebhookController extends Controller
     }
 
     /**
-     * 1-Tap WhatsApp Approve / Decline endpoint (`/quick-order/{order:number}?do=approve|reject`).
+     * 1-Tap WhatsApp Approve / Decline / Manual Deliver endpoint (`/quick-order/{order:number}?do=approve|reject`).
      * Secured by the Admin Secret Key (`admin_quick_pin` saved in Admin Panel -> Store Settings).
      * Never executes state changes on GET so WhatsApp Link Preview bots cannot auto-approve orders.
      */
     public function quickOrder(Request $request, Order $order, PaymentService $payments, FulfillmentService $fulfillment): View|RedirectResponse
     {
         $do = strtolower((string) ($request->input('do') ?? $request->query('do') ?? 'approve'));
-        if (! in_array($do, ['approve', 'reject'], true)) {
+        if (! in_array($do, ['approve', 'reject', 'retry', 'whatsapp_delivered'], true)) {
             $do = 'approve';
         }
 
@@ -205,7 +225,7 @@ class PaymentWebhookController extends Controller
             $isUnlockedByCookie = true;
         }
 
-        $order->load(['items.deliveries', 'paymentMethod', 'latestPayment']);
+        $order->load(['items.deliveries', 'items.product', 'paymentMethod', 'latestPayment']);
         $payment = $order->latestPayment;
 
         // If not unlocked by Secret Key cookie yet, show the Secret Key + Approve/Decline screen
@@ -235,23 +255,63 @@ class PaymentWebhookController extends Controller
             ]);
         }
 
-        // Execute Approve or Decline on POST
+        // Execute Approve, Retry, WhatsApp Handover, or Decline on POST
         if ($request->isMethod('post')) {
             try {
-                if ($do === 'approve') {
+                if (in_array($do, ['approve', 'retry'], true)) {
                     $customCredentials = trim((string) $request->input('credentials', ''));
-                    $order = $this->forceApproveAndComplete($order, $payment, $payments, $fulfillment, $customCredentials);
-                    $order->load(['items.deliveries', 'paymentMethod', 'latestPayment']);
+                    $order = $this->approveAndFulfill($order, $payment, $payments, $fulfillment, $customCredentials);
+                    $order->load(['items.deliveries', 'items.product', 'paymentMethod', 'latestPayment']);
+                    $payment = $order->latestPayment;
+
+                    if ($order->status === OrderStatus::Completed) {
+                        $actionResult = 'approve';
+                        $message = "✅ Order {$order->number} Payment Confirmed & Credentials Delivered!";
+                    } else {
+                        $actionResult = 'needs_attention';
+                        $message = '✅ Payment is Approved, BUT Delivery is On Hold: '.($order->admin_note ?: 'Check supplier balance or paste credentials below to deliver manually.');
+                    }
+                } elseif ($do === 'whatsapp_delivered') {
+                    $customNote = trim((string) $request->input('credentials', ''));
+                    if ($payment && $payment->status === PaymentStatus::Pending) {
+                        $payment->update([
+                            'status' => PaymentStatus::Approved,
+                            'reviewed_at' => now(),
+                        ]);
+                        $order->update(['paid_at' => $order->paid_at ?? now()]);
+                    }
+                    $order = $fulfillment->markDeliveredViaWhatsApp($order, $customNote ?: null);
+                    $order->load(['items.deliveries', 'items.product', 'paymentMethod', 'latestPayment']);
+                    $payment = $order->latestPayment;
+
+                    if ($order->status === OrderStatus::Completed) {
+                        $actionResult = 'approve';
+                        $message = "✅ Order {$order->number} Payment Confirmed & Credentials Delivered!";
+                    } else {
+                        $actionResult = 'needs_attention';
+                        $message = "✅ Payment is Approved, BUT Delivery is On Hold: ".($order->admin_note ?: 'Check supplier balance or paste credentials below to deliver manually.');
+                    }
+                } elseif ($do === 'whatsapp_delivered') {
+                    $customNote = trim((string) $request->input('credentials', ''));
+                    if ($payment && $payment->status === PaymentStatus::Pending) {
+                        $payment->update([
+                            'status' => PaymentStatus::Approved,
+                            'reviewed_at' => now(),
+                        ]);
+                        $order->update(['paid_at' => $order->paid_at ?? now()]);
+                    }
+                    $order = $fulfillment->markDeliveredViaWhatsApp($order, $customNote ?: null);
+                    $order->load(['items.deliveries', 'items.product', 'paymentMethod', 'latestPayment']);
                     $payment = $order->latestPayment;
                     $actionResult = 'approve';
-                    $message = "✅ Order {$order->number} has been Approved & Completed!";
+                    $message = "✅ Order {$order->number} Marked as Delivered via WhatsApp!";
                 } elseif ($do === 'reject') {
                     if ($payment && $payment->status === PaymentStatus::Pending) {
-                        $payments->reject($payment, 'Declined by Admin via WhatsApp 1-Tap', $request->user());
+                        $payments->reject($payment, 'Declined by Admin via 1-Tap Control', $request->user());
                     } else {
                         $order->update(['status' => OrderStatus::Cancelled]);
                     }
-                    $order->refresh()->load(['items.deliveries', 'paymentMethod', 'latestPayment']);
+                    $order->refresh()->load(['items.deliveries', 'items.product', 'paymentMethod', 'latestPayment']);
                     $payment = $order->latestPayment;
                     $actionResult = 'reject';
                     $message = "❌ Order {$order->number} has been Declined.";
@@ -260,7 +320,9 @@ class PaymentWebhookController extends Controller
                 $message = $e->getMessage();
             }
         } else {
-            $message = 'Tap Approve or Decline below to process this order immediately.';
+            $message = $order->status === OrderStatus::NeedsAttention
+                ? '⚠️ Payment is already Confirmed, but Delivery is Pending: '.($order->admin_note ?: 'Awaiting stock/supplier or manual delivery.')
+                : 'Tap Approve or Decline below to process this order.';
         }
 
         return view('store.quick-action', [
@@ -274,10 +336,11 @@ class PaymentWebhookController extends Controller
     }
 
     /**
-     * Approves the payment and guarantees the order transitions directly to Completed
-     * when the Admin manually approves via 1-Tap WhatsApp / Telegram (never stuck on NeedsAttention!).
+     * Approves the payment and attempts real fulfillment via Own Stock (.txt) or Supplier API.
+     * NEVER fakes delivery if Supplier API fails or has insufficient balance!
+     * Only delivers custom credentials if Admin explicitly pasted them in `$customCredentials`.
      */
-    protected function forceApproveAndComplete(
+    protected function approveAndFulfill(
         Order $order,
         ?Payment $payment,
         PaymentService $payments,
@@ -297,15 +360,16 @@ class PaymentWebhookController extends Controller
             $order->update(['status' => OrderStatus::PaymentReview]);
         }
 
-        // If Admin pasted custom credentials on the 1-Tap screen, deliver those lines first
+        // If Admin explicitly pasted custom credentials on the 1-Tap screen, deliver those units first!
         if ($customCredentials !== '') {
-            $lines = array_values(array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', $customCredentials) ?: [])));
-            if ($lines !== [] && ($firstItem = $order->items()->first())) {
-                foreach ($lines as $line) {
-                    $firstItem->deliveries()->create(['content' => $line, 'source' => 'manual']);
+            $units = Product::parseStockText($customCredentials, 'auto');
+            if ($units !== [] && ($firstItem = $order->items()->first())) {
+                foreach (array_slice($units, 0, max(1, $firstItem->remainingQty())) as $unitContent) {
+                    $firstItem->deliveries()->create(['content' => $unitContent, 'source' => 'manual']);
                     $firstItem->delivered_qty++;
                 }
-                $firstItem->status = 'delivered';
+                $firstItem->reserved_supplier_qty = max(0, $firstItem->quantity - $firstItem->delivered_qty);
+                $firstItem->status = $firstItem->delivered_qty >= $firstItem->quantity ? 'delivered' : 'partial';
                 $firstItem->save();
             }
         }
@@ -315,31 +379,6 @@ class PaymentWebhookController extends Controller
         } elseif ($order->status !== OrderStatus::Completed) {
             $order->update(['status' => OrderStatus::Processing, 'paid_at' => $order->paid_at ?? now()]);
             $order = $fulfillment->fulfill($order);
-        }
-
-        $order->refresh()->load('items.deliveries');
-
-        // Guarantee: When Admin manually approves via 1-Tap, never leave it stuck on NeedsAttention!
-        if ($order->status !== OrderStatus::Completed) {
-            foreach ($order->items as $item) {
-                if ($item->deliveries->isEmpty()) {
-                    $item->deliveries()->create([
-                        'content' => 'Order Approved & Confirmed by Admin (WhatsApp Verified)',
-                        'source' => 'manual',
-                    ]);
-                }
-                $item->update([
-                    'delivered_qty' => max($item->quantity, $item->delivered_qty),
-                    'reserved_supplier_qty' => 0,
-                    'status' => 'delivered',
-                ]);
-            }
-
-            $order->update([
-                'status' => OrderStatus::Completed,
-                'completed_at' => now(),
-                'paid_at' => $order->paid_at ?? now(),
-            ]);
         }
 
         return $order->refresh();

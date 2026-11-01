@@ -6,6 +6,7 @@ use App\Enums\PricingMode;
 use App\Filament\Support\GalleryPicker;
 use App\Filament\Support\Money;
 use App\Models\Product;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -98,6 +99,55 @@ class ProductForm
                                     ->label('Live Stock')
                                     ->state(fn (?Product $record): string => $record?->stock_unlimited ? '∞' : (string) ($record?->available_stock ?? 0)),
                             ]),
+                    ]),
+
+                Section::make('📦 Product Delivery Method & .TXT Stock Vault (For Supplier & Non-Supplier Products)')
+                    ->description('Choose how this product is delivered to the customer after payment is confirmed.')
+                    ->columns(['default' => 1, 'md' => 2])
+                    ->schema([
+                        Select::make('delivery_type')
+                            ->label('Delivery Method')
+                            ->options(Product::deliveryTypeOptions())
+                            ->default('auto')
+                            ->required()
+                            ->live()
+                            ->columnSpanFull()
+                            ->helperText(fn (Get $get): string => match ((string) $get('delivery_type')) {
+                                'manual_admin' => '👨‍💻 Non-Supplier Manual Mode: Stock is automatically unlimited (∞). Once payment is confirmed, you get an alert to paste & send credentials from Admin Panel or 1-Tap Page.',
+                                'whatsapp_handover' => '📲 Non-Supplier WhatsApp Mode: Stock is automatically unlimited (∞). Once payment is confirmed, the customer sees a big "Receive Order on WhatsApp" button with their verified Order ID.',
+                                default => '⚡ Auto Mode: Delivers from your uploaded .TXT / Own Stock Vault first, then falls back to linked Supplier API (if any). Sold items are locked so they are NEVER sold twice.',
+                            }),
+
+                        Select::make('quick_stock_separator')
+                            ->label('Quick .TXT Stock Separator Mode')
+                            ->options([
+                                'auto' => '✨ Smart Auto-Detect (Splits by --- or === if present, otherwise 1 Line = 1 PC)',
+                                'separator' => '✂️ Multi-Line Credentials Separated by --- or === (Between Credential A & B)',
+                                'blank_line' => '📄 Multi-Line Credentials Separated by Blank Empty Line',
+                                'line' => '📏 Single-Line Credentials (1 Line = 1 PC, e.g. email:password)',
+                            ])
+                            ->default('auto')
+                            ->dehydrated(false)
+                            ->visible(fn (Get $get): bool => ((string) ($get('delivery_type') ?: 'auto')) === 'auto'),
+
+                        FileUpload::make('quick_stock_file')
+                            ->label('Quick Upload .TXT Stock File (Optional)')
+                            ->disk('local')
+                            ->directory('tmp-stock')
+                            ->acceptedFileTypes(['text/plain', '.txt'])
+                            ->maxSize(5120)
+                            ->dehydrated(false)
+                            ->visible(fn (Get $get): bool => ((string) ($get('delivery_type') ?: 'auto')) === 'auto')
+                            ->helperText('Upload a .txt file here to immediately add stock units when you click Save.'),
+
+                        Textarea::make('quick_stock_text')
+                            ->label('Or Quick Paste Stock Credentials (Optional — Added to Vault on Save)')
+                            ->rows(5)
+                            ->dehydrated(false)
+                            ->columnSpanFull()
+                            ->visible(fn (Get $get): bool => ((string) ($get('delivery_type') ?: 'auto')) === 'auto')
+                            ->placeholder("Email: userA@gmail.com\nPassword: pass123\n---\nEmail: userB@gmail.com\nPassword: pass456")
+                            ->helperText('Put --- on its own line between Account A and Account B for multi-line credentials. When a user orders 2 PCs, 2 blocks are extracted, delivered, and marked Sold forever.'),
                     ]),
 
                 Section::make('Description, Warranty & Display')

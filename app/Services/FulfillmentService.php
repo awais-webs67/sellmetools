@@ -5,8 +5,10 @@ namespace App\Services;
 use App\Enums\OrderStatus;
 use App\Enums\StockStatus;
 use App\Enums\SupplierOrderStatus;
+use App\Exceptions\StoreException;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Product;
 use App\Models\StockItem;
 use App\Models\SupplierOrder;
 use App\Models\SupplierProduct;
@@ -25,11 +27,13 @@ use Throwable;
  * Delivers paid orders.
  *
  * Order of preference per item:
- *   1. our own stock reserved at checkout
- *   2. any newly added own stock
- *   3. supplier APIs – cheapest profitable source first, automatic failover to the next one
+ *   1. our own stock reserved at checkout (from .txt file / StockItem vault)
+ *   2. any newly added own stock (Available in StockItem vault)
+ *   3. if product delivery_type is 'manual_admin' or 'whatsapp_handover', holds for Admin / WhatsApp handover
+ *   4. supplier APIs – cheapest profitable source first, automatic failover to the next one
  *
  * Safety rules:
+ *   - NEVER marks an order Completed if credentials are empty or supplier failed!
  *   - a cache lock prevents two workers fulfilling the same order concurrently
  *   - each supplier attempt has a deterministic, unique request_id, so the same
  *     (order item, source) pair is never charged twice
@@ -77,14 +81,24 @@ class FulfillmentService
     {
         $problems = [];
 
-        // 1 + 2: own stock (reserved for this item, then any free units).
+        // 1 + 2: own stock (reserved for this item, then any free units from .txt / StockItem vault).
         $this->deliverOwnStock($item);
 
         if ($item->remainingQty() === 0 || ! $item->product) {
             return $problems;
         }
 
-        // 3: suppliers.
+        $deliveryType = $item->product->delivery_type ?: 'auto';
+
+        if ($deliveryType === 'manual_admin') {
+            return ['Payment confirmed — awaiting Admin manual credential delivery.'];
+        }
+
+        if ($deliveryType === 'whatsapp_handover') {
+            return ['Payment confirmed — customer directed to WhatsApp for order handover.'];
+        }
+
+        // 3: suppliers (for 'auto' products).
         foreach ($this->pricing->rankedSources($item->product) as $source) {
             if ($item->remainingQty() === 0) {
                 break;
@@ -110,7 +124,7 @@ class FulfillmentService
         }
 
         if ($item->remainingQty() > 0 && $problems === []) {
-            $problems[] = 'No supplier source available.';
+            $problems[] = 'No own stock or supplier source available — awaiting manual delivery.';
         }
 
         return $problems;
@@ -143,21 +157,37 @@ class FulfillmentService
                     ->get();
             }
 
+            $deliveredCount = 0;
+            $extraDeliveredCount = 0;
+
             foreach ($reserved->concat($extra) as $stock) {
+                $content = trim((string) $stock->content);
+                if ($content === '') {
+                    // Never deliver an empty stock row!
+                    $stock->delete();
+
+                    continue;
+                }
+
+                $wasExtra = $extra->contains('id', $stock->id);
                 $stock->update(['status' => StockStatus::Sold, 'order_item_id' => $item->id]);
                 $item->deliveries()->create([
-                    'content' => $stock->content,
+                    'content' => $content,
                     'source' => 'stock',
                     'stock_item_id' => $stock->id,
                 ]);
+                $deliveredCount++;
+                if ($wasExtra) {
+                    $extraDeliveredCount++;
+                }
             }
 
-            if ($extra->isNotEmpty()) {
+            if ($extraDeliveredCount > 0) {
                 // Extra own units replace units we expected to buy from suppliers.
-                $item->reserved_supplier_qty = max(0, $item->reserved_supplier_qty - $extra->count());
+                $item->reserved_supplier_qty = max(0, $item->reserved_supplier_qty - $extraDeliveredCount);
             }
 
-            $item->delivered_qty += $reserved->count() + $extra->count();
+            $item->delivered_qty += $deliveredCount;
             $item->save();
         });
     }
@@ -186,14 +216,30 @@ class FulfillmentService
             return 'out of stock';
         }
 
-        // Pre-check supplier balance before placing API order: if supplier balance is low, pause order for manual WhatsApp confirmation!
-        if ($supplier->balance !== null && (float) $supplier->balance < ((float) $source->cost * $qty)) {
-            $this->telegram->notifyAdmin(
-                "⏸️ <b>Order Paused (Supplier Balance Low)</b>\n".
-                "Order: <b>{$order->number}</b>\n".
-                'Supplier: '.T::e($supplier->name).' (Balance: '.$supplier->balance.', Needed: '.((float) $source->cost * $qty).")\n".
-                'Customer is being prompted to confirm manually via WhatsApp.'
-            );
+        $neededCost = round((float) $source->cost * $qty, 4);
+
+        // If local cached balance looks too low, try a quick live balance check first in case Admin just topped up!
+        if ($supplier->balance !== null && (float) $supplier->balance < $neededCost) {
+            try {
+                $liveBalance = $this->suppliers->driver($supplier)->balance();
+                $this->sync->recordBalance($supplier, $liveBalance->balance);
+                $supplier->refresh();
+            } catch (Throwable) {
+                // Keep cached balance if live balance endpoint is unreachable
+            }
+        }
+
+        // If supplier balance is still below required cost, record the failed SupplierOrder attempt so Admin sees it in Admin Panel!
+        if ($supplier->balance !== null && (float) $supplier->balance < $neededCost) {
+            SupplierOrder::create([
+                'supplier_id' => $supplier->id,
+                'order_item_id' => $item->id,
+                'supplier_product_id' => $source->id,
+                'request_id' => $requestId,
+                'quantity' => $qty,
+                'status' => SupplierOrderStatus::Failed,
+                'error' => "Insufficient supplier balance (Balance: {$supplier->balance}, Needed: {$neededCost})",
+            ]);
 
             return 'insufficient supplier balance';
         }
@@ -220,7 +266,6 @@ class FulfillmentService
             return 'out of stock';
         } catch (SupplierInsufficientBalanceException $e) {
             $attempt->update(['status' => SupplierOrderStatus::Failed, 'error' => $e->getMessage()]);
-            $this->telegram->notifyAdmin("💸 <b>Supplier balance too low</b>\n".T::e($supplier->name)." could not fulfil order {$order->number}. Top up now.");
 
             return 'insufficient supplier balance';
         } catch (SupplierAuthException $e) {
@@ -239,7 +284,23 @@ class FulfillmentService
             return 'unknown';
         }
 
-        $delivered = array_slice($result->items, 0, $qty);
+        // Strict Empty Credential Guard: filter out any blank/empty items returned by supplier
+        $cleanItems = array_values(array_filter(
+            array_map(fn ($v): string => is_scalar($v) ? trim((string) $v) : '', $result->items),
+            fn (string $line): bool => $line !== ''
+        ));
+        $delivered = array_slice($cleanItems, 0, $qty);
+
+        if ($delivered === []) {
+            $attempt->update([
+                'status' => SupplierOrderStatus::Failed,
+                'error' => 'Supplier returned empty credentials — order held for safety.',
+                'response' => $result->raw,
+            ]);
+
+            return 'supplier returned empty credentials';
+        }
+
         $cost = $result->total ?? ((float) $source->cost * count($delivered));
 
         DB::transaction(function () use ($attempt, $result, $item, $delivered, $cost, $supplier) {
@@ -278,24 +339,34 @@ class FulfillmentService
     /** @param string[] $problems */
     protected function finalize(Order $order, array $problems): Order
     {
-        $items = $order->items()->get();
+        $items = $order->items()->with(['deliveries', 'product'])->get();
 
         foreach ($items as $item) {
+            // Ensure delivered_qty matches actual non-empty delivery records so an empty order can NEVER be marked delivered!
+            $validDeliveriesCount = $item->deliveries
+                ->filter(fn ($d): bool => trim((string) $d->content) !== '')
+                ->count();
+
+            if ($item->delivered_qty > $validDeliveriesCount) {
+                $item->delivered_qty = $validDeliveriesCount;
+            }
+
             $item->status = match (true) {
-                $item->delivered_qty >= $item->quantity => 'delivered',
+                $item->delivered_qty >= $item->quantity && $item->quantity > 0 => 'delivered',
                 $item->delivered_qty > 0 => 'partial',
                 default => 'failed',
             };
             $item->save();
         }
 
-        $complete = $items->every(fn (OrderItem $i) => $i->delivered_qty >= $i->quantity);
+        $complete = $items->isNotEmpty() && $items->every(fn (OrderItem $i): bool => $i->delivered_qty >= $i->quantity && $i->quantity > 0);
 
         if ($complete) {
             $order->update([
                 'status' => OrderStatus::Completed,
                 'completed_at' => now(),
                 'total_cost' => $items->sum(fn ($i) => (float) $i->cost),
+                'admin_note' => null,
             ]);
 
             foreach ($items as $item) {
@@ -313,19 +384,24 @@ class FulfillmentService
             );
             app(WhatsAppNotifier::class)->notifyOrderDelivered($order);
         } else {
+            $reasonText = implode(' | ', array_unique($problems)) ?: 'Order on hold — awaiting admin stock dispatch';
             $order->update([
                 'status' => OrderStatus::NeedsAttention,
-                'admin_note' => implode(' | ', array_unique($problems)) ?: 'Order on hold — awaiting admin stock dispatch',
+                'admin_note' => $reasonText,
             ]);
+
+            $adminOrderUrl = url('/admin/orders/'.$order->id);
+            $quickControlUrl = route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']);
+
             $this->telegram->notifyAdmin(
-                "⏸️⚠️ <b>ORDER ON HOLD — SUPPLIER FUNDS / STOCK ISSUE!</b>\n".
+                "⏸️⚠️ <b>PAYMENT CONFIRMED — DELIVERY PENDING / FAILED!</b>\n".
                 "━━━━━━━━━━━━━━━━━━\n".
-                "✅ <b>Payment Status:</b> VERIFIED (Rs {$order->total})\n".
+                "✅ <b>Payment Status:</b> CONFIRMED (Rs {$order->total})\n".
                 "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
-                $items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
-                '⚠️ <b>Reason:</b> '.T::e(implode(' | ', array_unique($problems)) ?: 'Supplier balance is low.')."\n".
-                '👤 <b>Customer:</b> '.T::e($order->email)."\n".
-                "ℹ️ <i>Customer screen shows: 'Order On Hold — Admin is checking your order.'</i>"
+                $items->map(fn ($i) => '📦 '.T::e($i->product_name)." ({$i->delivered_qty}/{$i->quantity} delivered)")->implode("\n")."\n".
+                '⚠️ <b>Reason:</b> '.T::e($reasonText)."\n".
+                '👤 <b>Customer:</b> '.T::e($order->email).($order->phone ? ' (+'.T::e($order->phone).')' : '')."\n".
+                "🔗 <a href=\"{$adminOrderUrl}\">Open Order in Admin Panel</a> · <a href=\"{$quickControlUrl}\">1-Tap Manual Deliver</a>"
             );
             app(WhatsAppNotifier::class)->notifyOrderOnHoldLowBalance($order, $problems);
         }
@@ -335,14 +411,32 @@ class FulfillmentService
         return $order->refresh();
     }
 
-    /** Admin manual delivery: one line per unit. */
-    public function deliverManually(OrderItem $item, array $lines): Order
+    /**
+     * Admin manual delivery: accepts an array of credential units (supports multi-line units separated by `---` or single lines).
+     *
+     * @param  string[]|string  $lines
+     */
+    public function deliverManually(OrderItem $item, array|string $lines, string $separatorMode = 'auto'): Order
     {
-        $lines = array_values(array_filter(array_map('trim', $lines)));
+        if (is_string($lines)) {
+            $units = Product::parseStockText($lines, $separatorMode);
+        } else {
+            // If a single string element contains `---` separator, parse it with parseStockText
+            if (count($lines) === 1 && is_string($lines[0] ?? null)) {
+                $units = Product::parseStockText($lines[0], $separatorMode);
+            } else {
+                $units = array_values(array_filter(array_map(fn ($l): string => trim((string) $l), $lines), fn (string $l): bool => $l !== ''));
+            }
+        }
 
-        DB::transaction(function () use ($item, $lines) {
-            foreach (array_slice($lines, 0, $item->remainingQty()) as $line) {
-                $item->deliveries()->create(['content' => $line, 'source' => 'manual']);
+        if ($units === []) {
+            throw new StoreException('Please provide valid non-empty credentials before delivering.');
+        }
+
+        DB::transaction(function () use ($item, $units) {
+            $item->refresh();
+            foreach (array_slice($units, 0, max(1, $item->remainingQty())) as $unitContent) {
+                $item->deliveries()->create(['content' => $unitContent, 'source' => 'manual']);
                 $item->delivered_qty++;
             }
             $item->reserved_supplier_qty = max(0, $item->quantity - $item->delivered_qty - $item->stockItems()->where('status', StockStatus::Reserved)->count());
@@ -350,6 +444,36 @@ class FulfillmentService
         });
 
         $order = $item->order->refresh();
+        if ($order->status !== OrderStatus::Completed) {
+            $order->update(['status' => OrderStatus::Processing]);
+        }
+
+        return $this->fulfill($order);
+    }
+
+    /**
+     * Marks an order as delivered directly via WhatsApp handover (when Admin sends the product to the customer on WhatsApp).
+     */
+    public function markDeliveredViaWhatsApp(Order $order, ?string $note = null): Order
+    {
+        $text = 'Delivered to customer on WhatsApp'.(filled($note) ? ' — '.trim($note) : '');
+
+        DB::transaction(function () use ($order, $text) {
+            foreach ($order->items()->get() as $item) {
+                while ($item->remainingQty() > 0) {
+                    $item->deliveries()->create([
+                        'content' => $text,
+                        'source' => 'whatsapp',
+                    ]);
+                    $item->delivered_qty++;
+                }
+                $item->reserved_supplier_qty = 0;
+                $item->status = 'delivered';
+                $item->save();
+            }
+        });
+
+        $order->refresh();
         if ($order->status !== OrderStatus::Completed) {
             $order->update(['status' => OrderStatus::Processing]);
         }
