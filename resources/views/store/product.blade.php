@@ -4,15 +4,115 @@
     $initialStockLabel = ! $product->inStock()
         ? 'Sold Out (0)'
         : ($product->stock_unlimited ? 'Unlimited Stock' : 'Stock: '.(int) $product->available_stock);
+
+    $productUrl = route('products.show', $product);
+    $productImage = $product->imageUrl() ?: asset('favicon.svg');
+
+    $productSchema = [
+        '@context' => 'https://schema.org',
+        '@type' => 'Product',
+        'name' => $product->name,
+        'description' => $product->seoDescription(),
+        'image' => [$productImage],
+        'sku' => 'SMT-'.$product->id,
+        'mpn' => $product->slug,
+        'brand' => [
+            '@type' => 'Brand',
+            'name' => $product->category?->name ?: setting('store_name', 'SellMeTools'),
+        ],
+        'offers' => [
+            '@type' => 'Offer',
+            'url' => $productUrl,
+            'priceCurrency' => 'PKR',
+            'price' => number_format((float) $product->price, 2, '.', ''),
+            'priceValidUntil' => now()->addMonths(6)->toDateString(),
+            'availability' => $product->inStock()
+                ? 'https://schema.org/InStock'
+                : 'https://schema.org/OutOfStock',
+            'itemCondition' => 'https://schema.org/NewCondition',
+            'seller' => [
+                '@type' => 'Organization',
+                'name' => setting('store_name', 'SellMeTools'),
+            ],
+        ],
+        'aggregateRating' => [
+            '@type' => 'AggregateRating',
+            'ratingValue' => number_format($avgRating, 1, '.', ''),
+            'reviewCount' => max(1, $reviewsCount),
+            'bestRating' => '5',
+            'worstRating' => '1',
+        ],
+    ];
+
+    if ($product->approvedReviews->isNotEmpty()) {
+        $productSchema['review'] = $product->approvedReviews->take(5)->map(fn ($rev) => [
+            '@type' => 'Review',
+            'author' => [
+                '@type' => 'Person',
+                'name' => $rev->customer_name,
+            ],
+            'datePublished' => $rev->created_at?->toDateString() ?: now()->toDateString(),
+            'reviewBody' => $rev->comment,
+            'reviewRating' => [
+                '@type' => 'Rating',
+                'ratingValue' => (string) $rev->rating,
+                'bestRating' => '5',
+                'worstRating' => '1',
+            ],
+        ])->values()->all();
+    }
+
+    $breadcrumbItems = [
+        [
+            '@type' => 'ListItem',
+            'position' => 1,
+            'name' => 'Home',
+            'item' => route('home'),
+        ],
+    ];
+    if ($product->category) {
+        $breadcrumbItems[] = [
+            '@type' => 'ListItem',
+            'position' => 2,
+            'name' => $product->category->name,
+            'item' => route('categories.show', $product->category),
+        ];
+    }
+    $breadcrumbItems[] = [
+        '@type' => 'ListItem',
+        'position' => count($breadcrumbItems) + 1,
+        'name' => $product->name,
+        'item' => $productUrl,
+    ];
+
+    $breadcrumbSchema = [
+        '@context' => 'https://schema.org',
+        '@type' => 'BreadcrumbList',
+        'itemListElement' => $breadcrumbItems,
+    ];
 @endphp
-<x-layouts.store :title="$product->name" :description="$product->short_description">
+@push('seo')
+    <meta property="product:price:amount" content="{{ number_format((float) $product->price, 2, '.', '') }}">
+    <meta property="product:price:currency" content="PKR">
+    <meta property="product:availability" content="{{ $product->inStock() ? 'in stock' : 'out of stock' }}">
+    <script type="application/ld+json">{!! json_encode($productSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    <script type="application/ld+json">{!! json_encode($breadcrumbSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+@endpush
+<x-layouts.store
+    :title="$product->seoTitle()"
+    :description="$product->seoDescription()"
+    :keywords="$product->seoKeywords()"
+    :image="$productImage"
+    :type="'product'"
+    :canonical="$productUrl"
+>
     <div class="container-x py-6 sm:py-10">
         <nav class="text-xs sm:text-sm" aria-label="Breadcrumb">
             <ol class="flex flex-wrap items-center gap-2 text-muted">
                 <li><a href="{{ route('home') }}" class="hover:text-ink">Shop</a></li>
                 @if ($product->category)
                     <li aria-hidden="true">/</li>
-                    <li><a href="{{ route('home', ['category' => $product->category->slug]) }}#products" class="hover:text-ink">{{ $product->category->name }}</a></li>
+                    <li><a href="{{ route('categories.show', $product->category) }}" class="hover:text-ink">{{ $product->category->name }}</a></li>
                 @endif
                 <li aria-hidden="true">/</li>
                 <li class="text-ink font-medium" aria-current="page">{{ $product->name }}</li>

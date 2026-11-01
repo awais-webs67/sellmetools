@@ -27,6 +27,11 @@ class Setting extends Model
         'support_telegram' => '',
         'support_email' => '',
         'announcement' => '',
+        'seo_title' => 'Buy ChatGPT Plus, Canva Pro, CapCut Pro & Digital Subscriptions in Pakistan',
+        'seo_description' => 'Pakistan\'s #1 digital tools & subscriptions store. Buy genuine ChatGPT Plus, Canva Pro, CapCut Pro, Cursor, Netflix, VPNs & cloud accounts at wholesale rates. Instant delivery via Easypaisa, JazzCash, NayaPay, SadaPay & Binance.',
+        'seo_keywords' => 'buy chatgpt plus in pakistan, canva pro pakistan, capcut pro price in pakistan, digital subscriptions pakistan, buy ai tools easypaisa jazzcash, cheap premium accounts pakistan, sellmetools',
+        'google_site_verification' => '',
+        'google_analytics_id' => '',
     ];
 
     public static function values(): array

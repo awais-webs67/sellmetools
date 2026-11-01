@@ -1,4 +1,73 @@
-<x-layouts.store :title="$activeCategory?->name ?? ($search ? 'Search: '.$search : null)">
+@php
+    $seoTitle = $activeCategory
+        ? $activeCategory->seoTitle()
+        : ($search ? "Search Results for “{$search}”" : null);
+    $seoDescription = $activeCategory
+        ? $activeCategory->seoDescription()
+        : null;
+    $canonicalUrl = $activeCategory
+        ? route('categories.show', $activeCategory)
+        : route('home');
+    $robotsDirective = $search !== ''
+        ? 'noindex, follow'
+        : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
+
+    $itemListSchema = [
+        '@context' => 'https://schema.org',
+        '@type' => 'ItemList',
+        'name' => $activeCategory ? $activeCategory->name : 'Featured Digital Tools & Subscriptions in Pakistan',
+        'itemListElement' => $products->getCollection()->values()->map(fn ($p, $idx) => [
+            '@type' => 'ListItem',
+            'position' => $idx + 1,
+            'url' => route('products.show', $p),
+            'name' => $p->name,
+        ])->all(),
+    ];
+
+    $faqs = [
+        [
+            'q' => 'How fast do I receive my subscription credentials after payment?',
+            'a' => 'Delivery is 100% automated and instant! As soon as your payment via Easypaisa, JazzCash, NayaPay, SadaPay, or Binance Pay is verified, your login credentials or activation link appear immediately on your order screen and are saved permanently in your account history.',
+        ],
+        [
+            'q' => 'Which payment methods are accepted in Pakistan?',
+            'a' => 'We accept Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer / Raast IBAN, Binance Pay, USDT (TRC20), and direct WhatsApp verification in Pakistani Rupees (PKR).',
+        ],
+        [
+            'q' => 'Do all tools and subscriptions come with a replacement warranty?',
+            'a' => 'Yes! Every subscription (ChatGPT Plus, Canva Pro, CapCut Pro, Netflix, Cursor, VPNs, and Cloud tools) includes our full term warranty and instant WhatsApp support.',
+        ],
+        [
+            'q' => 'Where can I view my purchased accounts later?',
+            'a' => 'You can log in to your account anytime and open "My Orders" to view all your past orders, credentials, and activation links forever.',
+        ],
+    ];
+
+    $faqSchema = [
+        '@context' => 'https://schema.org',
+        '@type' => 'FAQPage',
+        'mainEntity' => collect($faqs)->map(fn ($f) => [
+            '@type' => 'Question',
+            'name' => $f['q'],
+            'acceptedAnswer' => [
+                '@type' => 'Answer',
+                'text' => $f['a'],
+            ],
+        ])->all(),
+    ];
+@endphp
+@push('seo')
+    <script type="application/ld+json">{!! json_encode($itemListSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    @if (! $search && ! $activeCategory)
+        <script type="application/ld+json">{!! json_encode($faqSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    @endif
+@endpush
+<x-layouts.store
+    :title="$seoTitle"
+    :description="$seoDescription"
+    :canonical="$canonicalUrl"
+    :robots="$robotsDirective"
+>
     @if (! $search && ! $activeCategory && $products->onFirstPage())
         {{-- Modern Storefront Hero --}}
         <section class="relative overflow-hidden border-b border-line bg-gradient-to-br from-[#120408] via-[#2B0912] to-[#5E1021] text-white">
@@ -34,7 +103,7 @@
                             <div class="mt-4 flex flex-wrap items-center gap-1.5 sm:gap-2">
                                 <span class="text-xs text-white/60">Categories:</span>
                                 @foreach ($categories->take(6) as $cat)
-                                    <a href="{{ route('home', ['category' => $cat->slug]) }}#products" class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white/95 transition hover:border-white/40 hover:bg-white/20">
+                                    <a href="{{ route('categories.show', $cat) }}#products" class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white/95 transition hover:border-white/40 hover:bg-white/20">
                                         {{ $cat->name }}
                                     </a>
                                 @endforeach
@@ -85,7 +154,7 @@
                     All Products
                 </a>
                 @foreach ($categories as $category)
-                    <a href="{{ route('home', ['category' => $category->slug]) }}#products" @class(['btn shrink-0 rounded-full px-3.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm', 'btn-primary' => $activeCategory?->is($category), 'btn-outline' => ! $activeCategory?->is($category)])>
+                    <a href="{{ route('categories.show', $category) }}#products" @class(['btn shrink-0 rounded-full px-3.5 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm', 'btn-primary' => $activeCategory?->is($category), 'btn-outline' => ! $activeCategory?->is($category)])>
                         {{ $category->name }}
                     </a>
                 @endforeach
@@ -132,4 +201,43 @@
             <div class="mt-10">{{ $products->links() }}</div>
         @endif
     </section>
+
+    @if (! $search && ! $activeCategory && $products->onFirstPage())
+        {{-- SEO FAQ & Store Overview Section --}}
+        <section class="border-t border-line bg-grey-soft/60 py-12 sm:py-16" aria-labelledby="faq-heading">
+            <div class="container-x grid gap-10 lg:grid-cols-[1fr_1.2fr]">
+                <div>
+                    <span class="eyebrow">Trusted Digital Marketplace</span>
+                    <h2 id="faq-heading" class="display mt-1.5 text-3xl sm:text-4xl text-ink">
+                        Frequently Asked Questions
+                    </h2>
+                    <p class="mt-3 text-sm leading-relaxed text-body">
+                        {{ setting('store_name', 'SellMeTools') }} is Pakistan's trusted platform to buy genuine AI tools, creative software, streaming accounts, and cloud subscriptions at affordable PKR prices with instant automated delivery.
+                    </p>
+                    <div class="mt-6 grid grid-cols-2 gap-3 text-xs">
+                        <div class="card p-3.5">
+                            <p class="font-bold text-ink">✓ Instant Delivery</p>
+                            <p class="mt-0.5 text-muted">24/7 automated credentials on screen</p>
+                        </div>
+                        <div class="card p-3.5">
+                            <p class="font-bold text-ink">✓ Local PKR Payments</p>
+                            <p class="mt-0.5 text-muted">Easypaisa, JazzCash, NayaPay, SadaPay</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    @foreach ($faqs as $faq)
+                        <details class="group card p-4 sm:p-5">
+                            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 text-sm sm:text-base font-bold text-ink">
+                                <span>{{ $faq['q'] }}</span>
+                                <span class="text-brand transition group-open:rotate-45 text-lg leading-none">+</span>
+                            </summary>
+                            <p class="mt-2.5 text-xs sm:text-sm leading-relaxed text-body">{{ $faq['a'] }}</p>
+                        </details>
+                    @endforeach
+                </div>
+            </div>
+        </section>
+    @endif
 </x-layouts.store>

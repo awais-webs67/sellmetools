@@ -133,6 +133,25 @@ class ProductForm
                             ->label('Full Description')
                             ->columnSpanFull(),
                     ]),
+
+                Section::make('SEO & Google Search (Optional — Auto-Generated if Left Blank)')
+                    ->collapsed()
+                    ->columns(['default' => 1, 'md' => 2])
+                    ->schema([
+                        TextInput::make('meta_title')
+                            ->label('Custom SEO Meta Title')
+                            ->placeholder('Buy ChatGPT Plus in Pakistan – Instant Delivery')
+                            ->maxLength(255),
+                        TextInput::make('meta_keywords')
+                            ->label('Custom SEO Keywords')
+                            ->placeholder('chatgpt plus pakistan, buy chatgpt easypaisa')
+                            ->maxLength(500),
+                        Textarea::make('meta_description')
+                            ->label('Custom SEO Meta Description')
+                            ->rows(2)
+                            ->maxLength(500)
+                            ->columnSpanFull(),
+                    ]),
             ]);
     }
 

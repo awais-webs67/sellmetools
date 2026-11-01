@@ -8,6 +8,7 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\PaymentWebhookController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\SeoController;
 use App\Http\Controllers\StockController;
 use App\Models\Order;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -24,8 +25,17 @@ Route::get('/storage/{path}', MediaController::class)
     ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
     ->where('path', '.*');
 
+// SEO Sitemap & Robots (stateless)
+Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
+    ->name('sitemap');
+Route::get('/robots.txt', [SeoController::class, 'robots'])
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
+    ->name('robots');
+
 // Catalog
 Route::get('/', [ProductController::class, 'index'])->name('home');
+Route::get('/category/{category:slug}', [ProductController::class, 'category'])->name('categories.show');
 Route::get('/products/{product:slug}', [ProductController::class, 'show'])->name('products.show');
 Route::post('/products/{product:slug}/reviews', [ProductController::class, 'storeReview'])->middleware('throttle:15,1')->name('products.reviews.store');
 

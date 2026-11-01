@@ -1,2 +1,13 @@
 User-agent: *
-Disallow:
+Allow: /
+Disallow: /admin
+Disallow: /checkout/
+Disallow: /orders/
+Disallow: /account/
+Disallow: /api/
+Disallow: /webhooks/
+Disallow: /track
+Disallow: /login
+Disallow: /register
+
+Sitemap: https://tool.skillsnexuspro.com/sitemap.xml

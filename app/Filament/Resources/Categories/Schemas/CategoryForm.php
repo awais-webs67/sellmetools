@@ -46,6 +46,15 @@ class CategoryForm
                         Toggle::make('is_active')
                             ->label('Active')
                             ->default(true),
+                        TextInput::make('meta_title')
+                            ->label('SEO Title (Optional)')
+                            ->placeholder('Auto-generated if left blank')
+                            ->maxLength(255),
+                        TextInput::make('meta_description')
+                            ->label('SEO Description (Optional)')
+                            ->placeholder('Auto-generated if left blank')
+                            ->maxLength(500)
+                            ->columnSpanFull(),
                     ]),
             ]);
     }

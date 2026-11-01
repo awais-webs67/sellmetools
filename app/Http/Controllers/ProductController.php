@@ -43,6 +43,37 @@ class ProductController extends Controller
         return view('store.home', compact('categories', 'activeCategory', 'products', 'search'));
     }
 
+    public function category(Request $request, Category $category): View
+    {
+        abort_unless($category->is_active, 404);
+
+        $categories = Category::query()
+            ->where('is_active', true)
+            ->whereHas('products', fn ($q) => $q->visible())
+            ->orderBy('sort')
+            ->orderBy('name')
+            ->get();
+
+        $activeCategory = $category;
+        $search = trim((string) $request->query('q', ''));
+
+        $products = Product::query()
+            ->visible()
+            ->with('category')
+            ->withCount('approvedReviews')
+            ->withAvg('approvedReviews', 'rating')
+            ->where('category_id', $category->id)
+            ->when($search !== '', fn ($q) => $q->where('name', 'like', '%'.addcslashes($search, '%_').'%'))
+            ->orderByDesc('is_featured')
+            ->orderByRaw('CASE WHEN available_stock > 0 OR stock_unlimited = 1 THEN 0 ELSE 1 END')
+            ->orderBy('sort')
+            ->orderByDesc('sold_count')
+            ->paginate(24)
+            ->withQueryString();
+
+        return view('store.home', compact('categories', 'activeCategory', 'products', 'search'));
+    }
+
     public function show(Product $product): View
     {
         abort_unless($product->is_active, 404);

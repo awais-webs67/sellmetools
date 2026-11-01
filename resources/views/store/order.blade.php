@@ -26,7 +26,7 @@
         ."🔗 *Order Link:* ".$order->customerUrl()."\n\n"
         ."Please verify my payment and deliver my order. Thank you!";
 @endphp
-<x-layouts.store :title="'Order '.$order->number">
+<x-layouts.store :title="'Order '.$order->number" robots="noindex, nofollow">
     <div class="container-x py-8 lg:py-12" x-data="orderWatcher(@js($statusUrl), @js($s->value))">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>

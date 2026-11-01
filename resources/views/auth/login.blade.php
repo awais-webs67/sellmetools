@@ -1,4 +1,4 @@
-<x-layouts.store title="Login">
+<x-layouts.store title="Login" robots="noindex, nofollow">
     <div class="container-x py-12 lg:py-16">
         <div class="mx-auto max-w-md">
             <h1 class="display text-5xl">Welcome back</h1>

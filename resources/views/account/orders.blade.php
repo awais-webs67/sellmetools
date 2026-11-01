@@ -1,4 +1,4 @@
-<x-layouts.store title="My Account & Order History">
+<x-layouts.store title="My Account & Order History" robots="noindex, nofollow">
     <div class="container-x py-8 sm:py-12">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>

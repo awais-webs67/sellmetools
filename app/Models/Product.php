@@ -18,6 +18,7 @@ class Product extends Model
 
     protected $fillable = [
         'category_id', 'name', 'slug', 'short_description', 'description', 'warranty', 'image',
+        'meta_title', 'meta_description', 'meta_keywords',
         'pricing_mode', 'fixed_price', 'markup_value', 'compare_at_price', 'price', 'cost_price',
         'available_stock', 'stock_unlimited',
         'is_active', 'is_featured', 'disabled_reason', 'max_per_order', 'sort', 'sold_count',
@@ -127,5 +128,44 @@ class Product extends Model
     public function ownAvailableCount(): int
     {
         return $this->stockItems()->where('status', StockStatus::Available)->count();
+    }
+
+    public function seoTitle(): string
+    {
+        if (filled($this->meta_title)) {
+            return (string) $this->meta_title;
+        }
+
+        return "Buy {$this->name} in Pakistan – Instant Delivery";
+    }
+
+    public function seoDescription(): string
+    {
+        if (filled($this->meta_description)) {
+            return (string) $this->meta_description;
+        }
+
+        $base = trim(preg_replace('/\s+/', ' ', strip_tags((string) ($this->short_description ?: $this->description))));
+        if ($base !== '') {
+            return Str::limit("{$this->name} (".money($this->price)."): {$base} Pay via Easypaisa, JazzCash, NayaPay, SadaPay or Binance.", 160);
+        }
+
+        return Str::limit("Buy {$this->name} online in Pakistan for just ".money($this->price).'. Instant credentials delivery with Easypaisa, JazzCash, NayaPay, SadaPay & Binance.', 160);
+    }
+
+    public function seoKeywords(): string
+    {
+        if (filled($this->meta_keywords)) {
+            return (string) $this->meta_keywords;
+        }
+
+        return implode(', ', array_filter([
+            $this->name,
+            "buy {$this->name} in Pakistan",
+            "{$this->name} price in Pakistan",
+            "{$this->name} Easypaisa JazzCash",
+            $this->category?->name,
+            (string) Setting::get('store_name', 'SellMeTools'),
+        ]));
     }
 }

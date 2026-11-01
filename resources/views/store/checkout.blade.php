@@ -1,4 +1,4 @@
-<x-layouts.store title="Checkout">
+<x-layouts.store title="Checkout" robots="noindex, nofollow">
     <div class="container-x py-8 lg:py-12">
         <span class="eyebrow">Secure checkout</span>
         <h1 class="display mt-2 text-5xl">Complete your order</h1>

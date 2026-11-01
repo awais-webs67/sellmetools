@@ -32,6 +32,9 @@ class StorefrontTest extends TestCase
         foreach (['terms', 'privacy', 'refund', 'contact', 'faq'] as $page) {
             $this->get(route('pages.show', $page))->assertOk();
         }
+
+        $this->get(route('sitemap'))->assertOk()->assertSee(route('products.show', $product), false);
+        $this->get(route('robots'))->assertOk()->assertSee('Sitemap:');
     }
 
     public function test_inactive_product_is_hidden(): void

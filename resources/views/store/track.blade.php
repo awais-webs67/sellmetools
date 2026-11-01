@@ -1,4 +1,4 @@
-<x-layouts.store title="Track order">
+<x-layouts.store title="Track order" robots="noindex, nofollow">
     <div class="container-x py-12 lg:py-16">
         <div class="mx-auto max-w-lg">
             <span class="eyebrow">Order lookup</span>

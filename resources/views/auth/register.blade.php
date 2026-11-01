@@ -1,4 +1,4 @@
-<x-layouts.store title="Create account">
+<x-layouts.store title="Create account" robots="noindex, nofollow">
     <div class="container-x py-12 lg:py-16">
         <div class="mx-auto max-w-md">
             <h1 class="display text-5xl">Create your account</h1>

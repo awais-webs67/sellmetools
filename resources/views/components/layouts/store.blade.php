@@ -1,22 +1,128 @@
-@props(['title' => null, 'description' => null])
+@props([
+    'title' => null,
+    'description' => null,
+    'keywords' => null,
+    'image' => null,
+    'type' => 'website',
+    'canonical' => null,
+    'robots' => 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+])
 @php
-    $storeName = setting('store_name');
-    $pageTitle = $title ? "{$title} | {$storeName}" : "{$storeName} – ".setting('store_tagline');
+    $storeName = setting('store_name', 'SellMeTools');
+    $defaultSeoTitle = setting('seo_title') ?: setting('store_tagline');
+    $pageTitle = $title ? "{$title} | {$storeName}" : "{$storeName} – {$defaultSeoTitle}";
+    $metaDescription = $description ?: (setting('seo_description') ?: setting('store_tagline'));
+    $metaKeywords = $keywords ?: setting('seo_keywords');
+    $canonicalUrl = $canonical ?: url()->current();
+    $logoSetting = setting('store_logo');
+    $defaultOgImage = $logoSetting
+        ? (\Illuminate\Support\Str::startsWith($logoSetting, ['http://', 'https://']) ? $logoSetting : url('/media/'.ltrim($logoSetting, '/')))
+        : asset('favicon.svg');
+    $ogImage = $image ?: $defaultOgImage;
     $announcement = setting('announcement');
+    $googleVerify = setting('google_site_verification');
+    $gaId = setting('google_analytics_id');
+
+    $orgSchema = array_filter([
+        '@context' => 'https://schema.org',
+        '@type' => 'OnlineStore',
+        '@id' => url('/').'#organization',
+        'name' => $storeName,
+        'url' => url('/'),
+        'logo' => $defaultOgImage,
+        'description' => $metaDescription,
+        'currenciesAccepted' => 'PKR, USDT',
+        'paymentAccepted' => 'Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer, Raast, Binance Pay, USDT',
+        'priceRange' => 'PKR 100 - PKR 25000',
+        'areaServed' => [
+            '@type' => 'Country',
+            'name' => 'Pakistan',
+        ],
+        'contactPoint' => array_filter([
+            '@type' => 'ContactPoint',
+            'contactType' => 'customer support',
+            'telephone' => setting('support_whatsapp') ?: null,
+            'email' => setting('support_email') ?: null,
+            'availableLanguage' => ['English', 'Urdu'],
+        ]),
+    ]);
+
+    $websiteSchema = [
+        '@context' => 'https://schema.org',
+        '@type' => 'WebSite',
+        '@id' => url('/').'#website',
+        'url' => url('/'),
+        'name' => $storeName,
+        'description' => $metaDescription,
+        'publisher' => ['@id' => url('/').'#organization'],
+        'potentialAction' => [
+            '@type' => 'SearchAction',
+            'target' => [
+                '@type' => 'EntryPoint',
+                'urlTemplate' => route('home').'?q={search_term_string}',
+            ],
+            'query-input' => 'required name=search_term_string',
+        ],
+    ];
 @endphp
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-PK">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $pageTitle }}</title>
-    <meta name="description" content="{{ $description ?? setting('store_tagline') }}">
+    <meta name="description" content="{{ $metaDescription }}">
+    @if ($metaKeywords)
+        <meta name="keywords" content="{{ $metaKeywords }}">
+    @endif
+    <meta name="robots" content="{{ $robots }}">
+    <meta name="author" content="{{ $storeName }}">
+    <meta name="geo.region" content="PK">
+    <meta name="geo.placename" content="Pakistan">
     <meta name="theme-color" content="#9B1B30">
+
+    <link rel="canonical" href="{{ $canonicalUrl }}">
+    <link rel="alternate" hreflang="en-pk" href="{{ $canonicalUrl }}">
+    <link rel="alternate" hreflang="x-default" href="{{ $canonicalUrl }}">
+
+    {{-- Open Graph / Facebook / WhatsApp Preview --}}
+    <meta property="og:site_name" content="{{ $storeName }}">
+    <meta property="og:locale" content="en_PK">
+    <meta property="og:type" content="{{ $type }}">
     <meta property="og:title" content="{{ $pageTitle }}">
-    <meta property="og:description" content="{{ $description ?? setting('store_tagline') }}">
-    <meta property="og:type" content="website">
+    <meta property="og:description" content="{{ $metaDescription }}">
+    <meta property="og:url" content="{{ $canonicalUrl }}">
+    <meta property="og:image" content="{{ $ogImage }}">
+
+    {{-- Twitter / X Card --}}
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ $pageTitle }}">
+    <meta name="twitter:description" content="{{ $metaDescription }}">
+    <meta name="twitter:image" content="{{ $ogImage }}">
+
+    @if ($googleVerify)
+        <meta name="google-site-verification" content="{{ $googleVerify }}">
+    @endif
+
     <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="{{ route('sitemap') }}">
+
+    {{-- Global Organization & WebSite JSON-LD Schema --}}
+    <script type="application/ld+json">{!! json_encode($orgSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    <script type="application/ld+json">{!! json_encode($websiteSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    @stack('seo')
+
+    @if ($gaId)
+        <script async src="https://www.googletagmanager.com/gtag/js?id={{ urlencode($gaId) }}"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', @json($gaId));
+        </script>
+    @endif
+
     @fonts
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script>window.SMT = { stockUrl: @json(route('stock')), syncUrl: @json(route('stock.sync')) };</script>

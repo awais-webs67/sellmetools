@@ -34,6 +34,7 @@ class StoreSettings extends Page
         'sms_webhook_secret',
         'telegram_bot_token', 'telegram_admin_chat_id',
         'support_whatsapp', 'support_telegram', 'support_email',
+        'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'google_analytics_id',
     ];
 
     /** Changing these re-prices every supplier-sourced product. */
@@ -138,6 +139,35 @@ class StoreSettings extends Page
                             ->label('SMS Webhook Secret Key')
                             ->required()
                             ->helperText('Send as ?secret=YOUR_KEY or header X-Webhook-Secret from your SMS Forwarder app.'),
+                    ]),
+                Section::make('SEO & Google Search Ranking')
+                    ->icon(Heroicon::OutlinedMagnifyingGlassCircle)
+                    ->description('Optimize your store for Google Search, Rich Snippets, and Social Sharing. Your live XML Sitemap is at: '.url('/sitemap.xml'))
+                    ->columns(['default' => 1, 'sm' => 2])
+                    ->schema([
+                        TextInput::make('seo_title')
+                            ->label('Homepage SEO Title')
+                            ->placeholder('Buy ChatGPT Plus, Canva Pro & Subscriptions in Pakistan')
+                            ->maxLength(255)
+                            ->columnSpanFull(),
+                        Textarea::make('seo_description')
+                            ->label('Homepage Meta Description')
+                            ->rows(2)
+                            ->maxLength(500)
+                            ->helperText('Recommended: 140–160 characters summarizing your products & payment methods.')
+                            ->columnSpanFull(),
+                        Textarea::make('seo_keywords')
+                            ->label('Target SEO Keywords (Comma separated)')
+                            ->rows(2)
+                            ->maxLength(500)
+                            ->columnSpanFull(),
+                        TextInput::make('google_site_verification')
+                            ->label('Google Search Console Verification Code')
+                            ->placeholder('e.g. google-site-verification token')
+                            ->helperText('Paste only the content value from the Google Search Console meta tag.'),
+                        TextInput::make('google_analytics_id')
+                            ->label('Google Analytics 4 ID (Optional)')
+                            ->placeholder('G-XXXXXXXXXX'),
                     ]),
                 Section::make('Telegram Admin Bot Alerts')
                     ->icon(Heroicon::OutlinedBellAlert)
