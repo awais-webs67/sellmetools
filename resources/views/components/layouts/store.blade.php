@@ -110,6 +110,8 @@
     @endif
 
     <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+    <link rel="icon" href="{{ asset('favicon.png') }}" type="image/png">
+    <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
     <link rel="sitemap" type="application/xml" title="Sitemap" href="{{ route('sitemap') }}">
 
     {{-- Global Organization & WebSite JSON-LD Schema --}}
@@ -205,9 +207,8 @@
 
     <header x-data="{ open: false }" class="sticky top-0 z-40 border-b border-line bg-white/95 shadow-[0_1px_2px_rgba(0,0,0,.06)] backdrop-blur">
         <div class="container-x flex h-16 items-center justify-between gap-6 lg:h-[76px]">
-            <a href="{{ route('home') }}" class="flex items-center gap-2.5 transition active:scale-95" aria-label="{{ $storeName }} home">
-                <x-logo-mark class="h-9 w-9 sm:h-10 sm:w-10 shrink-0" />
-                <span class="display text-[26px] sm:text-[30px] leading-none text-ink tracking-tight">{{ $storeName }}</span>
+            <a href="{{ route('home') }}" class="flex items-center transition active:scale-95" aria-label="{{ $storeName }} home">
+                <img src="{{ asset('images/logo.png') }}" alt="{{ $storeName }}" class="h-8 sm:h-9 w-auto object-contain">
             </a>
 
             <form action="{{ route('home') }}" method="get" class="hidden max-w-md flex-1 md:block" role="search">
@@ -289,9 +290,8 @@
     <footer class="mt-20 bg-ink text-white/70">
         <div class="container-x grid gap-10 py-14 md:grid-cols-2 lg:grid-cols-4">
             <div class="lg:col-span-2">
-                <a href="{{ route('home') }}" class="flex items-center gap-2.5">
-                    <x-logo-mark class="h-9 w-9 shrink-0" />
-                    <span class="display text-[28px] leading-none text-white">{{ $storeName }}</span>
+                <a href="{{ route('home') }}" class="flex items-center">
+                    <img src="{{ asset('images/logo-white.png') }}" alt="{{ $storeName }}" class="h-8 sm:h-9 w-auto object-contain">
                 </a>
                 <p class="mt-4 max-w-md text-sm leading-6">{{ setting('store_tagline') }} Pay with Easypaisa, JazzCash, NayaPay, SadaPay or Binance and receive your product automatically after verification.</p>
                 <div class="mt-5 flex flex-wrap gap-2">

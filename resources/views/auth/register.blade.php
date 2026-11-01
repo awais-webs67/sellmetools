@@ -4,9 +4,7 @@
             <section class="card overflow-hidden border-2 border-line shadow-2xl">
                 {{-- Branded Top Header --}}
                 <div class="bg-gradient-to-br from-[#1F070E] via-[#2B0912] to-[#120408] p-6 sm:p-8 text-white text-center">
-                    <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 border border-white/20 text-white shadow-inner">
-                        <x-logo-mark class="h-9 w-9" />
-                    </div>
+                    <img src="{{ asset('images/logo-white.png') }}" alt="{{ setting('store_name') }}" class="h-9 sm:h-10 w-auto mx-auto object-contain">
                     <span class="eyebrow mt-4 text-[#ff8fa3] justify-center">Instant Registration</span>
                     <h1 class="display mt-2 text-3xl sm:text-4xl text-white">Create Your Account</h1>
                     <p class="mt-2 text-xs sm:text-sm text-white/75">
