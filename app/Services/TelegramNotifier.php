@@ -41,13 +41,7 @@ class TelegramNotifier
         $token = self::cleanToken((string) Setting::get('telegram_bot_token'));
         $chatId = trim((string) Setting::get('telegram_admin_chat_id'));
 
-        if (app()->runningInConsole() || app()->runningUnitTests()) {
-            $this->send($token, $chatId, $html, $inlineKeyboard);
-
-            return;
-        }
-
-        dispatch(fn () => $this->send($token, $chatId, $html, $inlineKeyboard))->afterResponse();
+        $this->send($token, $chatId, $html, $inlineKeyboard);
     }
 
     /** @return bool true when Telegram accepted the message */

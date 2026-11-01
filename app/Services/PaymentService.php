@@ -156,6 +156,17 @@ class PaymentService
             return $order;
         });
 
+        $order->load(['items', 'paymentMethod']);
+        $this->telegram->notifyAdmin(
+            "💳 <b>Payment Confirmed &amp; Order Paid!</b>\n".
+            "Order: <b>{$order->number}</b>\n".
+            $order->items->map(fn ($i) => '• '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
+            'Gateway: '.T::e($order->paymentMethod?->name ?? 'Online')."\n".
+            "Paid: <b>{$payment->currency} {$payment->amount}</b> (Rs {$order->total})\n".
+            'TID: <code>'.T::e($payment->transaction_id)."</code>\n".
+            'Customer: '.T::e($order->email)
+        );
+
         return $this->fulfillment->fulfill($order);
     }
 

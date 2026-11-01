@@ -38,8 +38,9 @@
 }
 
 @layer base {
-    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
-    body { @apply bg-grey-soft font-sans text-body antialiased; line-height: 1.6; }
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; overflow-x: hidden; max-width: 100%; }
+    body { @apply bg-grey-soft font-sans text-body antialiased; line-height: 1.6; overflow-x: hidden; max-width: 100%; }
+    .grid > * { min-width: 0; }
     h1, h2, h3, h4 { @apply text-ink; line-height: 1.2; }
     :focus-visible { outline: 3px solid var(--color-brand); outline-offset: 2px; }
     [x-cloak] { display: none !important; }
@@ -60,7 +61,7 @@
     .btn-ghost { @apply text-ink hover:bg-brand-tint hover:text-brand; }
     .btn-lg { @apply px-6 py-3.5 text-base; }
 
-    .card { @apply rounded-xl border border-line bg-white shadow-[var(--shadow-card)]; }
+    .card { @apply min-w-0 max-w-full rounded-xl border border-line bg-white shadow-[var(--shadow-card)]; }
 
     .input { @apply block w-full rounded-lg border border-line-strong bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/70 transition focus:border-brand focus:ring-4 focus:ring-brand/15 focus:outline-none; }
     .label { @apply mb-1.5 block text-sm font-medium text-ink; }

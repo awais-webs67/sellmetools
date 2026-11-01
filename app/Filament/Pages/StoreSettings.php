@@ -34,6 +34,7 @@ class StoreSettings extends Page
         'store_name', 'store_tagline', 'store_logo', 'announcement', 'currency_symbol',
         'usdt_rate', 'price_rounding', 'order_expiry_minutes',
         'sms_webhook_secret', 'admin_quick_pin',
+        'greenapi_instance_id', 'greenapi_api_token', 'ntfy_topic',
         'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
         'telegram_bot_token', 'telegram_admin_chat_id',
         'support_whatsapp', 'support_telegram', 'support_email',
@@ -97,28 +98,38 @@ class StoreSettings extends Page
                         ])->columnSpanFull(),
                     ]),
 
-                Section::make('1-Tap WhatsApp Order Approval / Decline')
+                Section::make('1-Tap WhatsApp & Free Instant Mobile Push (No CallMeBot Limits!)')
                     ->icon(Heroicon::OutlinedCheckBadge)
-                    ->description('Approve or decline orders in 1 tap from WhatsApp! Only fill the fields you want to use.')
-                    ->columns(['default' => 1, 'sm' => 3])
+                    ->description('Option A (Free WhatsApp Bot): Create a Free Developer account at green-api.com, scan QR with your WhatsApp, and paste Instance ID + Token below. Option B (Zero-Signup Mobile Push): Install the free "ntfy" app on your phone, subscribe to a secret topic name, and enter it below!')
+                    ->columns(['default' => 1, 'sm' => 2])
                     ->schema([
                         TextInput::make('admin_quick_pin')
                             ->label('Admin 1-Tap WhatsApp PIN')
                             ->placeholder('7860')
                             ->maxLength(20)
-                            ->helperText('Default: 7860. Enter once on your phone to unlock 1-tap WhatsApp approvals for 1 year.'),
-                        TextInput::make('whatsapp_callmebot_apikey')
-                            ->label('CallMeBot WhatsApp API Key (Optional)')
-                            ->placeholder('Leave empty if not using'),
-                        TextInput::make('whatsapp_admin_webhook_url')
-                            ->label('Custom WhatsApp Webhook URL (Optional)')
-                            ->placeholder('Leave empty if not using'),
+                            ->helperText('Default: 7860. Protects 1-tap WhatsApp links on your phone.'),
+                        TextInput::make('ntfy_topic')
+                            ->label('ntfy.sh Free Mobile Push Topic (Zero Signup!)')
+                            ->placeholder('e.g. sellmetools_awais_orders_786')
+                            ->helperText('Install free "ntfy" app on Android/iOS -> Subscribe to this exact topic -> Get instant phone alerts with 1-Tap Approve/Decline buttons!'),
+                        TextInput::make('greenapi_instance_id')
+                            ->label('Green-API Free WhatsApp Instance ID (green-api.com)')
+                            ->placeholder('e.g. 7103948576')
+                            ->helperText('100% Free Forever Developer Plan at green-api.com (no slot limits!). Sends auto WhatsApp to Admin & Customer.'),
+                        TextInput::make('greenapi_api_token')
+                            ->label('Green-API Token (apiTokenInstance)')
+                            ->password()
+                            ->revealable()
+                            ->placeholder('Paste apiTokenInstance from green-api.com'),
                         Actions::make([
                             Action::make('saveWhatsappSection')
-                                ->label('Save WhatsApp 1-Tap Settings')
+                                ->label('Save WhatsApp & Push Settings')
                                 ->icon(Heroicon::OutlinedCheck)
                                 ->color('primary')
-                                ->action(fn () => $this->saveKeys(['admin_quick_pin', 'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url'], 'WhatsApp 1-Tap settings saved')),
+                                ->action(fn () => $this->saveKeys([
+                                    'admin_quick_pin', 'ntfy_topic', 'greenapi_instance_id', 'greenapi_api_token',
+                                    'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
+                                ], 'WhatsApp & Push settings saved')),
                         ])->columnSpanFull(),
                     ]),
 

@@ -296,6 +296,7 @@ class FulfillmentService
                 $items->map(fn ($i) => '• '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
                 "Sale: Rs {$order->total} · Cost: Rs {$order->total_cost} · <b>Profit: Rs {$profit}</b>"
             );
+            app(WhatsAppNotifier::class)->notifyOrderDelivered($order);
         } else {
             $order->update(['status' => OrderStatus::NeedsAttention]);
             $this->telegram->notifyAdmin(
