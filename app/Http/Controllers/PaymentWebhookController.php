@@ -110,8 +110,25 @@ class PaymentWebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
+        $order = $payment->order;
+        if ($order && $order->status === OrderStatus::Completed) {
+            $telegram->answerCallback($callbackId, "⚠️ Order {$order->number} is ALREADY Confirmed & Delivered! No action needed.");
+            if ($messageId > 0) {
+                $telegram->editMessage(
+                    $chatId,
+                    $messageId,
+                    "⚠️ <b>ALREADY CONFIRMED &amp; DELIVERED</b>\n".
+                    "Order: <b>{$order->number}</b>\n".
+                    'TID: <code>'.TelegramNotifier::e($payment->transaction_id)."</code>\n".
+                    'Status: <b>Completed (Auto-Delivered)</b>'
+                );
+            }
+
+            return response()->json(['ok' => true]);
+        }
+
         if ($payment->status !== PaymentStatus::Pending) {
-            $telegram->answerCallback($callbackId, "Already {$payment->status->value}!");
+            $telegram->answerCallback($callbackId, "⚠️ Payment is already {$payment->status->value}!");
 
             return response()->json(['ok' => true]);
         }
@@ -159,7 +176,10 @@ class PaymentWebhookController extends Controller
         $message = null;
         $actionResult = $action;
 
-        if ($payment->status !== PaymentStatus::Pending) {
+        if ($order->status === OrderStatus::Completed || $payment->status === PaymentStatus::Approved) {
+            $actionResult = 'already_completed';
+            $message = "⚠️ ALREADY CONFIRMED & DELIVERED! Order {$order->number} was already paid and delivered automatically. Do not deliver twice.";
+        } elseif ($payment->status !== PaymentStatus::Pending) {
             $message = "Payment ({$payment->transaction_id}) was already {$payment->status->value}.";
         } else {
             try {
@@ -235,6 +255,21 @@ class PaymentWebhookController extends Controller
         $message = null;
         $actionResult = $do ?: 'view';
 
+        // Check BEFORE approving if order was already auto-confirmed & delivered (e.g. via Binance auto-verify)
+        if ($order->status === OrderStatus::Completed || ($payment && $payment->status === PaymentStatus::Approved)) {
+            $actionResult = 'already_completed';
+            $message = "⚠️ ALREADY CONFIRMED & DELIVERED! Order {$order->number} was already verified and delivered automatically (".($order->completed_at?->diffForHumans() ?? 'earlier').'). No manual action needed.';
+
+            return view('store.quick-action', [
+                'order' => $order,
+                'payment' => $payment,
+                'actionResult' => $actionResult,
+                'message' => $message,
+                'needsPin' => false,
+                'requestedAction' => $do,
+            ]);
+        }
+
         if (in_array($do, ['approve', 'reject'], true)) {
             try {
                 if ($do === 'approve') {
@@ -257,7 +292,8 @@ class PaymentWebhookController extends Controller
                         $order->load(['items.deliveries', 'paymentMethod']);
                         $message = "✅ Order {$order->number} Approved & Delivered automatically!";
                     } else {
-                        $message = "Order {$order->number} is already {$order->status->label()}.";
+                        $actionResult = 'already_completed';
+                        $message = "⚠️ Order {$order->number} is already {$order->status->label()}.";
                     }
                 } elseif ($do === 'reject') {
                     if ($payment && $payment->status === PaymentStatus::Pending) {

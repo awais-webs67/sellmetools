@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class AuthController extends Controller
@@ -28,12 +29,24 @@ class AuthController extends Controller
             return back()->withInput($request->only('email'))->withErrors(['email' => 'These credentials do not match our records.']);
         }
 
+        /** @var User $user */
+        $user = Auth::user();
+        if (! ($user->is_active ?? true)) {
+            Auth::logout();
+
+            return back()->withInput($request->only('email'))->withErrors(['email' => 'Your account has been suspended. Please contact support.']);
+        }
+
         $guestOrders = (array) $request->session()->get('guest_orders', []);
         if ($guestOrders !== []) {
-            Order::whereNull('user_id')->whereIn('number', $guestOrders)->update(['user_id' => Auth::id()]);
+            Order::whereNull('user_id')->whereIn('number', $guestOrders)->update(['user_id' => $user->id]);
         }
 
         $request->session()->regenerate();
+
+        if ($user->is_reseller && filled($user->reseller_slug)) {
+            return redirect()->intended(route('reseller.portal', $user->reseller_slug));
+        }
 
         return redirect()->intended(route('account.orders'));
     }
@@ -48,9 +61,17 @@ class AuthController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'email:rfc', 'max:190', 'unique:users,email'],
-            'phone' => ['nullable', 'string', 'max:32'],
+            'phone' => ['required', 'string', 'max:32'],
             'password' => ['required', 'confirmed', Password::min(8)],
         ]);
+
+        $normalizedPhone = format_whatsapp($data['phone']);
+        if (! preg_match('/^923\d{9}$/', $normalizedPhone) && ! preg_match('/^\d{10,15}$/', $normalizedPhone)) {
+            throw ValidationException::withMessages([
+                'phone' => 'Please enter a valid WhatsApp number in exact format (e.g. 923001234567 or 03001234567).',
+            ]);
+        }
+        $data['phone'] = $normalizedPhone;
 
         $user = User::create($data);
 

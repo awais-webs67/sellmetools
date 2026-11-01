@@ -3,14 +3,15 @@
 namespace App\Services;
 
 use App\Models\Setting;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Sends admin alerts to Telegram with 1-Tap Approve & Decline buttons.
- * Supports auto-detecting Admin Chat ID via getUpdates, in-chat callback buttons, and signed 1-tap web links.
+ * Sends admin alerts to Telegram with 1-Tap In-Chat Approve & Decline callback buttons.
+ * Supports auto-detecting Admin Chat ID via getUpdates and auto-registering the Telegram webhook.
  */
 class TelegramNotifier
 {
@@ -51,6 +52,15 @@ class TelegramNotifier
         $token = self::cleanToken($token);
         $chatId = trim($chatId);
 
+        if ($inlineKeyboard && ! app()->runningUnitTests()) {
+            $cacheKey = 'tg_webhook_registered:'.md5($token.'|'.url('/api/webhooks/telegram'));
+            if (! Cache::has($cacheKey)) {
+                if ($this->registerWebhook($token)) {
+                    Cache::put($cacheKey, true, now()->addHours(12));
+                }
+            }
+        }
+
         try {
             $payload = [
                 'chat_id' => $chatId,
@@ -84,7 +94,8 @@ class TelegramNotifier
 
     /**
      * Automatically detects the Admin's numeric Chat ID from the latest `/start` or text message
-     * sent to the bot. Temporarily clears any active webhook so `getUpdates` can read recent messages.
+     * sent to the bot. Temporarily clears any active webhook so `getUpdates` can read recent messages,
+     * and then re-registers the webhook so in-chat buttons continue working seamlessly.
      */
     public function detectChatId(string $token): ?string
     {
@@ -101,6 +112,8 @@ class TelegramNotifier
             $response = Http::timeout(8)->get("https://api.telegram.org/bot{$token}/getUpdates", [
                 'limit' => 20,
             ]);
+
+            $this->registerWebhook($token);
 
             if (! $response->successful()) {
                 $this->lastError = (string) ($response->json('description') ?? ('HTTP '.$response->status()));
@@ -142,10 +155,8 @@ class TelegramNotifier
         }
 
         try {
-            $secret = substr(hash('sha256', (string) Setting::get('sms_webhook_secret', 'smt_tg_secret')), 0, 32);
             $response = Http::timeout(8)->post("https://api.telegram.org/bot{$token}/setWebhook", [
                 'url' => $webhookUrl,
-                'secret_token' => $secret,
                 'allowed_updates' => ['callback_query', 'message'],
             ]);
 

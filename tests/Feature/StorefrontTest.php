@@ -2,7 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Enums\OrderStatus;
 use App\Models\Order;
+use App\Models\ResellerProductPrice;
+use App\Models\User;
+use App\Services\InventoryService;
 use App\Services\OrderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\CreatesStore;
@@ -24,7 +28,7 @@ class StorefrontTest extends TestCase
 
         $this->get('/')->assertOk()->assertSee($product->name);
         $this->get(route('products.show', $product))->assertOk()->assertSee('Buy Now');
-        $this->get(route('checkout.create', $product))->assertOk();
+        $this->get(route('checkout.create', $product))->assertOk()->assertSee('Cancel Checkout');
         $this->get(route('orders.track'))->assertOk();
         $this->get(route('login'))->assertOk();
         $this->get(route('register'))->assertOk();
@@ -64,6 +68,7 @@ class StorefrontTest extends TestCase
         $response = $this->post(route('checkout.store', $product), [
             'quantity' => 2,
             'email' => 'buyer@example.com',
+            'phone' => '0300-1234567',
             'payment_method_id' => $method->id,
             'agree' => '1',
         ]);
@@ -71,8 +76,14 @@ class StorefrontTest extends TestCase
         $order = Order::firstOrFail();
         $response->assertRedirect($order->customerUrl());
         $this->assertSame(1100.0, (float) $order->total);
+        $this->assertSame('923001234567', $order->phone);
 
-        $this->get($order->customerUrl())->assertOk()->assertSee('Complete your payment')->assertSee('03001234567');
+        // WhatsApp button points directly to normalized Admin phone (wa.me/923001234567)
+        $this->get($order->customerUrl())
+            ->assertOk()
+            ->assertSee('Complete your payment')
+            ->assertSee('https://wa.me/923001234567?text=', false);
+
         $this->get(route('orders.show', ['order' => $order->number, 'token' => 'wrong']))->assertOk(); // allowed in same guest session
 
         $this->flushSession();
@@ -104,6 +115,85 @@ class StorefrontTest extends TestCase
             'pin' => '7860',
             'do' => 'approve',
         ])->assertRedirect();
+    }
+
+    public function test_already_confirmed_order_shows_warning_on_admin_quick_approve(): void
+    {
+        $product = $this->listing();
+        $product->stockItems()->create(['content' => 'auto@test.com:secret123']);
+        $method = $this->paymentMethod();
+
+        $order = app(OrderService::class)->create($product, 1, $this->customer(), $method);
+        $order->update(['status' => OrderStatus::Completed, 'completed_at' => now()]);
+
+        $admin = User::factory()->create(['is_admin' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']))
+            ->assertOk()
+            ->assertSee('Already Confirmed &amp; Delivered!', false)
+            ->assertSee('Duplicate Approval Prevented');
+    }
+
+    public function test_reseller_portal_and_wallet_instant_checkout(): void
+    {
+        $product = $this->listing([], ['fixed_price' => 1000, 'price' => 1000]);
+        $product->stockItems()->createMany([
+            ['content' => 'vip1@test.com:pass1'],
+            ['content' => 'vip2@test.com:pass2'],
+        ]);
+        app(InventoryService::class)->refresh($product);
+
+        $reseller = User::factory()->create([
+            'name' => 'Ali Reseller',
+            'email' => 'ali@reseller.com',
+            'phone' => '03001112233',
+            'is_reseller' => true,
+            'reseller_slug' => 'ali',
+            'reseller_discount_percent' => 20, // 20% off -> Rs 800
+        ]);
+
+        // Phone auto-formatted to 923001112233
+        $this->assertSame('923001112233', $reseller->phone);
+
+        // Top-up wallet balance
+        $reseller->adjustWallet(2000, 'topup', 'Initial deposit');
+        $this->assertSame(2000.0, (float) $reseller->refresh()->wallet_balance);
+
+        // Guest visiting /ali sees the Secret VIP Reseller Login Screen
+        $this->get('/ali')
+            ->assertOk()
+            ->assertSee('Secret VIP Reseller Portal')
+            ->assertSee('/ali');
+
+        // Reseller logs in and sees Rs 800 wholesale price (20% off 1000)
+        $this->actingAs($reseller)
+            ->get('/ali')
+            ->assertOk()
+            ->assertSee('Wholesale Portal')
+            ->assertSee('Rs 800');
+
+        // Per-product custom price override (Rs 650) takes priority over global %
+        ResellerProductPrice::create([
+            'user_id' => $reseller->id,
+            'product_id' => $product->id,
+            'custom_price' => 650,
+        ]);
+
+        $this->assertSame(650.0, $product->priceFor($reseller->refresh()));
+
+        // 1-Click Instant Wallet Buy on /ali/wallet-buy/{product}
+        $this->actingAs($reseller)
+            ->post(route('reseller.wallet-buy', ['slug' => 'ali', 'product' => $product->slug]), [
+                'quantity' => 1,
+            ])
+            ->assertRedirect();
+
+        $order = Order::latest('id')->firstOrFail();
+        $this->assertSame(OrderStatus::Completed, $order->status);
+        $this->assertSame(650.0, (float) $order->total);
+        $this->assertSame(1350.0, (float) $reseller->refresh()->wallet_balance);
+        $this->assertSame('vip1@test.com:pass1', $order->deliveries()->first()->content);
     }
 
     public function test_track_lookup_requires_matching_email(): void

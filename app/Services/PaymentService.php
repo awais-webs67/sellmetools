@@ -14,6 +14,7 @@ use App\Services\TelegramNotifier as T;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
+use RuntimeException;
 
 class PaymentService
 {
@@ -35,10 +36,65 @@ class PaymentService
         return $clean;
     }
 
+    /**
+     * Pays for an order immediately using the user's Account Wallet Balance and auto-delivers credentials.
+     */
+    public function payWithWallet(Order $order, User $user): Order
+    {
+        $payment = DB::transaction(function () use ($order, $user) {
+            $order = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+
+            if (! in_array($order->status, [OrderStatus::PendingPayment, OrderStatus::PaymentReview], true)) {
+                throw new StoreException('Order cannot be paid via wallet.');
+            }
+
+            $amount = round((float) $order->total, 2);
+
+            try {
+                $tx = $user->adjustWallet(
+                    -$amount,
+                    'order_payment',
+                    "Paid for Order #{$order->number}",
+                    null,
+                    $order->id
+                );
+            } catch (RuntimeException) {
+                throw new StoreException('Insufficient wallet balance to pay for this order.');
+            }
+
+            $payment = $order->payments()->create([
+                'payment_method_id' => $order->payment_method_id,
+                'amount' => $amount,
+                'currency' => 'PKR',
+                'transaction_id' => 'WALLET-'.$order->number.'-'.$tx->id,
+                'sender_number' => $user->phone ?: $user->email,
+                'status' => PaymentStatus::Approved,
+                'reviewed_by' => $user->id,
+                'reviewed_at' => now(),
+            ]);
+
+            $order->update(['status' => OrderStatus::Processing, 'paid_at' => now()]);
+
+            return $payment;
+        });
+
+        $order->refresh()->load(['items', 'paymentMethod']);
+        $this->telegram->notifyAdmin(
+            "👛 <b>Instant Wallet Payment Confirmed!</b>\n".
+            "Order: <b>{$order->number}</b>\n".
+            $order->items->map(fn ($i) => '• '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
+            "Paid: <b>PKR {$payment->amount}</b> (Wallet Balance)\n".
+            'Customer: '.T::e($user->email).($user->is_reseller ? ' <b>[VIP RESELLER]</b>' : '')
+        );
+
+        return $this->fulfillment->fulfill($order);
+    }
+
     /** Customer submits a transaction ID for manual / semi-automatic verification. */
     public function submit(Order $order, string $transactionId, ?string $senderNumber = null, ?UploadedFile $screenshot = null): Payment
     {
         $transactionId = self::normalizeTid($transactionId);
+        $senderNumber = filled($senderNumber) ? (format_whatsapp($senderNumber) ?: trim($senderNumber)) : null;
 
         if (strlen($transactionId) < 3 || in_array($transactionId, ['PAID', 'DONE', 'TEST', 'NONE', 'NULL', '00000', '11111'], true)) {
             throw new StoreException('Please enter a valid, real Transaction ID (TID / Order ID) from your payment receipt.');
@@ -103,6 +159,7 @@ class PaymentService
             'action' => 'reject',
         ]);
 
+        // Telegram 1-Tap Buttons use in-chat callback_data so tapping NEVER opens the browser!
         $this->telegram->notifyAdmin(
             "💰 <b>New Payment to Verify</b>\n".
             "Order: <b>{$order->number}</b>\n".
@@ -114,12 +171,8 @@ class PaymentService
             "\nCustomer: ".T::e($order->email).($order->phone ? ' ('.T::e($order->phone).')' : ''),
             [
                 [
-                    ['text' => '✅ Approve & Auto-Deliver', 'url' => $approveUrl],
-                    ['text' => '❌ Decline Payment', 'url' => $rejectUrl],
-                ],
-                [
-                    ['text' => '⚡ In-Chat Approve', 'callback_data' => "approve:{$payment->id}"],
-                    ['text' => '🚫 In-Chat Decline', 'callback_data' => "reject:{$payment->id}"],
+                    ['text' => '✅ Approve & Deliver', 'callback_data' => "approve:{$payment->id}"],
+                    ['text' => '❌ Decline Payment', 'callback_data' => "reject:{$payment->id}"],
                 ],
             ]
         );

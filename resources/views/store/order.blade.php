@@ -12,10 +12,7 @@
     ];
 
     $gatewayCheckoutUrl = $method ? app(\App\Services\AutoPaymentVerifier::class)->gatewayCheckoutUrl($order, $method) : null;
-    $waNumber = preg_replace('/\D/', '', (string) ($method?->meta['whatsapp_number'] ?? setting('support_whatsapp') ?? ''));
-    if (str_starts_with($waNumber, '03') && strlen($waNumber) === 11) {
-        $waNumber = '92'.substr($waNumber, 1);
-    }
+    $waNumber = admin_whatsapp_number($method?->meta['whatsapp_number'] ?? null);
 
     $itemsSummary = $order->items->map(fn ($i) => $i->product_name.' x'.$i->quantity)->implode(', ');
     $amountFormatted = $method && $method->currency !== 'PKR' ? $amountDue.' '.$method->currency : money($amountDue ?? $order->total);
@@ -416,14 +413,16 @@
                         <div class="flex justify-between gap-2"><dt class="text-muted">Email</dt><dd class="text-ink truncate max-w-[180px]">{{ $order->email }}</dd></div>
                     </dl>
 
-                    {{-- Clean Compact WhatsApp Button (Sends full order info + 1-Tap Admin links without showing long text on screen!) --}}
+                    {{-- Clean Compact WhatsApp Button (Hidden once order is Completed & Auto-Delivered) --}}
                     <div class="mt-4 border-t border-line pt-4 space-y-2">
-                        <a href="{{ $waHref }}"
-                           target="_blank"
-                           rel="noopener"
-                           class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full py-2.5 text-xs sm:text-sm font-bold">
-                            📲 Send Order Info on WhatsApp
-                        </a>
+                        @if ($s !== OrderStatus::Completed && $waNumber !== '')
+                            <a href="{{ $waHref }}"
+                               target="_blank"
+                               rel="noopener"
+                               class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full py-2.5 text-xs sm:text-sm font-bold">
+                                📲 Send Order Info on WhatsApp
+                            </a>
+                        @endif
                         <div x-data="copy(@js($order->customerUrl()))">
                             <button type="button" class="btn btn-outline w-full py-2 text-xs" @click="copy" x-text="copied ? '✓ Order Link Copied!' : 'Copy Order Link'">Copy Order Link</button>
                         </div>

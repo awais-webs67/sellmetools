@@ -1,13 +1,28 @@
+@php
+    $user = auth()->user();
+    $effectivePrice = isset($unitPrice) ? (float) $unitPrice : (float) $product->priceFor($user);
+    $hasResellerDiscount = $effectivePrice < (float) $product->price;
+    $walletBalance = (float) ($user?->wallet_balance ?? 0);
+@endphp
 <x-layouts.store title="Checkout" robots="noindex, nofollow">
     <div class="container-x py-5 sm:py-10">
-        <span class="eyebrow">Secure checkout</span>
-        <h1 class="display mt-1.5 text-3xl sm:text-5xl">Complete your order</h1>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <span class="eyebrow">Secure checkout</span>
+                <h1 class="display mt-1 text-3xl sm:text-5xl">Complete your order</h1>
+            </div>
+            <a href="{{ route('products.show', $product) }}"
+               onclick="try { localStorage.removeItem('smt_checkout_draft_{{ $product->id }}'); } catch(e) {}"
+               class="btn btn-outline px-4 py-2 text-xs sm:text-sm font-semibold text-muted hover:text-danger hover:border-danger">
+                ✕ Cancel &amp; Return to Product
+            </a>
+        </div>
 
         <form method="post"
               action="{{ route('checkout.store', $product) }}"
               class="mt-5 sm:mt-8 grid gap-6 lg:grid-cols-[1fr_380px]"
               data-stock-id="{{ $product->id }}"
-              x-data="checkoutForm({{ $product->id }}, {{ (int) old('quantity', $quantity) }}, {{ (float) $product->price }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, {{ (int) $product->available_stock }}, '{{ old('payment_method_id', $methods->first()?->id) }}')"
+              x-data="checkoutForm({{ $product->id }}, {{ (int) old('quantity', $quantity) }}, {{ $effectivePrice }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, {{ (int) $product->available_stock }}, '{{ old('payment_method_id', $methods->first()?->id) }}')"
               @input="saveDraft()"
               @change="saveDraft()"
               @submit="submitting = true">
@@ -25,21 +40,52 @@
                     <div class="mt-4 grid gap-3.5 sm:grid-cols-2">
                         <div class="sm:col-span-2">
                             <label for="email" class="label text-xs sm:text-sm">Email address <span class="text-danger">*</span></label>
-                            <input id="email" name="email" type="email" required autocomplete="email" class="input" value="{{ old('email', auth()->user()?->email) }}" placeholder="you@gmail.com">
+                            <input id="email" name="email" type="email" required autocomplete="email" class="input" value="{{ old('email', $user?->email) }}" placeholder="you@gmail.com">
                             @error('email')<p class="field-error text-xs">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label for="name" class="label text-xs sm:text-sm">Name</label>
-                            <input id="name" name="name" type="text" autocomplete="name" class="input" value="{{ old('name', auth()->user()?->name) }}" placeholder="Your Name">
+                            <label for="name" class="label text-xs sm:text-sm">Full Name</label>
+                            <input id="name" name="name" type="text" autocomplete="name" class="input" value="{{ old('name', $user?->name) }}" placeholder="Your Name">
                             @error('name')<p class="field-error text-xs">{{ $message }}</p>@enderror
                         </div>
-                        <div>
-                            <label for="phone" class="label text-xs sm:text-sm">WhatsApp / phone</label>
-                            <input id="phone" name="phone" type="tel" autocomplete="tel" class="input" placeholder="03xx xxxxxxx" value="{{ old('phone', auth()->user()?->phone) }}">
+                        <div x-data="{ rawPhone: @js(old('phone', $user?->phone ?? '')), normalize() { let d = (this.rawPhone || '').replace(/\D+/g, ''); if (d.startsWith('00')) d = d.slice(2); if (d.length === 11 && d.startsWith('03')) d = '92' + d.slice(1); else if (d.length === 10 && d.startsWith('3')) d = '92' + d; else if (d.length === 13 && d.startsWith('9203')) d = '92' + d.slice(3); this.rawPhone = d; } }">
+                            <label for="phone" class="label text-xs sm:text-sm">WhatsApp Number <span class="text-danger">*</span> <span class="text-[11px] font-normal text-muted">(923XXXXXXXXX)</span></label>
+                            <input id="phone"
+                                   name="phone"
+                                   type="tel"
+                                   required
+                                   autocomplete="tel"
+                                   x-model="rawPhone"
+                                   @blur="normalize()"
+                                   pattern="^(923\d{9}|03\d{9}|\d{10,15})$"
+                                   title="Enter valid WhatsApp number e.g. 923001234567 or 03001234567"
+                                   class="input font-mono"
+                                   placeholder="923001234567">
+                            <p class="mt-1 text-[10px] text-muted">Auto-formats <code>03XX...</code> to <code>923XX...</code></p>
                             @error('phone')<p class="field-error text-xs">{{ $message }}</p>@enderror
                         </div>
                     </div>
                 </section>
+
+                @if ($user && $walletBalance > 0)
+                    <section class="card border-2 border-brand/30 bg-brand-tint/40 p-4 sm:p-6">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <span class="badge badge-brand text-[10px]">⚡ Instant 1-Click Auto Delivery</span>
+                                <h2 class="mt-1 text-base sm:text-lg font-bold text-ink">Pay with Account Wallet Balance</h2>
+                                <p class="text-xs text-body">Available Balance: <strong class="font-mono text-ink">{{ money($walletBalance) }}</strong></p>
+                            </div>
+                            <button type="submit"
+                                    name="pay_with_wallet"
+                                    value="1"
+                                    :disabled="({{ $walletBalance }} < (livePrice * qty)) || !inStock || submitting"
+                                    class="btn btn-primary px-5 py-2.5 text-xs sm:text-sm font-bold disabled:opacity-50">
+                                <span x-show="{{ $walletBalance }} >= (livePrice * qty)">👛 Instant Buy with Wallet →</span>
+                                <span x-show="{{ $walletBalance }} < (livePrice * qty)" x-cloak>Insufficient Wallet Balance</span>
+                            </button>
+                        </div>
+                    </section>
+                @endif
 
                 <section class="card p-4 sm:p-6">
                     <h2 class="text-base sm:text-lg font-semibold">2. Select Payment Method</h2>
@@ -90,7 +136,15 @@
                         <div class="min-w-0 flex-1">
                             <p class="text-sm sm:text-base font-semibold text-ink break-words">{{ $product->name }}</p>
                             <div class="mt-1 flex flex-wrap items-center justify-between gap-1.5">
-                                <p class="text-xs sm:text-sm font-semibold text-ink">{{ setting('currency_symbol') }} <span x-text="livePrice.toLocaleString()">{{ number_format((float) $product->price) }}</span> each</p>
+                                <p class="text-xs sm:text-sm font-semibold text-ink">
+                                    @if ($hasResellerDiscount)
+                                        <span class="line-through text-muted mr-1">{{ money($product->price) }}</span>
+                                        <span class="text-brand font-bold">{{ setting('currency_symbol') }} <span x-text="livePrice.toLocaleString()">{{ number_format($effectivePrice) }}</span></span>
+                                        <span class="badge badge-brand ml-1 text-[10px]">VIP Reseller Rate</span>
+                                    @else
+                                        {{ setting('currency_symbol') }} <span x-text="livePrice.toLocaleString()">{{ number_format($effectivePrice) }}</span> each
+                                    @endif
+                                </p>
                                 <span :class="inStock ? 'badge badge-success' : 'badge badge-danger'" class="text-[10px]">
                                     <span class="dot" :class="inStock ? 'bg-success live-dot' : 'bg-danger'"></span>
                                     <span x-text="stockLabel">Stock: {{ (int) $product->available_stock }}</span>
@@ -121,6 +175,13 @@
                         <span x-show="!submitting && !inStock" x-cloak>Out of Stock</span>
                         <span x-show="submitting" x-cloak>Creating Order...</span>
                     </button>
+
+                    <a href="{{ route('products.show', $product) }}"
+                       onclick="try { localStorage.removeItem('smt_checkout_draft_{{ $product->id }}'); } catch(e) {}"
+                       class="btn btn-outline mt-2.5 w-full py-2 text-xs font-semibold text-muted hover:text-danger">
+                        ✕ Cancel Checkout
+                    </a>
+
                     <p class="mt-2.5 text-center text-[11px] text-muted">Stock reserved for {{ setting('order_expiry_minutes') }} minutes.</p>
                 </div>
             </aside>

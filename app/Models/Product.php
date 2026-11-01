@@ -104,6 +104,50 @@ class Product extends Model
         return $this->hasMany(Review::class)->where('is_approved', true)->latest();
     }
 
+    public function resellerPrices(): HasMany
+    {
+        return $this->hasMany(ResellerProductPrice::class);
+    }
+
+    /**
+     * Resolves the effective unit price for a given user (applying secret reseller custom price or discount if applicable).
+     */
+    public function priceFor(?User $user = null): float
+    {
+        $retail = (float) $this->price;
+
+        if (! $user || ! $user->is_reseller || ! ($user->is_active ?? true)) {
+            return $retail;
+        }
+
+        $override = $user->relationLoaded('resellerProductPrices')
+            ? $user->resellerProductPrices->firstWhere('product_id', $this->id)
+            : ResellerProductPrice::query()
+                ->where('user_id', $user->id)
+                ->where('product_id', $this->id)
+                ->first();
+
+        if ($override) {
+            if ($override->custom_price !== null && (float) $override->custom_price > 0) {
+                return round((float) $override->custom_price, 2);
+            }
+            if ($override->discount_percent !== null && (float) $override->discount_percent > 0) {
+                $pct = min(99.0, max(0.0, (float) $override->discount_percent));
+
+                return max(1.0, round($retail * (1 - ($pct / 100)), 0));
+            }
+        }
+
+        $globalDiscount = (float) ($user->reseller_discount_percent ?? 0);
+        if ($globalDiscount > 0) {
+            $pct = min(99.0, max(0.0, $globalDiscount));
+
+            return max(1.0, round($retail * (1 - ($pct / 100)), 0));
+        }
+
+        return $retail;
+    }
+
     public function scopeVisible(Builder $query): Builder
     {
         return $query->where('is_active', true);

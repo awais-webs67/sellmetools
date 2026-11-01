@@ -90,8 +90,9 @@ class PaymentMethodForm
                             ->default('sms_auto')
                             ->live(),
                         TextInput::make('meta.whatsapp_number')
-                            ->label('WhatsApp Number for Receipt Template (Optional)')
-                            ->placeholder('Uses Store Support WhatsApp if blank (e.g. 923001234567)'),
+                            ->label('WhatsApp Number for Receipt Template (Exact Format: 923XXXXXXXXX)')
+                            ->placeholder('923001234567 (Uses Store Support WhatsApp if blank)')
+                            ->dehydrateStateUsing(fn (?string $state) => filled($state) ? format_whatsapp($state) : null),
                         TextInput::make('meta.binance_api_key')
                             ->label('Binance Read-Only API Key (From Binance -> API Management)')
                             ->password()

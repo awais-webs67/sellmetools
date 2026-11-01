@@ -125,7 +125,7 @@
 
     @fonts
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <script>window.SMT = { stockUrl: @json(route('stock')), syncUrl: @json(route('stock.sync')) };</script>
+    <script>window.SMT = { stockUrl: @json(route('stock', auth()->user()?->is_reseller ? ['reseller' => auth()->id()] : [])), syncUrl: @json(route('stock.sync')) };</script>
 </head>
 <body class="flex min-h-screen flex-col">
     <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded focus:bg-ink focus:px-4 focus:py-2 focus:text-white">Skip to content</a>
@@ -181,7 +181,15 @@
                 <a href="{{ route('home') }}" class="btn btn-ghost">Shop</a>
                 <a href="{{ route('orders.track') }}" class="btn btn-ghost">Track order</a>
                 @auth
-                    <a href="{{ route('account.orders') }}" class="btn btn-ghost">My orders</a>
+                    @if (auth()->user()->is_reseller && filled(auth()->user()->reseller_slug))
+                        <a href="{{ route('reseller.portal', auth()->user()->reseller_slug) }}" class="btn btn-ghost font-bold text-brand">★ Reseller Portal</a>
+                    @endif
+                    <a href="{{ route('account.orders') }}" class="btn btn-ghost">
+                        My Account
+                        @if ((float) auth()->user()->wallet_balance > 0)
+                            <span class="ml-1 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">{{ money(auth()->user()->wallet_balance) }}</span>
+                        @endif
+                    </a>
                     <form method="post" action="{{ route('logout') }}">@csrf<button class="btn btn-ghost">Logout</button></form>
                 @else
                     <a href="{{ route('login') }}" class="btn btn-ghost">Login</a>
@@ -204,7 +212,15 @@
                 <a href="{{ route('home') }}" class="block rounded px-3 py-2 font-medium text-ink hover:bg-grey-soft">Shop</a>
                 <a href="{{ route('orders.track') }}" class="block rounded px-3 py-2 font-medium text-ink hover:bg-grey-soft">Track order</a>
                 @auth
-                    <a href="{{ route('account.orders') }}" class="block rounded px-3 py-2 font-medium text-ink hover:bg-grey-soft">My orders</a>
+                    @if (auth()->user()->is_reseller && filled(auth()->user()->reseller_slug))
+                        <a href="{{ route('reseller.portal', auth()->user()->reseller_slug) }}" class="block rounded px-3 py-2 font-bold text-brand hover:bg-grey-soft">★ My Reseller Portal (/{{ auth()->user()->reseller_slug }})</a>
+                    @endif
+                    <a href="{{ route('account.orders') }}" class="block rounded px-3 py-2 font-medium text-ink hover:bg-grey-soft">
+                        My Account &amp; Orders
+                        @if ((float) auth()->user()->wallet_balance > 0)
+                            <span class="ml-1 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">{{ money(auth()->user()->wallet_balance) }}</span>
+                        @endif
+                    </a>
                     <form method="post" action="{{ route('logout') }}">@csrf<button class="block w-full rounded px-3 py-2 text-left font-medium text-ink hover:bg-grey-soft">Logout</button></form>
                 @else
                     <a href="{{ route('login') }}" class="block rounded px-3 py-2 font-medium text-ink hover:bg-grey-soft">Login</a>
@@ -269,8 +285,8 @@
         </div>
     </footer>
 
-    @if ($wa = setting('support_whatsapp'))
-        <a href="https://wa.me/{{ preg_replace('/\D/', '', $wa) }}" target="_blank" rel="noopener" class="fixed right-5 bottom-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-[var(--shadow-pop)] transition hover:scale-105" aria-label="Chat on WhatsApp">
+    @if ($wa = admin_whatsapp_number())
+        <a href="https://wa.me/{{ $wa }}" target="_blank" rel="noopener" class="fixed right-5 bottom-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-[var(--shadow-pop)] transition hover:scale-105" aria-label="Chat on WhatsApp">
             <svg class="h-7 w-7" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.03c-.25.69-1.45 1.32-2 1.37-.51.05-1 .24-3.36-.7-2.84-1.12-4.63-4.03-4.77-4.22-.14-.19-1.14-1.52-1.14-2.9 0-1.38.72-2.06.98-2.34.25-.28.55-.35.74-.35l.53.01c.17 0 .4-.06.62.48.25.6.84 2.07.92 2.22.07.15.12.32.02.51-.1.19-.15.32-.29.49-.15.17-.31.38-.44.51-.15.15-.3.3-.13.6.17.29.77 1.27 1.65 2.06 1.14 1.01 2.09 1.33 2.39 1.48.29.15.47.12.64-.07.17-.2.74-.86.94-1.16.2-.29.39-.24.66-.15.27.1 1.73.82 2.02.97.3.15.5.22.57.34.07.12.07.71-.18 1.4Z"/></svg>
         </a>
     @endif

@@ -71,13 +71,17 @@ class OrderService
                 }
             }
 
-            $total = round((float) $locked->price * $quantity, 2);
+            $unitPrice = $locked->priceFor($user);
+            $total = round($unitPrice * $quantity, 2);
+            $normalizedPhone = filled($customer['phone'] ?? null)
+                ? format_whatsapp((string) $customer['phone'])
+                : ($user?->phone ? format_whatsapp($user->phone) : null);
 
             $order = Order::create([
                 'user_id' => $user?->id,
                 'customer_name' => $customer['name'] ?? $user?->name,
                 'email' => $customer['email'],
-                'phone' => $customer['phone'] ?? null,
+                'phone' => $normalizedPhone ?: null,
                 'payment_method_id' => $method->id,
                 'status' => OrderStatus::PendingPayment,
                 'total' => $total,
@@ -90,7 +94,7 @@ class OrderService
             $item = $order->items()->create([
                 'product_id' => $locked->id,
                 'product_name' => $locked->name,
-                'unit_price' => $locked->price,
+                'unit_price' => $unitPrice,
                 'quantity' => $quantity,
                 'line_total' => $total,
                 'reserved_supplier_qty' => $fromSupplier,

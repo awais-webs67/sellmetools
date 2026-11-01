@@ -1,10 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" fill="none">
     <defs>
-        <linearGradient id="smtGrad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#C81E3A"/>
-            <stop offset="1" stop-color="#6B0F22"/>
+        <linearGradient id="smtShield" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#E11D48"/>
+            <stop offset="0.55" stop-color="#9B1B30"/>
+            <stop offset="1" stop-color="#2B0912"/>
+        </linearGradient>
+        <linearGradient id="smtGold" x1="10" y1="6" x2="34" y2="38" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#FFFFFF"/>
+            <stop offset="1" stop-color="#FFE4E6"/>
         </linearGradient>
     </defs>
-    <rect width="40" height="40" rx="10" fill="url(#smtGrad)"/>
-    <path d="M22.2 8L11.5 21.6H19.4L17.8 32L28.5 18.4H20.6L22.2 8Z" fill="white"/>
+    <rect width="44" height="44" rx="12" fill="url(#smtShield)"/>
+    <rect x="1.5" y="1.5" width="41" height="41" rx="10.5" stroke="white" stroke-opacity="0.22"/>
+    <path d="M22 6L35 12.5V23.5C35 30.8 29.5 36.2 22 38.5C14.5 36.2 9 30.8 9 23.5V12.5L22 6Z" fill="#120408" fill-opacity="0.35" stroke="white" stroke-opacity="0.28" stroke-width="1.4"/>
+    <path d="M24.2 10.5L14.5 22.8H21.6L19.8 33.5L29.5 21.2H22.4L24.2 10.5Z" fill="url(#smtGold)"/>
 </svg>

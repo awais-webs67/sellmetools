@@ -146,9 +146,13 @@
             </ol>
         </nav>
 
+        @php
+            $effectivePrice = $product->priceFor(auth()->user());
+            $hasResellerDiscount = $effectivePrice < (float) $product->price;
+        @endphp
         {{-- TOP SECTION: Product Image + Main Buy Box right at the top on mobile & desktop --}}
         <div class="mt-4 grid gap-6 lg:grid-cols-[1fr_440px] lg:items-start"
-             x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, @js(money($product->price)), {{ (float) $product->price }})"
+             x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, @js(money($effectivePrice)), {{ (float) $effectivePrice }})"
              data-stock-id="{{ $product->id }}">
 
             {{-- Product Image --}}
@@ -182,10 +186,12 @@
 
                     <div class="mt-4 flex flex-wrap items-end justify-between gap-3 border-y border-line py-3.5">
                         <div>
-                            @if ($product->compare_at_price && $product->compare_at_price > $product->price)
+                            @if ($hasResellerDiscount)
+                                <p class="text-xs text-muted">Retail: <span class="line-through">{{ money($product->price) }}</span> <span class="badge badge-brand ml-1 text-[10px]">VIP Reseller Rate</span></p>
+                            @elseif ($product->compare_at_price && $product->compare_at_price > $effectivePrice)
                                 <p class="text-xs text-muted line-through">{{ money($product->compare_at_price) }}</p>
                             @endif
-                            <p class="display text-3xl sm:text-5xl text-ink" x-text="priceText">{{ money($product->price) }}</p>
+                            <p class="display text-3xl sm:text-5xl text-ink" x-text="priceText">{{ money($effectivePrice) }}</p>
                         </div>
                         <span :class="inStock ? 'badge badge-success' : 'badge badge-danger'" class="text-xs">
                             <span class="dot" :class="inStock ? 'bg-success live-dot' : 'bg-danger'"></span>

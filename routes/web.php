@@ -8,6 +8,7 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\PaymentWebhookController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ResellerController;
 use App\Http\Controllers\SeoController;
 use App\Http\Controllers\StockController;
 use App\Models\Order;
@@ -94,8 +95,24 @@ Route::middleware('guest')->group(function () {
 });
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 Route::get('/account/orders', [AccountController::class, 'orders'])->middleware('auth')->name('account.orders');
+Route::post('/account/profile', [AccountController::class, 'updateProfile'])->middleware('auth')->name('account.profile.update');
 
 // Static pages (required by payment gateways)
 Route::get('/pages/{page}', PageController::class)
     ->whereIn('page', ['terms', 'privacy', 'refund', 'contact', 'faq'])
     ->name('pages.show');
+
+// Secret VIP Reseller Portals (e.g. mydomain.com/ali or mydomain.com/r/ali)
+Route::get('/r/{slug}', [ResellerController::class, 'portal'])
+    ->where('slug', '[a-z0-9\-]+');
+Route::post('/{slug}/login', [ResellerController::class, 'login'])
+    ->where('slug', '[a-z0-9\-]+')
+    ->middleware('throttle:30,1')
+    ->name('reseller.login');
+Route::post('/{slug}/wallet-buy/{product:slug}', [ResellerController::class, 'quickWalletBuy'])
+    ->where('slug', '[a-z0-9\-]+')
+    ->middleware(['auth', 'throttle:30,1'])
+    ->name('reseller.wallet-buy');
+Route::get('/{slug}', [ResellerController::class, 'portal'])
+    ->where('slug', '^(?!admin|livewire|filament|api|media|storage|feed|category|products|checkout|orders|track|login|register|logout|account|pages|webhooks|quick-order|up)[a-z0-9\-]+$')
+    ->name('reseller.portal');

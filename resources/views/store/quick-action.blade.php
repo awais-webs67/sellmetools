@@ -1,11 +1,9 @@
 @php
     use App\Enums\OrderStatus;
     $isCompleted = $order->status === OrderStatus::Completed;
+    $isAlreadyCompleted = $actionResult === 'already_completed';
     $isRejected = $payment?->status === \App\Enums\PaymentStatus::Rejected || $order->status === OrderStatus::Cancelled;
-    $customerPhone = preg_replace('/\D/', '', (string) ($order->phone ?? $payment?->sender_number ?? ''));
-    if (str_starts_with($customerPhone, '03') && strlen($customerPhone) === 11) {
-        $customerPhone = '92'.substr($customerPhone, 1);
-    }
+    $customerPhone = format_whatsapp($order->phone ?: $payment?->sender_number);
 
     $deliveredLines = $order->items->flatMap(fn ($item) => $item->deliveries->pluck('content'))->all();
     $itemsSummary = $order->items->map(fn ($i) => "{$i->product_name} x{$i->quantity}")->implode(', ');
@@ -50,16 +48,19 @@
                 <section class="card overflow-hidden">
                     <div @class([
                         'px-6 py-5 text-white',
-                        'bg-[#15803d]' => $isCompleted || $actionResult === 'approve',
-                        'bg-[#b91c1c]' => $isRejected || $actionResult === 'reject',
-                        'bg-ink' => ! $isCompleted && ! $isRejected && ! in_array($actionResult, ['approve', 'reject'], true),
+                        'bg-[#b45309]' => $isAlreadyCompleted,
+                        'bg-[#15803d]' => ! $isAlreadyCompleted && ($isCompleted || $actionResult === 'approve'),
+                        'bg-[#b91c1c]' => ! $isAlreadyCompleted && ($isRejected || $actionResult === 'reject'),
+                        'bg-ink' => ! $isAlreadyCompleted && ! $isCompleted && ! $isRejected && ! in_array($actionResult, ['approve', 'reject'], true),
                     ])>
                         <div class="flex items-center justify-between gap-2">
                             <span class="text-xs font-bold tracking-wider uppercase opacity-85">Admin 1-Tap Order Control</span>
                             <span class="badge bg-white/20 text-white text-xs">{{ $order->status->label() }}</span>
                         </div>
                         <h1 class="display mt-1.5 text-3xl sm:text-4xl text-white">
-                            @if ($isCompleted)
+                            @if ($isAlreadyCompleted)
+                                ⚠️ Already Confirmed &amp; Delivered!
+                            @elseif ($isCompleted)
                                 ✅ Approved &amp; Delivered!
                             @elseif ($isRejected)
                                 ❌ Payment Declined
@@ -68,11 +69,20 @@
                             @endif
                         </h1>
                         @if ($message)
-                            <p class="mt-1 text-xs sm:text-sm text-white/90">{{ $message }}</p>
+                            <p class="mt-1 text-xs sm:text-sm text-white/95 font-medium">{{ $message }}</p>
                         @endif
                     </div>
 
                     <div class="p-5 sm:p-6 space-y-5">
+                        @if ($isAlreadyCompleted)
+                            <div class="rounded-xl border-2 border-amber-500/40 bg-amber-500/10 p-4 text-xs sm:text-sm text-ink">
+                                <p class="font-bold text-amber-900">🛑 Duplicate Approval Prevented</p>
+                                <p class="mt-1 text-body">
+                                    This order was <strong>already verified and delivered</strong> ({{ $order->completed_at ? $order->completed_at->format('d M Y, h:i A') : 'automatically' }}). The customer already has their credentials on the order page.
+                                </p>
+                            </div>
+                        @endif
+
                         <dl class="divide-y divide-line rounded-xl border border-line text-sm">
                             <div class="flex justify-between gap-4 p-3.5">
                                 <dt class="text-muted">Order Number</dt>
@@ -147,4 +157,3 @@
         </div>
     </div>
 </x-layouts.store>
-

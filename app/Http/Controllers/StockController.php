@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\Supplier;
+use App\Models\User;
 use App\Services\OrderService;
 use App\Services\SupplierSyncService;
 use Illuminate\Http\JsonResponse;
@@ -22,16 +23,24 @@ class StockController extends Controller
             ->unique()
             ->take(60);
 
+        $reseller = $request->filled('reseller')
+            ? User::query()->where('is_reseller', true)->with('resellerProductPrices')->find((int) $request->query('reseller'))
+            : null;
+
         $stock = Product::query()
             ->whereIn('id', $ids)
             ->get(['id', 'available_stock', 'stock_unlimited', 'is_active', 'price'])
-            ->mapWithKeys(fn (Product $p) => [$p->id => [
-                'qty' => $p->is_active ? $p->available_stock : 0,
-                'unlimited' => $p->is_active && $p->stock_unlimited,
-                'in_stock' => $p->is_active && $p->inStock(),
-                'price' => (float) $p->price,
-                'price_formatted' => money($p->price),
-            ]]);
+            ->mapWithKeys(function (Product $p) use ($reseller) {
+                $effectivePrice = $p->priceFor($reseller);
+
+                return [$p->id => [
+                    'qty' => $p->is_active ? $p->available_stock : 0,
+                    'unlimited' => $p->is_active && $p->stock_unlimited,
+                    'in_stock' => $p->is_active && $p->inStock(),
+                    'price' => (float) $effectivePrice,
+                    'price_formatted' => money($effectivePrice),
+                ]];
+            });
 
         return response()
             ->json(['items' => $stock, 'need_sync' => ! Cache::has('auto_supplier_sync_tick')])

@@ -100,9 +100,13 @@ class StoreSettings extends Page
 
                 Section::make('1-Tap WhatsApp & Free Instant Mobile Push (No CallMeBot Limits!)')
                     ->icon(Heroicon::OutlinedCheckBadge)
-                    ->description('Option A (Free WhatsApp Bot): Create a Free Developer account at green-api.com, scan QR with your WhatsApp, and paste Instance ID + Token below. Option B (Zero-Signup Mobile Push): Install the free "ntfy" app on your phone, subscribe to a secret topic name, and enter it below!')
+                    ->description('Set your Admin WhatsApp Number in exact format (923XXXXXXXXX) so customer WhatsApp verification buttons always open your direct chat.')
                     ->columns(['default' => 1, 'sm' => 2])
                     ->schema([
+                        TextInput::make('support_whatsapp')
+                            ->label('Admin WhatsApp Number (Exact Format: 923XXXXXXXXX)')
+                            ->placeholder('923001234567')
+                            ->helperText('Enter 03001234567 or 923001234567 — auto-converted to 923001234567. Customer WhatsApp buttons go directly to this number!'),
                         TextInput::make('admin_quick_pin')
                             ->label('Admin 1-Tap WhatsApp PIN')
                             ->placeholder('7860')
@@ -127,7 +131,7 @@ class StoreSettings extends Page
                                 ->icon(Heroicon::OutlinedCheck)
                                 ->color('primary')
                                 ->action(fn () => $this->saveKeys([
-                                    'admin_quick_pin', 'ntfy_topic', 'greenapi_instance_id', 'greenapi_api_token',
+                                    'support_whatsapp', 'admin_quick_pin', 'ntfy_topic', 'greenapi_instance_id', 'greenapi_api_token',
                                     'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
                                 ], 'WhatsApp & Push settings saved')),
                         ])->columnSpanFull(),
@@ -303,6 +307,10 @@ class StoreSettings extends Page
             if ($key === 'telegram_bot_token' && $val !== null && $val !== '') {
                 $val = TelegramNotifier::cleanToken($val);
                 $this->data['telegram_bot_token'] = $val;
+            }
+            if ($key === 'support_whatsapp' && $val !== null && $val !== '') {
+                $val = format_whatsapp($val);
+                $this->data['support_whatsapp'] = $val;
             }
             if ($val === '' && isset(Setting::DEFAULTS[$key]) && in_array($key, ['store_name', 'currency_symbol', 'usdt_rate', 'price_rounding', 'order_expiry_minutes', 'sms_webhook_secret', 'admin_quick_pin'], true)) {
                 $val = Setting::DEFAULTS[$key];
