@@ -304,21 +304,30 @@ class FulfillmentService
 
             $profit = round((float) $order->total - (float) $order->total_cost, 2);
             $this->telegram->notifyAdmin(
-                "✅ <b>Order delivered</b> {$order->number}\n".
-                $items->map(fn ($i) => '• '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
-                "Sale: Rs {$order->total} · Cost: Rs {$order->total_cost} · <b>Profit: Rs {$profit}</b>"
+                "🎉✅ <b>ORDER DELIVERED SUCCESSFULLY!</b>\n".
+                "━━━━━━━━━━━━━━━━━━\n".
+                "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
+                $items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
+                "💵 <b>Sale:</b> Rs {$order->total} · <b>Cost:</b> Rs {$order->total_cost} · 💰 <b>Profit: Rs {$profit}</b>\n".
+                '👤 <b>Customer:</b> '.T::e($order->email)
             );
             app(WhatsAppNotifier::class)->notifyOrderDelivered($order);
         } else {
             $order->update([
                 'status' => OrderStatus::NeedsAttention,
-                'admin_note' => implode(' | ', array_unique($problems)) ?: 'Order paused for manual confirmation',
+                'admin_note' => implode(' | ', array_unique($problems)) ?: 'Order on hold — awaiting admin stock dispatch',
             ]);
             $this->telegram->notifyAdmin(
-                "🚨 <b>Order Paused / Needs Manual Confirmation</b> {$order->number}\n".
-                T::e(implode("\n", array_unique($problems)) ?: 'Not all items could be delivered.')."\n".
-                'Customer has been asked to confirm via WhatsApp. Open Admin → Orders to deliver manually.'
+                "⏸️⚠️ <b>ORDER ON HOLD — SUPPLIER FUNDS / STOCK ISSUE!</b>\n".
+                "━━━━━━━━━━━━━━━━━━\n".
+                "✅ <b>Payment Status:</b> VERIFIED (Rs {$order->total})\n".
+                "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
+                $items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
+                '⚠️ <b>Reason:</b> '.T::e(implode(' | ', array_unique($problems)) ?: 'Supplier balance is low.')."\n".
+                '👤 <b>Customer:</b> '.T::e($order->email)."\n".
+                "ℹ️ <i>Customer screen shows: 'Order On Hold — Admin is checking your order.'</i>"
             );
+            app(WhatsAppNotifier::class)->notifyOrderOnHoldLowBalance($order, $problems);
         }
 
         $this->inventory->refreshMany($items->pluck('product')->filter());

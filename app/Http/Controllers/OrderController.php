@@ -49,6 +49,7 @@ class OrderController extends Controller
             'status' => $order->status->value,
             'label' => $order->status->label(),
             'expired' => $order->isExpired(),
+            'review_timeout' => $order->status === OrderStatus::PaymentReview && (bool) $order->expires_at?->isPast(),
         ])->header('Cache-Control', 'no-store');
     }
 

@@ -10,69 +10,60 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Sends automatic WhatsApp & Mobile Push alerts to Admin with 1-Tap Approve & Decline buttons,
- * and automatically sends delivered credentials to the customer's WhatsApp when Green-API is active!
- *
- * Supported Free Providers (No CallMeBot slot limits!):
- *  1. Green-API (green-api.com — 100% Free Forever Developer Plan via WhatsApp QR)
- *  2. ntfy.sh   (ntfy.sh — 100% Free, Zero-Signup Mobile Push App with 1-Tap Action Buttons)
- *  3. Custom Webhook / CallMeBot
+ * Sends professional, emoji-rich alerts to Admin on WhatsApp (Green-API / CallMeBot / Webhook)
+ * and ntfy Mobile Push App with 1-Tap Approve & Decline buttons, plus customer delivery messages!
  */
 class WhatsAppNotifier
 {
     public static function formatPhone(string $raw): string
     {
-        $digits = preg_replace('/\D/', '', $raw) ?? '';
-        if (str_starts_with($digits, '03') && strlen($digits) === 11) {
-            return '92'.substr($digits, 1);
-        }
-        if (str_starts_with($digits, '00')) {
-            return substr($digits, 2);
-        }
-
-        return $digits;
+        return format_whatsapp($raw);
     }
 
+    /**
+     * 1. Manual Payment Submitted (Order at 85% — Awaiting Admin 1-Tap Approval)
+     */
     public function notifyAdminPayment(Order $order, Payment $payment, string $approveUrl, string $rejectUrl): void
     {
-        $adminPhone = self::formatPhone((string) Setting::get('support_whatsapp', ''));
+        $adminPhone = admin_whatsapp_number();
         $greenId = trim((string) Setting::get('greenapi_instance_id', ''));
         $greenToken = trim((string) Setting::get('greenapi_api_token', ''));
         $ntfyTopic = trim((string) Setting::get('ntfy_topic', ''));
         $callMeBotKey = trim((string) Setting::get('whatsapp_callmebot_apikey', ''));
         $webhookUrl = trim((string) Setting::get('whatsapp_admin_webhook_url', ''));
 
-        $items = $order->items->map(fn ($i) => "{$i->product_name} x{$i->quantity}")->implode(', ');
-        $methodName = $order->paymentMethod?->name ?? 'Manual';
+        $items = $order->items->map(fn ($i) => "{$i->product_name} × {$i->quantity}")->implode(', ');
+        $methodName = $order->paymentMethod?->name ?? 'Manual Wallet';
+        $quickOrderUrl = route('webhooks.order.quick', ['order' => $order->number]);
 
-        $message = "💰 *New Payment Submitted*\n"
-            ."🧾 *Order:* {$order->number}\n"
+        $message = "🔔 *NEW PAYMENT TO VERIFY (85%)*\n"
+            ."━━━━━━━━━━━━━━━━━━\n"
+            ."🧾 *Order ID:* `{$order->number}`\n"
             ."📦 *Product:* {$items}\n"
-            ."💵 *Amount:* {$payment->currency} {$payment->amount}\n"
+            ."💵 *Amount:* *{$payment->currency} {$payment->amount}* (Rs {$order->total})\n"
             ."💳 *Method:* {$methodName}\n"
-            ."🔑 *TID:* {$payment->transaction_id}\n"
+            ."🔑 *TID:* `{$payment->transaction_id}`\n"
             .($payment->sender_number ? "📱 *Sender:* {$payment->sender_number}\n" : '')
-            ."📧 *Customer:* {$order->email}\n\n"
-            ."✅ *1-Tap Approve & Deliver:*\n{$approveUrl}\n\n"
-            ."❌ *1-Tap Decline Payment:*\n{$rejectUrl}";
+            ."👤 *Customer:* {$order->email}".($order->phone ? " (+{$order->phone})" : '')."\n"
+            ."━━━━━━━━━━━━━━━━━━\n"
+            ."⚡ *1-Tap Approve / Decline (Secret Key Protected):*\n{$quickOrderUrl}";
 
-        // 1. Green-API Free Forever WhatsApp (green-api.com)
         if ($greenId !== '' && $greenToken !== '' && $adminPhone !== '') {
             $this->sendGreenApi($greenId, $greenToken, $adminPhone, $message);
         }
 
-        // 2. ntfy.sh Free Zero-Signup Push Notification with 1-Tap Action Buttons
         if ($ntfyTopic !== '') {
             try {
                 Http::timeout(5)
                     ->withHeaders([
-                        'Title' => "New Payment: {$order->number} ({$payment->currency} {$payment->amount})",
+                        'Title' => "🔔 Verify Payment: {$order->number} ({$payment->currency} {$payment->amount})",
                         'Priority' => 'high',
-                        'Tags' => 'moneybag,shopping_cart',
-                        'Actions' => "view, Approve & Deliver, {$approveUrl}, clear=true; view, Decline, {$rejectUrl}",
+                        'Tags' => 'moneybag,bell',
+                        'Click' => $quickOrderUrl,
+                        'Actions' => "view, ⚡ Open 1-Tap Approve / Decline, {$quickOrderUrl}, clear=true",
                     ])
                     ->withBody(
-                        "Product: {$items}\nMethod: {$methodName}\nTID: {$payment->transaction_id}\nCustomer: {$order->email}",
+                        "📦 {$items}\n💳 {$methodName} | 🔑 TID: {$payment->transaction_id}\n👤 {$order->email}".($payment->sender_number ? " ({$payment->sender_number})" : ''),
                         'text/plain'
                     )
                     ->post('https://ntfy.sh/'.urlencode($ntfyTopic));
@@ -81,7 +72,6 @@ class WhatsAppNotifier
             }
         }
 
-        // 3. CallMeBot (if configured)
         if ($callMeBotKey !== '' && $adminPhone !== '') {
             try {
                 Http::timeout(5)->get('https://api.callmebot.com/whatsapp.php', [
@@ -94,7 +84,6 @@ class WhatsAppNotifier
             }
         }
 
-        // 4. Custom WhatsApp Webhook (if configured)
         if ($webhookUrl !== '') {
             try {
                 Http::timeout(5)->post($webhookUrl, [
@@ -114,25 +103,31 @@ class WhatsAppNotifier
     }
 
     /**
-     * Automatically sends delivered credentials to Customer's WhatsApp (and Admin) if Green-API is configured!
+     * 2. Order Delivered Successfully (Auto or 1-Tap Approved)
      */
     public function notifyOrderDelivered(Order $order): void
     {
+        $adminPhone = admin_whatsapp_number();
         $greenId = trim((string) Setting::get('greenapi_instance_id', ''));
         $greenToken = trim((string) Setting::get('greenapi_api_token', ''));
         $ntfyTopic = trim((string) Setting::get('ntfy_topic', ''));
 
-        $items = $order->items->map(fn ($i) => "{$i->product_name} x{$i->quantity}")->implode(', ');
+        $items = $order->items->map(fn ($i) => "{$i->product_name} × {$i->quantity}")->implode(', ');
         $creds = $order->items->flatMap(fn ($item) => $item->deliveries->pluck('content'))->implode("\n");
+        $methodName = $order->paymentMethod?->name ?? 'Online';
+        $profit = round((float) $order->total - (float) $order->total_cost, 2);
 
         if ($ntfyTopic !== '') {
             try {
                 Http::timeout(4)
                     ->withHeaders([
-                        'Title' => "Order Delivered: {$order->number}",
-                        'Tags' => 'white_check_mark',
+                        'Title' => "✅ Order Delivered: {$order->number} (Rs {$order->total})",
+                        'Tags' => 'white_check_mark,tada',
                     ])
-                    ->withBody("Delivered {$items} to {$order->email} (Rs {$order->total})", 'text/plain')
+                    ->withBody(
+                        "📦 {$items}\n💳 {$methodName} | 💰 Profit: Rs {$profit}\n👤 Customer: {$order->email}",
+                        'text/plain'
+                    )
                     ->post('https://ntfy.sh/'.urlencode($ntfyTopic));
             } catch (Throwable) {
             }
@@ -142,17 +137,77 @@ class WhatsAppNotifier
             return;
         }
 
+        if ($adminPhone !== '') {
+            $adminMsg = "✅ *ORDER DELIVERED SUCCESSFULLY*\n"
+                ."━━━━━━━━━━━━━━━━━━\n"
+                ."🧾 *Order:* `{$order->number}`\n"
+                ."📦 *Product:* {$items}\n"
+                ."💳 *Method:* {$methodName}\n"
+                ."💵 *Sale:* Rs {$order->total} | *Profit:* Rs {$profit}\n"
+                ."👤 *Customer:* {$order->email}";
+            $this->sendGreenApi($greenId, $greenToken, $adminPhone, $adminMsg);
+        }
+
         $customerPhone = self::formatPhone((string) ($order->phone ?? ''));
         if ($customerPhone !== '') {
             $storeName = (string) Setting::get('store_name', 'SellMeTools');
-            $customerMsg = "✅ *{$storeName} – Order Delivered!*\n\n"
-                ."🧾 *Order ID:* {$order->number}\n"
+            $customerMsg = "🎉 *{$storeName} – Order Confirmed & Delivered!*\n\n"
+                ."🧾 *Order ID:* `{$order->number}`\n"
                 ."📦 *Product:* {$items}\n\n"
                 ."🔑 *Your Credentials / Activation:*\n{$creds}\n\n"
-                .'🔗 *Order Link:* '.$order->customerUrl()."\n\n"
+                .'🔗 *Order Receipt:* '.$order->customerUrl()."\n\n"
                 .'Thank you for shopping with us!';
 
             $this->sendGreenApi($greenId, $greenToken, $customerPhone, $customerMsg);
+        }
+    }
+
+    /**
+     * 3. Payment Verified, BUT Supplier Balance is Low -> Order Put ON HOLD!
+     */
+    public function notifyOrderOnHoldLowBalance(Order $order, array $problems = []): void
+    {
+        $adminPhone = admin_whatsapp_number();
+        $greenId = trim((string) Setting::get('greenapi_instance_id', ''));
+        $greenToken = trim((string) Setting::get('greenapi_api_token', ''));
+        $ntfyTopic = trim((string) Setting::get('ntfy_topic', ''));
+
+        $items = $order->items->map(fn ($i) => "{$i->product_name} × {$i->quantity}")->implode(', ');
+        $reason = implode(' | ', array_unique($problems)) ?: 'Supplier balance is low';
+        $quickOrderUrl = route('webhooks.order.quick', ['order' => $order->number]);
+
+        if ($ntfyTopic !== '') {
+            try {
+                Http::timeout(5)
+                    ->withHeaders([
+                        'Title' => "⏸️⚠️ ORDER ON HOLD (Funds Low): {$order->number}",
+                        'Priority' => 'urgent',
+                        'Tags' => 'warning,rotating_light',
+                        'Click' => $quickOrderUrl,
+                        'Actions' => "view, ⚡ Deliver Manually Now, {$quickOrderUrl}, clear=true",
+                    ])
+                    ->withBody(
+                        "Payment is VERIFIED (Rs {$order->total}), but Supplier Funds are low!\n📦 {$items}\n⚠️ {$reason}\nCustomer sees 'Order On Hold – Admin is checking'.",
+                        'text/plain'
+                    )
+                    ->post('https://ntfy.sh/'.urlencode($ntfyTopic));
+            } catch (Throwable) {
+            }
+        }
+
+        if ($greenId !== '' && $greenToken !== '' && $adminPhone !== '') {
+            $msg = "⏸️⚠️ *ORDER ON HOLD — SUPPLIER FUNDS LOW!*\n"
+                ."━━━━━━━━━━━━━━━━━━\n"
+                ."✅ *Payment Status:* VERIFIED (Rs {$order->total})\n"
+                ."🧾 *Order ID:* `{$order->number}`\n"
+                ."📦 *Product:* {$items}\n"
+                ."⚠️ *Issue:* {$reason}\n"
+                ."👤 *Customer:* {$order->email}\n"
+                ."━━━━━━━━━━━━━━━━━━\n"
+                ."Customer screen is showing: *Order On Hold — Admin is checking your order.*\n"
+                ."👉 *Top-up supplier or deliver manually here:*\n{$quickOrderUrl}";
+
+            $this->sendGreenApi($greenId, $greenToken, $adminPhone, $msg);
         }
     }
 

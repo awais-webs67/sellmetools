@@ -96,7 +96,13 @@ class StorefrontTest extends TestCase
             'sender_number' => '03009998888',
         ])->assertRedirect($order->customerUrl());
 
-        $this->get($order->customerUrl())->assertSee('Verifying your payment');
+        $this->get($order->customerUrl())->assertSee('Admin is Verifying Your Payment');
+
+        // If 15 minutes pass without Admin verifying yet, status endpoint reports review_timeout = true (Order On Hold)
+        $this->travel(16)->minutes();
+        $this->getJson(route('orders.status', ['order' => $order->number, 'token' => $order->access_token]))
+            ->assertOk()
+            ->assertJsonPath('review_timeout', true);
 
         // Duplicate TID (even with dashes or TID: prefix on a second order) must be blocked
         $order2 = app(OrderService::class)->create($product, 1, $this->customer(), $method);
@@ -106,7 +112,7 @@ class StorefrontTest extends TestCase
             'sender_number' => '03009998888',
         ])->assertSessionHas('error');
 
-        // 1-Tap WhatsApp link requires Admin Secret Key (admin_quick_pin), then approves directly once PIN is provided via POST
+        // 1-Tap WhatsApp link requires Admin Secret Key (admin_quick_pin), and works EVEN AFTER the 15-minute window has passed!
         $this->get(route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']))
             ->assertOk()
             ->assertSee('Admin Secret Key');

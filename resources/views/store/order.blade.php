@@ -35,19 +35,24 @@
     $waHref = $waNumber !== ''
         ? "https://wa.me/{$waNumber}?text=".urlencode($waTemplate)
         : 'https://api.whatsapp.com/send?text='.urlencode($waTemplate);
+
+    $initialReviewTimeout = $s === OrderStatus::PaymentReview && (bool) $order->expires_at?->isPast();
 @endphp
 <x-layouts.store :title="'Order '.$order->number" robots="noindex, nofollow">
-    <div class="container-x py-5 sm:py-10" x-data="orderWatcher(@js($statusUrl), @js($s->value))">
+    <div class="container-x py-5 sm:py-10" x-data="orderWatcher(@js($statusUrl), @js($s->value), @js($initialReviewTimeout))">
         <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div class="min-w-0">
                 <span class="eyebrow">Order {{ $order->number }}</span>
                 <h1 class="display mt-1 text-3xl sm:text-5xl">
                     @switch($s)
                         @case(OrderStatus::PendingPayment) Complete your payment @break
-                        @case(OrderStatus::PaymentReview) Verifying your payment @break
+                        @case(OrderStatus::PaymentReview)
+                            <span x-show="!reviewTimeout">Admin Verifying Payment (85%)</span>
+                            <span x-show="reviewTimeout" x-cloak>Order On Hold — Admin Checking</span>
+                            @break
                         @case(OrderStatus::Processing) Delivering your order @break
                         @case(OrderStatus::Completed) Order Delivered &amp; Ready @break
-                        @case(OrderStatus::NeedsAttention) Order Paused — Confirm via WhatsApp @break
+                        @case(OrderStatus::NeedsAttention) Order On Hold — Admin Checking @break
                         @default Order {{ strtolower($s->label()) }}
                     @endswitch
                 </h1>
@@ -205,86 +210,119 @@
                         </form>
                     </section>
 
-                {{-- ============ VERIFYING / PROCESSING (WITH LIVE PERCENTAGE BAR) ============ --}}
+                {{-- ============ VERIFYING (85% HOLD) / ON HOLD AFTER 15 MINS / PROCESSING ============ --}}
                 @elseif (in_array($s, [OrderStatus::PaymentReview, OrderStatus::Processing], true))
-                    <section class="card p-5 sm:p-8">
-                        <div class="flex flex-col items-center text-center">
-                            <div class="relative flex h-16 w-16 items-center justify-center">
-                                <div class="absolute inset-0 animate-spin rounded-full border-4 border-brand-tint-2 border-t-brand" aria-hidden="true"></div>
-                                <span class="font-mono text-xs font-bold text-ink tabular-nums" x-text="progress + '%'">65%</span>
-                            </div>
-
-                            <h2 class="mt-4 text-lg sm:text-2xl font-bold text-ink">
-                                {{ $s === OrderStatus::PaymentReview ? 'Verifying Your Payment...' : 'Payment Confirmed — Delivering Credentials...' }}
-                            </h2>
-                            <p class="mt-1 text-xs sm:text-sm text-body" x-text="stageText">
-                                Checking Transaction ID uniqueness &amp; matching with payment gateway...
-                            </p>
-                        </div>
-
-                        <div class="mt-5">
-                            <div class="flex items-center justify-between text-xs font-bold">
-                                <span class="text-ink">Verification Progress</span>
-                                <span class="text-brand tabular-nums" x-text="progress + '%'">65%</span>
-                            </div>
-                            <div class="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-line">
-                                <div class="h-full rounded-full bg-gradient-to-r from-brand to-[#ff4d6d] transition-all duration-500"
-                                     :style="'width: ' + progress + '%'"></div>
-                            </div>
-                        </div>
-
-                        <ul class="mt-5 space-y-2 rounded-xl border border-line bg-grey-soft p-3.5 text-xs">
-                            <li class="flex items-center justify-between gap-2">
-                                <span class="font-medium text-ink">✓ Order &amp; Stock Reserved</span>
-                                <span class="font-semibold text-success shrink-0">Done</span>
-                            </li>
-                            <li class="flex items-center justify-between gap-2">
-                                <span class="font-medium text-ink truncate">✓ Unique TID Locked ({{ $order->latestPayment?->transaction_id }})</span>
-                                <span class="font-semibold text-success shrink-0">Submitted</span>
-                            </li>
-                            <li class="flex items-center justify-between gap-2">
-                                <span class="font-medium text-ink">⟳ Awaiting Confirmation ({{ $method?->name }})</span>
-                                <span class="font-semibold text-brand shrink-0">In Review</span>
-                            </li>
-                        </ul>
-
-                        @if ($waNumber !== '')
-                            <div class="mt-5 rounded-xl border-2 border-[#25D366]/40 bg-[#25D366]/10 p-4 text-center">
-                                <p class="text-xs sm:text-sm font-bold text-ink">Want Instant Manual Verification?</p>
-                                <p class="mt-0.5 text-xs text-body">Tap below to send your payment receipt directly to our Admin on WhatsApp for 1-Tap approval.</p>
-                                <a href="{{ $waHref }}"
-                                   target="_blank"
-                                   rel="noopener"
-                                   class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] mt-3 w-full sm:w-auto px-6 py-2.5 text-xs sm:text-sm font-bold">
-                                    📲 Confirm Order Manually on WhatsApp →
-                                </a>
+                    <section class="card overflow-hidden">
+                        {{-- Countdown bar during 15-min review window --}}
+                        @if ($s === OrderStatus::PaymentReview && $order->expires_at)
+                            <div x-show="!reviewTimeout"
+                                 class="flex items-center justify-between gap-3 bg-ink px-4 py-3 sm:px-6 text-white"
+                                 x-data="countdown(@js($order->expires_at->toIso8601String()))"
+                                 x-effect="if (remaining === 0) { reviewTimeout = true; }">
+                                <span class="text-xs sm:text-sm font-medium">⏳ Admin Verification Window</span>
+                                <span class="display text-xl sm:text-2xl text-white tabular-nums" x-text="text">--:--</span>
                             </div>
                         @endif
+
+                        {{-- State A: Within 15-minute window (85% — Admin Verifying Payment, Please Wait) --}}
+                        <div x-show="!reviewTimeout" class="p-5 sm:p-8">
+                            <div class="flex flex-col items-center text-center">
+                                <div class="relative flex h-16 w-16 items-center justify-center">
+                                    <div class="absolute inset-0 animate-spin rounded-full border-4 border-brand-tint-2 border-t-brand" aria-hidden="true"></div>
+                                    <span class="font-mono text-xs font-bold text-ink tabular-nums" x-text="progress + '%'">85%</span>
+                                </div>
+
+                                <h2 class="mt-4 text-lg sm:text-2xl font-bold text-ink">
+                                    {{ $s === OrderStatus::PaymentReview ? 'Admin is Verifying Your Payment — Please Wait...' : 'Payment Confirmed — Delivering Credentials...' }}
+                                </h2>
+                                <p class="mt-1 text-xs sm:text-sm text-body" x-text="stageText">
+                                    Admin is verifying your payment, please wait...
+                                </p>
+                            </div>
+
+                            <div class="mt-5">
+                                <div class="flex items-center justify-between text-xs font-bold">
+                                    <span class="text-ink">Order Verification Progress</span>
+                                    <span class="text-brand tabular-nums" x-text="progress + '%'">85%</span>
+                                </div>
+                                <div class="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-line">
+                                    <div class="h-full rounded-full bg-gradient-to-r from-brand to-[#ff4d6d] transition-all duration-500"
+                                         :style="'width: ' + progress + '%'"></div>
+                                </div>
+                            </div>
+
+                            <ul class="mt-5 space-y-2 rounded-xl border border-line bg-grey-soft p-3.5 text-xs">
+                                <li class="flex items-center justify-between gap-2">
+                                    <span class="font-medium text-ink">✓ Order &amp; Stock Reserved</span>
+                                    <span class="font-semibold text-success shrink-0">Done</span>
+                                </li>
+                                <li class="flex items-center justify-between gap-2">
+                                    <span class="font-medium text-ink truncate">✓ Payment TID Submitted ({{ $order->latestPayment?->transaction_id }})</span>
+                                    <span class="font-semibold text-success shrink-0">Locked</span>
+                                </li>
+                                <li class="flex items-center justify-between gap-2">
+                                    <span class="font-medium text-ink">⟳ Admin Verifying Payment — Please Wait ({{ $method?->name }})</span>
+                                    <span class="font-semibold text-brand shrink-0" x-text="progress + '%'">85%</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        {{-- State B: 15-Minute Timer Elapsed -> Order On Hold + WhatsApp Contact --}}
+                        <div x-show="reviewTimeout" x-cloak>
+                            <div class="bg-[#b45309] p-5 sm:p-6 text-white">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-bold tracking-wider text-white uppercase">
+                                        ⏸️ Order On Hold (85%)
+                                    </span>
+                                    <span class="font-mono text-xs text-white/90">Order #{{ $order->number }}</span>
+                                </div>
+                                <h2 class="display mt-3 text-3xl sm:text-4xl text-white">
+                                    Order On Hold — Admin is Checking Your Order
+                                </h2>
+                                <p class="mt-1 text-xs sm:text-sm text-white/90">
+                                    Your payment TID (<strong class="font-mono">{{ $order->latestPayment?->transaction_id }}</strong>) is safely recorded. Because the 15-minute window has passed, your order is now on hold for priority admin verification.
+                                </p>
+                            </div>
+
+                            <div class="p-5 sm:p-6 space-y-4">
+                                <p class="text-xs sm:text-sm text-body">
+                                    As soon as the admin approves your payment, this page will automatically refresh and display your credentials. You can also contact the admin directly on WhatsApp below:
+                                </p>
+                                @if ($waNumber !== '')
+                                    <a href="{{ $waHref }}"
+                                       target="_blank"
+                                       rel="noopener"
+                                       class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full py-3.5 text-sm sm:text-base font-bold shadow-lg">
+                                        📲 Contact Admin on WhatsApp (Order On Hold) →
+                                    </a>
+                                @endif
+                            </div>
+                        </div>
                     </section>
 
-                {{-- ============ PAUSED / NEEDS MANUAL WHATSAPP CONFIRMATION (e.g. Low Supplier Balance) ============ --}}
+                {{-- ============ ORDER ON HOLD (Payment Verified, Supplier Balance Low / Admin Checking) ============ --}}
                 @elseif ($s === OrderStatus::NeedsAttention)
                     <section class="card overflow-hidden border-2 border-amber-500/40">
                         <div class="bg-[#b45309] p-5 sm:p-6 text-white">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <span class="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-bold tracking-wider text-white uppercase">
-                                    ⏸️ Order Paused for Manual Confirmation
+                                    ⏸️ Order On Hold — Payment Verified
                                 </span>
                                 <span class="font-mono text-xs text-white/90">Order #{{ $order->number }}</span>
                             </div>
                             <h2 class="display mt-3 text-3xl sm:text-4xl text-white">
-                                Confirm Your Order Manually via WhatsApp
+                                Order On Hold — Admin is Checking Your Order
                             </h2>
                             <p class="mt-1 text-xs sm:text-sm text-white/90">
-                                Your payment details (TID: <strong class="font-mono">{{ $order->latestPayment?->transaction_id ?? 'Submitted' }}</strong>) are saved, and automatic dispatch is paused. Please tap the button below to confirm &amp; receive your credentials immediately on WhatsApp!
+                                Your payment (TID: <strong class="font-mono">{{ $order->latestPayment?->transaction_id ?? 'Verified' }}</strong>) has been confirmed! Your order is currently on hold while our admin dispatches your subscription credentials.
                             </p>
                         </div>
 
                         <div class="p-5 sm:p-6 space-y-4">
                             <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs sm:text-sm text-ink">
-                                <p class="font-bold text-amber-950">Why is my order paused?</p>
+                                <p class="font-bold text-amber-950">✓ Payment Confirmed — Admin Notified</p>
                                 <p class="mt-1 text-body">
-                                    Automated server dispatch is temporarily paused for this item so our admin can verify and deliver your subscription manually. Your stock and payment are 100% safe.
+                                    Our admin has received an urgent alert on WhatsApp &amp; Telegram to complete your delivery. This page will update automatically as soon as your credentials are dispatched, or you can message us on WhatsApp below:
                                 </p>
                             </div>
 
@@ -293,7 +331,7 @@
                                    target="_blank"
                                    rel="noopener"
                                    class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full py-3.5 text-sm sm:text-base font-bold shadow-lg">
-                                    📲 Confirm Order Manually on WhatsApp →
+                                    📲 Contact Admin on WhatsApp →
                                 </a>
                             @endif
                         </div>

@@ -80,17 +80,18 @@ class PaymentService
 
         $order->refresh()->load(['items', 'paymentMethod']);
         $this->telegram->notifyAdmin(
-            "👛 <b>Instant Wallet Payment Confirmed!</b>\n".
-            "Order: <b>{$order->number}</b>\n".
-            $order->items->map(fn ($i) => '• '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
-            "Paid: <b>PKR {$payment->amount}</b> (Wallet Balance)\n".
-            'Customer: '.T::e($user->email).($user->is_reseller ? ' <b>[VIP RESELLER]</b>' : '')
+            "👛✨ <b>INSTANT WALLET PAYMENT CONFIRMED!</b>\n".
+            "━━━━━━━━━━━━━━━━━━\n".
+            "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
+            $order->items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
+            "💵 <b>Paid:</b> <b>PKR {$payment->amount}</b> (Wallet Balance)\n".
+            '👤 <b>Customer:</b> '.T::e($user->email).($user->is_reseller ? ' 🌟 <b>[VIP RESELLER]</b>' : '')
         );
 
         return $this->fulfillment->fulfill($order);
     }
 
-    /** Customer submits a transaction ID for manual / semi-automatic verification. */
+    /** Customer submits a transaction ID for verification. */
     public function submit(Order $order, string $transactionId, ?string $senderNumber = null, ?UploadedFile $screenshot = null): Payment
     {
         $transactionId = self::normalizeTid($transactionId);
@@ -138,14 +139,18 @@ class PaymentService
                 'status' => PaymentStatus::Pending,
             ]);
 
-            $order->update(['status' => OrderStatus::PaymentReview]);
+            // Reset the 15-minute verification window so the customer sees the 15-min verification countdown at 85%!
+            $order->update([
+                'status' => OrderStatus::PaymentReview,
+                'expires_at' => now()->addMinutes((int) Setting::get('order_expiry_minutes', 15)),
+            ]);
 
             return $payment;
         });
 
         $order->refresh()->load('items', 'paymentMethod');
 
-        // Attempt instant automatic verification (SMS webhook match or Binance API)
+        // Attempt instant automatic verification (if gateway is in Auto Mode / Binance API / SMS Webhook)
         if (app(AutoPaymentVerifier::class)->tryAutoVerify($payment)) {
             return $payment->refresh();
         }
@@ -159,16 +164,18 @@ class PaymentService
             'action' => 'reject',
         ]);
 
-        // Telegram 1-Tap Buttons use in-chat callback_data so tapping NEVER opens the browser!
+        // Manual Mode (85%): Notify Admin on Telegram (with In-Chat 1-Tap buttons) + ntfy App + WhatsApp
         $this->telegram->notifyAdmin(
-            "💰 <b>New Payment to Verify</b>\n".
-            "Order: <b>{$order->number}</b>\n".
-            $order->items->map(fn ($i) => '• '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
-            'Method: '.T::e($order->paymentMethod?->name)."\n".
-            "Amount: <b>{$payment->currency} {$payment->amount}</b>\n".
-            'TID: <code>'.T::e($payment->transaction_id).'</code>'.
-            ($payment->sender_number ? "\nSender: ".T::e($payment->sender_number) : '').
-            "\nCustomer: ".T::e($order->email).($order->phone ? ' ('.T::e($order->phone).')' : ''),
+            "🔔💰 <b>NEW PAYMENT TO VERIFY (85% Hold)</b>\n".
+            "━━━━━━━━━━━━━━━━━━\n".
+            "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
+            $order->items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
+            '💳 <b>Method:</b> '.T::e($order->paymentMethod?->name)."\n".
+            "💵 <b>Amount:</b> <b>{$payment->currency} {$payment->amount}</b> (Rs {$order->total})\n".
+            '🔑 <b>TID:</b> <code>'.T::e($payment->transaction_id).'</code>'.
+            ($payment->sender_number ? "\n📱 <b>Sender:</b> ".T::e($payment->sender_number) : '').
+            "\n👤 <b>Customer:</b> ".T::e($order->email).($order->phone ? ' (+'.T::e($order->phone).')' : '').
+            "\n⏳ <i>Customer is waiting at 85% — Tap below to Approve or Decline:</i>",
             [
                 [
                     ['text' => '✅ Approve & Deliver', 'callback_data' => "approve:{$payment->id}"],
@@ -182,7 +189,10 @@ class PaymentService
         return $payment;
     }
 
-    /** Approves a payment and immediately starts delivery. */
+    /**
+     * Approves a payment and immediately starts delivery.
+     * Works even if the 15-minute verification timer has already elapsed!
+     */
     public function approve(Payment $payment, ?User $admin = null): Order
     {
         $order = DB::transaction(function () use ($payment, $admin) {
@@ -200,7 +210,7 @@ class PaymentService
 
             $order = $payment->order()->lockForUpdate()->first();
 
-            if (! in_array($order->status, [OrderStatus::PaymentReview, OrderStatus::PendingPayment, OrderStatus::Expired], true)) {
+            if (! in_array($order->status, [OrderStatus::PaymentReview, OrderStatus::PendingPayment, OrderStatus::NeedsAttention, OrderStatus::Expired], true)) {
                 throw new StoreException("Order is {$order->status->label()} and cannot be paid.");
             }
 
@@ -210,14 +220,17 @@ class PaymentService
         });
 
         $order->load(['items', 'paymentMethod']);
+        $isAuto = $order->paymentMethod?->isAuto() ?? false;
+
         $this->telegram->notifyAdmin(
-            "💳 <b>Payment Confirmed &amp; Order Paid!</b>\n".
-            "Order: <b>{$order->number}</b>\n".
-            $order->items->map(fn ($i) => '• '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
-            'Gateway: '.T::e($order->paymentMethod?->name ?? 'Online')."\n".
-            "Paid: <b>{$payment->currency} {$payment->amount}</b> (Rs {$order->total})\n".
-            'TID: <code>'.T::e($payment->transaction_id)."</code>\n".
-            'Customer: '.T::e($order->email)
+            ($isAuto ? '⚡✅ <b>AUTO-PAYMENT VERIFIED!</b>' : '💳✅ <b>PAYMENT APPROVED BY ADMIN!</b>')."\n".
+            "━━━━━━━━━━━━━━━━━━\n".
+            "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
+            $order->items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
+            '💳 <b>Gateway:</b> '.T::e($order->paymentMethod?->name ?? 'Online')."\n".
+            "💵 <b>Paid:</b> <b>{$payment->currency} {$payment->amount}</b> (Rs {$order->total})\n".
+            '🔑 <b>TID:</b> <code>'.T::e($payment->transaction_id)."</code>\n".
+            '👤 <b>Customer:</b> '.T::e($order->email)
         );
 
         return $this->fulfillment->fulfill($order);
@@ -241,7 +254,7 @@ class PaymentService
             ]);
 
             $order = $payment->order;
-            if ($order->status === OrderStatus::PaymentReview) {
+            if (in_array($order->status, [OrderStatus::PaymentReview, OrderStatus::NeedsAttention], true)) {
                 $order->update([
                     'status' => OrderStatus::PendingPayment,
                     'expires_at' => now()->addMinutes((int) Setting::get('order_expiry_minutes', 15)),

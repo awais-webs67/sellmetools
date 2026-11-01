@@ -21,6 +21,23 @@ class PaymentMethod extends Model
         ];
     }
 
+    /**
+     * Determines whether this payment method runs in automatic verification mode
+     * or manual 1-Tap Admin verification mode.
+     */
+    public function isAuto(): bool
+    {
+        if ($this->code === 'wallet' || $this->type === 'auto') {
+            return true;
+        }
+
+        if (in_array($this->code, ['binance', 'usdt_trc20'], true) || ($this->meta['gateway'] ?? '') === 'binance') {
+            return filled($this->meta['binance_api_key'] ?? null) && filled($this->meta['binance_api_secret'] ?? null);
+        }
+
+        return false;
+    }
+
     /** Amount the customer must send in this method's currency. */
     public function amountFor(Order $order): float
     {

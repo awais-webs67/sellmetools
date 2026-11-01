@@ -193,14 +193,17 @@ Alpine.data('countdown', (expiresAtIso) => ({
 }));
 
 /**
- * Polls order status every 3s, drives the live verification percentage bar (0% -> 100%),
- * and reloads when status transitions (e.g. payment_review -> completed).
+ * Polls order status every 3s, drives the live verification percentage bar (stops at 85% during manual review),
+ * transitions to "Order On Hold" if the 15-minute review timer elapses, and reloads when status changes!
  */
-Alpine.data('orderWatcher', (statusUrl, currentStatus) => ({
-    progress: currentStatus === 'processing' ? 82 : (currentStatus === 'payment_review' ? 45 : 0),
+Alpine.data('orderWatcher', (statusUrl, currentStatus, initialReviewTimeout = false) => ({
+    progress: currentStatus === 'processing' ? 92 : (currentStatus === 'payment_review' ? 65 : 0),
+    reviewTimeout: Boolean(initialReviewTimeout),
     stageText: currentStatus === 'processing'
-        ? 'Payment verified! Fetching your subscription credentials...'
-        : 'Checking Transaction ID uniqueness & matching with payment gateway...',
+        ? 'Payment verified! Delivering your subscription credentials...'
+        : (initialReviewTimeout
+            ? 'Order On Hold — Admin is checking your order. You may also contact support on WhatsApp below.'
+            : 'Admin is verifying your payment, please wait...'),
 
     init() {
         const final = ['completed', 'cancelled', 'expired', 'refunded'];
@@ -211,17 +214,14 @@ Alpine.data('orderWatcher', (statusUrl, currentStatus) => ({
 
         if (currentStatus === 'payment_review' || currentStatus === 'processing') {
             this.animTimer = setInterval(() => {
-                const cap = currentStatus === 'processing' ? 96 : 88;
+                const cap = currentStatus === 'processing' ? 96 : 85;
                 if (this.progress < cap) {
                     this.progress += 1;
-                    if (this.progress > 60 && currentStatus === 'payment_review') {
-                        this.stageText = 'Verifying TID with Wallet / Auto-SMS / Binance Gateway...';
-                    }
-                    if (this.progress > 78 && currentStatus === 'payment_review') {
-                        this.stageText = 'Confirming payment receipt & preparing auto-delivery...';
-                    }
                 }
-            }, 450);
+                if (currentStatus === 'payment_review' && !this.reviewTimeout && this.progress >= 85) {
+                    this.stageText = 'Admin is verifying your payment, please wait (85%)...';
+                }
+            }, 350);
         }
 
         this.t = setInterval(async () => {
@@ -233,6 +233,11 @@ Alpine.data('orderWatcher', (statusUrl, currentStatus) => ({
                 if (data.status === 'completed') {
                     this.progress = 100;
                     this.stageText = '100% Verified & Delivered! Loading your credentials...';
+                }
+                if (data.review_timeout && !this.reviewTimeout) {
+                    this.reviewTimeout = true;
+                    this.progress = 85;
+                    this.stageText = 'Order On Hold — Admin is checking your order. You may also contact support on WhatsApp below.';
                 }
                 if (data.status !== currentStatus || data.expired) {
                     setTimeout(() => window.location.reload(), 250);

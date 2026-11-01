@@ -118,8 +118,10 @@ class AutoPaymentVerifier
 
     /**
      * Called right after a customer submits a Payment TID on the website.
-     *  - Checks unmatched IncomingPayment table (from SMS forwarder webhook)
-     *  - Checks Binance API (if payment method is Binance / USDT and API credentials are set)
+     *  - Only runs automatic verification if the PaymentMethod is in Auto Mode (`$method->isAuto()`)
+     *    OR if an unmatched SMS webhook record with the exact TID already arrived from the Admin's phone.
+     *  - Otherwise (Manual Mode), returns false so the order stops at 85% ("Admin is verifying your payment, please wait")
+     *    and sends 1-Tap Approve/Decline buttons to Admin on Telegram, ntfy App, and WhatsApp.
      */
     public function tryAutoVerify(Payment $payment): bool
     {
@@ -127,9 +129,10 @@ class AutoPaymentVerifier
             return false;
         }
 
+        $method = $payment->paymentMethod;
         $tid = PaymentService::normalizeTid($payment->transaction_id);
 
-        // 1. Check incoming SMS / webhook payments (must be unmatched and recent)
+        // 1. Check incoming SMS / webhook payments (if Admin's SMS forwarder sent this exact TID)
         $incoming = IncomingPayment::query()
             ->whereNull('matched_payment_id')
             ->where('transaction_id', $tid)
@@ -142,9 +145,8 @@ class AutoPaymentVerifier
             return true;
         }
 
-        // 2. Check Binance API ONLY if payment method is Binance / USDT and API credentials are set
-        $method = $payment->paymentMethod;
-        if ($method && (in_array($method->code, ['binance', 'usdt_trc20'], true) || ($method->meta['gateway'] ?? '') === 'binance')) {
+        // 2. Check Binance API if payment method is Binance / USDT and API credentials are set
+        if ($method && $method->isAuto() && (in_array($method->code, ['binance', 'usdt_trc20'], true) || ($method->meta['gateway'] ?? '') === 'binance')) {
             if ($this->verifyViaBinanceApi($payment, $method)) {
                 $this->payments->approve($payment);
 
