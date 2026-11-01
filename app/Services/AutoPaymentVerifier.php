@@ -2,11 +2,14 @@
 
 namespace App\Services;
 
+use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
+use App\Enums\StockStatus;
 use App\Models\IncomingPayment;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
+use App\Models\StockItem;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -14,9 +17,11 @@ use Throwable;
 
 /**
  * Handles automatic payment verification across:
- *  1. SMS / Notification Forwarder Webhook (Easypaisa, JazzCash, NayaPay, SadaPay, Bank SMS)
- *  2. Binance C2C / Pay History API (using read-only Binance API Key + Secret)
- *  3. PayFast / Paymob / Cryptomus Gateway Callbacks & Redirects
+ *  1. SMS / Notification Forwarder Webhook (only when an actual recent IncomingPayment row exists)
+ *  2. Binance C2C / Pay History API (only when payment method is Binance/USDT with API credentials)
+ *
+ * Manual payment methods (Easypaisa, JazzCash, NayaPay, SadaPay, Bank) NEVER auto-approve
+ * unless a verified SMS webhook record with the exact TID and amount arrived from the admin's phone.
  */
 class AutoPaymentVerifier
 {
@@ -53,7 +58,6 @@ class AutoPaymentVerifier
         }
 
         // Extract Transaction ID (TID / Trx ID / TxID / Ref / ID#):
-        // Common formats: "Trx ID 12345678901", "TID: 0123456789", "TID 123456789012", "Ref# ABC12345"
         $tid = null;
         if (preg_match('/(?:trx\s*id|tid|trans(?:action)?\s*id|txid|order\s*id|ref(?:\s*no|\s*id|#)?)\s*[:#\-]?\s*([A-Z0-9\-]{6,32})/i', $text, $m)) {
             $tid = strtoupper(trim($m[1], ' .,-'));
@@ -116,10 +120,56 @@ class AutoPaymentVerifier
     }
 
     /**
+     * Checks if an order has any item that requires supplier stock where all active suppliers
+     * currently have insufficient balance to fulfill it.
+     */
+    public function hasLowSupplierBalance(Order $order): bool
+    {
+        $order->loadMissing(['items.product.activeSources.supplier']);
+
+        foreach ($order->items as $item) {
+            $ownReserved = StockItem::query()
+                ->where('order_item_id', $item->id)
+                ->where('status', StockStatus::Reserved)
+                ->count();
+
+            $needFromSupplier = max(0, $item->quantity - $ownReserved);
+            if ($needFromSupplier <= 0 || ! $item->product) {
+                continue;
+            }
+
+            $sources = $item->product->activeSources;
+            if ($sources->isEmpty()) {
+                continue;
+            }
+
+            $canAffordAny = $sources->contains(function ($source) use ($needFromSupplier) {
+                $supplier = $source->supplier;
+                if (! $supplier || ! $supplier->is_active) {
+                    return false;
+                }
+                if ($supplier->balance === null) {
+                    return true;
+                }
+
+                return (float) $supplier->balance >= ((float) $source->cost * $needFromSupplier);
+            });
+
+            if (! $canAffordAny) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Called right after a customer submits a Payment TID on the website.
-     * Checks:
-     *   1. Unmatched IncomingPayment table (from SMS forwarder / gateway webhook)
-     *   2. Binance API (if payment method is Binance / USDT and API credentials are set)
+     * IMPORTANT:
+     *  - If supplier balance is too low to auto-deliver, we DO NOT auto-verify; we pause the order
+     *    so the customer is prompted to confirm manually via WhatsApp!
+     *  - Manual payment methods (Easypaisa, JazzCash, etc.) NEVER auto-verify unless a real
+     *    unmatched SMS webhook record exists in `incoming_payments`.
      */
     public function tryAutoVerify(Payment $payment): bool
     {
@@ -127,12 +177,23 @@ class AutoPaymentVerifier
             return false;
         }
 
+        $order = $payment->order;
+        if ($order && $this->hasLowSupplierBalance($order)) {
+            $order->update([
+                'status' => OrderStatus::NeedsAttention,
+                'admin_note' => 'Order paused: Supplier balance is low — customer asked to confirm manually via WhatsApp.',
+            ]);
+
+            return false;
+        }
+
         $tid = PaymentService::normalizeTid($payment->transaction_id);
 
-        // 1. Check incoming SMS / webhook payments (never match an already-used incoming record)
+        // 1. Check incoming SMS / webhook payments (must be unmatched and recent)
         $incoming = IncomingPayment::query()
             ->whereNull('matched_payment_id')
             ->where('transaction_id', $tid)
+            ->where('created_at', '>=', now()->subDay())
             ->first();
 
         if ($incoming && (float) $incoming->amount >= ((float) $payment->amount - 0.02)) {
@@ -141,7 +202,7 @@ class AutoPaymentVerifier
             return true;
         }
 
-        // 2. Check Binance API if applicable (Binance Pay OR On-chain USDT deposit)
+        // 2. Check Binance API ONLY if payment method is Binance / USDT and API credentials are set
         $method = $payment->paymentMethod;
         if ($method && (in_array($method->code, ['binance', 'usdt_trc20'], true) || ($method->meta['gateway'] ?? '') === 'binance')) {
             if ($this->verifyViaBinanceApi($payment, $method)) {
@@ -167,7 +228,6 @@ class AutoPaymentVerifier
     /**
      * Checks Binance Pay History (`/sapi/v1/pay/transactions`) AND On-Chain Crypto Deposit History
      * (`/sapi/v1/capital/deposit/hisrec`) using a Read-Only Binance API Key & Secret.
-     * Locks matched transactions in `incoming_payments` so the same Binance Order ID / TxID can never be reused.
      */
     public function verifyViaBinanceApi(Payment $payment, PaymentMethod $method): bool
     {
@@ -204,7 +264,6 @@ class AutoPaymentVerifier
                     $amount = (float) ($row['amount'] ?? 0);
                     $currency = strtoupper((string) ($row['currency'] ?? 'USDT'));
 
-                    // Only incoming payments (amount > 0)
                     if (($orderId === $submittedTid || $txId === $submittedTid)
                         && $amount >= $requiredAmount
                         && $currency === strtoupper($payment->currency)) {

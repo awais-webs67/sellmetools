@@ -33,7 +33,7 @@
                         @csrf
                         <input type="hidden" name="do" value="{{ $requestedAction }}">
                         <p class="text-xs sm:text-sm text-body">
-                            Enter your <strong>Admin 1-Tap PIN</strong> once. This phone will be remembered for <strong>1 year</strong> so future WhatsApp taps approve or decline orders immediately in 1 tap!
+                            Enter your <strong>Admin 1-Tap PIN</strong> once. This phone will be remembered for <strong>1 year</strong> so future WhatsApp taps unlock immediately!
                         </p>
                         <div>
                             <label for="pin" class="label">Admin 1-Tap PIN</label>
@@ -48,8 +48,8 @@
                 <section class="card overflow-hidden">
                     <div @class([
                         'px-6 py-5 text-white',
-                        'bg-[#b45309]' => $isAlreadyCompleted,
-                        'bg-[#15803d]' => ! $isAlreadyCompleted && ($isCompleted || $actionResult === 'approve'),
+                        'bg-[#b45309]' => $isAlreadyCompleted || $order->status === OrderStatus::NeedsAttention,
+                        'bg-[#15803d]' => ! $isAlreadyCompleted && ($isCompleted || $actionResult === 'approve') && $order->status !== OrderStatus::NeedsAttention,
                         'bg-[#b91c1c]' => ! $isAlreadyCompleted && ($isRejected || $actionResult === 'reject'),
                         'bg-ink' => ! $isAlreadyCompleted && ! $isCompleted && ! $isRejected && ! in_array($actionResult, ['approve', 'reject'], true),
                     ])>
@@ -62,6 +62,8 @@
                                 ⚠️ Already Confirmed &amp; Delivered!
                             @elseif ($isCompleted)
                                 ✅ Approved &amp; Delivered!
+                            @elseif ($order->status === OrderStatus::NeedsAttention)
+                                ⏸️ Paused — Needs Manual Delivery
                             @elseif ($isRejected)
                                 ❌ Payment Declined
                             @else
@@ -80,6 +82,41 @@
                                 <p class="mt-1 text-body">
                                     This order was <strong>already verified and delivered</strong> ({{ $order->completed_at ? $order->completed_at->format('d M Y, h:i A') : 'automatically' }}). The customer already has their credentials on the order page.
                                 </p>
+                            </div>
+                        @endif
+
+                        {{-- Prominent POST Confirmation Buttons (Safe from WhatsApp/Telegram Link Preview Crawlers!) --}}
+                        @if (! $isCompleted && (! $payment || $payment->status === \App\Enums\PaymentStatus::Pending))
+                            <div class="rounded-xl border-2 border-brand/30 bg-brand-tint/40 p-4 space-y-3">
+                                <p class="text-xs font-bold uppercase tracking-wider text-brand-text text-center">
+                                    Tap Below to Confirm Action
+                                </p>
+                                @if (! empty($signedFormUrl))
+                                    <form method="post" action="{{ $signedFormUrl }}">
+                                        @csrf
+                                        <button type="submit"
+                                                class="btn w-full py-3.5 text-sm sm:text-base font-bold text-white {{ ($requestedAction ?? 'approve') === 'reject' ? 'bg-[#dc2626] hover:bg-[#b91c1c]' : 'bg-[#16a34a] hover:bg-[#15803d]' }}">
+                                            {{ ($requestedAction ?? 'approve') === 'reject' ? '❌ Confirm Decline Payment' : '✅ Confirm Approve & Auto-Deliver' }}
+                                        </button>
+                                    </form>
+                                @else
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <form method="post" action="{{ route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']) }}">
+                                            @csrf
+                                            <input type="hidden" name="do" value="approve">
+                                            <button type="submit" class="btn bg-[#16a34a] text-white hover:bg-[#15803d] w-full py-3.5 text-center font-bold">
+                                                ✅ Approve &amp; Deliver
+                                            </button>
+                                        </form>
+                                        <form method="post" action="{{ route('webhooks.order.quick', ['order' => $order->number, 'do' => 'reject']) }}">
+                                            @csrf
+                                            <input type="hidden" name="do" value="reject">
+                                            <button type="submit" class="btn bg-[#dc2626] text-white hover:bg-[#b91c1c] w-full py-3.5 text-center font-bold">
+                                                ❌ Decline Payment
+                                            </button>
+                                        </form>
+                                    </div>
+                                @endif
                             </div>
                         @endif
 
@@ -122,20 +159,6 @@
                             </div>
                         @endif
 
-                        {{-- 1-Tap Approve / Decline Buttons if still pending --}}
-                        @if (! $isCompleted && (! $payment || $payment->status === \App\Enums\PaymentStatus::Pending))
-                            <div class="grid grid-cols-2 gap-3 pt-2">
-                                <a href="{{ route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']) }}"
-                                   class="btn bg-[#16a34a] text-white hover:bg-[#15803d] py-3.5 text-center font-bold">
-                                    ✅ Approve &amp; Deliver
-                                </a>
-                                <a href="{{ route('webhooks.order.quick', ['order' => $order->number, 'do' => 'reject']) }}"
-                                   class="btn bg-[#dc2626] text-white hover:bg-[#b91c1c] py-3.5 text-center font-bold">
-                                    ❌ Decline Payment
-                                </a>
-                            </div>
-                        @endif
-
                         {{-- 1-Tap Reply to Customer on WhatsApp --}}
                         <div class="space-y-2.5 border-t border-line pt-4">
                             @if ($customerPhone !== '')
@@ -148,7 +171,7 @@
                             @endif
                             <div class="grid grid-cols-2 gap-2.5">
                                 <a href="{{ $order->customerUrl() }}" class="btn btn-outline text-xs text-center">View Customer Order Page</a>
-                                <a href="{{ url('/admin/orders') }}" class="btn btn-outline text-xs text-center">Open Admin Panel</a>
+                                <a href="{{ url('/admin/orders/'.$order->id) }}" class="btn btn-outline text-xs text-center">Open in Admin Panel</a>
                             </div>
                         </div>
                     </div>

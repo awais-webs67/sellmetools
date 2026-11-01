@@ -47,7 +47,7 @@
                         @case(OrderStatus::PaymentReview) Verifying your payment @break
                         @case(OrderStatus::Processing) Delivering your order @break
                         @case(OrderStatus::Completed) Order Delivered &amp; Ready @break
-                        @case(OrderStatus::NeedsAttention) Finalizing delivery @break
+                        @case(OrderStatus::NeedsAttention) Order Paused — Confirm via WhatsApp @break
                         @default Order {{ strtolower($s->label()) }}
                     @endswitch
                 </h1>
@@ -240,17 +240,67 @@
                             </li>
                             <li class="flex items-center justify-between gap-2">
                                 <span class="font-medium text-ink truncate">✓ Unique TID Locked ({{ $order->latestPayment?->transaction_id }})</span>
-                                <span class="font-semibold text-success shrink-0">Verified</span>
+                                <span class="font-semibold text-success shrink-0">Submitted</span>
                             </li>
                             <li class="flex items-center justify-between gap-2">
-                                <span class="font-medium text-ink">⟳ Confirming Payment ({{ $method?->name }})</span>
-                                <span class="font-semibold text-brand shrink-0" x-text="progress + '%'">In Progress</span>
+                                <span class="font-medium text-ink">⟳ Awaiting Confirmation ({{ $method?->name }})</span>
+                                <span class="font-semibold text-brand shrink-0">In Review</span>
                             </li>
                         </ul>
+
+                        @if ($waNumber !== '')
+                            <div class="mt-5 rounded-xl border-2 border-[#25D366]/40 bg-[#25D366]/10 p-4 text-center">
+                                <p class="text-xs sm:text-sm font-bold text-ink">Want Instant Manual Verification?</p>
+                                <p class="mt-0.5 text-xs text-body">Tap below to send your payment receipt directly to our Admin on WhatsApp for 1-Tap approval.</p>
+                                <a href="{{ $waHref }}"
+                                   target="_blank"
+                                   rel="noopener"
+                                   class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] mt-3 w-full sm:w-auto px-6 py-2.5 text-xs sm:text-sm font-bold">
+                                    📲 Confirm Order Manually on WhatsApp →
+                                </a>
+                            </div>
+                        @endif
+                    </section>
+
+                {{-- ============ PAUSED / NEEDS MANUAL WHATSAPP CONFIRMATION (e.g. Low Supplier Balance) ============ --}}
+                @elseif ($s === OrderStatus::NeedsAttention)
+                    <section class="card overflow-hidden border-2 border-amber-500/40">
+                        <div class="bg-[#b45309] p-5 sm:p-6 text-white">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-bold tracking-wider text-white uppercase">
+                                    ⏸️ Order Paused for Manual Confirmation
+                                </span>
+                                <span class="font-mono text-xs text-white/90">Order #{{ $order->number }}</span>
+                            </div>
+                            <h2 class="display mt-3 text-3xl sm:text-4xl text-white">
+                                Confirm Your Order Manually via WhatsApp
+                            </h2>
+                            <p class="mt-1 text-xs sm:text-sm text-white/90">
+                                Your payment details (TID: <strong class="font-mono">{{ $order->latestPayment?->transaction_id ?? 'Submitted' }}</strong>) are saved, and automatic dispatch is paused. Please tap the button below to confirm &amp; receive your credentials immediately on WhatsApp!
+                            </p>
+                        </div>
+
+                        <div class="p-5 sm:p-6 space-y-4">
+                            <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs sm:text-sm text-ink">
+                                <p class="font-bold text-amber-950">Why is my order paused?</p>
+                                <p class="mt-1 text-body">
+                                    Automated server dispatch is temporarily paused for this item so our admin can verify and deliver your subscription manually. Your stock and payment are 100% safe.
+                                </p>
+                            </div>
+
+                            @if ($waNumber !== '')
+                                <a href="{{ $waHref }}"
+                                   target="_blank"
+                                   rel="noopener"
+                                   class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full py-3.5 text-sm sm:text-base font-bold shadow-lg">
+                                    📲 Confirm Order Manually on WhatsApp →
+                                </a>
+                            @endif
+                        </div>
                     </section>
 
                 {{-- ============ COMPLETED / DELIVERED RECEIPT & CREDENTIALS TEMPLATE ============ --}}
-                @elseif (in_array($s, [OrderStatus::Completed, OrderStatus::NeedsAttention], true))
+                @elseif ($s === OrderStatus::Completed)
                     @php
                         $allDeliveredText = $order->items->map(function ($it) {
                             $creds = $it->deliveries->pluck('content')->implode("\n");

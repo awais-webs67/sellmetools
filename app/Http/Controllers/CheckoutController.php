@@ -28,7 +28,7 @@ class CheckoutController extends Controller
         $quantity = max(1, min((int) $request->query('qty', 1), $product->max_per_order));
         $methods = PaymentMethod::query()
             ->where('is_active', true)
-            ->when(! $user || (float) $user->wallet_balance <= 0, fn ($q) => $q->where('code', '!=', 'wallet'))
+            ->where('code', '!=', 'wallet')
             ->orderBy('sort')
             ->get();
 

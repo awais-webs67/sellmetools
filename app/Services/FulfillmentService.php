@@ -186,6 +186,18 @@ class FulfillmentService
             return 'out of stock';
         }
 
+        // Pre-check supplier balance before placing API order: if supplier balance is low, pause order for manual WhatsApp confirmation!
+        if ($supplier->balance !== null && (float) $supplier->balance < ((float) $source->cost * $qty)) {
+            $this->telegram->notifyAdmin(
+                "⏸️ <b>Order Paused (Supplier Balance Low)</b>\n".
+                "Order: <b>{$order->number}</b>\n".
+                'Supplier: '.T::e($supplier->name).' (Balance: '.$supplier->balance.', Needed: '.((float) $source->cost * $qty).")\n".
+                'Customer is being prompted to confirm manually via WhatsApp.'
+            );
+
+            return 'insufficient supplier balance';
+        }
+
         $attempt = SupplierOrder::create([
             'supplier_id' => $supplier->id,
             'order_item_id' => $item->id,
@@ -298,11 +310,14 @@ class FulfillmentService
             );
             app(WhatsAppNotifier::class)->notifyOrderDelivered($order);
         } else {
-            $order->update(['status' => OrderStatus::NeedsAttention]);
+            $order->update([
+                'status' => OrderStatus::NeedsAttention,
+                'admin_note' => implode(' | ', array_unique($problems)) ?: 'Order paused for manual confirmation',
+            ]);
             $this->telegram->notifyAdmin(
-                "🚨 <b>Order needs attention</b> {$order->number}\n".
+                "🚨 <b>Order Paused / Needs Manual Confirmation</b> {$order->number}\n".
                 T::e(implode("\n", array_unique($problems)) ?: 'Not all items could be delivered.')."\n".
-                'Open admin → Orders to retry or deliver manually.'
+                'Customer has been asked to confirm via WhatsApp. Open Admin → Orders to deliver manually.'
             );
         }
 

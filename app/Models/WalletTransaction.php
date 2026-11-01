@@ -40,4 +40,3 @@ class WalletTransaction extends Model
         return $this->belongsTo(Order::class);
     }
 }
-

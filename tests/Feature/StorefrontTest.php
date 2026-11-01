@@ -106,15 +106,43 @@ class StorefrontTest extends TestCase
             'sender_number' => '03009998888',
         ])->assertSessionHas('error');
 
-        // 1-Tap WhatsApp link requires Admin PIN for unauthenticated visitor, then approves once PIN is provided
+        // 1-Tap WhatsApp link requires Admin PIN for unauthenticated visitor, then approves once PIN is provided via POST
         $this->get(route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']))
             ->assertOk()
             ->assertSee('Unlock 1-Tap WhatsApp Approval');
 
+        // Link preview GET request must NEVER auto-approve the order!
+        $this->assertSame(OrderStatus::PaymentReview, $order->refresh()->status);
+
         $this->post(route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']), [
             'pin' => '7860',
             'do' => 'approve',
-        ])->assertRedirect();
+        ])->assertOk();
+    }
+
+    public function test_low_supplier_balance_pauses_order_and_prompts_whatsapp_confirmation(): void
+    {
+        $supplier = $this->supplier(['balance' => 0.10]); // Low supplier balance ($0.10 < $1.00 cost)
+        $sp = $this->supplierProduct($supplier, ['cost' => 1.0, 'stock' => 5]);
+        $product = $this->listing([$sp], ['fixed_price' => 550]);
+        $method = $this->paymentMethod();
+
+        $order = app(OrderService::class)->create($product, 1, $this->customer(), $method);
+
+        $this->post(route('orders.payment', $order), [
+            'token' => $order->access_token,
+            'transaction_id' => 'TID99887766',
+            'sender_number' => '03001234567',
+        ])->assertRedirect($order->customerUrl());
+
+        // Order is paused (NeedsAttention) because supplier balance is low
+        $this->assertSame(OrderStatus::NeedsAttention, $order->refresh()->status);
+
+        // Customer sees "Confirm Your Order Manually via WhatsApp" instead of Delivered
+        $this->get($order->customerUrl())
+            ->assertOk()
+            ->assertSee('Order Paused for Manual Confirmation')
+            ->assertSee('Confirm Your Order Manually via WhatsApp');
     }
 
     public function test_already_confirmed_order_shows_warning_on_admin_quick_approve(): void

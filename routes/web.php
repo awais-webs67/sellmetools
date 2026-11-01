@@ -67,7 +67,7 @@ Route::post('/api/webhooks/telegram', [PaymentWebhookController::class, 'telegra
     ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
     ->middleware('throttle:120,1')
     ->name('webhooks.telegram');
-Route::get('/webhooks/payment/{payment}/{action}', [PaymentWebhookController::class, 'quickAction'])
+Route::match(['get', 'post'], '/webhooks/payment/{payment}/{action}', [PaymentWebhookController::class, 'quickAction'])
     ->name('webhooks.payment.quick-action');
 Route::match(['get', 'post'], '/quick-order/{order:number}', [PaymentWebhookController::class, 'quickOrder'])
     ->middleware('throttle:60,1')
