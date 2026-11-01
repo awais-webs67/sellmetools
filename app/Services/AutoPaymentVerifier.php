@@ -2,14 +2,11 @@
 
 namespace App\Services;
 
-use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
-use App\Enums\StockStatus;
 use App\Models\IncomingPayment;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
-use App\Models\StockItem;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -20,8 +17,8 @@ use Throwable;
  *  1. SMS / Notification Forwarder Webhook (only when an actual recent IncomingPayment row exists)
  *  2. Binance C2C / Pay History API (only when payment method is Binance/USDT with API credentials)
  *
- * Manual payment methods (Easypaisa, JazzCash, NayaPay, SadaPay, Bank) NEVER auto-approve
- * unless a verified SMS webhook record with the exact TID and amount arrived from the admin's phone.
+ * Manual payment methods (Easypaisa, JazzCash, NayaPay, SadaPay, Bank) stay in PaymentReview
+ * until the Admin approves or declines them via the 1-Tap WhatsApp/Telegram link or Admin Panel.
  */
 class AutoPaymentVerifier
 {
@@ -120,70 +117,13 @@ class AutoPaymentVerifier
     }
 
     /**
-     * Checks if an order has any item that requires supplier stock where all active suppliers
-     * currently have insufficient balance to fulfill it.
-     */
-    public function hasLowSupplierBalance(Order $order): bool
-    {
-        $order->loadMissing(['items.product.activeSources.supplier']);
-
-        foreach ($order->items as $item) {
-            $ownReserved = StockItem::query()
-                ->where('order_item_id', $item->id)
-                ->where('status', StockStatus::Reserved)
-                ->count();
-
-            $needFromSupplier = max(0, $item->quantity - $ownReserved);
-            if ($needFromSupplier <= 0 || ! $item->product) {
-                continue;
-            }
-
-            $sources = $item->product->activeSources;
-            if ($sources->isEmpty()) {
-                continue;
-            }
-
-            $canAffordAny = $sources->contains(function ($source) use ($needFromSupplier) {
-                $supplier = $source->supplier;
-                if (! $supplier || ! $supplier->is_active) {
-                    return false;
-                }
-                if ($supplier->balance === null) {
-                    return true;
-                }
-
-                return (float) $supplier->balance >= ((float) $source->cost * $needFromSupplier);
-            });
-
-            if (! $canAffordAny) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
      * Called right after a customer submits a Payment TID on the website.
-     * IMPORTANT:
-     *  - If supplier balance is too low to auto-deliver, we DO NOT auto-verify; we pause the order
-     *    so the customer is prompted to confirm manually via WhatsApp!
-     *  - Manual payment methods (Easypaisa, JazzCash, etc.) NEVER auto-verify unless a real
-     *    unmatched SMS webhook record exists in `incoming_payments`.
+     *  - Checks unmatched IncomingPayment table (from SMS forwarder webhook)
+     *  - Checks Binance API (if payment method is Binance / USDT and API credentials are set)
      */
     public function tryAutoVerify(Payment $payment): bool
     {
         if ($payment->status !== PaymentStatus::Pending) {
-            return false;
-        }
-
-        $order = $payment->order;
-        if ($order && $this->hasLowSupplierBalance($order)) {
-            $order->update([
-                'status' => OrderStatus::NeedsAttention,
-                'admin_note' => 'Order paused: Supplier balance is low — customer asked to confirm manually via WhatsApp.',
-            ]);
-
             return false;
         }
 

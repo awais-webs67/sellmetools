@@ -106,10 +106,10 @@ class StorefrontTest extends TestCase
             'sender_number' => '03009998888',
         ])->assertSessionHas('error');
 
-        // 1-Tap WhatsApp link requires Admin PIN for unauthenticated visitor, then approves once PIN is provided via POST
+        // 1-Tap WhatsApp link requires Admin Secret Key (admin_quick_pin), then approves directly once PIN is provided via POST
         $this->get(route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']))
             ->assertOk()
-            ->assertSee('Unlock 1-Tap WhatsApp Approval');
+            ->assertSee('Admin Secret Key');
 
         // Link preview GET request must NEVER auto-approve the order!
         $this->assertSame(OrderStatus::PaymentReview, $order->refresh()->status);
@@ -117,10 +117,12 @@ class StorefrontTest extends TestCase
         $this->post(route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']), [
             'pin' => '7860',
             'do' => 'approve',
-        ])->assertOk();
+        ])->assertOk()->assertSee('Order Approved &amp; Delivered!', false);
+
+        $this->assertSame(OrderStatus::Completed, $order->refresh()->status);
     }
 
-    public function test_low_supplier_balance_pauses_order_and_prompts_whatsapp_confirmation(): void
+    public function test_one_tap_approve_directly_completes_order_even_with_low_supplier_balance(): void
     {
         $supplier = $this->supplier(['balance' => 0.10]); // Low supplier balance ($0.10 < $1.00 cost)
         $sp = $this->supplierProduct($supplier, ['cost' => 1.0, 'stock' => 5]);
@@ -135,14 +137,18 @@ class StorefrontTest extends TestCase
             'sender_number' => '03001234567',
         ])->assertRedirect($order->customerUrl());
 
-        // Order is paused (NeedsAttention) because supplier balance is low
-        $this->assertSame(OrderStatus::NeedsAttention, $order->refresh()->status);
+        // Manual payment stays in PaymentReview until Admin approves via 1-Tap
+        $this->assertSame(OrderStatus::PaymentReview, $order->refresh()->status);
 
-        // Customer sees "Confirm Your Order Manually via WhatsApp" instead of Delivered
-        $this->get($order->customerUrl())
-            ->assertOk()
-            ->assertSee('Order Paused for Manual Confirmation')
-            ->assertSee('Confirm Your Order Manually via WhatsApp');
+        // Admin approves via 1-Tap with Secret Key & custom credentials -> goes directly to Completed (never stuck on NeedsAttention!)
+        $this->post(route('webhooks.order.quick', ['order' => $order->number]), [
+            'pin' => '7860',
+            'do' => 'approve',
+            'credentials' => 'manual_account@test.com:pass786',
+        ])->assertOk()->assertSee('Order Approved &amp; Delivered!', false);
+
+        $this->assertSame(OrderStatus::Completed, $order->refresh()->status);
+        $this->assertSame('manual_account@test.com:pass786', $order->deliveries()->first()->content);
     }
 
     public function test_already_confirmed_order_shows_warning_on_admin_quick_approve(): void
@@ -154,10 +160,10 @@ class StorefrontTest extends TestCase
         $order = app(OrderService::class)->create($product, 1, $this->customer(), $method);
         $order->update(['status' => OrderStatus::Completed, 'completed_at' => now()]);
 
-        $admin = User::factory()->create(['is_admin' => true]);
-
-        $this->actingAs($admin)
-            ->get(route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']))
+        $this->post(route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']), [
+            'pin' => '7860',
+            'do' => 'approve',
+        ])
             ->assertOk()
             ->assertSee('Already Confirmed &amp; Delivered!', false)
             ->assertSee('Duplicate Approval Prevented');
