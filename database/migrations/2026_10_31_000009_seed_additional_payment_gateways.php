@@ -7,7 +7,9 @@ return new class extends Migration
 {
     public function up(): void
     {
-        (new DatabaseSeeder)->run();
+        if (! app()->runningUnitTests()) {
+            (new DatabaseSeeder)->seedPaymentMethods();
+        }
     }
 
     public function down(): void

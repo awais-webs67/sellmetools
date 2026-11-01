@@ -29,7 +29,7 @@ class PaymentService
     public static function normalizeTid(string $raw): string
     {
         $clean = trim($raw);
-        $clean = preg_replace('/^(?:tid|trx\s*id|tx\s*id|trans(?:action)?\s*id|order\s*id|ref(?:\s*no|\s*id|#)?)\s*[:#\-]?\s*/i', '', $clean) ?? $clean;
+        $clean = preg_replace('/^(?:tid|trx\s*id|tx\s*id|trans(?:action)?\s*id|order\s*id|ref(?:\s*no|\s*id)?)\s*[:#]\s*/i', '', $clean) ?? $clean;
         $clean = preg_replace('/[^A-Z0-9]/', '', strtoupper($clean)) ?? '';
 
         return $clean;
@@ -40,7 +40,7 @@ class PaymentService
     {
         $transactionId = self::normalizeTid($transactionId);
 
-        if (strlen($transactionId) < 5 || in_array($transactionId, ['PAID', 'DONE', 'TEST', 'NONE', 'NULL', '00000', '11111', '12345', '123456'], true)) {
+        if (strlen($transactionId) < 3 || in_array($transactionId, ['PAID', 'DONE', 'TEST', 'NONE', 'NULL', '00000', '11111'], true)) {
             throw new StoreException('Please enter a valid, real Transaction ID (TID / Order ID) from your payment receipt.');
         }
 

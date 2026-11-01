@@ -34,7 +34,7 @@ class DatabaseSeeder extends Seeder
         $admin->forceFill(['is_admin' => true, 'email_verified_at' => now()])->save();
     }
 
-    protected function seedPaymentMethods(): void
+    public function seedPaymentMethods(): void
     {
         $wallet = fn (string $name): string => "Send the exact amount to the {$name} account below, then enter the Transaction ID (TID) and the number you paid from.";
 
