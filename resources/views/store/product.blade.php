@@ -163,14 +163,14 @@
                     <img src="{{ $img }}" alt="{{ $product->name }}" class="h-full w-full object-cover">
                 @else
                     <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand to-ink">
-                        <span class="display px-6 text-center text-3xl sm:text-6xl text-white">{{ $product->name }}</span>
+                        <span class="display px-6 text-center text-3xl sm:text-5xl text-white">{{ $product->name }}</span>
                     </div>
                 @endif
             </div>
 
             {{-- Main Buy Box (Sticky on Desktop) --}}
             <aside class="lg:sticky lg:top-24">
-                <div class="card p-5 sm:p-7 shadow-lg border-2 border-line">
+                <div class="card p-5 sm:p-7">
                     <div class="flex items-center justify-between gap-2 border-b border-line pb-3">
                         <span class="eyebrow truncate">{{ $product->category?->name ?? 'Software & AI' }}</span>
                         <a href="#reviews" class="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-amber-500 hover:underline">
@@ -180,20 +180,20 @@
                         </a>
                     </div>
 
-                    <h1 class="mt-3 text-2xl sm:text-3xl font-bold text-ink leading-tight break-words">{{ $product->name }}</h1>
+                    <h1 class="display mt-3 text-2xl sm:text-[2rem] break-words">{{ $product->name }}</h1>
                     @if ($product->short_description)
                         <p class="mt-2 text-xs sm:text-sm text-body leading-relaxed">{{ $product->short_description }}</p>
                     @endif
 
                     {{-- Live Price & Stock Status Bar --}}
-                    <div class="mt-5 flex flex-wrap items-end justify-between gap-3 rounded-xl bg-grey-soft p-4 border border-line">
+                    <div class="mt-5 flex flex-wrap items-end justify-between gap-3 rounded-xl bg-paper p-4">
                         <div>
                             @if ($hasResellerDiscount)
                                 <p class="text-xs text-muted">Retail: <span class="line-through">{{ money($product->price) }}</span> <span class="badge badge-brand ml-1 text-[10px]">VIP Reseller Rate</span></p>
                             @elseif ($product->compare_at_price && $product->compare_at_price > $effectivePrice)
                                 <p class="text-xs text-muted line-through">{{ money($product->compare_at_price) }}</p>
                             @endif
-                            <p class="display text-4xl sm:text-5xl text-brand" x-text="priceText">{{ money($effectivePrice) }}</p>
+                            <p class="display text-3xl sm:text-4xl text-brand" x-text="priceText">{{ money($effectivePrice) }}</p>
                         </div>
                         <span :class="inStock ? 'badge badge-success' : 'badge badge-danger'" class="text-xs py-1 px-3">
                             <span class="dot" :class="inStock ? 'bg-success live-dot' : 'bg-danger'"></span>
@@ -212,7 +212,7 @@
                             </div>
                         </div>
 
-                        <button type="submit" class="btn btn-primary btn-lg w-full text-base font-bold shadow-md" :disabled="!inStock">
+                        <button type="submit" class="btn btn-primary btn-lg w-full text-base font-semibold" :disabled="!inStock">
                             <span x-show="inStock">Proceed to Checkout →</span>
                             <span x-show="!inStock" x-cloak>Currently Out of Stock</span>
                         </button>
@@ -321,7 +321,7 @@
                 <div class="flex items-end justify-between">
                     <div>
                         <span class="eyebrow">Recommendations</span>
-                        <h2 class="display mt-1 text-2xl sm:text-4xl">Related Tools</h2>
+                        <h2 class="display mt-1 text-2xl sm:text-3xl">Related Tools</h2>
                     </div>
                     <a href="{{ route('home') }}#products" class="text-xs sm:text-sm font-semibold text-brand hover:underline">View All →</a>
                 </div>

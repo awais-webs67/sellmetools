@@ -84,7 +84,7 @@
     <meta name="author" content="{{ $storeName }} | AivraSol Softwares">
     <meta name="geo.region" content="PK">
     <meta name="geo.placename" content="Pakistan">
-    <meta name="theme-color" content="#9B1B30">
+    <meta name="theme-color" content="#8A0F27">
 
     <link rel="canonical" href="{{ $canonicalUrl }}">
     <link rel="alternate" hreflang="en-pk" href="{{ $canonicalUrl }}">
@@ -205,37 +205,37 @@
         <span>✓ Real-time prices &amp; stock synced successfully!</span>
     </div>
 
-    <header x-data="{ open: false }" class="sticky top-0 z-40 border-b border-line bg-white/95 shadow-[0_1px_2px_rgba(0,0,0,.06)] backdrop-blur">
-        <div class="container-x flex h-16 items-center justify-between gap-6 lg:h-[76px]">
-            <a href="{{ route('home') }}" class="flex items-center transition active:scale-95" aria-label="{{ $storeName }} home">
-                <img src="{{ asset('images/logo.png') }}" alt="{{ $storeName }}" class="h-8 sm:h-9 lg:h-10 w-auto object-contain">
+    <header x-data="{ open: false }" class="sticky top-0 z-40 border-b border-line bg-white/90 backdrop-blur-md backdrop-saturate-150">
+        <div class="container-x flex h-16 items-center justify-between gap-6 lg:h-[72px]">
+            <a href="{{ route('home') }}" class="flex shrink-0 items-center transition active:scale-95" aria-label="{{ $storeName }} home">
+                <img src="{{ asset('images/logo.png') }}" alt="{{ $storeName }}" width="964" height="196" class="h-7 sm:h-8 w-auto object-contain">
             </a>
 
-            <form action="{{ route('home') }}" method="get" class="hidden max-w-md flex-1 md:block" role="search">
+            <form action="{{ route('home') }}" method="get" class="hidden max-w-sm flex-1 md:block" role="search">
                 <label for="site-search" class="sr-only">Search products</label>
                 <div class="relative">
-                    <svg class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                    <input id="site-search" type="search" name="q" value="{{ request('q') }}" placeholder="Search ChatGPT, Canva, CapCut..." class="input pl-9">
+                    <svg class="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                    <input id="site-search" type="search" name="q" value="{{ request('q') }}" placeholder="Search ChatGPT, Canva, CapCut…" class="input rounded-full border-transparent bg-paper py-2 pl-10 focus:bg-white">
                 </div>
             </form>
 
-            <nav class="hidden items-center gap-1 lg:flex" aria-label="Main">
-                <a href="{{ route('home') }}" class="btn btn-ghost">Shop</a>
-                <a href="{{ route('orders.track') }}" class="btn btn-ghost">Track order</a>
+            <nav class="hidden items-center gap-7 text-sm font-medium lg:flex" aria-label="Main">
+                <a href="{{ route('home') }}" class="text-body transition hover:text-ink">Shop</a>
+                <a href="{{ route('orders.track') }}" class="text-body transition hover:text-ink">Track order</a>
                 @auth
                     @if (auth()->user()->is_reseller && filled(auth()->user()->reseller_slug))
-                        <a href="{{ route('reseller.portal', auth()->user()->reseller_slug) }}" class="btn btn-ghost font-bold text-brand">★ Reseller Portal</a>
+                        <a href="{{ route('reseller.portal', auth()->user()->reseller_slug) }}" class="text-brand-text transition hover:text-brand">Reseller portal</a>
                     @endif
-                    <a href="{{ route('account.orders') }}" class="btn btn-ghost">
-                        My Account
+                    <a href="{{ route('account.orders') }}" class="inline-flex items-center gap-2 text-body transition hover:text-ink">
+                        My account
                         @if ((float) auth()->user()->wallet_balance > 0)
-                            <span class="ml-1 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">{{ money(auth()->user()->wallet_balance) }}</span>
+                            <span class="rounded-full bg-brand-tint px-2 py-0.5 text-[11px] font-semibold text-brand-text">{{ money(auth()->user()->wallet_balance) }}</span>
                         @endif
                     </a>
-                    <form method="post" action="{{ route('logout') }}">@csrf<button class="btn btn-ghost">Logout</button></form>
+                    <form method="post" action="{{ route('logout') }}">@csrf<button class="text-body transition hover:text-ink">Logout</button></form>
                 @else
-                    <a href="{{ route('login') }}" class="btn btn-ghost">Login</a>
-                    <a href="{{ route('register') }}" class="btn btn-primary">Create account</a>
+                    <a href="{{ route('login') }}" class="text-body transition hover:text-ink">Log in</a>
+                    <a href="{{ route('register') }}" class="btn btn-dark px-4 py-2">Create account</a>
                 @endauth
             </nav>
 
@@ -287,42 +287,37 @@
         {{ $slot }}
     </main>
 
-    <footer class="mt-20 bg-ink text-white/70">
-        <div class="container-x grid gap-10 py-14 md:grid-cols-2 lg:grid-cols-4">
-            <div class="lg:col-span-2">
-                <a href="{{ route('home') }}" class="flex items-center">
-                    <img src="{{ asset('images/logo-white.png') }}" alt="{{ $storeName }}" class="h-8 sm:h-9 md:h-10 w-auto object-contain">
+    <footer class="mt-20 bg-ink text-white/60">
+        <div class="container-x grid gap-12 py-16 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr]">
+            <div>
+                <a href="{{ route('home') }}" class="inline-flex items-center">
+                    <img src="{{ asset('images/logo-white.png') }}" alt="{{ $storeName }}" width="964" height="196" loading="lazy" class="h-7 sm:h-8 w-auto object-contain">
                 </a>
-                <p class="mt-4 max-w-md text-sm leading-6">{{ setting('store_tagline') }} Pay with Easypaisa, JazzCash, NayaPay, SadaPay or Binance and receive your product automatically after verification.</p>
-                <div class="mt-5 flex flex-wrap gap-2">
-                    @foreach (['Easypaisa', 'JazzCash', 'NayaPay', 'SadaPay', 'Binance'] as $m)
-                        <span class="rounded border border-white/15 px-2.5 py-1 text-xs font-medium text-white/80">{{ $m }}</span>
-                    @endforeach
-                </div>
+                <p class="mt-5 max-w-sm text-sm leading-6">{{ setting('store_tagline') }} Pay with Easypaisa, JazzCash, NayaPay, SadaPay or Binance and receive your product automatically after verification.</p>
+                <p class="mt-6 text-xs text-white/40">Easypaisa · JazzCash · NayaPay · SadaPay · Binance Pay</p>
             </div>
             <div>
-                <h2 class="text-sm font-semibold tracking-wider text-white uppercase">Store</h2>
-                <ul class="mt-4 space-y-2 text-sm">
-                    <li><a class="hover:text-white" href="{{ route('home') }}">All products</a></li>
-                    <li><a class="hover:text-white" href="{{ route('orders.track') }}">Track your order</a></li>
-                    <li><a class="hover:text-white" href="{{ route('pages.show', 'faq') }}">FAQ</a></li>
-                    <li><a class="hover:text-white" href="{{ route('pages.show', 'contact') }}">Contact & support</a></li>
+                <h2 class="text-sm font-semibold text-white">Store</h2>
+                <ul class="mt-4 space-y-2.5 text-sm">
+                    <li><a class="transition hover:text-white" href="{{ route('home') }}">All products</a></li>
+                    <li><a class="transition hover:text-white" href="{{ route('orders.track') }}">Track your order</a></li>
+                    <li><a class="transition hover:text-white" href="{{ route('pages.show', 'faq') }}">FAQ</a></li>
+                    <li><a class="transition hover:text-white" href="{{ route('pages.show', 'contact') }}">Contact &amp; support</a></li>
                 </ul>
             </div>
             <div>
-                <h2 class="text-sm font-semibold tracking-wider text-white uppercase">Policies</h2>
-                <ul class="mt-4 space-y-2 text-sm">
-                    <li><a class="hover:text-white" href="{{ route('pages.show', 'terms') }}">Terms of service</a></li>
-                    <li><a class="hover:text-white" href="{{ route('pages.show', 'refund') }}">Refund & warranty policy</a></li>
-                    <li><a class="hover:text-white" href="{{ route('pages.show', 'privacy') }}">Privacy policy</a></li>
+                <h2 class="text-sm font-semibold text-white">Policies</h2>
+                <ul class="mt-4 space-y-2.5 text-sm">
+                    <li><a class="transition hover:text-white" href="{{ route('pages.show', 'terms') }}">Terms of service</a></li>
+                    <li><a class="transition hover:text-white" href="{{ route('pages.show', 'refund') }}">Refund &amp; warranty policy</a></li>
+                    <li><a class="transition hover:text-white" href="{{ route('pages.show', 'privacy') }}">Privacy policy</a></li>
                 </ul>
             </div>
         </div>
         <div class="border-t border-white/10">
-            <div class="container-x flex flex-col gap-2 py-5 text-xs sm:flex-row sm:items-center sm:justify-between">
-                <p>&copy; {{ date('Y') }} {{ $storeName }}. All rights reserved.</p>
-                <p class="text-white/60">A Project by <span class="font-semibold text-white/90">AivraSol Softwares</span></p>
-                <p>All trademarks belong to their respective owners.</p>
+            <div class="container-x flex flex-col gap-2 py-6 text-xs text-white/40 sm:flex-row sm:items-center sm:justify-between">
+                <p>&copy; {{ date('Y') }} {{ $storeName }}. All trademarks belong to their respective owners.</p>
+                <p>A project by <span class="font-medium text-white/70">AivraSol Softwares</span></p>
             </div>
         </div>
     </footer>

@@ -4,15 +4,15 @@
             {{-- Branded Card with Elevation --}}
             <section class="card overflow-hidden border-2 border-line shadow-xl">
                 {{-- Card Header --}}
-                <div class="bg-gradient-to-br from-[#1F070E] via-[#2B0912] to-[#120408] p-6 sm:p-8 text-white text-center relative">
+                <div class="bg-brand bg-[radial-gradient(120%_120%_at_100%_0%,rgba(255,255,255,.10),transparent_55%)] p-6 sm:p-8 text-white text-center relative">
                     <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 border border-white/20 text-white shadow-inner">
-                        <svg class="h-7 w-7 text-[#ff6b81]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg class="h-7 w-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="11" cy="11" r="8"/>
                             <path d="m21 21-4.3-4.3"/>
                         </svg>
                     </div>
-                    <span class="eyebrow mt-4 text-[#ff8fa3] justify-center">Order Status &amp; Vault</span>
-                    <h1 class="display mt-2 text-3xl sm:text-4xl text-white">Track Your Order</h1>
+                    <span class="eyebrow mt-4 text-white/70 justify-center">Order Status &amp; Vault</span>
+                    <h1 class="display mt-2 text-3xl sm:text-3xl text-white">Track Your Order</h1>
                     <p class="mt-2 text-xs sm:text-sm text-white/75">
                         Enter your Order ID and the email you used during checkout to view live status or retrieve your delivered credentials.
                     </p>

@@ -1,15 +1,7 @@
 {
-  "_bebas-neue-400-normal-9mHNbWWO.woff2": {
-    "file": "assets/bebas-neue-400-normal-9mHNbWWO.woff2",
-    "src": "_bebas-neue-400-normal-9mHNbWWO.woff2"
-  },
-  "_bebas-neue-400-normal-Bi-ndsyu.woff": {
-    "file": "assets/bebas-neue-400-normal-Bi-ndsyu.woff",
-    "src": "_bebas-neue-400-normal-Bi-ndsyu.woff"
-  },
-  "_fonts-CJ5KQNr7.css": {
-    "file": "assets/fonts-CJ5KQNr7.css",
-    "src": "_fonts-CJ5KQNr7.css"
+  "_fonts-CySDg2-I.css": {
+    "file": "assets/fonts-CySDg2-I.css",
+    "src": "_fonts-CySDg2-I.css"
   },
   "_inter-400-normal-C38fXH4l.woff2": {
     "file": "assets/inter-400-normal-C38fXH4l.woff2",
@@ -43,8 +35,32 @@
     "file": "assets/inter-700-normal-Yt3aPRUw.woff2",
     "src": "_inter-700-normal-Yt3aPRUw.woff2"
   },
+  "_outfit-500-normal-ClnHRwRh.woff": {
+    "file": "assets/outfit-500-normal-ClnHRwRh.woff",
+    "src": "_outfit-500-normal-ClnHRwRh.woff"
+  },
+  "_outfit-500-normal-DKnIMDSk.woff2": {
+    "file": "assets/outfit-500-normal-DKnIMDSk.woff2",
+    "src": "_outfit-500-normal-DKnIMDSk.woff2"
+  },
+  "_outfit-600-normal-B7SfZ07L.woff2": {
+    "file": "assets/outfit-600-normal-B7SfZ07L.woff2",
+    "src": "_outfit-600-normal-B7SfZ07L.woff2"
+  },
+  "_outfit-600-normal-BEfTtDA7.woff": {
+    "file": "assets/outfit-600-normal-BEfTtDA7.woff",
+    "src": "_outfit-600-normal-BEfTtDA7.woff"
+  },
+  "_outfit-700-normal-Cu9v6i1X.woff2": {
+    "file": "assets/outfit-700-normal-Cu9v6i1X.woff2",
+    "src": "_outfit-700-normal-Cu9v6i1X.woff2"
+  },
+  "_outfit-700-normal-D4itBLBr.woff": {
+    "file": "assets/outfit-700-normal-D4itBLBr.woff",
+    "src": "_outfit-700-normal-D4itBLBr.woff"
+  },
   "resources/css/app.css": {
-    "file": "assets/app-kiK19ZXY.css",
+    "file": "assets/app-BK0q14Ro.css",
     "name": "app",
     "names": [
       "app.css"

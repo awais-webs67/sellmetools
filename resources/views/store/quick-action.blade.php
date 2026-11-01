@@ -41,7 +41,7 @@
                         <span class="badge bg-white/25 text-white font-mono text-xs">{{ $order->status->label() }}</span>
                     </div>
 
-                    <h1 class="display mt-3 text-3xl sm:text-4xl text-white tracking-wide">
+                    <h1 class="display mt-3 text-3xl sm:text-3xl text-white tracking-wide">
                         @if ($isAlreadyCompleted)
                             ⚠️ Already Confirmed &amp; Delivered!
                         @elseif ($isCompleted)

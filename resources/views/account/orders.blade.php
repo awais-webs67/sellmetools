@@ -14,7 +14,7 @@
                         <span class="badge badge-brand">★ VIP Reseller Account ({{ (float) $user->reseller_discount_percent > 0 ? number_format((float) $user->reseller_discount_percent, 0).'% Global Discount' : 'Custom Pricing' }})</span>
                     @endif
                 </div>
-                <h1 class="display mt-1.5 text-3xl sm:text-5xl">Welcome, {{ $user->name }}</h1>
+                <h1 class="display mt-1.5 text-3xl sm:text-4xl">Welcome, {{ $user->name }}</h1>
                 <p class="mt-1 text-xs sm:text-sm text-muted">
                     {{ $user->email }}
                     @if ($user->phone) · WhatsApp: <span class="font-mono font-semibold text-ink">+{{ $user->phone }}</span> @endif
@@ -37,7 +37,7 @@
                     <span class="text-[11px] font-bold tracking-wider text-[#ff8fa3] uppercase">Account Wallet Balance</span>
                     <span class="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white">Instant Pay</span>
                 </div>
-                <p class="display mt-2 text-3xl sm:text-4xl text-white">{{ money($user->wallet_balance) }}</p>
+                <p class="display mt-2 text-3xl sm:text-3xl text-white">{{ money($user->wallet_balance) }}</p>
                 @if ($waAdmin !== '')
                     <a href="https://wa.me/{{ $waAdmin }}?text={{ urlencode('Assalam o Alaikum! I want to top-up my SellMeTools Wallet Balance for account: '.$user->email) }}"
                        target="_blank"
@@ -50,13 +50,13 @@
 
             <div class="card p-4 sm:p-5">
                 <span class="text-xs font-semibold uppercase tracking-wider text-muted">Total Orders</span>
-                <p class="display mt-2 text-3xl sm:text-4xl text-ink">{{ number_format($stats['total']) }}</p>
+                <p class="display mt-2 text-3xl sm:text-3xl text-ink">{{ number_format($stats['total']) }}</p>
                 <p class="mt-1 text-xs text-muted">All-time purchases</p>
             </div>
 
             <div class="card p-4 sm:p-5">
                 <span class="text-xs font-semibold uppercase tracking-wider text-success">Delivered &amp; Active</span>
-                <p class="display mt-2 text-3xl sm:text-4xl text-ink">{{ number_format($stats['completed']) }}</p>
+                <p class="display mt-2 text-3xl sm:text-3xl text-ink">{{ number_format($stats['completed']) }}</p>
                 <p class="mt-1 text-xs text-muted">Instant credentials vault</p>
             </div>
 

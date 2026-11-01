@@ -30,7 +30,7 @@
                             </p>
 
                             <div style="text-align: center; margin: 25px 0;">
-                                <a href="{{ $resetUrl }}" style="display: inline-block; background-color: #9B1B30; color: #FFFFFF; font-weight: 700; font-size: 14px; padding: 13px 28px; border-radius: 10px; text-decoration: none;">
+                                <a href="{{ $resetUrl }}" style="display: inline-block; background-color: #8A0F27; color: #FFFFFF; font-weight: 700; font-size: 14px; padding: 13px 28px; border-radius: 10px; text-decoration: none;">
                                     Reset My Password →
                                 </a>
                             </div>

@@ -67,9 +67,21 @@ class StoreSettings extends Page
     /** @var array<string, mixed>|null */
     public ?array $data = [];
 
+    /** Boolean toggles — stored as '1' / '0' strings. */
+    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered'];
+
     public function mount(): void
     {
-        $this->form->fill(array_intersect_key(Setting::values(), array_flip(self::KEYS)));
+        $values = array_intersect_key(Setting::values(), array_flip(self::KEYS));
+
+        foreach (self::TOGGLE_KEYS as $key) {
+            $values[$key] = (string) ($values[$key] ?? '1') === '1';
+        }
+
+        // Never send the stored SMTP password back to the browser.
+        $values['mail_password'] = '';
+
+        $this->form->fill($values);
     }
 
     protected function getHeaderActions(): array
@@ -341,17 +353,20 @@ class StoreSettings extends Page
                             ->helperText('When enabled, customers receive their credentials in their inbox as soon as an order is verified.'),
                         TextInput::make('mail_host')
                             ->label('SMTP Host')
-                            ->placeholder('e.g. smtp.titan.email or smtp.gmail.com or smtp.hostinger.com'),
+                            ->placeholder('smtp.hostinger.com')
+                            ->helperText('Hostinger: smtp.hostinger.com · Gmail: smtp.gmail.com · Titan: smtp.titan.email · cPanel: mail.yourdomain.com'),
                         TextInput::make('mail_port')
                             ->label('SMTP Port')
+                            ->numeric()
                             ->placeholder('465 or 587')
-                            ->default('465'),
+                            ->default('465')
+                            ->helperText('465 → choose SSL. 587 → choose TLS.'),
                         Select::make('mail_encryption')
                             ->label('Encryption')
                             ->options([
                                 'ssl' => 'SSL (Port 465)',
-                                'tls' => 'TLS (Port 587)',
-                                'none' => 'None',
+                                'tls' => 'TLS / STARTTLS (Port 587)',
+                                'none' => 'None (Port 25 / 2525)',
                             ])
                             ->default('ssl'),
                         TextInput::make('mail_username')
@@ -361,10 +376,14 @@ class StoreSettings extends Page
                             ->label('SMTP Password / App Password')
                             ->password()
                             ->revealable()
-                            ->placeholder('••••••••'),
+                            ->autocomplete('new-password')
+                            ->placeholder(fn () => filled(Setting::get('mail_password')) ? 'Saved securely — leave empty to keep' : 'Enter SMTP password')
+                            ->helperText('Stored encrypted. Gmail needs a 16-character App Password, not your normal password.'),
                         TextInput::make('mail_from_address')
                             ->label('From Email Address (Optional)')
-                            ->placeholder('Leave empty to use SMTP Username'),
+                            ->email()
+                            ->placeholder('Leave empty to use SMTP Username')
+                            ->helperText('Best deliverability: keep this the same as the SMTP username.'),
                         TextInput::make('mail_from_name')
                             ->label('From Display Name')
                             ->placeholder('SellMeTools'),
@@ -381,19 +400,20 @@ class StoreSettings extends Page
                                 ->label('Send Test Email')
                                 ->icon(Heroicon::OutlinedPaperAirplane)
                                 ->color('gray')
+                                ->modalDescription('Uses the values currently in the form, even if not saved yet.')
                                 ->form([
                                     TextInput::make('recipient')
                                         ->label('Recipient Email Address')
                                         ->email()
                                         ->required()
-                                        ->default(fn () => Setting::get('support_email') ?: 'test@example.com'),
+                                        ->default(fn () => Setting::get('support_email') ?: (auth()->user()?->email ?? '')),
                                 ])
                                 ->action(function (array $data): void {
-                                    $res = app(EmailNotifier::class)->sendTest($data['recipient']);
+                                    $res = app(EmailNotifier::class)->sendTest($data['recipient'], is_array($this->data) ? $this->data : []);
                                     if ($res['success']) {
                                         Notification::make()->title('Email Sent')->body($res['message'])->success()->send();
                                     } else {
-                                        Notification::make()->title('SMTP Test Failed')->body($res['message'])->danger()->send();
+                                        Notification::make()->title('SMTP Test Failed')->body($res['message'])->danger()->persistent()->send();
                                     }
                                 }),
                         ])->columnSpanFull(),
@@ -430,6 +450,20 @@ class StoreSettings extends Page
 
         $toSave = [];
         foreach ($keys as $key) {
+            if (in_array($key, self::TOGGLE_KEYS, true)) {
+                $toSave[$key] = ! empty($raw[$key]) ? '1' : '0';
+
+                continue;
+            }
+            if ($key === 'mail_password') {
+                $plain = (string) ($raw[$key] ?? '');
+                if ($plain !== '') {
+                    $toSave[$key] = EmailNotifier::encryptPassword($plain);
+                    $this->data['mail_password'] = '';
+                }
+
+                continue; // empty = keep the currently saved password
+            }
             $val = isset($raw[$key]) ? trim((string) $raw[$key]) : null;
             if ($key === 'telegram_bot_token' && $val !== null && $val !== '') {
                 $val = TelegramNotifier::cleanToken($val);

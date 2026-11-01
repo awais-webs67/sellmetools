@@ -43,7 +43,7 @@
         <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div class="min-w-0">
                 <span class="eyebrow">Order {{ $order->number }}</span>
-                <h1 class="display mt-1 text-3xl sm:text-5xl">
+                <h1 class="display mt-1 text-3xl sm:text-4xl">
                     @switch($s)
                         @case(OrderStatus::PendingPayment) Complete your payment @break
                         @case(OrderStatus::PaymentReview)
@@ -283,7 +283,7 @@
                                     </span>
                                     <span class="font-mono text-xs text-white/90">Order #{{ $order->number }}</span>
                                 </div>
-                                <h2 class="display mt-3 text-3xl sm:text-4xl text-white">
+                                <h2 class="display mt-3 text-3xl sm:text-3xl text-white">
                                     Order On Hold — Admin is Checking Your Order
                                 </h2>
                                 <p class="mt-1 text-xs sm:text-sm text-white/90">
@@ -341,7 +341,7 @@
                                 </span>
                                 <span class="font-mono text-xs text-white/90">Order #{{ $order->number }}</span>
                             </div>
-                            <h2 class="display mt-3 text-3xl sm:text-4xl text-white">
+                            <h2 class="display mt-3 text-3xl sm:text-3xl text-white">
                                 @if ($isWhatsAppHandover)
                                     Payment Confirmed! Click Below to Get Your Product on WhatsApp
                                 @elseif ($isManualAdmin)
@@ -408,7 +408,7 @@
                                 </span>
                                 <span class="font-mono text-xs text-white/80">Order #{{ $order->number }}</span>
                             </div>
-                            <h2 class="display mt-3 text-3xl sm:text-4xl text-white">
+                            <h2 class="display mt-3 text-3xl sm:text-3xl text-white">
                                 Your Subscription Credentials Are Ready!
                             </h2>
                             <p class="mt-1 text-xs sm:text-sm text-white/85">

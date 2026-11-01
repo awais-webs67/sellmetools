@@ -15,7 +15,7 @@
                             </span>
                             <span class="font-mono text-xs text-[#ff8fa3]">/{{ $reseller->reseller_slug }}</span>
                         </div>
-                        <h1 class="display mt-3 text-3xl sm:text-4xl text-white">{{ $reseller->name }}</h1>
+                        <h1 class="display mt-3 text-3xl sm:text-3xl text-white">{{ $reseller->name }}</h1>
                         <p class="mt-1 text-xs sm:text-sm text-white/75">
                             Sign in with your authorized reseller credentials to unlock wholesale pricing &amp; instant wallet checkout.
                         </p>
@@ -54,7 +54,7 @@
                                 </span>
                             @endif
                         </div>
-                        <h1 class="display mt-2 text-3xl sm:text-5xl text-white">{{ $reseller->name }} — Wholesale Portal</h1>
+                        <h1 class="display mt-2 text-3xl sm:text-4xl text-white">{{ $reseller->name }} — Wholesale Portal</h1>
                         <p class="mt-1 text-xs sm:text-sm text-white/75">
                             All prices below reflect your private reseller rates. Buy in 1 click using your Wallet Balance or any payment gateway.
                         </p>
@@ -63,7 +63,7 @@
                     <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 rounded-xl border border-white/15 bg-white/5 p-4">
                         <div>
                             <span class="block text-[10px] font-bold uppercase tracking-wider text-[#ff8fa3]">Reseller Wallet Balance</span>
-                            <span class="display text-3xl sm:text-4xl text-white">{{ money($reseller->wallet_balance) }}</span>
+                            <span class="display text-3xl sm:text-3xl text-white">{{ money($reseller->wallet_balance) }}</span>
                         </div>
                         @if ($waAdmin !== '')
                             <a href="https://wa.me/{{ $waAdmin }}?text={{ urlencode('Assalam o Alaikum! I want to add funds to my Reseller Wallet (@'.$reseller->reseller_slug.' / '.$reseller->email.')') }}"
