@@ -23,18 +23,20 @@
 <article class="group relative flex flex-col overflow-hidden rounded-xl border border-line bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition duration-200 ease-out hover:-translate-y-0.5 hover:border-brand/45 hover:shadow-[0_12px_24px_-8px_rgba(155,27,48,0.16)] active:scale-[0.99] select-none"
          x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, @js(money($effectivePrice)))"
          data-stock-id="{{ $product->id }}">
-    {{-- Compact Header Banner (h-24 on mobile, h-28 on desktop) --}}
-    <a href="{{ route('products.show', $product) }}" class="relative block h-24 sm:h-28 overflow-hidden bg-[#160509]" tabindex="-1" aria-hidden="true">
+    {{-- Media Box: Full uncropped image (object-contain) with soft ambient backdrop --}}
+    <a href="{{ route('products.show', $product) }}" class="relative block h-36 sm:h-40 overflow-hidden bg-[#140408]" tabindex="-1" aria-hidden="true">
         @if ($img = $product->imageUrl())
-            <img src="{{ $img }}" alt="{{ $product->name }}" loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-300 group-hover:scale-105" :class="!inStock && 'grayscale opacity-60'">
-            <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-black/20"></div>
+            {{-- Soft ambient backdrop fills side/top gaps so object-contain never leaves ugly empty bars --}}
+            <img src="{{ $img }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-md" :class="!inStock && 'grayscale'">
+            {{-- Full uncropped product image --}}
+            <img src="{{ $img }}" alt="{{ $product->name }}" loading="lazy" decoding="async" class="relative z-10 h-full w-full object-contain p-1.5 transition duration-300 group-hover:scale-[1.03]" :class="!inStock && 'grayscale opacity-65'">
         @else
             <div class="relative flex h-full w-full items-center gap-3 overflow-hidden bg-gradient-to-r from-[#1A040A] via-[#4A0D1C] to-[#26060F] px-3.5 sm:px-4 text-white" :class="!inStock && 'grayscale opacity-60'">
                 <div class="pointer-events-none absolute inset-0 opacity-15 [background-image:radial-gradient(rgba(255,255,255,0.55)_1px,transparent_1px)] [background-size:14px_14px]"></div>
                 <div class="pointer-events-none absolute -right-6 -bottom-6 h-24 w-24 rounded-full bg-brand/35 blur-xl"></div>
 
-                <div class="relative flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/10 shadow-inner backdrop-blur-xs transition duration-300 group-hover:scale-105 group-hover:border-white/35">
-                    <span class="display text-2xl sm:text-[28px] tracking-wider text-white leading-none">{{ $initials }}</span>
+                <div class="relative flex h-12 w-12 sm:h-13 sm:w-13 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/10 shadow-inner backdrop-blur-xs transition duration-300 group-hover:scale-105 group-hover:border-white/35">
+                    <span class="display text-2xl sm:text-3xl tracking-wider text-white leading-none">{{ $initials }}</span>
                 </div>
 
                 <div class="relative min-w-0 flex-1 pr-14 sm:pr-16">
@@ -49,11 +51,11 @@
         @endif
 
         {{-- Top Badges Overlay --}}
-        <div class="absolute inset-x-2.5 top-2 flex items-center justify-between gap-1.5">
+        <div class="absolute inset-x-2 top-2 z-20 flex items-center justify-between gap-1.5">
             @if ($discount)
                 <span class="rounded bg-brand px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-white shadow-xs">-{{ $discount }}%</span>
             @elseif ($product->is_featured)
-                <span class="rounded bg-black/55 backdrop-blur-xs border border-white/15 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white/95">Featured</span>
+                <span class="rounded bg-black/65 backdrop-blur-xs border border-white/15 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white/95">Featured</span>
             @else
                 <span></span>
             @endif
@@ -85,7 +87,7 @@
         </div>
 
         <div class="mt-2.5 flex items-center justify-between gap-2 border-t border-line pt-2.5">
-            <div class=" flex items-baseline gap-1.5 min-w-0">
+            <div class="flex items-baseline gap-1.5 min-w-0">
                 <p class="display text-xl sm:text-2xl text-ink leading-none" x-text="priceText">{{ money($effectivePrice) }}</p>
                 @if ($comparePrice)
                     <p class="truncate text-[10px] sm:text-xs font-medium text-muted line-through">{{ money($comparePrice) }}</p>

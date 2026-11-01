@@ -34,6 +34,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             ->brandName(fn (): string => $this->storeName())
+            ->favicon(fn (): string => asset('favicon.png').'?v=4')
             ->sidebarCollapsibleOnDesktop()
             ->spa()
             ->maxContentWidth(Width::Full)

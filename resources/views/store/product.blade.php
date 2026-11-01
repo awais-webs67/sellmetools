@@ -157,10 +157,11 @@
              x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, @js(money($effectivePrice)), {{ (float) $effectivePrice }})"
              data-stock-id="{{ $product->id }}">
 
-            {{-- Product Image --}}
-            <div class="card aspect-[16/10] overflow-hidden bg-grey-soft">
+            {{-- Product Image (Full uncropped image with ambient backdrop) --}}
+            <div class="card relative aspect-[16/10] overflow-hidden bg-[#140408]">
                 @if ($img = $product->imageUrl())
-                    <img src="{{ $img }}" alt="{{ $product->name }}" class="h-full w-full object-cover">
+                    <img src="{{ $img }}" alt="" aria-hidden="true" class="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-lg">
+                    <img src="{{ $img }}" alt="{{ $product->name }}" class="relative z-10 h-full w-full object-contain p-3 sm:p-4">
                 @else
                     <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand to-ink">
                         <span class="display px-6 text-center text-3xl sm:text-6xl text-white">{{ $product->name }}</span>
