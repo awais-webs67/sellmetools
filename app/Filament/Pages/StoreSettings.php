@@ -22,6 +22,8 @@ use UnitEnum;
 
 /**
  * Key/value store settings backed by the `settings` table.
+ * Each section has its own independent Save button so the admin can save any section
+ * separately without filling unrelated optional fields.
  *
  * @property-read Schema $form
  */
@@ -67,6 +69,59 @@ class StoreSettings extends Page
             ->statePath('data')
             ->columns(1)
             ->components([
+                Section::make('Telegram Admin Bot Alerts (With 1-Tap Approve & Decline Buttons)')
+                    ->icon(Heroicon::OutlinedBellAlert)
+                    ->description('Step 1: Paste your Bot Token from @BotFather. Step 2: Open your bot in Telegram and press START. Step 3: Click "Auto-Detect Chat ID, Save & Send Test" below!')
+                    ->columns(['default' => 1, 'sm' => 2])
+                    ->schema([
+                        TextInput::make('telegram_bot_token')
+                            ->label('Telegram Bot Token')
+                            ->placeholder('123456789:AAH...')
+                            ->password()
+                            ->revealable()
+                            ->autocomplete('off'),
+                        TextInput::make('telegram_admin_chat_id')
+                            ->label('Admin Numeric Chat ID (Leave blank to Auto-Detect!)')
+                            ->placeholder('e.g. 582910384 (or click Auto-Detect below)'),
+                        Actions::make([
+                            Action::make('saveTelegramSection')
+                                ->label('Save Telegram Bot Only')
+                                ->icon(Heroicon::OutlinedCheck)
+                                ->color('gray')
+                                ->action(fn () => $this->saveKeys(['telegram_bot_token', 'telegram_admin_chat_id'], 'Telegram Bot settings saved')),
+                            Action::make('testTelegram')
+                                ->label('Auto-Detect Chat ID, Save & Send Test Message')
+                                ->icon(Heroicon::OutlinedPaperAirplane)
+                                ->color('primary')
+                                ->action(fn () => $this->sendTelegramTest()),
+                        ])->columnSpanFull(),
+                    ]),
+
+                Section::make('1-Tap WhatsApp Order Approval / Decline')
+                    ->icon(Heroicon::OutlinedCheckBadge)
+                    ->description('Approve or decline orders in 1 tap from WhatsApp! Only fill the fields you want to use.')
+                    ->columns(['default' => 1, 'sm' => 3])
+                    ->schema([
+                        TextInput::make('admin_quick_pin')
+                            ->label('Admin 1-Tap WhatsApp PIN')
+                            ->placeholder('7860')
+                            ->maxLength(20)
+                            ->helperText('Default: 7860. Enter once on your phone to unlock 1-tap WhatsApp approvals for 1 year.'),
+                        TextInput::make('whatsapp_callmebot_apikey')
+                            ->label('CallMeBot WhatsApp API Key (Optional)')
+                            ->placeholder('Leave empty if not using'),
+                        TextInput::make('whatsapp_admin_webhook_url')
+                            ->label('Custom WhatsApp Webhook URL (Optional)')
+                            ->placeholder('Leave empty if not using'),
+                        Actions::make([
+                            Action::make('saveWhatsappSection')
+                                ->label('Save WhatsApp 1-Tap Settings')
+                                ->icon(Heroicon::OutlinedCheck)
+                                ->color('primary')
+                                ->action(fn () => $this->saveKeys(['admin_quick_pin', 'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url'], 'WhatsApp 1-Tap settings saved')),
+                        ])->columnSpanFull(),
+                    ]),
+
                 Section::make('Pricing & Dollar Rate')
                     ->icon(Heroicon::OutlinedCurrencyDollar)
                     ->description('Set the USDT → PKR conversion rate. Saving automatically recalculates prices for all supplier products.')
@@ -77,34 +132,37 @@ class StoreSettings extends Page
                             ->placeholder('295')
                             ->rule('numeric')
                             ->rule('min:1')
-                            ->required()
                             ->helperText('Example: 295'),
                         TextInput::make('price_rounding')
                             ->label('Round Selling Price To (PKR)')
                             ->placeholder('10')
                             ->rule('numeric')
                             ->rule('min:0')
-                            ->required()
                             ->helperText('0 = exact price, 10 = round to nearest 10'),
                         TextInput::make('order_expiry_minutes')
                             ->label('Order Payment Time (Minutes)')
                             ->placeholder('15')
                             ->rule('integer')
                             ->rule('min:1')
-                            ->required()
                             ->helperText('Minutes stock stays reserved'),
+                        Actions::make([
+                            Action::make('savePricingSection')
+                                ->label('Save Pricing & Recalculate Products')
+                                ->icon(Heroicon::OutlinedCheck)
+                                ->color('primary')
+                                ->action(fn () => $this->saveKeys(['usdt_rate', 'price_rounding', 'order_expiry_minutes'], 'Pricing settings saved')),
+                        ])->columnSpanFull(),
                     ]),
-                Section::make('Store Details')
+
+                Section::make('Store Details & Logo')
                     ->icon(Heroicon::OutlinedBuildingStorefront)
                     ->columns(['default' => 1, 'sm' => 2])
                     ->schema([
                         TextInput::make('store_name')
                             ->label('Store Name')
-                            ->required()
                             ->maxLength(100),
                         TextInput::make('currency_symbol')
                             ->label('Currency Symbol')
-                            ->required()
                             ->maxLength(10),
                         TextInput::make('store_tagline')
                             ->label('Short Tagline')
@@ -116,34 +174,57 @@ class StoreSettings extends Page
                             ->helperText('Shown at the very top of the website. Leave empty to hide.')
                             ->rows(2)
                             ->columnSpanFull(),
+                        Actions::make([
+                            Action::make('saveStoreSection')
+                                ->label('Save Store Details')
+                                ->icon(Heroicon::OutlinedCheck)
+                                ->color('primary')
+                                ->action(fn () => $this->saveKeys(['store_name', 'currency_symbol', 'store_tagline', 'store_logo', 'announcement'], 'Store details saved')),
+                        ])->columnSpanFull(),
                     ]),
-                Section::make('Support Contacts (WhatsApp / Telegram)')
+
+                Section::make('Support Contacts (WhatsApp / Telegram / Email)')
                     ->icon(Heroicon::OutlinedLifebuoy)
                     ->columns(['default' => 1, 'sm' => 3])
                     ->schema([
                         TextInput::make('support_whatsapp')
                             ->label('WhatsApp Number')
-                            ->placeholder('+923001234567'),
+                            ->placeholder('923001234567'),
                         TextInput::make('support_telegram')
                             ->label('Telegram Username')
                             ->placeholder('@sellmetools'),
                         TextInput::make('support_email')
-                            ->label('Support Email')
-                            ->email(),
+                            ->label('Support Email'),
+                        Actions::make([
+                            Action::make('saveSupportSection')
+                                ->label('Save Support Contacts')
+                                ->icon(Heroicon::OutlinedCheck)
+                                ->color('primary')
+                                ->action(fn () => $this->saveKeys(['support_whatsapp', 'support_telegram', 'support_email'], 'Support contacts saved')),
+                        ])->columnSpanFull(),
                     ]),
-                Section::make('Auto-SMS Payment Gateway (Easypaisa / JazzCash / NayaPay / SadaPay)')
+
+                Section::make('Auto-SMS Payment Gateway (Optional — Leave Blank if Not Using)')
                     ->icon(Heroicon::OutlinedBolt)
-                    ->description('Forward payment SMS from your phone to: '.url('/api/webhooks/payment-sms').' — orders with matching TID & amount will auto-approve and auto-deliver instantly!')
+                    ->description('Optional: Forward payment SMS from your phone to '.url('/api/webhooks/payment-sms').' to auto-approve matching TIDs.')
                     ->columns(['default' => 1, 'sm' => 2])
                     ->schema([
                         TextInput::make('sms_webhook_secret')
-                            ->label('SMS Webhook Secret Key')
-                            ->required()
-                            ->helperText('Send as ?secret=YOUR_KEY or header X-Webhook-Secret from your SMS Forwarder app.'),
+                            ->label('SMS Webhook Secret Key (Optional)')
+                            ->placeholder('smt_auto_pay_secret_2026')
+                            ->helperText('Optional. Leave as default or empty if you do not use an SMS Forwarder app.'),
+                        Actions::make([
+                            Action::make('saveSmsSection')
+                                ->label('Save SMS Webhook Key')
+                                ->icon(Heroicon::OutlinedCheck)
+                                ->color('gray')
+                                ->action(fn () => $this->saveKeys(['sms_webhook_secret'], 'SMS webhook settings saved')),
+                        ])->columnSpanFull(),
                     ]),
-                Section::make('SEO & Google Search Ranking')
+
+                Section::make('SEO & Google Search Ranking (Optional)')
                     ->icon(Heroicon::OutlinedMagnifyingGlassCircle)
-                    ->description('Optimize your store for Google Search, Rich Snippets, and Social Sharing. Your live XML Sitemap is at: '.url('/sitemap.xml'))
+                    ->description('Optimize your store for Google Search. Live XML Sitemap: '.url('/sitemap.xml').' | AI Index: '.url('/llms.txt'))
                     ->columns(['default' => 1, 'sm' => 2])
                     ->schema([
                         TextInput::make('seo_title')
@@ -155,7 +236,6 @@ class StoreSettings extends Page
                             ->label('Homepage Meta Description')
                             ->rows(2)
                             ->maxLength(500)
-                            ->helperText('Recommended: 140–160 characters summarizing your products & payment methods.')
                             ->columnSpanFull(),
                         Textarea::make('seo_keywords')
                             ->label('Target SEO Keywords (Comma separated)')
@@ -163,51 +243,17 @@ class StoreSettings extends Page
                             ->maxLength(500)
                             ->columnSpanFull(),
                         TextInput::make('google_site_verification')
-                            ->label('Google Search Console Verification Code')
-                            ->placeholder('e.g. google-site-verification token')
-                            ->helperText('Paste only the content value from the Google Search Console meta tag.'),
+                            ->label('Google Search Console Verification Code (Optional)')
+                            ->placeholder('Paste token only'),
                         TextInput::make('google_analytics_id')
                             ->label('Google Analytics 4 ID (Optional)')
                             ->placeholder('G-XXXXXXXXXX'),
-                    ]),
-                Section::make('1-Tap WhatsApp & Telegram Order Approval / Decline')
-                    ->icon(Heroicon::OutlinedCheckBadge)
-                    ->description('Approve or decline orders in 1 tap directly from WhatsApp or Telegram! When you tap an Approve/Decline link in WhatsApp on your phone, enter this Admin PIN once — your phone will be remembered for 1 year.')
-                    ->columns(['default' => 1, 'sm' => 3])
-                    ->schema([
-                        TextInput::make('admin_quick_pin')
-                            ->label('Admin 1-Tap WhatsApp PIN')
-                            ->placeholder('7860')
-                            ->required()
-                            ->maxLength(20)
-                            ->helperText('Protects WhatsApp 1-tap links so only YOU can approve/decline orders.'),
-                        TextInput::make('whatsapp_callmebot_apikey')
-                            ->label('CallMeBot WhatsApp API Key (Optional)')
-                            ->placeholder('e.g. 1234567')
-                            ->helperText('Optional: auto-send WhatsApp alerts with 1-tap buttons to your Support WhatsApp number.'),
-                        TextInput::make('whatsapp_admin_webhook_url')
-                            ->label('Custom WhatsApp Bot Webhook URL (Optional)')
-                            ->placeholder('https://your-wa-bot.com/send')
-                            ->helperText('Optional: POST JSON {phone, message, approve_url, reject_url}.'),
-                    ]),
-                Section::make('Telegram Admin Bot Alerts (With 1-Tap Approve & Decline Buttons)')
-                    ->icon(Heroicon::OutlinedBellAlert)
-                    ->description('Receive instant Telegram messages with [✅ Approve & Deliver] and [❌ Decline] buttons on every payment.')
-                    ->columns(['default' => 1, 'sm' => 2])
-                    ->schema([
-                        TextInput::make('telegram_bot_token')
-                            ->label('Bot Token')
-                            ->password()
-                            ->revealable()
-                            ->autocomplete('off'),
-                        TextInput::make('telegram_admin_chat_id')
-                            ->label('Admin Chat ID'),
                         Actions::make([
-                            Action::make('testTelegram')
-                                ->label('Send Test Message & Register 1-Tap Webhook')
-                                ->icon(Heroicon::OutlinedPaperAirplane)
+                            Action::make('saveSeoSection')
+                                ->label('Save SEO Settings')
+                                ->icon(Heroicon::OutlinedCheck)
                                 ->color('primary')
-                                ->action(fn () => $this->sendTelegramTest()),
+                                ->action(fn () => $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'google_analytics_id'], 'SEO settings saved')),
                         ])->columnSpanFull(),
                     ]),
             ]);
@@ -222,7 +268,7 @@ class StoreSettings extends Page
                 ->footer([
                     Actions::make([
                         Action::make('save')
-                            ->label('Save Settings')
+                            ->label('Save All Settings')
                             ->submit('save')
                             ->keyBindings(['mod+s']),
                     ]),
@@ -230,19 +276,37 @@ class StoreSettings extends Page
         ]);
     }
 
-    public function save(): void
+    /**
+     * Saves only a specific subset of keys without requiring or validating unrelated sections.
+     *
+     * @param  string[]  $keys
+     */
+    public function saveKeys(array $keys, string $title = 'Settings saved'): void
     {
-        $data = $this->form->getState();
+        $raw = is_array($this->data) ? $this->data : [];
         $before = Setting::values();
 
-        Setting::setMany(collect(self::KEYS)
-            ->mapWithKeys(fn (string $key): array => [$key => isset($data[$key]) ? trim((string) $data[$key]) : null])
-            ->all());
+        $toSave = [];
+        foreach ($keys as $key) {
+            $val = isset($raw[$key]) ? trim((string) $raw[$key]) : null;
+            if ($key === 'telegram_bot_token' && $val !== null && $val !== '') {
+                $val = TelegramNotifier::cleanToken($val);
+                $this->data['telegram_bot_token'] = $val;
+            }
+            if ($val === '' && isset(Setting::DEFAULTS[$key]) && in_array($key, ['store_name', 'currency_symbol', 'usdt_rate', 'price_rounding', 'order_expiry_minutes', 'sms_webhook_secret', 'admin_quick_pin'], true)) {
+                $val = Setting::DEFAULTS[$key];
+                $this->data[$key] = $val;
+            }
+            $toSave[$key] = $val;
+        }
+
+        Setting::setMany($toSave);
 
         $pricingChanged = collect(self::PRICING_KEYS)
-            ->contains(fn (string $key): bool => (float) ($before[$key] ?? 0) !== (float) ($data[$key] ?? 0));
+            ->intersect($keys)
+            ->contains(fn (string $key): bool => (float) ($before[$key] ?? 0) !== (float) ($toSave[$key] ?? 0));
 
-        $notification = Notification::make()->title('Settings saved')->success();
+        $notification = Notification::make()->title($title)->success();
 
         if ($pricingChanged) {
             $count = Listings::refreshAllSourced();
@@ -252,24 +316,93 @@ class StoreSettings extends Page
         $notification->send();
     }
 
+    public function save(): void
+    {
+        $this->saveKeys(self::KEYS, 'All settings saved');
+    }
+
     protected function sendTelegramTest(): void
     {
-        $token = trim((string) ($this->data['telegram_bot_token'] ?? ''));
+        $rawToken = trim((string) ($this->data['telegram_bot_token'] ?? ''));
+        $token = TelegramNotifier::cleanToken($rawToken);
         $chatId = trim((string) ($this->data['telegram_admin_chat_id'] ?? ''));
 
-        if ($token === '' || $chatId === '') {
-            Notification::make()->title('Enter the bot token and chat ID first')->warning()->send();
+        if ($token === '') {
+            Notification::make()
+                ->title('Enter your Telegram Bot Token first')
+                ->body('Copy the HTTP API Token from @BotFather and paste it in the Telegram Bot Token box.')
+                ->warning()
+                ->send();
 
             return;
         }
 
-        $storeName = TelegramNotifier::e((string) ($this->data['store_name'] ?? 'SellMeTools'));
+        $this->data['telegram_bot_token'] = $token;
         $notifier = app(TelegramNotifier::class);
-        $notifier->registerWebhook($token);
+
+        // If Chat ID is empty or user entered @username instead of numeric ID, auto-detect from bot's /start messages!
+        if ($chatId === '' || ! preg_match('/^-?\d+$/', $chatId)) {
+            $detected = $notifier->detectChatId($token);
+            if ($detected !== null) {
+                $chatId = $detected;
+                $this->data['telegram_admin_chat_id'] = $chatId;
+            }
+        }
+
+        if ($chatId === '') {
+            Notification::make()
+                ->title('Could not auto-detect your Chat ID yet')
+                ->body('Open your bot in Telegram, press START (or send "hi" to your bot), and click this button again!'.($notifier->lastError ? " ({$notifier->lastError})" : ''))
+                ->warning()
+                ->persistent()
+                ->send();
+
+            return;
+        }
+
+        // Save Token & Chat ID immediately
+        Setting::setMany([
+            'telegram_bot_token' => $token,
+            'telegram_admin_chat_id' => $chatId,
+        ]);
+
+        $storeName = TelegramNotifier::e((string) ($this->data['store_name'] ?? Setting::get('store_name', 'SellMeTools')));
         $sent = $notifier->send($token, $chatId, "✅ <b>{$storeName}</b>\nTelegram 1-Tap Approve &amp; Decline alerts are active!");
 
-        $sent
-            ? Notification::make()->title('Test message sent')->success()->send()
-            : Notification::make()->title('Telegram rejected the message')->body('Check the bot token, chat ID and that you have started the bot.')->danger()->send();
+        if (! $sent) {
+            // One more attempt: if the user entered the wrong chat ID, try auto-detecting from getUpdates
+            $detected = $notifier->detectChatId($token);
+            if ($detected !== null && $detected !== $chatId) {
+                $chatId = $detected;
+                $this->data['telegram_admin_chat_id'] = $chatId;
+                Setting::set('telegram_admin_chat_id', $chatId);
+                $sent = $notifier->send($token, $chatId, "✅ <b>{$storeName}</b>\nTelegram 1-Tap Approve &amp; Decline alerts are active!");
+            }
+        }
+
+        if ($sent) {
+            $notifier->registerWebhook($token);
+            Notification::make()
+                ->title('Telegram Connected & Saved!')
+                ->body("Test message sent to Chat ID {$chatId} and 1-Tap webhook registered.")
+                ->success()
+                ->send();
+
+            return;
+        }
+
+        $err = $notifier->lastError ?: 'Unknown error';
+        $hint = str_contains(strtolower($err), 'chat not found')
+            ? 'Open your bot in Telegram, press START (or send "hi" to it), then click this button again.'
+            : (str_contains(strtolower($err), 'unauthorized')
+                ? 'Your Bot Token was rejected by Telegram. Copy the exact token from @BotFather.'
+                : 'Make sure you pressed START inside your Telegram bot first.');
+
+        Notification::make()
+            ->title("Telegram Error: {$err}")
+            ->body($hint)
+            ->danger()
+            ->persistent()
+            ->send();
     }
 }
