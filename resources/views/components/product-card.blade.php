@@ -14,7 +14,7 @@
     $rating = $product->approved_reviews_avg_rating ?? null;
     $reviewCount = (int) ($product->approved_reviews_count ?? 0);
 @endphp
-<article class="group card relative flex flex-col overflow-hidden transition duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-[var(--shadow-pop)]"
+<article class="group card relative flex flex-col overflow-hidden transition duration-150 ease-out hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-[var(--shadow-pop)] active:scale-[0.98] select-none"
          x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, @js(money($effectivePrice)))"
          data-stock-id="{{ $product->id }}">
     <a href="{{ route('products.show', $product) }}" class="relative block aspect-[4/3] overflow-hidden bg-grey-soft" tabindex="-1" aria-hidden="true">

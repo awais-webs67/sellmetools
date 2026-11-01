@@ -38,6 +38,10 @@
             '@type' => 'Country',
             'name' => 'Pakistan',
         ],
+        'founder' => [
+            '@type' => 'Organization',
+            'name' => 'AivraSol Softwares',
+        ],
         'contactPoint' => array_filter([
             '@type' => 'ContactPoint',
             'contactType' => 'customer support',
@@ -77,7 +81,7 @@
         <meta name="keywords" content="{{ $metaKeywords }}">
     @endif
     <meta name="robots" content="{{ $robots }}">
-    <meta name="author" content="{{ $storeName }}">
+    <meta name="author" content="{{ $storeName }} | AivraSol Softwares">
     <meta name="geo.region" content="PK">
     <meta name="geo.placename" content="Pakistan">
     <meta name="theme-color" content="#9B1B30">
@@ -136,37 +140,74 @@
         </div>
     @endif
 
-    {{-- Background Tab Return Banner: Syncs prices & stock in-place WITHOUT clearing form inputs --}}
-    <div x-data x-show="$store.stock.stale || $store.stock.justSynced" x-cloak
-         class="sticky top-0 z-50 border-b border-brand/30 bg-[#1F070E] text-white shadow-lg">
-        <div class="container-x flex flex-wrap items-center justify-between gap-2 py-2.5 text-xs sm:text-sm">
-            <div class="flex items-center gap-2">
-                <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#22c55e] live-dot"></span>
-                <span x-show="!$store.stock.justSynced">
-                    <strong>Welcome back!</strong> Sync live prices &amp; stock now (your typed order details will stay safe).
-                </span>
-                <span x-show="$store.stock.justSynced" class="font-semibold text-[#4ade80]">
-                    ✓ Latest prices &amp; live stock synced! Your form details are untouched.
-                </span>
+    {{-- Professional Stale Page Popup Modal (Replaces old top sync banner) --}}
+    <div x-data x-show="$store.stock.stale" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0">
+        <div class="relative w-full max-w-sm rounded-2xl bg-[#14171A] text-white p-6 shadow-2xl border border-white/15 text-center transform transition-all"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100"
+             @click.outside="$store.stock.stale = false">
+
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/20 border border-brand/40 text-[#ff6b81]">
+                <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                    <path d="M3 3v5h5"/>
+                    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                    <path d="M16 21h5v-5"/>
+                </svg>
             </div>
-            <div class="flex items-center gap-2">
+
+            <h3 class="display mt-4 text-2xl text-white">Live Stock &amp; Prices</h3>
+            <p class="mt-2 text-xs sm:text-sm text-white/75 leading-relaxed">
+                Stock or prices may have updated while you were in another tab. Please refresh the page data to get the latest live availability.
+                <span class="block mt-1 text-[11px] text-white/50">(Any details you typed remain safe)</span>
+            </p>
+
+            <div class="mt-6 flex flex-col gap-2">
                 <button type="button"
                         @click="$store.stock.manualSync()"
                         :disabled="$store.stock.syncing"
-                        class="btn btn-primary px-3.5 py-1.5 text-xs font-bold">
-                    <span x-show="!$store.stock.syncing">↻ Sync Live Price &amp; Stock</span>
-                    <span x-show="$store.stock.syncing">Syncing...</span>
+                        class="btn btn-primary w-full py-3 text-sm font-bold shadow-lg">
+                    <span x-show="!$store.stock.syncing">↻ Refresh Page Data Now</span>
+                    <span x-show="$store.stock.syncing" class="flex items-center justify-center gap-2">
+                        <span class="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                        Syncing live data...
+                    </span>
                 </button>
-                <button type="button" @click="$store.stock.stale = false" class="px-2 py-1 text-white/60 hover:text-white" aria-label="Dismiss">✕</button>
+                <button type="button"
+                        @click="$store.stock.stale = false"
+                        class="btn btn-ghost text-white/70 hover:text-white py-2 text-xs">
+                    Dismiss &amp; Continue
+                </button>
             </div>
         </div>
     </div>
 
+    {{-- Floating Success Toast when synced --}}
+    <div x-data x-show="$store.stock.justSynced" x-cloak
+         class="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full border border-emerald-500/30 bg-[#0F291E] px-4 py-2 text-xs font-semibold text-[#4ade80] shadow-xl backdrop-blur"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 -translate-y-4"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 -translate-y-4">
+        <span class="h-2 w-2 rounded-full bg-[#22c55e]"></span>
+        <span>✓ Real-time prices &amp; stock synced successfully!</span>
+    </div>
+
     <header x-data="{ open: false }" class="sticky top-0 z-40 border-b border-line bg-white/95 shadow-[0_1px_2px_rgba(0,0,0,.06)] backdrop-blur">
         <div class="container-x flex h-16 items-center justify-between gap-6 lg:h-[76px]">
-            <a href="{{ route('home') }}" class="flex items-center gap-2.5" aria-label="{{ $storeName }} home">
-                <x-logo-mark class="h-8 w-8" />
-                <span class="display text-[28px] leading-none text-ink">{{ $storeName }}</span>
+            <a href="{{ route('home') }}" class="flex items-center gap-2.5 transition active:scale-95" aria-label="{{ $storeName }} home">
+                <x-logo-mark class="h-9 w-9 sm:h-10 sm:w-10 shrink-0" />
+                <span class="display text-[26px] sm:text-[30px] leading-none text-ink tracking-tight">{{ $storeName }}</span>
             </a>
 
             <form action="{{ route('home') }}" method="get" class="hidden max-w-md flex-1 md:block" role="search">
@@ -249,7 +290,7 @@
         <div class="container-x grid gap-10 py-14 md:grid-cols-2 lg:grid-cols-4">
             <div class="lg:col-span-2">
                 <a href="{{ route('home') }}" class="flex items-center gap-2.5">
-                    <x-logo-mark class="h-8 w-8" />
+                    <x-logo-mark class="h-9 w-9 shrink-0" />
                     <span class="display text-[28px] leading-none text-white">{{ $storeName }}</span>
                 </a>
                 <p class="mt-4 max-w-md text-sm leading-6">{{ setting('store_tagline') }} Pay with Easypaisa, JazzCash, NayaPay, SadaPay or Binance and receive your product automatically after verification.</p>
@@ -280,16 +321,16 @@
         <div class="border-t border-white/10">
             <div class="container-x flex flex-col gap-2 py-5 text-xs sm:flex-row sm:items-center sm:justify-between">
                 <p>&copy; {{ date('Y') }} {{ $storeName }}. All rights reserved.</p>
+                <p class="text-white/60">A Project by <span class="font-semibold text-white/90">AivraSol Softwares</span></p>
                 <p>All trademarks belong to their respective owners.</p>
             </div>
         </div>
     </footer>
 
     @if ($wa = admin_whatsapp_number())
-        <a href="https://wa.me/{{ $wa }}" target="_blank" rel="noopener" class="fixed right-5 bottom-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-[var(--shadow-pop)] transition hover:scale-105" aria-label="Chat on WhatsApp">
+        <a href="https://wa.me/{{ $wa }}" target="_blank" rel="noopener" class="fixed right-5 bottom-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-[var(--shadow-pop)] transition hover:scale-105 active:scale-95" aria-label="Chat on WhatsApp">
             <svg class="h-7 w-7" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.03c-.25.69-1.45 1.32-2 1.37-.51.05-1 .24-3.36-.7-2.84-1.12-4.63-4.03-4.77-4.22-.14-.19-1.14-1.52-1.14-2.9 0-1.38.72-2.06.98-2.34.25-.28.55-.35.74-.35l.53.01c.17 0 .4-.06.62.48.25.6.84 2.07.92 2.22.07.15.12.32.02.51-.1.19-.15.32-.29.49-.15.17-.31.38-.44.51-.15.15-.3.3-.13.6.17.29.77 1.27 1.65 2.06 1.14 1.01 2.09 1.33 2.39 1.48.29.15.47.12.64-.07.17-.2.74-.86.94-1.16.2-.29.39-.24.66-.15.27.1 1.73.82 2.02.97.3.15.5.22.57.34.07.12.07.71-.18 1.4Z"/></svg>
         </a>
     @endif
 </body>
 </html>
-

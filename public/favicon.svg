@@ -1,17 +1,39 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
     <defs>
-        <linearGradient id="smtShield" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#E11D48"/>
-            <stop offset="0.55" stop-color="#9B1B30"/>
-            <stop offset="1" stop-color="#2B0912"/>
+        <linearGradient id="smtHexBg" x1="6" y1="4" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#E11D48"/>
+            <stop offset="45%" stop-color="#9B1B30"/>
+            <stop offset="100%" stop-color="#1F040A"/>
         </linearGradient>
-        <linearGradient id="smtGold" x1="10" y1="6" x2="34" y2="38" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#FFFFFF"/>
-            <stop offset="1" stop-color="#FFE4E6"/>
+        <linearGradient id="smtGleam" x1="12" y1="8" x2="52" y2="28" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.35"/>
+            <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.0"/>
         </linearGradient>
+        <linearGradient id="smtSymbol" x1="18" y1="14" x2="46" y2="50" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#FFFFFF"/>
+            <stop offset="60%" stop-color="#FFF1F2"/>
+            <stop offset="100%" stop-color="#FECDD3"/>
+        </linearGradient>
+        <filter id="smtShadow" x="12" y="10" width="40" height="46" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+            <feDropShadow dx="0" dy="2.5" stdDeviation="2" flood-color="#000000" flood-opacity="0.45"/>
+        </filter>
     </defs>
-    <rect width="44" height="44" rx="12" fill="url(#smtShield)"/>
-    <rect x="1.5" y="1.5" width="41" height="41" rx="10.5" stroke="white" stroke-opacity="0.22"/>
-    <path d="M22 6L35 12.5V23.5C35 30.8 29.5 36.2 22 38.5C14.5 36.2 9 30.8 9 23.5V12.5L22 6Z" fill="#120408" fill-opacity="0.35" stroke="white" stroke-opacity="0.28" stroke-width="1.4"/>
-    <path d="M24.2 10.5L14.5 22.8H21.6L19.8 33.5L29.5 21.2H22.4L24.2 10.5Z" fill="url(#smtGold)"/>
+
+    <!-- Outer Hexagonal Squircle Brand Base -->
+    <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#smtHexBg)"/>
+    <rect x="4" y="4" width="56" height="56" rx="16" stroke="#FFFFFF" stroke-opacity="0.2" stroke-width="1.5"/>
+
+    <!-- Subtle Glass Corner Highlight -->
+    <path d="M6 20C6 11.1634 13.1634 4 22 4H42C30 4 6 16 6 36V20Z" fill="url(#smtGleam)"/>
+
+    <!-- Inner Modern "S" + Digital Speed Blade Emblem -->
+    <g filter="url(#smtShadow)">
+        <!-- Upper Hook / Flow -->
+        <path d="M42 16H24C20.6863 16 18 18.6863 18 22C18 25.3137 20.6863 28 24 28H38L29 39H44L47 34H36.5L42.5 26.5C44.4 24.2 44.2 20.8 42 18.5L42 16Z" fill="url(#smtSymbol)" fill-rule="evenodd"/>
+        <!-- Lower Hook / Flow -->
+        <path d="M22 48H40C43.3137 48 46 45.3137 46 42C46 38.6863 43.3137 36 40 36H26L35 25H20L17 30H27.5L21.5 37.5C19.6 39.8 19.8 43.2 22 45.5L22 48Z" fill="url(#smtSymbol)" fill-rule="evenodd"/>
+        <!-- Central Tech Core Spark -->
+        <circle cx="32" cy="32" r="3.2" fill="#E11D48"/>
+        <circle cx="32" cy="32" r="1.6" fill="#FFFFFF"/>
+    </g>
 </svg>

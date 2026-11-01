@@ -23,24 +23,25 @@
 @endphp
 <x-layouts.store :title="'1-Tap Order Control – '.$order->number" robots="noindex, nofollow">
     <div class="container-x py-6 sm:py-10">
-        <div class="mx-auto max-w-lg">
-            <section class="card overflow-hidden border-2 border-brand/25 shadow-xl">
-                {{-- Top Status Header --}}
+        <div class="mx-auto max-w-xl">
+            <section class="card overflow-hidden border-2 border-brand/20 shadow-2xl">
+                {{-- Top Status Header with dynamic color coding --}}
                 <div @class([
-                    'px-5 py-5 sm:px-6 text-white',
-                    'bg-[#b45309]' => $isAlreadyCompleted || $isNeedsAttention || $actionResult === 'needs_attention',
-                    'bg-[#15803d]' => ! $isAlreadyCompleted && ! $isNeedsAttention && ($isCompleted || $actionResult === 'approve'),
-                    'bg-[#b91c1c]' => ! $isAlreadyCompleted && ($isRejected || $actionResult === 'reject'),
-                    'bg-[#120408]' => ! $isAlreadyCompleted && ! $isCompleted && ! $isNeedsAttention && ! $isRejected && ! in_array($actionResult, ['approve', 'reject', 'needs_attention'], true),
+                    'px-5 py-6 sm:px-7 text-white relative overflow-hidden',
+                    'bg-gradient-to-br from-amber-700 to-amber-900' => $isAlreadyCompleted || $isNeedsAttention || $actionResult === 'needs_attention',
+                    'bg-gradient-to-br from-emerald-700 to-emerald-900' => ! $isAlreadyCompleted && ! $isNeedsAttention && ($isCompleted || $actionResult === 'approve'),
+                    'bg-gradient-to-br from-rose-800 to-rose-950' => ! $isAlreadyCompleted && ($isRejected || $actionResult === 'reject'),
+                    'bg-gradient-to-br from-[#1F070E] via-[#2D0A14] to-[#120408]' => ! $isAlreadyCompleted && ! $isCompleted && ! $isNeedsAttention && ! $isRejected && ! in_array($actionResult, ['approve', 'reject', 'needs_attention'], true),
                 ])>
                     <div class="flex flex-wrap items-center justify-between gap-2">
-                        <span class="rounded-full bg-white/15 px-3 py-0.5 text-[11px] font-bold tracking-wider uppercase text-white">
-                            🔒 Admin 1-Tap Order Control
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-[11px] font-bold tracking-wider uppercase text-white shadow-sm">
+                            <span class="h-2 w-2 rounded-full bg-white animate-pulse"></span>
+                            Admin 1-Tap Control
                         </span>
-                        <span class="badge bg-white/20 text-white text-xs">{{ $order->status->label() }}</span>
+                        <span class="badge bg-white/25 text-white font-mono text-xs">{{ $order->status->label() }}</span>
                     </div>
 
-                    <h1 class="display mt-2.5 text-3xl sm:text-4xl text-white">
+                    <h1 class="display mt-3 text-3xl sm:text-4xl text-white tracking-wide">
                         @if ($isAlreadyCompleted)
                             ⚠️ Already Confirmed &amp; Delivered!
                         @elseif ($isCompleted)
@@ -55,60 +56,70 @@
                     </h1>
 
                     @if ($message)
-                        <p class="mt-1 text-xs sm:text-sm text-white/90 font-medium">{{ $message }}</p>
+                        <div class="mt-2.5 rounded-lg bg-black/25 px-3 py-2 text-xs sm:text-sm text-white/95 font-medium border border-white/10">
+                            {{ $message }}
+                        </div>
                     @endif
                 </div>
 
-                <div class="p-4 sm:p-6 space-y-5">
+                <div class="p-5 sm:p-7 space-y-6">
                     @if ($isAlreadyCompleted)
                         <div class="rounded-xl border-2 border-amber-500/40 bg-amber-500/10 p-4 text-xs sm:text-sm text-ink">
-                            <p class="font-bold text-amber-900">🛑 Duplicate Approval Prevented</p>
+                            <p class="font-bold text-amber-900 flex items-center gap-1.5">
+                                <span>🛑</span> Duplicate Approval Prevented
+                            </p>
                             <p class="mt-1 text-body">
-                                This order was <strong>already verified and delivered</strong> ({{ $order->completed_at ? $order->completed_at->format('d M Y, h:i A') : 'earlier' }}). The customer already has their credentials on the order page.
+                                This order was <strong>already verified and delivered</strong> ({{ $order->completed_at ? $order->completed_at->format('d M Y, h:i A') : 'earlier' }}). Credentials are live on the customer's order page.
                             </p>
                         </div>
                     @endif
 
                     @if ($isNeedsAttention)
                         <div class="rounded-xl border-2 border-amber-500/40 bg-amber-500/10 p-4 text-xs sm:text-sm text-ink">
-                            <p class="font-bold text-amber-900">⚠️ Why Delivery is Pending / On Hold:</p>
-                            <p class="mt-1 font-mono text-xs text-danger break-words">{{ $order->admin_note ?: 'No stock or supplier balance available.' }}</p>
+                            <p class="font-bold text-amber-900 flex items-center gap-1.5">
+                                <span>⚠️</span> Why Delivery is Pending / On Hold:
+                            </p>
+                            <p class="mt-1 font-mono text-xs text-danger break-words bg-white/70 p-2.5 rounded-lg border border-amber-300">
+                                {{ $order->admin_note ?: 'No stock or supplier balance available.' }}
+                            </p>
                             <p class="mt-2 text-xs text-body">
-                                <strong>What to do:</strong> Either top up your supplier balance &amp; tap <strong>Retry Supplier Delivery</strong>, OR paste the customer's credentials below &amp; tap <strong>Deliver Pasted Credentials</strong>, OR tap <strong>Mark Delivered via WhatsApp</strong>!
+                                <strong>Next Action:</strong> Either top up supplier funds &amp; tap <strong>Retry Supplier Delivery</strong>, OR paste credentials below &amp; tap <strong>Deliver Pasted Credentials</strong>, OR tap <strong>Mark Delivered via WhatsApp</strong>!
                             </p>
                         </div>
                     @endif
 
                     {{-- Order Details Summary Table --}}
-                    <dl class="divide-y divide-line rounded-xl border border-line text-xs sm:text-sm">
-                        <div class="flex justify-between gap-3 p-3">
-                            <dt class="text-muted">Order ID</dt>
+                    <dl class="divide-y divide-line rounded-xl border border-line bg-grey-soft/50 text-xs sm:text-sm shadow-xs">
+                        <div class="flex justify-between items-center gap-3 p-3.5">
+                            <dt class="text-muted font-medium">Order Number</dt>
                             <dd class="font-mono font-bold text-ink">{{ $order->number }}</dd>
                         </div>
-                        <div class="flex justify-between gap-3 p-3">
-                            <dt class="text-muted">Product</dt>
+                        <div class="flex justify-between items-center gap-3 p-3.5">
+                            <dt class="text-muted font-medium">Product / Quantity</dt>
                             <dd class="font-semibold text-ink text-right break-words">{{ $itemsSummary }}</dd>
                         </div>
-                        <div class="flex justify-between gap-3 p-3">
-                            <dt class="text-muted">Total Amount</dt>
-                            <dd class="font-bold text-ink">{{ money($order->total) }}</dd>
+                        <div class="flex justify-between items-center gap-3 p-3.5">
+                            <dt class="text-muted font-medium">Total Amount</dt>
+                            <dd class="display text-xl text-brand font-bold">{{ money($order->total) }}</dd>
                         </div>
-                        <div class="flex justify-between gap-3 p-3">
-                            <dt class="text-muted">Payment Status</dt>
+                        <div class="flex justify-between items-center gap-3 p-3.5">
+                            <dt class="text-muted font-medium">Payment Method</dt>
                             <dd class="font-semibold text-ink">
-                                {{ $order->paid_at ? '✅ Confirmed ('.$order->paid_at->format('h:i A').')' : ($order->paymentMethod?->name ?? 'Pending Review') }}
+                                {{ $order->paymentMethod?->name ?? 'Direct Payment' }}
                             </dd>
                         </div>
-                        <div class="flex justify-between gap-3 p-3">
-                            <dt class="text-muted">Transaction ID (TID)</dt>
-                            <dd class="font-mono font-bold text-brand break-all text-right">{{ $payment?->transaction_id ?? 'WhatsApp Verification' }}</dd>
+                        <div class="flex justify-between items-center gap-3 p-3.5">
+                            <dt class="text-muted font-medium">Transaction ID (TID)</dt>
+                            <dd class="font-mono font-bold text-brand bg-brand-tint px-2.5 py-1 rounded text-right break-all">
+                                {{ $payment?->transaction_id ?? 'WhatsApp Verification' }}
+                            </dd>
                         </div>
-                        <div class="flex justify-between gap-3 p-3">
-                            <dt class="text-muted">Customer</dt>
+                        <div class="flex justify-between items-start gap-3 p-3.5">
+                            <dt class="text-muted font-medium">Customer</dt>
                             <dd class="text-right text-xs text-ink break-all">
-                                <div>{{ $order->email }}</div>
+                                <div class="font-medium">{{ $order->email }}</div>
                                 @if ($order->phone || $payment?->sender_number)
-                                    <div class="font-mono text-muted">{{ $order->phone ?: $payment?->sender_number }}</div>
+                                    <div class="font-mono text-muted mt-0.5">{{ $order->phone ?: $payment?->sender_number }}</div>
                                 @endif
                             </dd>
                         </div>
@@ -116,21 +127,21 @@
 
                     {{-- 1-Tap Action Form (Requires Admin Secret Key if not unlocked yet) --}}
                     @if (! $isCompleted && ! $isRejected)
-                        <form method="post" action="{{ route('webhooks.order.quick', ['order' => $order->number]) }}" class="rounded-xl border-2 border-brand/30 bg-brand-tint/35 p-4 space-y-4">
+                        <form method="post" action="{{ route('webhooks.order.quick', ['order' => $order->number]) }}" class="rounded-xl border-2 border-brand/25 bg-brand-tint/30 p-5 space-y-4">
                             @csrf
 
                             @if ($needsPin)
                                 <div>
                                     <label for="pin" class="label text-xs sm:text-sm font-bold text-ink">
                                         🔑 Admin Secret Key <span class="text-danger">*</span>
-                                        <span class="block text-[11px] font-normal text-muted">Enter the Admin 1-Tap PIN saved in your Admin Panel → Store Settings (remembered on your phone for 1 year).</span>
+                                        <span class="block text-[11px] font-normal text-muted mt-0.5">Enter the Admin 1-Tap PIN saved in your Admin Panel → Store Settings.</span>
                                     </label>
                                     <input id="pin"
                                            name="pin"
                                            type="password"
                                            required
                                            autofocus
-                                           class="input mt-1.5 text-center font-mono text-lg tracking-widest"
+                                           class="input mt-1.5 text-center font-mono text-xl tracking-widest py-3"
                                            placeholder="••••">
                                 </div>
                             @endif
@@ -138,14 +149,14 @@
                             <div>
                                 <label for="credentials" class="label text-xs font-semibold text-ink">
                                     {{ $isNeedsAttention ? 'Paste Credentials to Deliver Manually (or leave blank to Retry Supplier)' : 'Optional: Paste Account Credentials / Activation Link' }}
-                                    <span class="block text-[11px] font-normal text-muted">
-                                        For multiple pcs, separate each unit with <code>---</code> on its own line, or 1 unit per line. Leave blank to auto-deliver from .TXT stock or supplier API.
+                                    <span class="block text-[11px] font-normal text-muted mt-0.5">
+                                        For multiple pcs, separate each unit with <code>---</code> on its own line. Leave blank to auto-deliver from .TXT stock or supplier API.
                                     </span>
                                 </label>
                                 <textarea id="credentials"
                                           name="credentials"
                                           rows="3"
-                                          class="input mt-1 font-mono text-xs"
+                                          class="input mt-1.5 font-mono text-xs"
                                           placeholder="Email: user@email.com&#10;Pass: secret123&#10;---&#10;Email: user2@email.com">{{ old('credentials') }}</textarea>
                             </div>
 
@@ -154,13 +165,13 @@
                                     <button type="submit"
                                             name="do"
                                             value="retry"
-                                            class="btn bg-[#16a34a] text-white hover:bg-[#15803d] py-3 text-xs sm:text-sm font-bold shadow-md">
+                                            class="btn bg-[#16a34a] text-white hover:bg-[#15803d] py-3.5 text-xs sm:text-sm font-bold shadow-md">
                                         🔄 Deliver Pasted Credentials / Retry Supplier API
                                     </button>
                                     <button type="submit"
                                             name="do"
                                             value="whatsapp_delivered"
-                                            class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] py-3 text-xs sm:text-sm font-bold shadow-md">
+                                            class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] py-3.5 text-xs sm:text-sm font-bold shadow-md">
                                         📲 Mark Delivered to Customer via WhatsApp
                                     </button>
                                 </div>
@@ -186,7 +197,7 @@
                     @if ($deliveredLines !== [])
                         <div class="rounded-xl border border-success/30 bg-success-tint p-4">
                             <p class="text-xs font-bold uppercase tracking-wider text-success">Delivered Credentials</p>
-                            <pre class="mt-2 font-mono text-xs whitespace-pre-wrap break-all text-ink">{{ implode("\n---\n", $deliveredLines) }}</pre>
+                            <pre class="mt-2 font-mono text-xs whitespace-pre-wrap break-all text-ink bg-white/70 p-3 rounded-lg border border-success/20">{{ implode("\n---\n", $deliveredLines) }}</pre>
                         </div>
                     @endif
 
@@ -194,14 +205,14 @@
                     <div class="space-y-2.5 border-t border-line pt-4">
                         @if ($customerPhone !== '')
                             <a href="https://wa.me/{{ $customerPhone }}?text={{ urlencode($customerWaText) }}"
-                               target="_blank"
-                               rel="noopener"
-                               class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full py-3 text-xs sm:text-sm font-bold">
+                                target="_blank"
+                                rel="noopener"
+                                class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full py-3 text-xs sm:text-sm font-bold shadow-sm">
                                 📲 Message Customer on WhatsApp ({{ $isCompleted ? 'Send Credentials' : 'Order Update' }}) →
                             </a>
                         @endif
                         <div class="grid grid-cols-2 gap-2.5">
-                            <a href="{{ url('/admin/orders/'.$order->id) }}" class="btn btn-dark py-2.5 text-xs font-bold text-center">
+                            <a href="{{ route('filament.admin.resources.orders.view', ['record' => $order->number]) }}" class="btn btn-dark py-2.5 text-xs font-bold text-center">
                                 ⚙️ Open Order in Admin Panel
                             </a>
                             <a href="{{ $order->customerUrl() }}" class="btn btn-outline py-2.5 text-xs font-semibold text-center">

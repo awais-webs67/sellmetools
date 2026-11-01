@@ -104,7 +104,7 @@
                     <div class="text-center lg:text-left">
                         <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-wider text-white/90 uppercase">
                             <span class="h-2 w-2 rounded-full bg-[#22c55e] live-dot"></span>
-                            Live stock · Pakistan
+                            Verified Digital Store · Pakistan 🇵🇰
                         </span>
 
                         <h1 class="display mt-4 text-[clamp(38px,6.5vw,76px)] leading-[0.95] text-white">
@@ -143,8 +143,8 @@
                                     <p class="mt-1 text-[11px] font-medium tracking-wide text-white/60 uppercase">Products listed</p>
                                 </div>
                                 <div class="rounded-xl bg-white/[.07] p-4">
-                                    <p class="display text-4xl text-white">{{ $stats['delivered'] > 0 ? number_format($stats['delivered']) : '24/7' }}</p>
-                                    <p class="mt-1 text-[11px] font-medium tracking-wide text-white/60 uppercase">{{ $stats['delivered'] > 0 ? 'Orders delivered' : 'Order tracking' }}</p>
+                                    <p class="display text-4xl text-white">{{ $stats['delivered'] >= 100 ? number_format($stats['delivered']) : 'Instant' }}</p>
+                                    <p class="mt-1 text-[11px] font-medium tracking-wide text-white/60 uppercase">{{ $stats['delivered'] >= 100 ? 'Orders delivered' : 'Auto Delivery' }}</p>
                                 </div>
                             </div>
 

@@ -133,16 +133,17 @@
     :type="'product'"
     :canonical="$productUrl"
 >
-    <div class="container-x py-5 sm:py-10">
-        <nav class="text-xs sm:text-sm" aria-label="Breadcrumb">
-            <ol class="flex flex-wrap items-center gap-1.5 text-muted">
-                <li><a href="{{ route('home') }}" class="hover:text-ink">Shop</a></li>
+    <div class="container-x py-5 sm:py-8">
+        {{-- Breadcrumb Navigation --}}
+        <nav class="text-xs sm:text-sm mb-4" aria-label="Breadcrumb">
+            <ol class="flex flex-wrap items-center gap-2 text-muted">
+                <li><a href="{{ route('home') }}" class="hover:text-ink transition">Shop</a></li>
                 @if ($product->category)
-                    <li aria-hidden="true">/</li>
-                    <li><a href="{{ route('categories.show', $product->category) }}" class="hover:text-ink">{{ $product->category->name }}</a></li>
+                    <li aria-hidden="true" class="text-muted/60">/</li>
+                    <li><a href="{{ route('categories.show', $product->category) }}" class="hover:text-ink transition">{{ $product->category->name }}</a></li>
                 @endif
-                <li aria-hidden="true">/</li>
-                <li class="text-ink font-medium truncate max-w-[220px] sm:max-w-none" aria-current="page">{{ $product->name }}</li>
+                <li aria-hidden="true" class="text-muted/60">/</li>
+                <li class="text-ink font-semibold truncate max-w-[200px] sm:max-w-none" aria-current="page">{{ $product->name }}</li>
             </ol>
         </nav>
 
@@ -150,133 +151,193 @@
             $effectivePrice = $product->priceFor(auth()->user());
             $hasResellerDiscount = $effectivePrice < (float) $product->price;
         @endphp
-        {{-- TOP SECTION: Product Image + Main Buy Box right at the top on mobile & desktop --}}
-        <div class="mt-4 grid gap-6 lg:grid-cols-[1fr_440px] lg:items-start"
+
+        {{-- TOP SECTION: Product Image Showcase + Sticky Buy Card --}}
+        <div class="grid gap-6 lg:grid-cols-[1.1fr_.9fr] lg:items-start"
              x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, @js(money($effectivePrice)), {{ (float) $effectivePrice }})"
              data-stock-id="{{ $product->id }}">
 
-            {{-- Product Image --}}
-            <div class="card aspect-[16/10] overflow-hidden bg-grey-soft">
-                @if ($img = $product->imageUrl())
-                    <img src="{{ $img }}" alt="{{ $product->name }}" class="h-full w-full object-cover">
-                @else
-                    <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand to-ink">
-                        <span class="display px-6 text-center text-3xl sm:text-6xl text-white">{{ $product->name }}</span>
+            {{-- Product Media Display --}}
+            <div class="space-y-4">
+                <div class="card relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-[#1F070E] to-[#120408] border border-line shadow-lg">
+                    @if ($img = $product->imageUrl())
+                        <img src="{{ $img }}" alt="{{ $product->name }}" class="h-full w-full object-cover">
+                    @else
+                        <div class="flex h-full w-full items-center justify-center p-6 text-center">
+                            <div>
+                                <span class="display text-4xl sm:text-6xl text-white">{{ $product->name }}</span>
+                                <p class="mt-2 text-xs sm:text-sm text-white/60 uppercase tracking-widest">Digital Subscription</p>
+                            </div>
+                        </div>
+                    @endif
+
+                    {{-- Badges floating over image --}}
+                    <div class="absolute top-3.5 left-3.5 flex flex-wrap gap-2">
+                        @if ($product->category)
+                            <span class="rounded-full bg-black/60 px-3 py-1 text-[11px] font-bold text-white backdrop-blur">
+                                {{ $product->category->name }}
+                            </span>
+                        @endif
+                        <span class="rounded-full bg-[#16794B] px-3 py-1 text-[11px] font-bold text-white shadow">
+                            ⚡ Instant Delivery
+                        </span>
                     </div>
-                @endif
+                </div>
+
+                {{-- Quick Trust Strip under Image --}}
+                <div class="grid grid-cols-3 gap-2.5 sm:gap-3 text-center">
+                    <div class="card p-3 sm:p-3.5 bg-white">
+                        <span class="block text-lg sm:text-xl">⚡</span>
+                        <p class="font-bold text-xs sm:text-sm text-ink mt-0.5">Instant Access</p>
+                        <p class="text-[10px] sm:text-xs text-muted">Auto credentials</p>
+                    </div>
+                    <div class="card p-3 sm:p-3.5 bg-white">
+                        <span class="block text-lg sm:text-xl">🛡️</span>
+                        <p class="font-bold text-xs sm:text-sm text-ink mt-0.5">Full Warranty</p>
+                        <p class="text-[10px] sm:text-xs text-muted">Replacement backup</p>
+                    </div>
+                    <div class="card p-3 sm:p-3.5 bg-white">
+                        <span class="block text-lg sm:text-xl">🇵🇰</span>
+                        <p class="font-bold text-xs sm:text-sm text-ink mt-0.5">Local Pay</p>
+                        <p class="text-[10px] sm:text-xs text-muted">Easypaisa &amp; JazzCash</p>
+                    </div>
+                </div>
             </div>
 
-            {{-- Main Buy Card (Immediately below image on mobile, sticky right column on desktop) --}}
+            {{-- Main Buy Box (Sticky on Desktop) --}}
             <aside class="lg:sticky lg:top-24">
-                <div class="card p-4 sm:p-6">
-                    <div class="flex items-center justify-between gap-2">
-                        @if ($product->category)
-                            <p class="text-xs font-semibold tracking-wider text-brand uppercase truncate">{{ $product->category->name }}</p>
-                        @endif
-                        <a href="#reviews" class="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-amber-500 hover:underline">
-                            ★ <span class="text-ink">{{ number_format($avgRating, 1) }}</span>
-                            <span class="text-muted">({{ $reviewsCount }})</span>
+                <div class="card p-5 sm:p-7 shadow-lg border-2 border-line">
+                    <div class="flex items-center justify-between gap-2 border-b border-line pb-3">
+                        <span class="eyebrow truncate">{{ $product->category?->name ?? 'Software & AI' }}</span>
+                        <a href="#reviews" class="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-amber-500 hover:underline">
+                            <span>★</span>
+                            <span class="text-ink font-bold">{{ number_format($avgRating, 1) }}</span>
+                            <span class="text-muted">({{ $reviewsCount }} reviews)</span>
                         </a>
                     </div>
 
-                    <h1 class="mt-1.5 text-xl sm:text-2xl font-bold leading-tight break-words">{{ $product->name }}</h1>
+                    <h1 class="mt-3 text-2xl sm:text-3xl font-bold text-ink leading-tight break-words">{{ $product->name }}</h1>
                     @if ($product->short_description)
-                        <p class="mt-2 text-xs sm:text-sm text-body">{{ $product->short_description }}</p>
+                        <p class="mt-2 text-xs sm:text-sm text-body leading-relaxed">{{ $product->short_description }}</p>
                     @endif
 
-                    <div class="mt-4 flex flex-wrap items-end justify-between gap-3 border-y border-line py-3.5">
+                    {{-- Live Price & Stock Status Bar --}}
+                    <div class="mt-5 flex flex-wrap items-end justify-between gap-3 rounded-xl bg-grey-soft p-4 border border-line">
                         <div>
                             @if ($hasResellerDiscount)
                                 <p class="text-xs text-muted">Retail: <span class="line-through">{{ money($product->price) }}</span> <span class="badge badge-brand ml-1 text-[10px]">VIP Reseller Rate</span></p>
                             @elseif ($product->compare_at_price && $product->compare_at_price > $effectivePrice)
                                 <p class="text-xs text-muted line-through">{{ money($product->compare_at_price) }}</p>
                             @endif
-                            <p class="display text-3xl sm:text-5xl text-ink" x-text="priceText">{{ money($effectivePrice) }}</p>
+                            <p class="display text-4xl sm:text-5xl text-brand" x-text="priceText">{{ money($effectivePrice) }}</p>
                         </div>
-                        <span :class="inStock ? 'badge badge-success' : 'badge badge-danger'" class="text-xs">
+                        <span :class="inStock ? 'badge badge-success' : 'badge badge-danger'" class="text-xs py-1 px-3">
                             <span class="dot" :class="inStock ? 'bg-success live-dot' : 'bg-danger'"></span>
-                            <span x-text="label">{{ $initialStockLabel }}</span>
+                            <span x-text="label" class="font-bold">{{ $initialStockLabel }}</span>
                         </span>
                     </div>
 
-                    <form method="get" action="{{ route('checkout.create', $product) }}" class="mt-4 space-y-4" x-data="{ qty: 1, max: {{ $product->max_per_order }} }">
+                    {{-- Add to Cart / Buy Form --}}
+                    <form method="get" action="{{ route('checkout.create', $product) }}" class="mt-5 space-y-4" x-data="{ qty: 1, max: {{ $product->max_per_order }} }">
                         <div class="flex items-center justify-between gap-4">
-                            <label class="text-sm font-medium text-ink" for="qty">Quantity</label>
-                            <div class="flex w-32 items-center rounded-lg border border-line-strong">
-                                <button type="button" class="px-3 py-1.5 text-lg text-ink disabled:opacity-40" @click="qty = Math.max(1, qty - 1)" :disabled="qty <= 1" aria-label="Decrease">−</button>
-                                <input id="qty" name="qty" type="number" min="1" :max="max" x-model.number="qty" class="w-full border-0 text-center font-semibold text-ink focus:ring-0 focus:outline-none" inputmode="numeric">
-                                <button type="button" class="px-3 py-1.5 text-lg text-ink disabled:opacity-40" @click="qty = Math.min(max, data.unlimited ? max : Math.max(1, data.qty), qty + 1)" :disabled="qty >= max || (!data.unlimited && qty >= data.qty)" aria-label="Increase">+</button>
+                            <label class="text-xs sm:text-sm font-semibold text-ink" for="qty">Quantity</label>
+                            <div class="flex w-36 items-center rounded-lg border border-line-strong bg-white shadow-xs">
+                                <button type="button" class="px-3.5 py-2 text-base font-bold text-ink hover:bg-grey-soft transition active:scale-90 disabled:opacity-30" @click="qty = Math.max(1, qty - 1)" :disabled="qty <= 1" aria-label="Decrease">−</button>
+                                <input id="qty" name="qty" type="number" min="1" :max="max" x-model.number="qty" class="w-full border-0 text-center font-bold text-ink focus:ring-0 focus:outline-none text-sm" inputmode="numeric">
+                                <button type="button" class="px-3.5 py-2 text-base font-bold text-ink hover:bg-grey-soft transition active:scale-90 disabled:opacity-30" @click="qty = Math.min(max, data.unlimited ? max : Math.max(1, data.qty), qty + 1)" :disabled="qty >= max || (!data.unlimited && qty >= data.qty)" aria-label="Increase">+</button>
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-primary btn-lg w-full" :disabled="!inStock">
-                            <span x-show="inStock">Buy Now →</span>
-                            <span x-show="!inStock" x-cloak>Sold Out</span>
+
+                        <button type="submit" class="btn btn-primary btn-lg w-full text-base font-bold shadow-md" :disabled="!inStock">
+                            <span x-show="inStock">Proceed to Checkout →</span>
+                            <span x-show="!inStock" x-cloak>Currently Out of Stock</span>
                         </button>
                     </form>
 
                     @if ($product->warranty)
-                        <div class="mt-4 rounded-xl bg-brand-tint p-3.5">
-                            <p class="text-xs font-bold uppercase tracking-wider text-brand-text">Warranty &amp; Terms</p>
-                            <p class="mt-1 text-xs leading-5 whitespace-pre-line text-slate break-words">{{ $product->warranty }}</p>
+                        <div class="mt-4 rounded-xl bg-brand-tint/60 border border-brand/20 p-4">
+                            <p class="text-xs font-bold uppercase tracking-wider text-brand-text flex items-center gap-1.5">
+                                <span>🛡️</span> Warranty &amp; Guarantee Terms
+                            </p>
+                            <p class="mt-1.5 text-xs leading-5 whitespace-pre-line text-slate break-words">{{ $product->warranty }}</p>
                         </div>
                     @endif
 
-                    <ul class="mt-4 space-y-1.5 text-xs">
-                        <li class="flex gap-2"><svg class="mt-0.5 h-4 w-4 shrink-0 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg> Instant credentials delivery after payment</li>
-                        <li class="flex gap-2"><svg class="mt-0.5 h-4 w-4 shrink-0 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg> Easypaisa · JazzCash · NayaPay · SadaPay · Binance</li>
+                    <ul class="mt-4 space-y-2 text-xs text-body border-t border-line pt-3.5">
+                        <li class="flex items-center gap-2 font-medium">
+                            <svg class="h-4 w-4 shrink-0 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>
+                            Instant credentials on order page after verification
+                        </li>
+                        <li class="flex items-center gap-2 font-medium">
+                            <svg class="h-4 w-4 shrink-0 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>
+                            Easypaisa · JazzCash · NayaPay · SadaPay · Binance USDT
+                        </li>
                     </ul>
                 </div>
             </aside>
         </div>
 
         {{-- SECONDARY DETAILS & REVIEWS BELOW --}}
-        <div class="mt-8 grid gap-6 lg:grid-cols-2">
+        <div class="mt-10 grid gap-6 lg:grid-cols-2">
             @if ($product->description)
-                <section class="card p-4 sm:p-6">
-                    <h2 class="text-base sm:text-lg font-bold">Product Details</h2>
-                    <div class="prose-store mt-3 text-xs sm:text-sm break-words">{!! nl2br(e(strip_tags($product->description))) !!}</div>
+                <section class="card p-5 sm:p-7 shadow-xs">
+                    <h2 class="display text-2xl sm:text-3xl">Product Overview</h2>
+                    <div class="prose-store mt-4 text-xs sm:text-sm break-words leading-relaxed text-body">{!! nl2br(e(strip_tags($product->description))) !!}</div>
                 </section>
             @endif
 
             {{-- Customer Reviews Section --}}
-            <section id="reviews" @class(['card p-4 sm:p-6 scroll-mt-24', 'lg:col-span-2' => ! $product->description])>
-                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
+            <section id="reviews" @class(['card p-5 sm:p-7 scroll-mt-24 shadow-xs', 'lg:col-span-2' => ! $product->description])>
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-4">
                     <div>
-                        <h2 class="text-base sm:text-lg font-bold">Customer Reviews</h2>
-                        <p class="mt-0.5 text-xs text-muted">
-                            <span class="font-bold text-amber-500">★ {{ number_format($avgRating, 1) }}</span> out of 5
-                            @if ($reviewsCount > 0) · {{ $reviewsCount }} review(s) @endif
+                        <h2 class="display text-2xl sm:text-3xl">Customer Reviews</h2>
+                        <p class="mt-0.5 text-xs sm:text-sm text-muted">
+                            Verified ratings from active buyers
                         </p>
+                    </div>
+                    <div class="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3.5 py-1 text-sm font-bold text-amber-900 border border-amber-500/20">
+                        <span class="text-amber-500">★</span>
+                        <span>{{ number_format($avgRating, 1) }} / 5.0</span>
+                        @if ($reviewsCount > 0)
+                            <span class="text-muted font-normal text-xs">({{ $reviewsCount }})</span>
+                        @endif
                     </div>
                 </div>
 
                 @if ($product->approvedReviews->isNotEmpty())
-                    <div class="mt-3 divide-y divide-line">
+                    <div class="mt-4 divide-y divide-line">
                         @foreach ($product->approvedReviews->take(8) as $rev)
-                            <div class="py-3 first:pt-0">
+                            <div class="py-3.5 first:pt-0">
                                 <div class="flex items-center justify-between gap-2">
-                                    <p class="text-xs sm:text-sm font-semibold text-ink">{{ $rev->customer_name }}</p>
+                                    <div class="flex items-center gap-2">
+                                        <div class="flex h-7 w-7 items-center justify-center rounded-full bg-brand-tint text-xs font-bold text-brand uppercase">
+                                            {{ mb_substr($rev->customer_name, 0, 1) }}
+                                        </div>
+                                        <p class="text-xs sm:text-sm font-semibold text-ink">{{ $rev->customer_name }}</p>
+                                    </div>
                                     <span class="text-xs text-amber-500">{{ str_repeat('★', $rev->rating) }}{{ str_repeat('☆', 5 - $rev->rating) }}</span>
                                 </div>
                                 @if ($rev->comment)
-                                    <p class="mt-1 text-xs sm:text-sm text-body break-words">{{ $rev->comment }}</p>
+                                    <p class="mt-2 text-xs sm:text-sm text-body break-words pl-9">{{ $rev->comment }}</p>
                                 @endif
                             </div>
                         @endforeach
                     </div>
                 @else
-                    <p class="mt-3 text-xs sm:text-sm text-muted">No reviews yet — be the first to review this product!</p>
+                    <div class="mt-6 rounded-xl bg-grey-soft p-6 text-center text-xs sm:text-sm text-muted">
+                        No reviews yet — be the first to share your experience with this tool!
+                    </div>
                 @endif
 
-                <form method="post" action="{{ route('products.reviews.store', $product) }}" class="mt-4 border-t border-line pt-4 space-y-3">
+                <form method="post" action="{{ route('products.reviews.store', $product) }}" class="mt-6 border-t border-line pt-5 space-y-3.5">
                     @csrf
-                    <h3 class="text-xs sm:text-sm font-bold text-ink">Write a Review</h3>
+                    <h3 class="text-sm font-bold text-ink">Leave a Review</h3>
                     <div class="grid gap-3 sm:grid-cols-2">
                         <div>
-                            <input id="customer_name" name="customer_name" required class="input py-2 text-xs sm:text-sm" value="{{ old('customer_name', auth()->user()?->name) }}" placeholder="Your Name">
+                            <input id="customer_name" name="customer_name" required class="input py-2.5 text-xs sm:text-sm" value="{{ old('customer_name', auth()->user()?->name) }}" placeholder="Your Name">
                         </div>
                         <div>
-                            <select id="rating" name="rating" class="input py-2 text-xs sm:text-sm">
+                            <select id="rating" name="rating" class="input py-2.5 text-xs sm:text-sm">
                                 <option value="5">★★★★★ (5/5 Excellent)</option>
                                 <option value="4">★★★★☆ (4/5 Good)</option>
                                 <option value="3">★★★☆☆ (3/5 Average)</option>
@@ -285,16 +346,22 @@
                             </select>
                         </div>
                     </div>
-                    <textarea id="comment" name="comment" rows="2" required class="input text-xs sm:text-sm" placeholder="Share your experience...">{{ old('comment') }}</textarea>
-                    <button type="submit" class="btn btn-outline text-xs py-2">Submit Review</button>
+                    <textarea id="comment" name="comment" rows="2" required class="input text-xs sm:text-sm" placeholder="Write your feedback...">{{ old('comment') }}</textarea>
+                    <button type="submit" class="btn btn-outline text-xs sm:text-sm py-2 px-5 font-bold">Submit Review</button>
                 </form>
             </section>
         </div>
 
         @if ($related->isNotEmpty())
-            <section class="mt-10">
-                <h2 class="display text-2xl sm:text-4xl">Related Tools</h2>
-                <div class="mt-4 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+            <section class="mt-12">
+                <div class="flex items-end justify-between">
+                    <div>
+                        <span class="eyebrow">Recommendations</span>
+                        <h2 class="display mt-1 text-2xl sm:text-4xl">Related Tools</h2>
+                    </div>
+                    <a href="{{ route('home') }}#products" class="text-xs sm:text-sm font-semibold text-brand hover:underline">View All →</a>
+                </div>
+                <div class="mt-5 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
                     @foreach ($related as $item)
                         <x-product-card :product="$item" />
                     @endforeach

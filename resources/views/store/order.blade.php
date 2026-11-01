@@ -60,13 +60,20 @@
             <p class="text-xs sm:text-sm text-muted">Placed {{ $order->created_at->format('d M Y, h:i A') }}</p>
         </div>
 
-        {{-- Progress --}}
+        {{-- Progress Stepper with Modern Visual Badges --}}
         @unless (in_array($s, [OrderStatus::Cancelled, OrderStatus::Expired, OrderStatus::Refunded], true))
-            <ol class="mt-4 grid grid-cols-4 gap-1.5 sm:gap-2" aria-label="Order progress">
+            <ol class="mt-5 grid grid-cols-4 gap-2 sm:gap-3" aria-label="Order progress">
                 @foreach ($steps as $i => [$label, $done])
                     <li class="min-w-0">
-                        <div @class(['h-1.5 rounded-full transition-all duration-300', 'bg-brand' => $done, 'bg-line' => ! $done])></div>
-                        <p @class(['mt-1.5 truncate text-[11px] font-semibold sm:text-sm', 'text-ink' => $done, 'text-muted' => ! $done])>{{ $label }}</p>
+                        <div class="flex items-center gap-1.5 mb-1.5">
+                            <span @class([
+                                'flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[10px] sm:text-xs font-bold transition-all shadow-xs',
+                                'bg-brand text-white shadow-brand/20' => $done,
+                                'bg-grey-soft text-muted border border-line-strong' => ! $done,
+                            ])>{{ $done ? '✓' : $i + 1 }}</span>
+                            <span @class(['truncate text-[11px] sm:text-xs font-bold', 'text-ink' => $done, 'text-muted' => ! $done])>{{ $label }}</span>
+                        </div>
+                        <div @class(['h-1.5 rounded-full transition-all duration-500', 'bg-brand' => $done, 'bg-line' => ! $done])></div>
                     </li>
                 @endforeach
             </ol>

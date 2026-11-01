@@ -1,24 +1,69 @@
-<x-layouts.store title="Login" robots="noindex, nofollow">
-    <div class="container-x py-12 lg:py-16">
+<x-layouts.store title="Account Login" robots="noindex, nofollow">
+    <div class="container-x py-10 sm:py-16 lg:py-20">
         <div class="mx-auto max-w-md">
-            <h1 class="display text-5xl">Welcome back</h1>
-            <p class="mt-2">Log in to see all your orders in one place.</p>
-            <form method="post" action="{{ route('login') }}" class="card mt-6 space-y-4 p-6">
-                @csrf
-                <div>
-                    <label for="email" class="label">Email</label>
-                    <input id="email" name="email" type="email" required autofocus autocomplete="email" class="input" value="{{ old('email') }}">
-                    @error('email')<p class="field-error">{{ $message }}</p>@enderror
+            <section class="card overflow-hidden border-2 border-line shadow-2xl">
+                {{-- Branded Top Header --}}
+                <div class="bg-gradient-to-br from-[#1F070E] via-[#2B0912] to-[#120408] p-6 sm:p-8 text-white text-center">
+                    <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 border border-white/20 text-white shadow-inner">
+                        <x-logo-mark class="h-9 w-9" />
+                    </div>
+                    <span class="eyebrow mt-4 text-[#ff8fa3] justify-center">Member Access</span>
+                    <h1 class="display mt-2 text-3xl sm:text-4xl text-white">Welcome Back</h1>
+                    <p class="mt-2 text-xs sm:text-sm text-white/75">
+                        Access your private credentials vault, order history, and account wallet balance.
+                    </p>
                 </div>
-                <div>
-                    <label for="password" class="label">Password</label>
-                    <input id="password" name="password" type="password" required autocomplete="current-password" class="input">
-                </div>
-                <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="remember" class="h-4 w-4 accent-brand"> Remember me</label>
-                <button class="btn btn-primary w-full">Log in</button>
-                <p class="text-center text-sm">New here? <a href="{{ route('register') }}" class="font-semibold text-brand-text underline">Create an account</a></p>
-            </form>
+
+                {{-- Login Form --}}
+                <form method="post" action="{{ route('login') }}" class="p-6 sm:p-8 space-y-4">
+                    @csrf
+                    <div>
+                        <label for="email" class="label text-xs sm:text-sm font-semibold">Email Address <span class="text-danger">*</span></label>
+                        <input id="email"
+                               name="email"
+                               type="email"
+                               required
+                               autofocus
+                               autocomplete="email"
+                               class="input py-2.5 text-sm"
+                               value="{{ old('email') }}"
+                               placeholder="you@gmail.com">
+                        @error('email')<p class="field-error text-xs">{{ $message }}</p>@enderror
+                    </div>
+
+                    <div>
+                        <label for="password" class="label text-xs sm:text-sm font-semibold">Password <span class="text-danger">*</span></label>
+                        <input id="password"
+                               name="password"
+                               type="password"
+                               required
+                               autocomplete="current-password"
+                               class="input py-2.5 text-sm"
+                               placeholder="••••••••">
+                        @error('password')<p class="field-error text-xs">{{ $message }}</p>@enderror
+                    </div>
+
+                    <div class="flex items-center justify-between text-xs sm:text-sm">
+                        <label class="flex items-center gap-2 cursor-pointer select-none">
+                            <input type="checkbox" name="remember" class="h-4 w-4 rounded accent-brand">
+                            <span class="text-body font-medium">Remember me</span>
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg w-full text-sm sm:text-base font-bold shadow-md mt-2">
+                        Sign In to Customer Panel →
+                    </button>
+
+                    <div class="border-t border-line pt-4 text-center">
+                        <p class="text-xs sm:text-sm text-muted">
+                            New to {{ setting('store_name') }}?
+                            <a href="{{ route('register') }}" class="font-bold text-brand hover:underline">
+                                Create an account
+                            </a>
+                        </p>
+                    </div>
+                </form>
+            </section>
         </div>
     </div>
 </x-layouts.store>
-
