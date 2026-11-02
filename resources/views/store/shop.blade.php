@@ -4,10 +4,10 @@
 
     $seoTitle = $activeCategory
         ? $activeCategory->seoTitle()
-        : ($search !== '' ? "Search Results for “{$search}” in Shop" : 'Shop All AI Tools & Digital Subscriptions — Instant Delivery');
+        : ($search !== '' ? "Search Results for “{$search}” in Shop" : 'Shop All AI Tools & Digital Subscriptions');
     $seoDescription = $activeCategory
         ? $activeCategory->seoDescription()
-        : 'Browse our complete catalog of AI tools, design software, streaming accounts and cloud subscriptions. Compare live prices and pay worldwide with Binance USDT or locally in PKR (Easypaisa, JazzCash).';
+        : 'Browse genuine AI tools, design software, streaming accounts and cloud subscriptions. Instant worldwide delivery via Binance USDT or local PKR wallets.';
     $canonicalUrl = $activeCategory
         ? route('categories.show', $activeCategory)
         : route('shop');

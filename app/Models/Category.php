@@ -37,7 +37,7 @@ class Category extends Model
             return (string) $this->meta_title;
         }
 
-        return "{$this->name} Subscriptions — Buy Online | Instant Delivery";
+        return "{$this->name} Subscriptions — Buy Online";
     }
 
     public function seoDescription(): string
@@ -46,6 +46,6 @@ class Category extends Model
             return (string) $this->meta_description;
         }
 
-        return "Compare {$this->name} plans and buy genuine {$this->name} subscriptions worldwide with USDT / Binance Pay or local PKR wallets (Easypaisa, JazzCash), delivered instantly.";
+        return "Buy genuine {$this->name} subscriptions online with instant delivery. Pay worldwide via Binance USDT or locally with PKR wallets (Easypaisa, JazzCash).";
     }
 }

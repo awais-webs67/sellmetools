@@ -14,7 +14,7 @@ class Setting extends Model
     /** Default values used when a setting has never been saved. */
     public const DEFAULTS = [
         'store_name' => 'SellMeTools',
-        'store_tagline' => 'Buy genuine AI tools & digital subscriptions in Pakistan with instant delivery.',
+        'store_tagline' => 'Buy genuine AI tools & digital subscriptions online with instant worldwide delivery.',
         'store_logo' => '',
         'store_theme' => 'black',
         'usdt_rate' => '295',
@@ -34,10 +34,10 @@ class Setting extends Model
         'support_telegram' => '',
         'support_email' => '',
         'announcement' => '',
-        // General store-wide SEO targets for Pakistan digital tools & subscriptions marketplace:
-        'seo_title' => 'Buy AI Tools & Premium Subscriptions in Pakistan',
-        'seo_description' => 'Buy genuine AI tools, creative software, cloud accounts and digital subscriptions in Pakistan at local PKR prices. Pay via Easypaisa, JazzCash, NayaPay or Binance.',
-        'seo_keywords' => 'buy ai tools in pakistan, digital subscriptions pakistan, ai tools price in pakistan, premium tools pakistan, buy software subscriptions pakistan, cloud accounts pakistan, creative tools pakistan, digital store easypaisa jazzcash, nayapay sadapay binance digital store, sellmetools',
+        // General store-wide SEO targets for global + local digital tools & subscriptions marketplace:
+        'seo_title' => 'Buy AI Tools & Digital Subscriptions Online',
+        'seo_description' => 'Buy genuine AI tools, creative software, cloud accounts and digital subscriptions worldwide. Pay via Binance USDT or local PKR wallets with instant delivery.',
+        'seo_keywords' => 'buy ai tools online, digital subscriptions store, cheap ai tools usdt, buy software subscriptions online, cloud accounts, creative tools, binance pay digital store, easypaisa jazzcash subscriptions, sellmetools',
         'google_site_verification' => '',
         'google_analytics_id' => '',
         'mail_enabled' => '1',
@@ -58,6 +58,12 @@ class Setting extends Model
             $out = self::DEFAULTS;
             foreach ($db as $k => $v) {
                 if ($v !== null && $v !== '') {
+                    if ($k === 'seo_title' && str_contains($v, 'in Pakistan')) {
+                        continue;
+                    }
+                    if ($k === 'seo_description' && str_contains($v, 'in Pakistan at local PKR prices')) {
+                        continue;
+                    }
                     $out[$k] = $v;
                 }
             }

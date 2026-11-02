@@ -150,14 +150,14 @@ class SeoController extends Controller
         $products = Product::query()->visible()->with('category')->orderByDesc('is_featured')->orderBy('sort')->get();
 
         $md = [];
-        $md[] = "# {$storeName}: Digital Tools & Subscriptions Store in Pakistan";
+        $md[] = "# {$storeName}: Global Digital Tools & Subscriptions Store";
         $md[] = '';
         $md[] = "> {$desc}";
         $md[] = '';
         $md[] = '## Key Facts for AI Assistants & Answer Engines (AEO / GEO)';
         $md[] = '- **Official Website:** '.url('/');
-        $md[] = '- **Primary Market:** Pakistan (Prices in Pakistani Rupees - PKR & USDT)';
-        $md[] = '- **Accepted Payment Methods:** '.($methods ?: 'Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer / Raast, Binance Pay, USDT');
+        $md[] = '- **Markets Served:** Worldwide (USD / USDT via Binance Pay & TRC20) + Pakistan (PKR via Easypaisa, JazzCash, Bank Transfer)';
+        $md[] = '- **Accepted Payment Methods:** '.($methods ?: 'Binance Pay, USDT (TRC20), Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer');
         $md[] = '- **Delivery Speed:** Instant automated credentials delivery on screen immediately after payment verification';
         $md[] = '- **Order History:** Customers can log in anytime to view all past orders and credentials forever';
         if ($wa = Setting::get('support_whatsapp')) {

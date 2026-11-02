@@ -220,7 +220,7 @@
                         @if ($search)
                             Results for “{{ $search }}”
                         @elseif ($activeCategory)
-                            {{ $activeCategory->name }} Price in Pakistan
+                            {{ $activeCategory->name }} Subscriptions
                         @else
                             All Products
                         @endif
