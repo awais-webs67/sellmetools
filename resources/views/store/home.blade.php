@@ -401,10 +401,10 @@
                     </div>
 
                     {{-- Structured Live Price Directory Card (replaces old unstyled floating list) --}}
-                    <div class="card overflow-hidden border border-line bg-white shadow-sm">
+                    <div class="card overflow-hidden border border-line bg-white shadow-sm" x-data>
                         <div class="flex items-center justify-between gap-3 border-b border-line bg-[#120408] px-5 py-4 text-white">
                             <div>
-                                <span class="text-[10px] font-bold tracking-widest text-[#ff8fa3] uppercase">Live PKR Directory</span>
+                                <span class="text-[10px] font-bold tracking-widest text-[#ff8fa3] uppercase" x-text="$store.currency.isUsdt ? 'Live USDT Directory' : 'Live PKR Directory'">Live PKR Directory</span>
                                 <h3 class="display text-2xl text-white">Popular Price Checks in Pakistan</h3>
                             </div>
                             <a href="{{ route('shop') }}" class="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20">
@@ -414,6 +414,7 @@
 
                         <div class="divide-y divide-line">
                             @forelse ($products->getCollection()->take(8) as $p)
+                                @php $dirPrice = (float) $p->priceFor(auth()->user()); @endphp
                                 <a href="{{ route('products.show', $p) }}" class="group flex items-center justify-between gap-3 px-5 py-3.5 transition hover:bg-brand-tint/40">
                                     <div class="min-w-0">
                                         <p class="truncate text-xs sm:text-sm font-bold text-ink group-hover:text-brand">
@@ -430,8 +431,9 @@
                                         </div>
                                     </div>
                                     <div class="flex shrink-0 items-center gap-2">
-                                        <span class="rounded-lg bg-grey-soft px-2.5 py-1 text-xs sm:text-sm font-bold text-ink group-hover:bg-brand group-hover:text-white transition">
-                                            {{ money($p->priceFor(auth()->user())) }}
+                                        <span class="rounded-lg bg-grey-soft px-2.5 py-1 text-xs sm:text-sm font-bold text-ink group-hover:bg-brand group-hover:text-white transition"
+                                              x-text="$store.currency.format({{ $dirPrice }})">
+                                            {{ money($dirPrice) }}
                                         </span>
                                         <svg class="h-4 w-4 text-muted transition group-hover:translate-x-0.5 group-hover:text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
                                     </div>

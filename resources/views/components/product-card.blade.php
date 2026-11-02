@@ -21,7 +21,7 @@
         ->implode('');
 @endphp
 <article class="group relative flex flex-col overflow-hidden rounded-xl border border-line bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition duration-200 ease-out hover:-translate-y-0.5 hover:border-brand/45 hover:shadow-[0_12px_24px_-8px_rgba(155,27,48,0.16)] active:scale-[0.99] select-none"
-         x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, @js(money($effectivePrice)))"
+         x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, @js(money($effectivePrice)), {{ (float) $effectivePrice }})"
          data-stock-id="{{ $product->id }}">
     {{-- Media Box: Full uncropped image (object-contain) with soft ambient backdrop --}}
     <a href="{{ route('products.show', $product) }}" class="relative block h-36 sm:h-40 overflow-hidden bg-[#140408]" tabindex="-1" aria-hidden="true">
@@ -90,7 +90,7 @@
             <div class="flex items-baseline gap-1.5 min-w-0">
                 <p class="display text-xl sm:text-2xl text-ink leading-none" x-text="priceText">{{ money($effectivePrice) }}</p>
                 @if ($comparePrice)
-                    <p class="truncate text-[10px] sm:text-xs font-medium text-muted line-through">{{ money($comparePrice) }}</p>
+                    <p class="truncate text-[10px] sm:text-xs font-medium text-muted line-through" x-text="$store.currency.format({{ (float) $comparePrice }}, true)">{{ money($comparePrice) }}</p>
                 @endif
             </div>
 

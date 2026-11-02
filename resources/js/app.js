@@ -4,6 +4,56 @@ import { registerSearch } from './search';
 registerSearch(Alpine);
 
 /**
+ * Storefront Currency Toggle (PKR <-> USDT).
+ * Persists user preference in localStorage and converts any PKR amount using Admin StoreSettings usdt_rate.
+ */
+Alpine.store('currency', {
+    current: (() => {
+        try {
+            return localStorage.getItem('smt_currency') === 'USDT' ? 'USDT' : 'PKR';
+        } catch (_) {
+            return 'PKR';
+        }
+    })(),
+
+    get isUsdt() {
+        return this.current === 'USDT';
+    },
+
+    get rate() {
+        return Math.max(1, Number(window.SMT?.usdtRate || 295));
+    },
+
+    get symbol() {
+        return window.SMT?.currencySymbol || 'Rs';
+    },
+
+    set(mode) {
+        this.current = mode === 'USDT' ? 'USDT' : 'PKR';
+        try {
+            localStorage.setItem('smt_currency', this.current);
+        } catch (_) {}
+    },
+
+    toggle() {
+        this.set(this.current === 'PKR' ? 'USDT' : 'PKR');
+    },
+
+    format(pkrAmount, compact = false) {
+        const num = Number(pkrAmount || 0);
+        if (this.current === 'USDT') {
+            const usdt = (num / this.rate).toFixed(2);
+            return compact ? `$${usdt}` : `$${usdt} USDT`;
+        }
+        const rounded = Math.round(num * 100) / 100;
+        const formatted = Number.isInteger(rounded)
+            ? rounded.toLocaleString('en-US')
+            : rounded.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return `${this.symbol} ${formatted}`;
+    },
+});
+
+/**
  * Live stock & price store: every element with [data-stock-id] is refreshed by polling /api/stock.
  * Also detects when a user returns to a background tab, showing a 1-click "Sync Live Price & Stock"
  * banner that updates prices & stock in-place without clearing any form inputs!
@@ -106,6 +156,9 @@ Alpine.data('stockBadge', (id, initialQty, initialUnlimited, initialPriceFormatt
         return Number(this.data.price ?? initialPriceNum);
     },
     get priceText() {
+        if (this.unitPrice > 0 && this.$store.currency) {
+            return this.$store.currency.format(this.unitPrice);
+        }
         return this.data.price_formatted ?? initialPriceFormatted;
     },
     get label() {
@@ -171,8 +224,21 @@ Alpine.data('checkoutForm', (productId, initialQty, initialPrice, initialUnlimit
         if (this.stockData.unlimited) return 'Unlimited Stock';
         return `Stock: ${this.stockData.qty}`;
     },
+    get totalAmount() {
+        return Math.max(1, Number(this.qty) || 1) * this.livePrice;
+    },
     get totalFormatted() {
-        return (Math.max(1, Number(this.qty) || 1) * this.livePrice).toLocaleString();
+        return this.totalAmount.toLocaleString();
+    },
+    get totalPrimary() {
+        return this.$store.currency ? this.$store.currency.format(this.totalAmount) : `Rs ${this.totalFormatted}`;
+    },
+    get totalSecondary() {
+        if (!this.$store.currency) return '';
+        if (this.$store.currency.isUsdt) {
+            return `≈ ${this.$store.currency.symbol} ${this.totalAmount.toLocaleString('en-US')} PKR`;
+        }
+        return `≈ $${(this.totalAmount / this.$store.currency.rate).toFixed(2)} USDT`;
     },
 }));
 

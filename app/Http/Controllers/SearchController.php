@@ -75,6 +75,7 @@ class SearchController extends Controller
                 'url' => route('products.show', $p),
                 'image' => $p->imageUrl(),
                 'price' => money($p->price),
+                'price_raw' => (float) $p->price,
                 'category' => $p->category?->name,
                 'in_stock' => $p->inStock(),
             ])->all(),

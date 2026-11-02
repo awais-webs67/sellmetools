@@ -190,11 +190,17 @@
                     <div class="mt-5 flex flex-wrap items-end justify-between gap-3 rounded-xl bg-grey-soft p-4 border border-line">
                         <div>
                             @if ($hasResellerDiscount)
-                                <p class="text-xs text-muted">Retail: <span class="line-through">{{ money($product->price) }}</span> <span class="badge badge-brand ml-1 text-[10px]">VIP Reseller Rate</span></p>
+                                <p class="text-xs text-muted">Retail: <span class="line-through" x-text="$store.currency.format({{ (float) $product->price }})">{{ money($product->price) }}</span> <span class="badge badge-brand ml-1 text-[10px]">VIP Reseller Rate</span></p>
                             @elseif ($product->compare_at_price && $product->compare_at_price > $effectivePrice)
-                                <p class="text-xs text-muted line-through">{{ money($product->compare_at_price) }}</p>
+                                <p class="text-xs text-muted line-through" x-text="$store.currency.format({{ (float) $product->compare_at_price }})">{{ money($product->compare_at_price) }}</p>
                             @endif
                             <p class="display text-4xl sm:text-5xl text-brand" x-text="priceText">{{ money($effectivePrice) }}</p>
+                            <p class="mt-1 text-[11px] font-semibold text-muted">
+                                <span x-text="$store.currency.isUsdt ? '≈ ' + $store.currency.symbol + ' ' + Math.round(unitPrice).toLocaleString('en-US') + ' PKR' : '≈ $' + (unitPrice / $store.currency.rate).toFixed(2) + ' USDT'">
+                                    ≈ ${{ number_format($effectivePrice / \App\Models\Setting::usdtRate(), 2) }} USDT
+                                </span>
+                                · Both PKR &amp; USDT accepted
+                            </p>
                         </div>
                         <span :class="inStock ? 'badge badge-success' : 'badge badge-danger'" class="text-xs py-1 px-3">
                             <span class="dot" :class="inStock ? 'bg-success live-dot' : 'bg-danger'"></span>

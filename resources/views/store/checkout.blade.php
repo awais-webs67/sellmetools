@@ -164,11 +164,11 @@
                             <div class="mt-1 flex flex-wrap items-center justify-between gap-1.5">
                                 <p class="text-xs sm:text-sm font-semibold text-ink">
                                     @if ($hasResellerDiscount)
-                                        <span class="line-through text-muted mr-1">{{ money($product->price) }}</span>
-                                        <span class="text-brand font-bold">{{ setting('currency_symbol') }} <span x-text="livePrice.toLocaleString()">{{ number_format($effectivePrice) }}</span></span>
+                                        <span class="line-through text-muted mr-1" x-text="$store.currency.format({{ (float) $product->price }})">{{ money($product->price) }}</span>
+                                        <span class="text-brand font-bold" x-text="$store.currency.format(livePrice)">{{ money($effectivePrice) }}</span>
                                         <span class="badge badge-brand ml-1 text-[10px]">VIP</span>
                                     @else
-                                        {{ setting('currency_symbol') }} <span x-text="livePrice.toLocaleString()">{{ number_format($effectivePrice) }}</span> each
+                                        <span x-text="$store.currency.format(livePrice)">{{ money($effectivePrice) }}</span> each
                                     @endif
                                 </p>
                                 <span :class="inStock ? 'badge badge-success' : 'badge badge-danger'" class="text-[10px]">
@@ -188,8 +188,11 @@
 
                     {{-- Total Price Bar --}}
                     <div class="mt-4 flex items-end justify-between border-t border-line pt-4">
-                        <span class="text-sm font-medium text-ink">Total Payable</span>
-                        <span class="display text-3xl sm:text-4xl text-brand">{{ setting('currency_symbol') }} <span x-text="totalFormatted"></span></span>
+                        <div>
+                            <span class="block text-sm font-medium text-ink">Total Payable</span>
+                            <span class="block text-[11px] font-semibold text-muted" x-text="totalSecondary"></span>
+                        </div>
+                        <span class="display text-3xl sm:text-4xl text-brand" x-text="totalPrimary">{{ setting('currency_symbol') }} <span x-text="totalFormatted"></span></span>
                     </div>
 
                     {{-- Agreement Checkbox --}}

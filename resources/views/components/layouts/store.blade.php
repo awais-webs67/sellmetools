@@ -133,7 +133,7 @@
 
     @fonts
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <script>window.SMT = { stockUrl: @json(route('stock', auth()->user()?->is_reseller ? ['reseller' => auth()->id()] : [])), syncUrl: @json(route('stock.sync')), searchUrl: @json(route('search.suggest')) };</script>
+    <script>window.SMT = { stockUrl: @json(route('stock', auth()->user()?->is_reseller ? ['reseller' => auth()->id()] : [])), syncUrl: @json(route('stock.sync')), searchUrl: @json(route('search.suggest')), usdtRate: {{ \App\Models\Setting::usdtRate() }}, currencySymbol: @json(setting('currency_symbol', 'Rs')) };</script>
 </head>
 <body class="flex min-h-screen flex-col">
     <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded focus:bg-ink focus:px-4 focus:py-2 focus:text-white">Skip to content</a>
@@ -245,15 +245,44 @@
                 @endauth
             </nav>
 
-            <button type="button" class="btn btn-outline px-3 py-2 lg:hidden" @click="open = !open" :aria-expanded="open" aria-controls="mobile-nav">
-                <svg x-show="!open" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-                <svg x-show="open" x-cloak class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-                <span class="sr-only">Menu</span>
-            </button>
+            {{-- PKR / USDT Currency Switcher + Mobile Menu Trigger --}}
+            <div class="flex items-center gap-2 shrink-0">
+                <div class="inline-flex items-center rounded-full border border-line-strong bg-grey-soft p-0.5 shadow-2xs"
+                     role="group"
+                     aria-label="Switch currency between PKR and USDT"
+                     title="Both PKR and USDT accepted · 1 USDT = Rs {{ number_format(\App\Models\Setting::usdtRate(), 0) }}">
+                    <button type="button"
+                            @click="$store.currency.set('PKR')"
+                            :aria-pressed="!$store.currency.isUsdt"
+                            :class="!$store.currency.isUsdt ? 'bg-brand text-white shadow-xs' : 'text-muted hover:text-ink'"
+                            class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] sm:text-xs font-bold tracking-wide transition cursor-pointer">
+                        <span>Rs</span>
+                        <span>PKR</span>
+                    </button>
+                    <button type="button"
+                            @click="$store.currency.set('USDT')"
+                            :aria-pressed="$store.currency.isUsdt"
+                            :class="$store.currency.isUsdt ? 'bg-[#0F9D58] text-white shadow-xs' : 'text-muted hover:text-ink'"
+                            class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] sm:text-xs font-bold tracking-wide transition cursor-pointer">
+                        <span>₮</span>
+                        <span>USDT</span>
+                    </button>
+                </div>
+
+                <button type="button" class="btn btn-outline px-3 py-2 lg:hidden" @click="open = !open" :aria-expanded="open" aria-controls="mobile-nav">
+                    <svg x-show="!open" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+                    <svg x-show="open" x-cloak class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                    <span class="sr-only">Menu</span>
+                </button>
+            </div>
         </div>
 
         <div id="mobile-nav" x-show="open" x-cloak x-transition.origin.top class="border-t border-line bg-white lg:hidden">
             <div class="container-x space-y-1 py-4">
+                <div class="mb-3 flex items-center justify-between gap-2 rounded-xl border border-line bg-grey-soft/80 px-3 py-2 text-xs">
+                    <span class="font-semibold text-ink">Pay in <strong>PKR</strong> or <strong>USDT</strong></span>
+                    <span class="text-[11px] font-medium text-muted">1 USDT ≈ Rs {{ number_format(\App\Models\Setting::usdtRate(), 0) }}</span>
+                </div>
                 <form action="{{ route('shop') }}" method="get" class="relative mb-3 md:hidden" role="search" x-data="liveSearch" @click.outside="open = false">
                     <label for="mobile-search" class="sr-only">Search products</label>
                     <svg class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>

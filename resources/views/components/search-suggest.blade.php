@@ -34,7 +34,7 @@
                     <span class="block truncate text-xs text-muted" x-text="p.category || 'Digital product'"></span>
                 </span>
                 <span class="shrink-0 text-right">
-                    <span class="block text-sm font-bold text-ink" x-text="p.price"></span>
+                    <span class="block text-sm font-bold text-ink" x-text="p.price_raw ? $store.currency.format(p.price_raw) : p.price"></span>
                     <span class="block text-[11px] font-semibold" :class="p.in_stock ? 'text-success' : 'text-danger'" x-text="p.in_stock ? 'In stock' : 'Sold out'"></span>
                 </span>
             </a>
