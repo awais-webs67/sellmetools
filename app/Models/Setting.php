@@ -9,7 +9,7 @@ class Setting extends Model
 {
     protected $fillable = ['key', 'value'];
 
-    private const CACHE_KEY = 'app_settings';
+    private const CACHE_KEY = 'app_settings_v2';
 
     /** Default values used when a setting has never been saved. */
     public const DEFAULTS = [

@@ -86,16 +86,16 @@
                         @if ($search !== '')
                             Search Results for “{{ $search }}”
                         @elseif ($activeCategory)
-                            {{ $activeCategory->name }} in Pakistan
+                            Buy {{ $activeCategory->name }} Subscriptions Online
                         @else
-                            All Digital Tools &amp; Subscriptions
+                            Shop All AI Tools &amp; Digital Subscriptions
                         @endif
                     </h1>
                     <p class="mt-2 max-w-2xl text-xs sm:text-sm leading-relaxed text-white/75">
                         @if ($activeCategory)
                             {{ $activeCategory->seoDescription() }}
                         @else
-                            Compare live PKR prices and stock across all AI tools, creative software, cloud accounts and digital subscriptions. Instant delivery on your private order page after verification.
+                            Shop all genuine AI tools, creative software, cloud accounts and digital subscriptions online on <strong>{{ $storeName }}</strong>. Compare live USDT and PKR prices and stock with instant delivery on your private order page after verification.
                         @endif
                     </p>
                 </div>

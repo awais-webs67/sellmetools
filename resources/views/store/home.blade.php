@@ -129,11 +129,11 @@
                     </div>
 
                     <h1 class="display mt-5 text-[clamp(36px,7.2vw,84px)] leading-[0.94] tracking-tight text-white">
-                        Premium AI Tools &amp; <br class="hidden sm:block"><span class="hero-highlight">Digital Subscriptions</span>
+                        Buy AI Tools &amp; <br class="hidden sm:block"><span class="hero-highlight">Digital Subscriptions</span> Online
                     </h1>
 
                     <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base leading-relaxed text-white/75">
-                        Buy genuine AI tools, creative software, cloud accounts and digital subscriptions from anywhere in the world. Pay globally with <strong>USDT / Binance Pay</strong> or locally in <strong>PKR (Easypaisa, JazzCash &amp; Bank)</strong> for instant automated delivery.
+                        Welcome to <strong>{{ $storeName }}</strong> — buy genuine AI tools, premium software, cloud accounts and digital subscriptions online in Pakistan and worldwide. Pay globally with <strong>USDT / Binance Pay</strong> or locally in <strong>PKR (Easypaisa, JazzCash &amp; Bank)</strong> for instant automated delivery.
                     </p>
 
                     <div class="mt-7 flex flex-wrap items-center justify-center gap-3">
@@ -220,7 +220,7 @@
                         @if ($search)
                             Results for “{{ $search }}”
                         @elseif ($activeCategory)
-                            {{ $activeCategory->name }} Subscriptions
+                            Buy {{ $activeCategory->name }} Subscriptions Online
                         @else
                             All Products
                         @endif
@@ -437,11 +437,11 @@
             <div class="container-x">
                 <div class="grid gap-10 lg:grid-cols-[1.15fr_1fr] lg:items-start">
                     <div>
-                        <span class="eyebrow">Pakistan Buying Guide</span>
-                        <h2 id="guide-heading" class="display mt-1 text-3xl sm:text-5xl text-ink">Buy AI Tools &amp; Digital Subscriptions in Pakistan at Local PKR Prices</h2>
+                        <span class="eyebrow">Global &amp; Local Buying Guide</span>
+                        <h2 id="guide-heading" class="display mt-1 text-3xl sm:text-5xl text-ink">Buy AI Tools &amp; Digital Subscriptions Online — USDT &amp; Local PKR Prices</h2>
                         <div class="prose-store mt-4 space-y-4 text-sm sm:text-base leading-relaxed text-body">
                             <p>
-                                Finding genuine digital subscriptions in Pakistan at fair local prices should not require risky social media deals or complicated dollar cards. On <strong>{{ $storeName }}</strong>, every product page shows the exact price in PKR, real-time stock count, delivery format and warranty terms before you place an order.
+                                Finding genuine digital subscriptions online in Pakistan or anywhere in the world at fair prices should not require risky social media deals or complicated credit cards. On <strong>{{ $storeName }}</strong>, every product page shows the exact price in USDT and PKR, real-time stock count, delivery format and warranty terms before you place an order.
                             </p>
                         </div>
 
@@ -551,13 +551,13 @@
             <div class="container-x">
                 <div class="grid gap-8 lg:grid-cols-[1.25fr_1fr] lg:items-start">
                     <div>
-                        <span class="eyebrow">{{ $activeCategory->name }} in Pakistan</span>
+                        <span class="eyebrow">{{ $activeCategory->name }} Online</span>
                         <h2 id="category-guide-heading" class="display mt-1 text-2xl sm:text-4xl text-ink">
-                            Buy Genuine {{ $activeCategory->name }} Subscriptions in Pakistan with Local PKR Wallets
+                            Buy Genuine {{ $activeCategory->name }} Subscriptions Online with USDT &amp; Local PKR Wallets
                         </h2>
                         <div class="prose-store mt-4 space-y-3.5 text-sm sm:text-base leading-relaxed text-body">
                             <p>
-                                Looking for verified <strong>{{ $activeCategory->name }}</strong> plans and accounts in Pakistan without paying steep international credit card markups or cross-border banking taxes? On <strong>{{ $storeName }}</strong>, you can compare live PKR and USDT pricing, check real-time stock availability, and order genuine {{ strtolower($activeCategory->name) }} tools with automated delivery directly on your private order page.
+                                Looking for verified <strong>{{ $activeCategory->name }}</strong> plans and accounts to buy online in Pakistan or worldwide without paying steep international credit card markups? On <strong>{{ $storeName }}</strong>, you can compare live USDT and PKR pricing, check real-time stock availability, and order genuine {{ strtolower($activeCategory->name) }} tools online with automated delivery directly on your private order page.
                             </p>
                             <p>
                                 Every {{ strtolower($activeCategory->name) }} listing on {{ $storeName }} displays its exact plan type, duration, and replacement warranty terms upfront. You can complete checkout in seconds using <strong>Easypaisa, JazzCash, NayaPay, SadaPay, local bank transfer (Raast)</strong>, or <strong>Binance Pay (USDT)</strong>, and access your saved credentials anytime from your customer dashboard.
