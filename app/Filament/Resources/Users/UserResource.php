@@ -33,6 +33,11 @@ class UserResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    public static function canAccess(): bool
+    {
+        return (bool) auth()->user()?->isSuperAdmin();
+    }
+
     public static function form(Schema $schema): Schema
     {
         return UserForm::configure($schema);

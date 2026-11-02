@@ -64,6 +64,13 @@ class StoreSettings extends Page
 
     protected static ?string $slug = 'settings';
 
+    public static function canAccess(): bool
+    {
+        $user = auth()->user();
+
+        return (bool) ($user?->isSuperAdmin() || $user?->isSeoStaff());
+    }
+
     /** @var array<string, mixed>|null */
     public ?array $data = [];
 
@@ -87,6 +94,10 @@ class StoreSettings extends Page
 
     protected function getHeaderActions(): array
     {
+        if (! auth()->user()?->isSuperAdmin()) {
+            return [];
+        }
+
         return [
             Action::make('syncServerUpdate')
                 ->label('🔄 Update Site, Migrate DB & Clear Cache (No Terminal Needed)')
@@ -135,6 +146,7 @@ class StoreSettings extends Page
             ->columns(1)
             ->components([
                 Section::make('Telegram Admin Bot Alerts (With 1-Tap Approve & Decline Buttons)')
+                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
                     ->icon(Heroicon::OutlinedBellAlert)
                     ->description('Step 1: Paste your Bot Token from @BotFather. Step 2: Open your bot in Telegram and press START. Step 3: Click "Auto-Detect Chat ID, Save & Send Test" below!')
                     ->columns(['default' => 1, 'sm' => 2])
@@ -161,6 +173,7 @@ class StoreSettings extends Page
                     ]),
 
                 Section::make('1-Tap WhatsApp & Free Instant Mobile Push (No CallMeBot Limits!)')
+                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
                     ->icon(Heroicon::OutlinedCheckBadge)
                     ->description('Set your Admin WhatsApp Number in exact format (923XXXXXXXXX) so customer WhatsApp verification buttons always open your direct chat.')
                     ->columns(['default' => 1, 'sm' => 2])
@@ -204,6 +217,7 @@ class StoreSettings extends Page
                     ]),
 
                 Section::make('Pricing & Dollar Rate')
+                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
                     ->icon(Heroicon::OutlinedCurrencyDollar)
                     ->description('Set the USDT → PKR conversion rate. Saving automatically recalculates prices for all supplier products.')
                     ->columns(['default' => 1, 'sm' => 3])
@@ -236,6 +250,7 @@ class StoreSettings extends Page
                     ]),
 
                 Section::make('Store Details, Theme & Logo')
+                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
                     ->icon(Heroicon::OutlinedBuildingStorefront)
                     ->columns(['default' => 1, 'sm' => 2])
                     ->schema([
@@ -275,6 +290,7 @@ class StoreSettings extends Page
                     ]),
 
                 Section::make('Support Contacts (WhatsApp / Telegram / Email)')
+                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
                     ->icon(Heroicon::OutlinedLifebuoy)
                     ->columns(['default' => 1, 'sm' => 3])
                     ->schema([
@@ -296,6 +312,7 @@ class StoreSettings extends Page
                     ]),
 
                 Section::make('Auto-SMS Payment Gateway (Optional: Leave Blank if Not Using)')
+                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
                     ->icon(Heroicon::OutlinedBolt)
                     ->description('Optional: Forward payment SMS from your phone to '.url('/api/webhooks/payment-sms').' to auto-approve matching TIDs.')
                     ->columns(['default' => 1, 'sm' => 2])
@@ -349,6 +366,7 @@ class StoreSettings extends Page
                     ]),
 
                 Section::make('Email & SMTP Settings (Order Delivery & Password Reset)')
+                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
                     ->icon(Heroicon::OutlinedEnvelope)
                     ->description('Configure SMTP to automatically email delivered credentials to customers and send password reset links.')
                     ->columns(['default' => 1, 'sm' => 2])
@@ -463,6 +481,9 @@ class StoreSettings extends Page
      */
     public function saveKeys(array $keys, string $title = 'Settings saved'): void
     {
+        if (auth()->user()?->isSeoStaff()) {
+            $keys = array_values(array_intersect($keys, ['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'google_analytics_id']));
+        }
         $raw = is_array($this->data) ? $this->data : [];
         $before = Setting::values();
 

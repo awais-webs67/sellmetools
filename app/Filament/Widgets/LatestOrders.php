@@ -21,6 +21,13 @@ class LatestOrders extends TableWidget
 
     protected static ?string $heading = 'Latest Orders (Quick Review & Delivery)';
 
+    public static function canView(): bool
+    {
+        $user = auth()->user();
+
+        return (bool) ($user?->isSuperAdmin() || $user?->isSalesStaff());
+    }
+
     public function table(Table $table): Table
     {
         return $table

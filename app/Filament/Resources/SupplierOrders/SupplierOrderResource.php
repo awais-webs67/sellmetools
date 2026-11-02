@@ -51,6 +51,13 @@ class SupplierOrderResource extends Resource
 
     protected static ?string $slug = 'vendor-orders';
 
+    public static function canAccess(): bool
+    {
+        $user = auth()->user();
+
+        return (bool) ($user?->isSuperAdmin() || $user?->isSalesStaff());
+    }
+
     public static function getNavigationBadge(): ?string
     {
         $failed = SupplierOrder::query()

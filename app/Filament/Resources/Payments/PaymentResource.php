@@ -25,6 +25,13 @@ class PaymentResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'transaction_id';
 
+    public static function canAccess(): bool
+    {
+        $user = auth()->user();
+
+        return (bool) ($user?->isSuperAdmin() || $user?->isSalesStaff());
+    }
+
     public static function canCreate(): bool
     {
         return false;

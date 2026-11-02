@@ -22,6 +22,7 @@ use RuntimeException;
     'phone',
     'password',
     'is_admin',
+    'admin_role',
     'wallet_balance',
     'is_active',
     'is_reseller',
@@ -35,11 +36,35 @@ class User extends Authenticatable implements FilamentUser
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
+    public const ROLE_SUPER_ADMIN = 'super_admin';
+
+    public const ROLE_SALES = 'sales';
+
+    public const ROLE_SEO = 'seo';
+
+    public static function adminRoleOptions(): array
+    {
+        return [
+            '' => '👤 Regular Customer / Reseller (No Admin Panel Access)',
+            self::ROLE_SUPER_ADMIN => '👑 Super Admin (Full Store, Suppliers & Settings Access)',
+            self::ROLE_SALES => '🛍️ Sales & Order Support (Orders, Payments, Products & Stock Only)',
+            self::ROLE_SEO => '🔍 SEO & Content Specialist (Products SEO/Content, Categories, Media & SEO Settings Only)',
+        ];
+    }
+
     protected static function booted(): void
     {
         static::saving(function (User $user) {
             if (filled($user->phone)) {
                 $user->phone = format_whatsapp($user->phone);
+            }
+            if (in_array($user->admin_role, [self::ROLE_SUPER_ADMIN, self::ROLE_SALES, self::ROLE_SEO], true)) {
+                $user->is_admin = true;
+            } elseif ($user->isDirty('admin_role') && blank($user->admin_role)) {
+                $user->is_admin = false;
+                $user->admin_role = null;
+            } elseif ($user->is_admin && blank($user->admin_role)) {
+                $user->admin_role = self::ROLE_SUPER_ADMIN;
             }
             if ($user->is_reseller && blank($user->reseller_slug)) {
                 $base = Str::slug($user->name ?: explode('@', (string) $user->email)[0]) ?: 'reseller';
@@ -77,7 +102,23 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return (bool) $this->is_admin && (bool) ($this->is_active ?? true);
+        return (bool) ($this->is_active ?? true)
+            && ((bool) $this->is_admin || in_array($this->admin_role, [self::ROLE_SUPER_ADMIN, self::ROLE_SALES, self::ROLE_SEO], true));
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return (bool) $this->is_admin && in_array($this->admin_role, [null, '', self::ROLE_SUPER_ADMIN], true);
+    }
+
+    public function isSalesStaff(): bool
+    {
+        return $this->admin_role === self::ROLE_SALES;
+    }
+
+    public function isSeoStaff(): bool
+    {
+        return $this->admin_role === self::ROLE_SEO;
     }
 
     public function orders(): HasMany

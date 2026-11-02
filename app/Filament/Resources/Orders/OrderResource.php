@@ -28,6 +28,13 @@ class OrderResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'number';
 
+    public static function canAccess(): bool
+    {
+        $user = auth()->user();
+
+        return (bool) ($user?->isSuperAdmin() || $user?->isSalesStaff());
+    }
+
     public static function canCreate(): bool
     {
         return false;

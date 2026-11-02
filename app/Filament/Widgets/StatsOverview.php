@@ -18,6 +18,13 @@ class StatsOverview extends StatsOverviewWidget
 
     protected ?string $pollingInterval = null;
 
+    public static function canView(): bool
+    {
+        $user = auth()->user();
+
+        return (bool) ($user?->isSuperAdmin() || $user?->isSalesStaff());
+    }
+
     /** Paid orders that were not reversed. */
     protected const PAID_STATUSES = [OrderStatus::Processing, OrderStatus::Completed, OrderStatus::NeedsAttention];
 

@@ -94,6 +94,7 @@ class ProductForm
                     ]),
 
                 Section::make('Pricing & Profit Rule')
+                    ->visible(fn (): bool => ! auth()->user()?->isSeoStaff())
                     ->columns(['default' => 1, 'sm' => 2, 'lg' => 4])
                     ->schema([
                         Toggle::make('is_free')
@@ -165,6 +166,7 @@ class ProductForm
                     ]),
 
                 Section::make('📦 Product Delivery Method & .TXT Stock Vault (For Supplier & Non-Supplier Products)')
+                    ->visible(fn (): bool => ! auth()->user()?->isSeoStaff())
                     ->description('Choose how this product is delivered to the customer after payment is confirmed.')
                     ->columns(['default' => 1, 'md' => 2])
                     ->schema([
@@ -264,7 +266,7 @@ class ProductForm
                     ]),
 
                 Section::make('SEO & Google Search (Optional: Auto-Generated if Left Blank)')
-                    ->collapsed()
+                    ->collapsed(fn (): bool => ! auth()->user()?->isSeoStaff())
                     ->columns(['default' => 1, 'md' => 2])
                     ->schema([
                         TextInput::make('meta_title')

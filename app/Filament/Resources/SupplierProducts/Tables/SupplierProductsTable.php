@@ -12,6 +12,7 @@ use App\Models\Product;
 use App\Models\SupplierProduct;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
+use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -107,7 +108,9 @@ class SupplierProductsTable
                 'pricing_mode' => PricingMode::MarkupPercent->value,
                 'markup_value' => 20,
                 'warranty' => $record->warranty,
-                'description' => $record->description,
+                'description' => filled($record->description) && $record->description === strip_tags((string) $record->description)
+                    ? nl2br(e((string) $record->description))
+                    : $record->description,
                 'is_active' => true,
             ])
             ->schema(fn (SupplierProduct $record): array => [
@@ -156,11 +159,14 @@ class SupplierProductsTable
                             ->state(fn (Get $get): string => self::pricePreview($record->costPkr(), $get('pricing_mode'), $get('fixed_price'), $get('markup_value'))),
                     ]),
                 TextInput::make('short_description')
+                    ->label('Short Tag / Subtitle (optional)')
                     ->maxLength(500),
                 Textarea::make('warranty')
+                    ->label('Warranty Terms')
                     ->rows(2),
-                Textarea::make('description')
-                    ->rows(4),
+                RichEditor::make('description')
+                    ->label('Full Description')
+                    ->columnSpanFull(),
             ])
             ->action(function (SupplierProduct $record, array $data): void {
                 $product = Listings::createFromSupplierProduct($record, $data);

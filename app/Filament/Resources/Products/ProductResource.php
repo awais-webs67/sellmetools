@@ -43,6 +43,10 @@ class ProductResource extends Resource
 
     public static function getRelations(): array
     {
+        if (auth()->user()?->isSeoStaff()) {
+            return [];
+        }
+
         return [
             SourcesRelationManager::class,
             StockItemsRelationManager::class,

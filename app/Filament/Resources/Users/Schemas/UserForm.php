@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Users\Schemas;
 
 use App\Models\Product;
+use App\Models\User;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -57,8 +58,25 @@ class UserForm
                         Toggle::make('is_active')
                             ->label('Account Active (Uncheck to Block User)')
                             ->default(true),
+                        Select::make('admin_role')
+                            ->label('Admin / Staff Role & Permissions')
+                            ->options(User::adminRoleOptions())
+                            ->default('')
+                            ->selectablePlaceholder(false)
+                            ->live()
+                            ->afterStateHydrated(function (Select $component, ?User $record, ?string $state): void {
+                                if ($record && $record->is_admin && blank($state)) {
+                                    $component->state(User::ROLE_SUPER_ADMIN);
+                                }
+                            })
+                            ->afterStateUpdated(function (Set $set, ?string $state): void {
+                                $set('is_admin', in_array($state, [User::ROLE_SUPER_ADMIN, User::ROLE_SALES, User::ROLE_SEO], true));
+                            })
+                            ->dehydrateStateUsing(fn (?string $state): ?string => filled($state) ? $state : null)
+                            ->helperText('Choose Sales Staff for order/stock handling, SEO Specialist for SEO/content only, or Super Admin for full owner access.'),
                         Toggle::make('is_admin')
-                            ->label('Admin Panel Access')
+                            ->hidden()
+                            ->dehydrated(true)
                             ->default(false),
                     ]),
 

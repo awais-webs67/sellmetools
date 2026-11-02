@@ -51,6 +51,7 @@ class ProductsTable
                     ->sortable(),
                 TextColumn::make('cost_price')
                     ->label('Cost')
+                    ->visible(fn (): bool => ! auth()->user()?->isSeoStaff())
                     ->formatStateUsing(fn ($state): string => Money::pkr($state))
                     ->description(function (Product $record): ?string {
                         if ($record->cost_price === null) {
@@ -65,6 +66,7 @@ class ProductsTable
                     ->sortable()
                     ->toggleable(),
                 TextColumn::make('profit')
+                    ->visible(fn (): bool => ! auth()->user()?->isSeoStaff())
                     ->state(fn (Product $record): ?float => $record->cost_price === null
                         ? null
                         : (float) $record->price - (float) $record->cost_price)

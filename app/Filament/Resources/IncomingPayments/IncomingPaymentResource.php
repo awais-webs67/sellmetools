@@ -33,6 +33,13 @@ class IncomingPaymentResource extends Resource
 
     protected static ?string $slug = 'incoming-payments';
 
+    public static function canAccess(): bool
+    {
+        $user = auth()->user();
+
+        return (bool) ($user?->isSuperAdmin() || $user?->isSalesStaff());
+    }
+
     public static function table(Table $table): Table
     {
         return $table

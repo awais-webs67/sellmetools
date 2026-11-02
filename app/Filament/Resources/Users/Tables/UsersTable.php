@@ -38,6 +38,23 @@ class UsersTable
                     ->searchable()
                     ->copyable()
                     ->placeholder('-'),
+                TextColumn::make('role_badge')
+                    ->label('Role')
+                    ->state(fn (User $record): string => match (true) {
+                        $record->isSuperAdmin() => 'Super Admin',
+                        $record->isSalesStaff() => 'Sales Staff',
+                        $record->isSeoStaff() => 'SEO Specialist',
+                        $record->is_reseller => 'VIP Reseller',
+                        default => 'Customer',
+                    })
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Super Admin' => 'danger',
+                        'Sales Staff' => 'info',
+                        'SEO Specialist' => 'warning',
+                        'VIP Reseller' => 'success',
+                        default => 'gray',
+                    }),
                 IconColumn::make('is_reseller')
                     ->label('Reseller')
                     ->boolean()
