@@ -41,8 +41,8 @@ class Setting extends Model
         'home_about_heading' => 'Pakistan’s Trusted Marketplace for AI Tools & Subscriptions',
         'home_guide_heading' => 'Buy AI Tools & Digital Subscriptions Online — USDT & Local PKR Prices',
         'home_seo_content' => '',
-        'shop_seo_title' => 'Shop All AI Tools & Digital Subscriptions — Cheap Prices & Instant Delivery',
-        'shop_seo_description' => 'Browse genuine AI tools, cheap subscriptions, design software, streaming accounts and cloud plans. Instant worldwide delivery via Binance USDT or local PKR wallets.',
+        'shop_seo_title' => 'Shop AI Tools & Cheap Subscriptions Online',
+        'shop_seo_description' => 'Browse genuine AI tools, cheap subscriptions, design software and cloud plans. Instant delivery via Binance USDT, Easypaisa or JazzCash.',
         // General store-wide SEO targets for global + local digital tools & subscriptions marketplace:
         'seo_title' => 'Buy AI Tools & Cheap Digital Subscriptions Online',
         'seo_description' => 'Buy genuine AI tools, cheap subscriptions, creative software and cloud accounts online. Pay via Binance USDT or local PKR wallets (Easypaisa, JazzCash) with instant delivery.',

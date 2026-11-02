@@ -10,8 +10,11 @@
 @php
     $storeName = setting('store_name', 'SellMeTools');
     $defaultSeoTitle = setting('seo_title') ?: setting('store_tagline');
-    $pageTitle = $title ? "{$title} | {$storeName}" : "{$defaultSeoTitle} | {$storeName}";
-    $metaDescription = $description ?: (setting('seo_description') ?: setting('store_tagline'));
+    $rawTitle = trim((string) ($title ?: $defaultSeoTitle));
+    $pageTitle = (stripos($rawTitle, (string) $storeName) !== false || mb_strlen($rawTitle) > 52)
+        ? $rawTitle
+        : "{$rawTitle} | {$storeName}";
+    $metaDescription = \Illuminate\Support\Str::limit(trim((string) ($description ?: (setting('seo_description') ?: setting('store_tagline')))), 155);
     $metaKeywords = $keywords ?: setting('seo_keywords');
     $canonicalUrl = $canonical ?: url()->current();
     $logoSetting = setting('store_logo');
@@ -383,7 +386,7 @@
                 </div>
             </div>
             <div>
-                <h2 class="text-sm font-semibold tracking-wider text-white uppercase">Store</h2>
+                <p class="text-sm font-semibold tracking-wider text-white uppercase">Store</p>
                 <ul class="mt-4 space-y-2 text-sm">
                     <li><a class="hover:text-white" href="{{ route('shop') }}">Shop all products</a></li>
                     <li><a class="hover:text-white" href="{{ route('orders.track') }}">Track your order</a></li>
@@ -393,7 +396,7 @@
                 </ul>
             </div>
             <div>
-                <h2 class="text-sm font-semibold tracking-wider text-white uppercase">Policies</h2>
+                <p class="text-sm font-semibold tracking-wider text-white uppercase">Policies</p>
                 <ul class="mt-4 space-y-2 text-sm">
                     <li><a class="hover:text-white" href="{{ route('pages.show', 'terms') }}">Terms of service</a></li>
                     <li><a class="hover:text-white" href="{{ route('pages.show', 'refund') }}">Refund & warranty policy</a></li>

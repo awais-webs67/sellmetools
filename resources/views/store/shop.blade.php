@@ -4,10 +4,10 @@
 
     $seoTitle = $activeCategory
         ? $activeCategory->seoTitle()
-        : ($search !== '' ? "Search Results for “{$search}” in Shop" : (string) setting('shop_seo_title', 'Shop All AI Tools & Digital Subscriptions — Cheap Prices & Instant Delivery'));
+        : ($search !== '' ? "Search Results for “{$search}” in Shop" : (string) setting('shop_seo_title', 'Shop AI Tools & Cheap Subscriptions Online'));
     $seoDescription = $activeCategory
         ? $activeCategory->seoDescription()
-        : (string) setting('shop_seo_description', 'Browse genuine AI tools, cheap subscriptions, design software, streaming accounts and cloud plans. Instant worldwide delivery via Binance USDT or local PKR wallets.');
+        : (string) setting('shop_seo_description', 'Browse genuine AI tools, cheap subscriptions, design software and cloud plans. Instant delivery via Binance USDT, Easypaisa or JazzCash.');
     $canonicalUrl = $activeCategory
         ? route('categories.show', $activeCategory)
         : route('shop');

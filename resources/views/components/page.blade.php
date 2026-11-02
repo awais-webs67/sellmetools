@@ -16,7 +16,28 @@
         ['label' => 'Privacy Policy', 'route' => route('pages.show', 'privacy'), 'page' => 'privacy'],
     ];
     $currentPage = request()->route('page');
+    $pageBreadcrumbSchema = [
+        '@context' => 'https://schema.org',
+        '@type' => 'BreadcrumbList',
+        'itemListElement' => [
+            [
+                '@type' => 'ListItem',
+                'position' => 1,
+                'name' => 'Home',
+                'item' => route('home'),
+            ],
+            [
+                '@type' => 'ListItem',
+                'position' => 2,
+                'name' => $title,
+                'item' => url()->current(),
+            ],
+        ],
+    ];
 @endphp
+@push('seo')
+    <script type="application/ld+json">{!! json_encode($pageBreadcrumbSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+@endpush
 <x-layouts.store :title="$title" :description="$description">
     {{-- Header Banner --}}
     <section class="surface-banner relative overflow-hidden text-white py-10 sm:py-14">
