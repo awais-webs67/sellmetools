@@ -114,7 +114,7 @@
                     </p>
 
                     <div class="mt-7 flex flex-wrap items-center justify-center gap-3">
-                        <a href="#products" class="btn bg-brand text-white hover:bg-brand-dark border border-white/15 px-6 py-3 text-sm font-bold shadow-[0_10px_25px_-5px_rgba(200,30,59,0.55)]">
+                        <a href="#products" class="btn bg-[#C81E3B] text-white hover:bg-[#a81730] border border-white/15 px-6 py-3 text-sm font-bold shadow-[0_10px_25px_-5px_rgba(200,30,59,0.55)]">
                             Browse All Products ↓
                         </a>
                         <a href="{{ route('shop') }}" class="btn bg-white text-ink hover:bg-brand-tint px-6 py-3 text-sm font-bold shadow-md">

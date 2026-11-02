@@ -84,7 +84,7 @@
     <meta name="author" content="{{ $storeName }} | AivraSol Softwares">
     <meta name="geo.region" content="PK">
     <meta name="geo.placename" content="Pakistan">
-    <meta name="theme-color" content="#9B1B30">
+    <meta name="theme-color" content="#14171A">
 
     <link rel="canonical" href="{{ $canonicalUrl }}">
     <link rel="alternate" hreflang="en-pk" href="{{ $canonicalUrl }}">
