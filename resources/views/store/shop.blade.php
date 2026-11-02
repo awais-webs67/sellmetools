@@ -70,7 +70,7 @@
                         @if ($activeCategory)
                             {{ $activeCategory->seoDescription() }}
                         @else
-                            Compare live PKR prices and stock across ChatGPT Plus, Canva Pro, CapCut Pro, Claude, Gemini, Cursor, Netflix and more. Instant delivery on your private order page after verification.
+                            Compare live PKR prices and stock across all AI tools, creative software, cloud accounts and digital subscriptions. Instant delivery on your private order page after verification.
                         @endif
                     </p>
                 </div>

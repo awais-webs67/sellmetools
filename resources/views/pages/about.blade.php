@@ -4,7 +4,7 @@
 <x-page
     title="About {{ $store }}: AI Tools & Digital Subscriptions in Pakistan"
     eyebrow="About Our Store"
-    description="Learn how {{ $store }} delivers genuine ChatGPT Plus, Canva Pro, CapCut Pro, Claude, Gemini, Cursor and Netflix subscriptions in Pakistan at local PKR prices via Easypaisa, JazzCash, NayaPay and Binance."
+    description="Learn how {{ $store }} delivers genuine AI tools, creative software, cloud accounts and digital subscriptions in Pakistan at local PKR prices via Easypaisa, JazzCash, NayaPay and Binance."
     subtitle="Built for Pakistani freelancers, students, creators and software teams who want instant, verified access to global digital tools in local rupees."
 >
     <div class="not-prose grid gap-4 sm:grid-cols-3 mb-8">
@@ -27,13 +27,13 @@
 
     <h2>What You Can Buy on {{ $store }}</h2>
     <p>
-        Our catalog focuses on the tools that power modern work, study and digital creation in Pakistan:
+        Our catalog covers a wide range of verified digital tools and subscriptions that power modern work, study and digital creation in Pakistan:
     </p>
     <ul>
-        <li><strong>AI Assistants &amp; Coding Tools:</strong> ChatGPT Plus, ChatGPT Go, Claude Pro, Google AI Pro (Gemini Advanced), Cursor Pro and Perplexity Pro for software engineers, researchers, copywriters and students.</li>
-        <li><strong>Graphic Design &amp; Video Editing Suites:</strong> Canva Pro team invites and private upgrades, CapCut Pro subscriptions, Envato Elements, Freepik Premium and creative stock access for YouTubers, social media managers and agencies.</li>
-        <li><strong>Productivity, Academic &amp; SEO Tools:</strong> Microsoft 365, Grammarly Premium, Turnitin student/instructor checks, QuillBot and SEO research tools.</li>
-        <li><strong>Entertainment &amp; Cloud Accounts:</strong> Verified Netflix, Prime Video, Spotify and ready email or developer cloud accounts with clear usage rules.</li>
+        <li><strong>AI Assistants &amp; Coding Tools:</strong> Premium AI research assistants, coding companions, conversational AI models and workflow automation tools for software engineers, researchers, copywriters and students.</li>
+        <li><strong>Graphic Design &amp; Video Editing Suites:</strong> Team invites, private upgrades and creative asset memberships for video editors, graphic designers, social media managers and agencies.</li>
+        <li><strong>Productivity, Academic &amp; SEO Tools:</strong> Office productivity suites, writing and grammar assistants, academic plagiarism checkers and digital marketing tools.</li>
+        <li><strong>Entertainment &amp; Cloud Accounts:</strong> Verified streaming memberships, ready email accounts and developer cloud resources with clear usage rules.</li>
     </ul>
 
     <h2>How Our Automated Order &amp; Delivery System Works</h2>

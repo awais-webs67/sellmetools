@@ -4,7 +4,7 @@
     $faqGroups = [
         'Ordering & Instant Delivery' => [
             [
-                'q' => 'How fast are ChatGPT Plus, Canva Pro and CapCut Pro subscriptions delivered in Pakistan?',
+                'q' => 'How fast are digital tools and subscriptions delivered in Pakistan?',
                 'a' => 'In-stock products are delivered automatically on your private order page and sent to your email immediately after your payment Transaction ID (TID) is verified. Automated payment methods verify in seconds, while manual wallet transfers are reviewed within 5 to 15 minutes during working hours.',
             ],
             [
@@ -64,7 +64,7 @@
 <x-page
     title="Frequently Asked Questions (FAQ) & Help Guide"
     eyebrow="Help Center & FAQ"
-    description="Find answers about buying ChatGPT Plus, Canva Pro, CapCut Pro, Claude and Netflix subscriptions in Pakistan, paying via Easypaisa or JazzCash, instant order delivery and warranty coverage."
+    description="Find answers about buying AI tools, premium software and digital subscriptions in Pakistan, paying via Easypaisa or JazzCash, instant order delivery and warranty coverage."
     subtitle="Everything you need to know about ordering digital tools in PKR, verifying your Transaction ID and accessing your credentials."
 >
     <p class="text-sm sm:text-base leading-relaxed mb-6">

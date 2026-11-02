@@ -66,7 +66,7 @@
                     <span class="text-[10px] font-bold tracking-widest text-[#ff8fa3] uppercase">24/7 Helpdesk</span>
                     <h2 class="display mt-1 text-2xl sm:text-3xl text-white">Need Fast Assistance?</h2>
                     <p class="mt-2 text-xs sm:text-sm leading-relaxed text-white/75">
-                        Have an Order ID or a question about ChatGPT Plus, Canva Pro, CapCut Pro or any subscription plan? Reach our team directly.
+                        Have an Order ID or a question about any digital tool, software license or subscription plan? Reach our team directly.
                     </p>
                     <div class="mt-5 space-y-2.5">
                         @if ($wa)

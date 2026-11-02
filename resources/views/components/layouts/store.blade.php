@@ -210,7 +210,7 @@
     <header x-data="{ open: false }" class="sticky top-0 z-40 border-b border-line bg-white/95 shadow-[0_1px_2px_rgba(0,0,0,.06)] backdrop-blur">
         <div class="container-x flex h-16 items-center justify-between gap-6 lg:h-[76px]">
             <a href="{{ route('home') }}" class="flex items-center transition active:scale-95" aria-label="{{ $storeName }} home">
-                <img src="{{ asset('images/logo.png') }}?v=4" alt="{{ $storeName }}" class="h-8 sm:h-9 lg:h-10 w-auto object-contain">
+                <img src="{{ asset('images/logo.png') }}?v=5" alt="{{ $storeName }}" class="h-8 sm:h-9 lg:h-10 w-auto object-contain">
             </a>
 
             <form action="{{ route('shop') }}" method="get" class="relative hidden max-w-md flex-1 md:block" role="search"
@@ -218,7 +218,7 @@
                 <label for="site-search" class="sr-only">Search products</label>
                 <div class="relative">
                     <svg class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                    <input id="site-search" type="search" name="q" value="{{ request('q') }}" placeholder="Search ChatGPT, Canva, CapCut..." class="input pl-9" x-bind="field">
+                    <input id="site-search" type="search" name="q" value="{{ request('q') }}" placeholder="Search digital tools, software &amp; subscriptions..." class="input pl-9" x-bind="field">
                 </div>
                 <x-search-suggest />
             </form>
@@ -257,7 +257,7 @@
                 <form action="{{ route('shop') }}" method="get" class="relative mb-3 md:hidden" role="search" x-data="liveSearch" @click.outside="open = false">
                     <label for="mobile-search" class="sr-only">Search products</label>
                     <svg class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                    <input id="mobile-search" type="search" name="q" value="{{ request('q') }}" placeholder="Search ChatGPT, Canva, CapCut..." class="input py-2 pl-9 text-sm" x-bind="field">
+                    <input id="mobile-search" type="search" name="q" value="{{ request('q') }}" placeholder="Search digital tools &amp; subscriptions..." class="input py-2 pl-9 text-sm" x-bind="field">
                     <x-search-suggest />
                 </form>
                 <a href="{{ route('shop') }}" class="block rounded px-3 py-2 font-medium text-ink hover:bg-grey-soft">Shop All Products</a>

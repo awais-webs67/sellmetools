@@ -52,7 +52,7 @@
     {{-- No results --}}
     <div x-show="searched && !loading && !products.length && !categories.length" class="px-4 py-5 text-center">
         <p class="text-sm font-semibold text-ink">No match for “<span x-text="term"></span>”</p>
-        <p class="mt-1 text-xs text-muted">Try a shorter name like “ChatGPT” or “Canva”.</p>
+        <p class="mt-1 text-xs text-muted">Try a shorter keyword or browse by category.</p>
     </div>
 
     {{-- See all --}}

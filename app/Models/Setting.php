@@ -33,11 +33,10 @@ class Setting extends Model
         'support_telegram' => '',
         'support_email' => '',
         'announcement' => '',
-        // Keyword targets researched against Pakistani competitors (SasteTools, DigiFaizan, SundayProduct, SubsCheap):
-        // "<tool> price in pakistan" and "buy <tool> in pakistan" are the highest-intent search patterns.
+        // General store-wide SEO targets for Pakistan digital tools & subscriptions marketplace:
         'seo_title' => 'Buy AI Tools & Premium Subscriptions in Pakistan',
-        'seo_description' => 'Buy ChatGPT Plus, Canva Pro, CapCut Pro, Claude, Gemini, Cursor & Netflix subscriptions in Pakistan at local PKR prices. Pay via Easypaisa, JazzCash, NayaPay or Binance.',
-        'seo_keywords' => 'buy ai tools in pakistan, digital subscriptions pakistan, chatgpt plus price in pakistan, chatgpt go price in pakistan, buy chatgpt plus easypaisa, canva pro price in pakistan, canva pro 1 year pakistan, capcut pro price in pakistan, claude pro price in pakistan, google ai pro gemini price in pakistan, cursor pro price in pakistan, netflix subscription price in pakistan, grammarly premium price in pakistan, midjourney price in pakistan, microsoft 365 price in pakistan, semrush group buy pakistan, premium tools jazzcash nayapay, sellmetools',
+        'seo_description' => 'Buy genuine AI tools, creative software, cloud accounts and digital subscriptions in Pakistan at local PKR prices. Pay via Easypaisa, JazzCash, NayaPay or Binance.',
+        'seo_keywords' => 'buy ai tools in pakistan, digital subscriptions pakistan, ai tools price in pakistan, premium tools pakistan, buy software subscriptions pakistan, cloud accounts pakistan, creative tools pakistan, digital store easypaisa jazzcash, nayapay sadapay binance digital store, sellmetools',
         'google_site_verification' => '',
         'google_analytics_id' => '',
         'mail_enabled' => '1',

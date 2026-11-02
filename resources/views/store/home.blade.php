@@ -47,8 +47,8 @@
 
     $faqs = [
         [
-            'q' => 'How fast will I receive my ChatGPT Plus, Canva Pro or CapCut Pro order?',
-            'a' => 'In-stock subscriptions are delivered automatically on your private order page as soon as your payment is verified. Manual wallet transfers are normally checked within 15 minutes during working hours, and you can track live status on your order page.',
+            'q' => 'How fast will I receive my digital tool or subscription order?',
+            'a' => 'In-stock subscriptions and accounts are delivered automatically on your private order page as soon as your payment is verified. Manual wallet transfers are normally checked within 15 minutes during working hours, and you can track live status on your order page.',
         ],
         [
             'q' => 'Which Pakistani payment methods do you accept?',
@@ -105,7 +105,7 @@
                     </h1>
 
                     <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base leading-relaxed text-white/75">
-                        Buy genuine ChatGPT Plus, Canva Pro, CapCut Pro, Claude, Gemini, Cursor and Netflix at local PKR prices. Pay easily with Easypaisa, JazzCash, NayaPay, SadaPay or Binance for instant delivery on your order page.
+                        Buy genuine AI tools, creative software, cloud accounts and digital subscriptions at local PKR prices. Pay easily with Easypaisa, JazzCash, NayaPay, SadaPay or Binance for instant delivery on your order page.
                     </p>
 
                     <div class="mt-7 flex flex-wrap items-center justify-center gap-3">
@@ -290,10 +290,10 @@
                         <h2 id="about-heading" class="display mt-1.5 text-3xl sm:text-5xl text-white">Pakistan’s Trusted Marketplace for AI Tools &amp; Subscriptions</h2>
                         <div class="mt-4 space-y-3.5 text-sm sm:text-base leading-relaxed text-white/80">
                             <p>
-                                International subscriptions like <strong>ChatGPT Plus, Claude Pro, Google AI Pro (Gemini), Canva Pro, CapCut Pro, Cursor</strong> and <strong>Netflix</strong> normally charge in USD and require international credit cards that carry hefty cross-border banking taxes or fail outright in Pakistan.
+                                International software, AI platforms, creative suites and cloud services normally charge in USD and require international credit cards that carry heavy cross-border banking taxes or fail outright in Pakistan.
                             </p>
                             <p>
-                                Built by <strong>AivraSol Softwares</strong>, {{ $storeName }} bridges that gap by offering verified digital tools and subscriptions in Pakistani Rupees (PKR). Whether you are a student completing university research, a video editor producing client reels, a graphic designer, or a software developer coding with AI, our automated platform reserves your stock at checkout and delivers credentials directly to your private order page.
+                                Built by <strong>AivraSol Softwares</strong>, {{ $storeName }} bridges that gap by offering verified digital tools, accounts and subscriptions in Pakistani Rupees (PKR). Whether you are a student completing university research, a creator producing client projects, a marketer, or a software developer, our automated platform reserves your stock at checkout and delivers credentials directly to your private order page.
                             </p>
                         </div>
                         <div class="mt-6 flex flex-wrap items-center gap-3">
@@ -335,21 +335,21 @@
 
                         <div class="mt-6 grid gap-4 sm:grid-cols-2">
                             <div class="rounded-xl border border-line bg-grey-soft/60 p-4 sm:p-5">
-                                <h3 class="text-sm sm:text-base font-bold text-ink">AI Writing, Coding &amp; Research</h3>
+                                <h3 class="text-sm sm:text-base font-bold text-ink">AI Assistants, Coding &amp; Research</h3>
                                 <p class="mt-1.5 text-xs sm:text-sm leading-relaxed text-body">
-                                    Upgrade your workflow with <strong>ChatGPT Plus, Claude Pro, Google AI Pro (Gemini), Cursor Pro</strong> and <strong>Perplexity</strong> for coding, content creation, academic research and automation in Pakistan.
+                                    Upgrade your workflow with premium AI assistants, coding companions, academic research tools and automation platforms at local Pakistani rates.
                                 </p>
                             </div>
                             <div class="rounded-xl border border-line bg-grey-soft/60 p-4 sm:p-5">
                                 <h3 class="text-sm sm:text-base font-bold text-ink">Design, Video &amp; Creative Suites</h3>
                                 <p class="mt-1.5 text-xs sm:text-sm leading-relaxed text-body">
-                                    Get official team invites and pro access for <strong>Canva Pro, CapCut Pro, Envato Elements</strong> and creative assets so your agency or freelance studio can export 4K projects without watermarks.
+                                    Get official team invites, pro accounts and creative asset subscriptions so your agency or freelance studio can export high-resolution projects without limits.
                                 </p>
                             </div>
                             <div class="rounded-xl border border-line bg-grey-soft/60 p-4 sm:p-5">
                                 <h3 class="text-sm sm:text-base font-bold text-ink">Streaming, Mail &amp; Cloud Accounts</h3>
                                 <p class="mt-1.5 text-xs sm:text-sm leading-relaxed text-body">
-                                    Order verified <strong>Netflix, Prime Video, Microsoft 365, Grammarly</strong> and ready mail or cloud accounts with instant credential delivery on your private order page.
+                                    Order verified streaming memberships, productivity suites, ready mail accounts and developer cloud access with instant delivery on your private order page.
                                 </p>
                             </div>
                             <div class="rounded-xl border border-line bg-grey-soft/60 p-4 sm:p-5">
