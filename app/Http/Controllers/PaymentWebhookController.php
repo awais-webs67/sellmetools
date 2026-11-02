@@ -288,13 +288,16 @@ class PaymentWebhookController extends Controller
                 } elseif ($do === 'reject') {
                     if ($payment && $payment->status === PaymentStatus::Pending) {
                         $payments->reject($payment, 'Declined by Admin via 1-Tap Control', $request->user());
+                        $message = "❌ Order {$order->number} payment has been Declined.";
                     } else {
-                        $order->update(['status' => OrderStatus::Cancelled]);
+                        $res = app(\App\Services\OrderService::class)->cancelAndRefund($order, OrderStatus::Cancelled, 'Cancelled by Admin via 1-Tap Control', $request->user()?->id);
+                        $message = $res['refunded']
+                            ? "❌ Order {$order->number} Cancelled & Rs {$res['amount']} automatically refunded to customer Wallet!"
+                            : "❌ Order {$order->number} has been Cancelled.";
                     }
                     $order->refresh()->load(['items.deliveries', 'items.product', 'paymentMethod', 'latestPayment']);
                     $payment = $order->latestPayment;
                     $actionResult = 'reject';
-                    $message = "❌ Order {$order->number} has been Declined.";
                 }
             } catch (Throwable $e) {
                 $message = $e->getMessage();

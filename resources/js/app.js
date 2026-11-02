@@ -205,7 +205,7 @@ Alpine.data('checkoutForm', (productId, initialQty, initialPrice, initialUnlimit
             if (emailEl && !emailEl.value && saved.email) emailEl.value = saved.email;
             if (nameEl && !nameEl.value && saved.name) nameEl.value = saved.name;
             if (phoneEl && !phoneEl.value && saved.phone) phoneEl.value = saved.phone;
-            if (saved.method && this.$el.querySelector(`input[name="payment_method_id"][value="${saved.method}"]`)) {
+            if (this.method !== 'wallet' && saved.method && this.$el.querySelector(`input[name="payment_method_id"][value="${saved.method}"]`)) {
                 this.method = String(saved.method);
             }
         } catch (_) {}

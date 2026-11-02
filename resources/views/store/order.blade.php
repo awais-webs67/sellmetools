@@ -95,6 +95,34 @@
                         </div>
                     @endif
 
+                    @php
+                        $authUser = auth()->user();
+                        $userWallet = (float) ($authUser?->wallet_balance ?? 0);
+                    @endphp
+                    @if ($authUser && $userWallet >= (float) $order->total)
+                        <div class="surface-banner flex flex-col gap-3 rounded-2xl border border-[#22c55e]/40 p-4 sm:p-5 text-white shadow-md sm:flex-row sm:items-center sm:justify-between">
+                            <div class="flex items-center gap-3">
+                                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#22c55e]/20 text-lg">👛</span>
+                                <div>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="text-sm sm:text-base font-bold text-white">Pay Directly with Wallet</span>
+                                        <span class="rounded-full bg-[#22c55e]/20 px-2 py-0.5 text-[10px] font-bold text-[#4ade80]">⚡ No Transaction ID Needed</span>
+                                    </div>
+                                    <p class="mt-0.5 text-xs text-white/75">
+                                        Your Wallet Balance: <strong class="font-mono text-white">{{ money($userWallet) }}</strong> · Skip manual transfer &amp; unlock credentials immediately.
+                                    </p>
+                                </div>
+                            </div>
+                            <form method="post" action="{{ route('orders.pay-wallet', $order) }}" class="shrink-0">
+                                @csrf
+                                <input type="hidden" name="token" value="{{ $token }}">
+                                <button type="submit" class="btn bg-[#16a34a] text-white hover:bg-[#15803d] w-full sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-bold shadow-sm">
+                                    ⚡ 1-Click Instant Wallet Pay →
+                                </button>
+                            </form>
+                        </div>
+                    @endif
+
                     <section class="card overflow-hidden">
                         {{-- Top Dark Strip with Timer --}}
                         <div class="flex items-center justify-between gap-3 bg-ink px-5 py-3.5 text-white" x-data="countdown(@js($order->expires_at?->toIso8601String()))">
@@ -106,26 +134,6 @@
                         </div>
 
                         <div class="p-5 sm:p-6 space-y-5">
-                            {{-- Compact 1-Line Account Wallet Option --}}
-                            @php
-                                $authUser = auth()->user();
-                                $userWallet = (float) ($authUser?->wallet_balance ?? 0);
-                            @endphp
-                            @if ($authUser && $userWallet >= (float) $order->total)
-                                <div class="flex items-center justify-between gap-3 rounded-xl border border-line-strong bg-grey-soft p-3">
-                                    <div class="text-xs">
-                                        <span class="font-bold text-ink">👛 Wallet Balance: {{ money($userWallet) }}</span>
-                                    </div>
-                                    <form method="post" action="{{ route('orders.pay-wallet', $order) }}">
-                                        @csrf
-                                        <input type="hidden" name="token" value="{{ $token }}">
-                                        <button type="submit" class="btn btn-primary px-3.5 py-1.5 text-xs font-bold">
-                                            1-Click Wallet Pay →
-                                        </button>
-                                    </form>
-                                </div>
-                            @endif
-
                             @if ($gatewayCheckoutUrl)
                                 <a href="{{ $gatewayCheckoutUrl }}" target="_blank" rel="noopener" class="btn btn-primary w-full py-3 text-sm font-bold">
                                     Pay {{ $amountFormatted }} Online via {{ $method->name }} →
@@ -408,10 +416,21 @@
                         </div>
                     </section>
 
-                {{-- ============ 5. CLOSED / EXPIRED ============ --}}
+                {{-- ============ 5. CLOSED / EXPIRED / REFUNDED ============ --}}
                 @else
-                    <section class="card p-6 text-center">
-                        <h2 class="text-lg font-bold text-ink">Order {{ strtolower($s->label()) }}</h2>
+                    @php
+                        $walletRefundTx = \App\Models\WalletTransaction::query()
+                            ->where('order_id', $order->id)
+                            ->where('type', 'order_refund')
+                            ->first();
+                    @endphp
+                    <section class="card p-6 sm:p-8 text-center">
+                        <h2 class="text-lg sm:text-xl font-bold text-ink">Order {{ strtolower($s->label()) }}</h2>
+                        @if ($walletRefundTx)
+                            <div class="mx-auto mt-3 max-w-md rounded-xl border border-success/30 bg-success-tint p-3.5 text-xs sm:text-sm font-semibold text-success">
+                                ✓ {{ money((float) $walletRefundTx->amount) }} has been automatically refunded to your Account Wallet Balance!
+                            </div>
+                        @endif
                         @if ($product = $order->items->first()?->product)
                             <a href="{{ route('products.show', $product) }}" class="btn btn-primary mt-4">Order Again</a>
                         @endif

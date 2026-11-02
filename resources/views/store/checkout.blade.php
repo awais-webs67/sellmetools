@@ -21,15 +21,23 @@
             <span class="badge badge-muted text-xs font-semibold">🔒 Instant Reserve</span>
         </div>
 
+        @php
+            $canDefaultWallet = ! $isFree && $user && $walletBalance >= ($effectivePrice * (int) old('quantity', $quantity));
+            $initialMethod = old('pay_with_wallet')
+                ? 'wallet'
+                : ($canDefaultWallet ? 'wallet' : old('payment_method_id', $methods->first()?->id));
+        @endphp
         <form method="post"
               action="{{ route('checkout.store', $product) }}"
               class="grid gap-6 lg:grid-cols-[1fr_360px]"
               data-stock-id="{{ $product->id }}"
-              x-data="checkoutForm({{ $product->id }}, {{ (int) old('quantity', $quantity) }}, {{ $effectivePrice }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, {{ (int) $product->available_stock }}, '{{ old('payment_method_id', $methods->first()?->id) }}')"
+              x-data="checkoutForm({{ $product->id }}, {{ (int) old('quantity', $quantity) }}, {{ $effectivePrice }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, {{ (int) $product->available_stock }}, '{{ $initialMethod }}')"
+              x-effect="if (method === 'wallet' && ({{ $walletBalance }} < (livePrice * qty))) { method = '{{ $methods->first()?->id }}'; }"
               @input="saveDraft()"
               @change="saveDraft()"
               @submit="submitting = true">
             @csrf
+            <input type="hidden" name="pay_with_wallet" :value="method === 'wallet' ? '1' : '0'">
 
             <div class="min-w-0 space-y-5">
                 {{-- STEP 1: Contact Details (Minimal & Clean) --}}
@@ -93,17 +101,20 @@
                         </div>
 
                         {{-- High-Contrast 1-Click Account Wallet Spotlight Bar --}}
-                        <div class="surface-banner mt-4 flex flex-col gap-3 rounded-xl border border-white/15 p-4 text-white shadow-md sm:flex-row sm:items-center sm:justify-between">
+                        <div @click="if ({{ $user ? 'true' : 'false' }} && ({{ $walletBalance }} >= (livePrice * qty))) { method = 'wallet'; }"
+                             :class="method === 'wallet' ? 'ring-2 ring-[#22c55e] border-[#22c55e]' : 'border-white/15'"
+                             class="surface-banner mt-4 flex cursor-pointer flex-col gap-3 rounded-xl border p-4 text-white shadow-md transition sm:flex-row sm:items-center sm:justify-between">
                             <div class="flex items-center gap-3">
                                 <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 text-base text-white">👛</span>
                                 <div>
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex flex-wrap items-center gap-2">
                                         <span class="text-sm font-bold text-white">Account Wallet</span>
-                                        <span class="rounded-full bg-[#22c55e]/20 px-2 py-0.5 text-[10px] font-bold text-[#4ade80]">⚡ 1-Click Instant</span>
+                                        <span class="rounded-full bg-[#22c55e]/20 px-2 py-0.5 text-[10px] font-bold text-[#4ade80]">⚡ Direct Instant · No TID Required</span>
                                     </div>
                                     <p class="text-xs text-white/75 mt-0.5">
                                         @if ($user)
                                             Balance: <strong class="font-mono text-white">{{ money($walletBalance) }}</strong>
+                                            <span x-show="method === 'wallet'" class="ml-1.5 font-semibold text-[#4ade80]">✓ Selected for Direct Checkout</span>
                                         @else
                                             Instant delivery without Transaction ID
                                         @endif
@@ -115,28 +126,28 @@
                                 @if ($user)
                                     <button type="submit"
                                             x-show="{{ $walletBalance }} >= (livePrice * qty)"
-                                            name="pay_with_wallet"
-                                            value="1"
-                                            :disabled="({{ $walletBalance }} < (livePrice * qty)) || !inStock || submitting"
+                                            @click.stop="method = 'wallet'"
+                                            :disabled="!inStock || submitting"
                                             class="btn bg-[#16a34a] text-white hover:bg-[#15803d] w-full sm:w-auto px-4 py-2 text-xs font-bold shadow-sm">
-                                        Pay with Wallet →
+                                        ⚡ Pay Instantly Now →
                                     </button>
                                     <div x-show="{{ $walletBalance }} < (livePrice * qty)" x-cloak>
                                         @if ($waAdmin !== '')
                                             <a href="https://wa.me/{{ $waAdmin }}?text={{ urlencode('Assalam o Alaikum! I want to top-up my SellMeTools Wallet Balance for account: '.$user->email) }}"
                                                target="_blank"
                                                rel="noopener"
+                                               @click.stop
                                                class="btn btn-hero-primary w-full sm:w-auto px-3.5 py-1.5 text-xs font-bold">
                                                 + Top-Up Wallet
                                             </a>
                                         @else
-                                            <a href="{{ route('account.orders') }}" class="btn btn-hero-primary w-full sm:w-auto px-3.5 py-1.5 text-xs font-bold">
+                                            <a href="{{ route('account.orders') }}" @click.stop class="btn btn-hero-primary w-full sm:w-auto px-3.5 py-1.5 text-xs font-bold">
                                                 Wallet →
                                             </a>
                                         @endif
                                     </div>
                                 @else
-                                    <a href="{{ route('login') }}" class="btn btn-hero-primary w-full sm:w-auto px-3.5 py-1.5 text-xs font-bold">
+                                    <a href="{{ route('login') }}" @click.stop class="btn btn-hero-primary w-full sm:w-auto px-3.5 py-1.5 text-xs font-bold">
                                         Login for Wallet
                                     </a>
                                 @endif
@@ -260,8 +271,13 @@
                     @error('agree')<p class="field-error text-xs">{{ $message }}</p>@enderror
 
                     {{-- Primary Action Button --}}
-                    <button type="submit" class="btn btn-primary btn-lg mt-4 w-full text-sm sm:text-base font-bold shadow-sm" :disabled="!inStock || submitting" @disabled(! $isFree && $methods->isEmpty())>
-                        <span x-show="!submitting && inStock">{{ $isFree ? 'Get Free Access →' : 'Continue to Payment →' }}</span>
+                    <button type="submit"
+                            :class="method === 'wallet' ? 'bg-[#16a34a] hover:bg-[#15803d] text-white' : 'btn-primary'"
+                            class="btn btn-lg mt-4 w-full text-sm sm:text-base font-bold shadow-sm"
+                            :disabled="!inStock || submitting"
+                            @disabled(! $isFree && $methods->isEmpty() && $walletBalance <= 0)>
+                        <span x-show="!submitting && inStock && method === 'wallet'">⚡ Pay Instantly with Wallet →</span>
+                        <span x-show="!submitting && inStock && method !== 'wallet'">{{ $isFree ? 'Get Free Access →' : 'Continue to Payment →' }}</span>
                         <span x-show="!submitting && !inStock" x-cloak>Out of Stock</span>
                         <span x-show="submitting" x-cloak class="inline-flex items-center gap-2">
                             <span class="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>

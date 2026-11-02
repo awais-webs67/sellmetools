@@ -145,6 +145,7 @@ class OrdersTable
                 ActionGroup::make([
                     self::quickWhatsappDeliveredAction(),
                     self::quickCancelAction(),
+                    self::quickRefundAction(),
                 ])->icon(Heroicon::OutlinedEllipsisVertical)->color('gray'),
             ]);
     }
@@ -237,14 +238,36 @@ class OrdersTable
     protected static function quickCancelAction(): Action
     {
         return Action::make('quickCancel')
-            ->label('Cancel Order')
+            ->label('Cancel Order (Auto-Refund if Paid)')
             ->icon(Heroicon::OutlinedNoSymbol)
             ->color('danger')
-            ->visible(fn (Order $record): bool => in_array($record->status, [OrderStatus::PendingPayment, OrderStatus::PaymentReview], true))
+            ->visible(fn (Order $record): bool => ! in_array($record->status, [OrderStatus::Cancelled, OrderStatus::Refunded, OrderStatus::Expired], true))
             ->requiresConfirmation()
+            ->modalDescription('Releases reserved stock. If the order was paid, the amount is automatically refunded to the customer’s Account Wallet.')
             ->action(function (Order $record): void {
-                app(OrderService::class)->release($record, OrderStatus::Cancelled);
-                Notification::make()->title("Order {$record->number} cancelled")->success()->send();
+                $res = app(OrderService::class)->cancelAndRefund($record, OrderStatus::Cancelled, null, auth()->id());
+                $msg = $res['refunded']
+                    ? "Order {$record->number} cancelled & Rs {$res['amount']} auto-refunded to Wallet!"
+                    : "Order {$record->number} cancelled";
+                Notification::make()->title($msg)->success()->send();
+            });
+    }
+
+    protected static function quickRefundAction(): Action
+    {
+        return Action::make('quickRefund')
+            ->label('Refund to Customer Wallet')
+            ->icon(Heroicon::OutlinedReceiptRefund)
+            ->color('danger')
+            ->visible(fn (Order $record): bool => ! in_array($record->status, [OrderStatus::Refunded, OrderStatus::Expired], true))
+            ->requiresConfirmation()
+            ->modalDescription('Automatically credits the order total back into the customer’s Account Wallet balance and releases reserved stock.')
+            ->action(function (Order $record): void {
+                $res = app(OrderService::class)->cancelAndRefund($record, OrderStatus::Refunded, null, auth()->id(), true);
+                $msg = $res['refunded']
+                    ? "Order {$record->number} refunded & Rs {$res['amount']} credited to Wallet!"
+                    : "Order {$record->number} marked refunded";
+                Notification::make()->title($msg)->success()->send();
             });
     }
 }

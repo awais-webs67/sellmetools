@@ -198,16 +198,31 @@ class ViewOrder extends ViewRecord
     protected function cancelAction(): Action
     {
         return Action::make('cancelOrder')
-            ->label('Cancel order')
+            ->label('Cancel Order (Auto-Refund if Paid)')
             ->icon(Heroicon::OutlinedNoSymbol)
             ->color('danger')
-            ->visible(fn (): bool => in_array($this->record->status, [OrderStatus::PendingPayment, OrderStatus::PaymentReview], true))
+            ->visible(fn (): bool => ! in_array($this->record->status, [OrderStatus::Cancelled, OrderStatus::Refunded, OrderStatus::Expired], true))
             ->requiresConfirmation()
-            ->modalDescription('Releases reserved stock. The customer will no longer be able to pay for this order.')
-            ->action(function (): void {
-                app(OrderService::class)->release($this->record, OrderStatus::Cancelled);
+            ->modalHeading('Cancel Order')
+            ->modalDescription('Releases reserved stock. If this order was already paid, the full amount is automatically refunded to the customer’s Account Wallet balance.')
+            ->schema([
+                Textarea::make('note')
+                    ->label('Cancellation reason / note (optional)')
+                    ->rows(2),
+            ])
+            ->action(function (array $data): void {
+                $res = app(OrderService::class)->cancelAndRefund(
+                    $this->record,
+                    OrderStatus::Cancelled,
+                    $data['note'] ?? null,
+                    auth()->id()
+                );
 
-                Notification::make()->title('Order cancelled')->success()->send();
+                $title = $res['refunded']
+                    ? "Order cancelled & Rs {$res['amount']} auto-refunded to Wallet!"
+                    : 'Order cancelled & reserved stock released';
+
+                Notification::make()->title($title)->success()->send();
                 $this->refreshRecord();
             });
     }
@@ -215,32 +230,32 @@ class ViewOrder extends ViewRecord
     protected function refundAction(): Action
     {
         return Action::make('markRefunded')
-            ->label('Mark refunded')
+            ->label('Refund to Customer Wallet')
             ->icon(Heroicon::OutlinedReceiptRefund)
             ->color('danger')
-            ->visible(fn (): bool => ! in_array($this->record->status, [OrderStatus::Refunded, OrderStatus::Cancelled, OrderStatus::Expired], true))
+            ->visible(fn (): bool => ! in_array($this->record->status, [OrderStatus::Refunded, OrderStatus::Expired], true))
             ->requiresConfirmation()
-            ->modalDescription('Only records the refund, send the money back to the customer yourself.')
+            ->modalHeading('Refund Order to Customer Wallet')
+            ->modalDescription('Automatically credits the order total back into the customer’s Account Wallet balance and releases any reserved stock.')
             ->schema([
                 Textarea::make('note')
                     ->label('Refund note (optional)')
                     ->rows(2),
             ])
             ->action(function (array $data): void {
-                $order = $this->record;
+                $res = app(OrderService::class)->cancelAndRefund(
+                    $this->record,
+                    OrderStatus::Refunded,
+                    $data['note'] ?? null,
+                    auth()->id(),
+                    true
+                );
 
-                if (in_array($order->status, [OrderStatus::PendingPayment, OrderStatus::PaymentReview], true)) {
-                    // Unpaid orders still hold reservations, release them.
-                    app(OrderService::class)->release($order, OrderStatus::Refunded);
-                } else {
-                    $order->update(['status' => OrderStatus::Refunded]);
-                }
+                $title = $res['refunded']
+                    ? "Order refunded & Rs {$res['amount']} credited to customer Wallet ({$res['user_email']})!"
+                    : 'Order marked as refunded';
 
-                if (filled($data['note'] ?? null)) {
-                    $order->refresh()->update(['admin_note' => trim(($order->admin_note ? $order->admin_note."\n" : '').'Refund: '.$data['note'])]);
-                }
-
-                Notification::make()->title('Order marked as refunded')->success()->send();
+                Notification::make()->title($title)->success()->send();
                 $this->refreshRecord();
             });
     }
