@@ -287,39 +287,27 @@
                 @endforeach
             </div>
 
-            {{-- Eye-Catching Dark Spotlight "Load More / Show All Products" Banner --}}
+            {{-- Eye-Catching Dark Spotlight "View All Products" Banner --}}
             <div class="surface-banner relative mt-8 overflow-hidden rounded-2xl border border-white/15 p-5 sm:p-7 text-white shadow-xl">
                 <div class="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-[#22c55e]/20 blur-3xl"></div>
-                <div class="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div class="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                     <div class="space-y-1.5">
                         <div class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold tracking-wider uppercase text-[#4ade80]">
                             <span class="h-2 w-2 rounded-full bg-[#22c55e] animate-pulse"></span>
-                            <span>Showing <span x-text="shown">{{ $products->count() }}</span> of {{ $products->total() }} Products</span>
+                            <span>Showing {{ $products->count() }} of {{ $products->total() }} Products</span>
                         </div>
                         <h3 class="display text-2xl sm:text-3xl text-white">
                             Want to Browse Our Entire Catalog?
                         </h3>
                         <p class="text-xs sm:text-sm text-white/75">
-                            Load more tools right here or open the full shop with advanced sorting &amp; stock filters.
+                            Open the full shop catalog to explore all {{ $products->total() }} tools &amp; subscriptions with live filters.
                         </p>
                     </div>
 
-                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
-                        <button type="button"
-                                x-show="nextUrl"
-                                @click="loadMore()"
-                                :disabled="loadingMore"
-                                class="btn bg-[#16a34a] text-white hover:bg-[#15803d] px-6 py-3.5 text-sm font-bold shadow-lg">
-                            <span x-show="!loadingMore">＋ Load More Products</span>
-                            <span x-show="loadingMore" x-cloak class="inline-flex items-center gap-2">
-                                <span class="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></span>
-                                Loading...
-                            </span>
-                        </button>
-
+                    <div class="shrink-0">
                         <a href="{{ route('shop', array_filter(['category' => $activeCategory?->slug, 'q' => $search])) }}"
-                           class="btn btn-hero-primary px-6 py-3.5 text-sm font-extrabold">
-                            🛍️ Show All Products ({{ $products->total() }}) →
+                           class="btn btn-hero-primary w-full sm:w-auto px-7 py-3.5 text-sm sm:text-base font-extrabold shadow-lg">
+                            🛍️ View All Products ({{ $products->total() }}) →
                         </a>
                     </div>
                 </div>

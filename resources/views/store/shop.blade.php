@@ -214,34 +214,11 @@
                     @endforeach
                 </div>
 
-                <div x-show="nextUrl" x-cloak class="surface-banner relative mt-8 overflow-hidden rounded-2xl border border-white/15 p-5 sm:p-6 text-white shadow-xl">
-                    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <span class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#4ade80]">
-                                <span class="h-2 w-2 rounded-full bg-[#22c55e] animate-pulse"></span>
-                                Showing <span x-text="shown">{{ $products->count() }}</span> of {{ $products->total() }} Products
-                            </span>
-                            <p class="display mt-1 text-2xl text-white">More Products Available Below</p>
-                        </div>
-                        <div class="flex flex-col sm:flex-row gap-2.5">
-                            <button type="button"
-                                    @click="loadMore()"
-                                    :disabled="loadingMore"
-                                    class="btn bg-[#16a34a] text-white hover:bg-[#15803d] px-6 py-3 text-sm font-bold shadow-lg">
-                                <span x-show="!loadingMore">＋ Load More (+24)</span>
-                                <span x-show="loadingMore" x-cloak>Loading...</span>
-                            </button>
-                            <a href="{{ route('shop', array_filter(['category' => $activeCategory?->slug, 'q' => $search, 'sort' => $sort, 'all' => 1])) }}"
-                               class="btn btn-hero-primary px-5 py-3 text-sm font-bold">
-                                Show All ({{ $products->total() }})
-                            </a>
-                        </div>
+                @if ($products->hasPages())
+                    <div class="mt-8">
+                        {{ $products->links() }}
                     </div>
-                </div>
-
-                <noscript>
-                    <div class="mt-6">{{ $products->links() }}</div>
-                </noscript>
+                @endif
             @endif
         </div>
     </section>

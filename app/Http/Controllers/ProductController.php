@@ -44,7 +44,7 @@ class ProductController extends Controller
         $seed = $request->integer('seed') ?: random_int(1000, 999999);
 
         $products = $this->catalogQuery($activeCategory, $search, $sort, $inStockOnly, $seed)
-            ->paginate($request->boolean('all') ? 500 : 24)
+            ->paginate(500)
             ->withQueryString()
             ->appends(['seed' => $seed]);
 
