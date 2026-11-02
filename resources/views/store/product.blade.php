@@ -7,6 +7,10 @@
 
     $productUrl = route('products.show', $product);
     $productImage = $product->imageUrl() ?: asset('favicon.svg');
+    $storeName = (string) setting('store_name', 'SellMeTools');
+    $schemaPrice = (float) $product->price > 0
+        ? (float) $product->price
+        : ((float) $product->compare_at_price > 0 ? (float) $product->compare_at_price : 0.0);
 
     $productSchema = [
         '@context' => 'https://schema.org',
@@ -18,13 +22,18 @@
         'mpn' => $product->slug,
         'brand' => [
             '@type' => 'Brand',
-            'name' => $product->category?->name ?: setting('store_name', 'SellMeTools'),
+            'name' => $product->brandName(),
         ],
-        'offers' => [
+        'hasMemberProgram' => [
+            '@type' => 'MemberProgram',
+            'name' => $storeName.' VIP Reseller & Customer Program',
+            'description' => 'Instant wallet delivery and wholesale reseller tier pricing in Pakistan.',
+        ],
+        'offers' => array_filter([
             '@type' => 'Offer',
             'url' => $productUrl,
             'priceCurrency' => 'PKR',
-            'price' => number_format((float) $product->price, 2, '.', ''),
+            'price' => $schemaPrice > 0 ? number_format($schemaPrice, 2, '.', '') : null,
             'priceValidUntil' => now()->addMonths(6)->toDateString(),
             'availability' => $product->inStock()
                 ? 'https://schema.org/InStock'
@@ -32,17 +41,56 @@
             'itemCondition' => 'https://schema.org/NewCondition',
             'seller' => [
                 '@type' => 'Organization',
-                'name' => setting('store_name', 'SellMeTools'),
+                'name' => $storeName,
             ],
-        ],
-        'aggregateRating' => [
+            'shippingDetails' => [
+                '@type' => 'OfferShippingDetails',
+                'shippingRate' => [
+                    '@type' => 'MonetaryAmount',
+                    'value' => '0.00',
+                    'currency' => 'PKR',
+                ],
+                'shippingDestination' => [
+                    '@type' => 'DefinedRegion',
+                    'addressCountry' => 'PK',
+                ],
+                'deliveryTime' => [
+                    '@type' => 'ShippingDeliveryTime',
+                    'handlingTime' => [
+                        '@type' => 'QuantitativeValue',
+                        'minValue' => 0,
+                        'maxValue' => 0,
+                        'unitCode' => 'DAY',
+                    ],
+                    'transitTime' => [
+                        '@type' => 'QuantitativeValue',
+                        'minValue' => 0,
+                        'maxValue' => 0,
+                        'unitCode' => 'DAY',
+                    ],
+                ],
+            ],
+            'hasMerchantReturnPolicy' => [
+                '@type' => 'MerchantReturnPolicy',
+                'applicableCountry' => 'PK',
+                'returnPolicyCategory' => 'https://schema.org/MerchantReturnFiniteReturnWindow',
+                'merchantReturnDays' => 7,
+                'returnMethod' => 'https://schema.org/ReturnByMail',
+                'returnFees' => 'https://schema.org/FreeReturn',
+                'merchantReturnLink' => route('pages.show', 'refund'),
+            ],
+        ], fn ($v) => $v !== null),
+    ];
+
+    if ($reviewsCount > 0) {
+        $productSchema['aggregateRating'] = [
             '@type' => 'AggregateRating',
             'ratingValue' => number_format($avgRating, 1, '.', ''),
-            'reviewCount' => max(1, $reviewsCount),
+            'reviewCount' => $reviewsCount,
             'bestRating' => '5',
             'worstRating' => '1',
-        ],
-    ];
+        ];
+    }
 
     if ($product->approvedReviews->isNotEmpty()) {
         $productSchema['review'] = $product->approvedReviews->take(5)->map(fn ($rev) => [
@@ -91,16 +139,22 @@
         'itemListElement' => $breadcrumbItems,
     ];
 
-    $storeName = setting('store_name', 'SellMeTools');
-    $priceStr = money($product->price);
+    $hasValidPrice = (float) $product->price > 0;
+    $priceStr = $hasValidPrice ? money($product->price) : null;
     $productFaqs = [
         [
             'q' => "What is the price of {$product->name} in Pakistan?",
-            'a' => "You can buy {$product->name} in Pakistan for just {$priceStr} on {$storeName} with instant delivery.",
+            'a' => $hasValidPrice
+                ? "You can buy {$product->name} in Pakistan for just {$priceStr} on {$storeName} with instant delivery on your private order page."
+                : "Check the live PKR and USDT price of {$product->name} on {$storeName}. As soon as stock is available, you can order with instant automated delivery in Pakistan.",
         ],
         [
             'q' => "How to buy {$product->name} in Pakistan with Easypaisa, JazzCash, or Binance?",
-            'a' => "Click Buy Now, choose Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer/Raast, or Binance Pay, and receive your credentials automatically after verification.",
+            'a' => "Click Buy Now, choose Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer/Raast, or Binance Pay (USDT), submit your Transaction ID, and receive your credentials automatically on your order page after verification.",
+        ],
+        [
+            'q' => "How is {$product->name} delivered and what warranty is included?",
+            'a' => ($product->warranty ? "Warranty terms: {$product->warranty}. " : '')."Your login credentials, invite link, or activation details are delivered directly on your private order page and saved in your customer account dashboard, backed by 24/7 WhatsApp support.",
         ],
     ];
 
@@ -160,8 +214,8 @@
             {{-- Product Image (Full uncropped image with ambient backdrop) --}}
             <div class="card surface-dark-solid relative aspect-[16/10] overflow-hidden">
                 @if ($img = $product->imageUrl())
-                    <img src="{{ $img }}" alt="" aria-hidden="true" class="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-lg">
-                    <img src="{{ $img }}" alt="{{ $product->name }}" class="relative z-10 h-full w-full object-contain p-3 sm:p-4">
+                    <div aria-hidden="true" style="background-image: url('{{ $img }}')" class="pointer-events-none absolute inset-0 bg-cover bg-center scale-110 opacity-35 blur-lg"></div>
+                    <img src="{{ $img }}" alt="{{ $product->name }}" width="640" height="400" fetchpriority="high" decoding="async" class="relative z-10 h-full w-full object-contain p-3 sm:p-4">
                 @else
                     <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand to-ink">
                         <span class="display px-6 text-center text-3xl sm:text-6xl text-white">{{ $product->name }}</span>
@@ -250,15 +304,50 @@
 
         {{-- SECONDARY DETAILS & REVIEWS BELOW --}}
         <div class="mt-10 grid gap-6 lg:grid-cols-2">
-            @if ($product->description)
-                <section class="card p-5 sm:p-7 shadow-xs">
-                    <h2 class="display text-2xl sm:text-3xl">Product Overview</h2>
-                    <div class="prose-store mt-4 text-xs sm:text-sm break-words leading-relaxed text-body">{!! nl2br(e(strip_tags($product->description))) !!}</div>
-                </section>
-            @endif
+            <section class="card p-5 sm:p-7 shadow-xs space-y-5">
+                <div>
+                    <h2 class="display text-2xl sm:text-3xl">Product Overview &amp; Delivery Guide</h2>
+                    @if ($product->description)
+                        <div class="prose-store mt-3 text-xs sm:text-sm break-words leading-relaxed text-body">{!! nl2br(e(strip_tags($product->description))) !!}</div>
+                    @endif
+                    <p class="mt-3 text-xs sm:text-sm leading-relaxed text-body">
+                        Buy <strong>{{ $product->name }}</strong> online in Pakistan from <strong>{{ $storeName }}</strong> with local PKR or USDT checkout. Your stock is reserved at checkout and your login credentials, invite link, or activation instructions are delivered directly to your private order page as soon as your payment is verified.
+                    </p>
+                </div>
+
+                <div class="grid gap-3 sm:grid-cols-2 border-t border-line pt-4">
+                    <div class="rounded-xl bg-grey-soft/70 p-3.5 border border-line">
+                        <h3 class="text-xs font-bold text-ink">⚡ Automated Order Vault</h3>
+                        <p class="mt-1 text-xs leading-relaxed text-body">
+                            Access your delivered credentials anytime on your order tracking page or inside your registered customer account dashboard.
+                        </p>
+                    </div>
+                    <div class="rounded-xl bg-grey-soft/70 p-3.5 border border-line">
+                        <h3 class="text-xs font-bold text-ink">🇵🇰 Local PKR &amp; USDT Payments</h3>
+                        <p class="mt-1 text-xs leading-relaxed text-body">
+                            Pay securely using Easypaisa, JazzCash, NayaPay, SadaPay, local bank transfer (Raast), or Binance Pay (USDT).
+                        </p>
+                    </div>
+                </div>
+
+                <div class="border-t border-line pt-4">
+                    <h3 class="text-sm font-bold text-ink">Frequently Asked Questions about {{ $product->name }}</h3>
+                    <div class="mt-3 space-y-2">
+                        @foreach ($productFaqs as $faq)
+                            <details class="group rounded-xl border border-line bg-grey-soft/40 p-3.5" @if ($loop->first) open @endif>
+                                <summary class="flex cursor-pointer list-none items-center justify-between gap-2 text-xs sm:text-sm font-bold text-ink">
+                                    <span>{{ $faq['q'] }}</span>
+                                    <span class="text-brand font-bold transition group-open:rotate-45">+</span>
+                                </summary>
+                                <p class="mt-2 text-xs leading-relaxed text-body">{{ $faq['a'] }}</p>
+                            </details>
+                        @endforeach
+                    </div>
+                </div>
+            </section>
 
             {{-- Customer Reviews Section --}}
-            <section id="reviews" @class(['card p-5 sm:p-7 scroll-mt-24 shadow-xs', 'lg:col-span-2' => ! $product->description])>
+            <section id="reviews" class="card p-5 sm:p-7 scroll-mt-24 shadow-xs">
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-4">
                     <div>
                         <h2 class="display text-2xl sm:text-3xl">Customer Reviews</h2>

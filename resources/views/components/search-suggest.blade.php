@@ -26,7 +26,7 @@
                class="flex items-center gap-3 rounded-lg px-2 py-2 transition active:scale-[0.99]"
                :class="active === i ? 'bg-brand-tint' : 'hover:bg-grey-soft'">
                 <span class="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-grey-soft">
-                    <template x-if="p.image"><img :src="p.image" alt="" class="h-full w-full object-cover" loading="lazy" decoding="async"></template>
+                    <template x-if="p.image"><span :style="'background-image: url(' + p.image + ')'" class="block h-full w-full bg-cover bg-center" role="img" :aria-label="p.name"></span></template>
                     <template x-if="!p.image"><span class="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand to-[#2B0912] text-sm font-bold text-white" x-text="p.name.charAt(0)"></span></template>
                 </span>
                 <span class="min-w-0 flex-1">

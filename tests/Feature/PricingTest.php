@@ -77,4 +77,34 @@ class PricingTest extends TestCase
         $html = '<blockquote><b>YOU WILL RECEIVE A LINK\nREDEEM IT</b></blockquote>';
         $this->assertSame("YOU WILL RECEIVE A LINK\nREDEEM IT", TextCleaner::clean($html));
     }
+
+    public function test_out_of_stock_markup_product_retains_selling_price_and_seo_outputs_never_leak_rs_zero(): void
+    {
+        $sp = $this->supplierProduct($this->supplier(), ['cost' => 1.0, 'stock' => 0]); // Out of stock, cost Rs 300
+        $product = $this->listing([$sp], [
+            'name' => 'CapCut Pro 1M (FW)',
+            'pricing_mode' => PricingMode::MarkupAmount,
+            'markup_value' => 250,
+            'fixed_price' => 0,
+            'short_description' => 'YOU WILL RECEIVE A CAPCUT PRO TEAM PLAN 1 MONTH READY-MADE ACCOUNT.',
+        ]);
+
+        // Even though supplier stock is 0, selling price is calculated from the active source cost (Rs 300 + 250 = Rs 550)
+        $this->assertSame(550.0, (float) $product->price);
+        $this->assertSame('CapCut', $product->brandName());
+        $this->assertStringNotContainsString('YOU WILL RECEIVE', $product->seoDescription());
+        $this->assertStringContainsString('You will receive a capcut pro team plan', $product->seoDescription());
+
+        // Even if a product's price is manually forced to 0, SEO outputs must never show Rs 0 or 0.00 PKR
+        $product->update(['price' => 0, 'fixed_price' => 0]);
+        $this->assertStringNotContainsString('Rs 0', $product->fresh()->seoDescription());
+
+        $this->get(route('llms'))
+            ->assertOk()
+            ->assertDontSee('Price: **Rs 0**');
+
+        $this->get(route('feed.google-shopping'))
+            ->assertOk()
+            ->assertDontSee('0.00 PKR');
+    }
 }

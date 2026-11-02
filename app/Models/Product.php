@@ -285,18 +285,112 @@ class Product extends Model
         return "{$this->name} Price in Pakistan | Buy Online";
     }
 
+    /**
+     * Detects the software/service brand from the product name for Schema.org & Google Shopping.
+     */
+    public function brandName(): string
+    {
+        $haystack = strtolower((string) $this->name);
+        $brands = [
+            'capcut' => 'CapCut',
+            'gemini' => 'Google',
+            'google' => 'Google',
+            'youtube' => 'Google',
+            'outlook' => 'Microsoft',
+            'hotmail' => 'Microsoft',
+            'microsoft' => 'Microsoft',
+            'office 365' => 'Microsoft',
+            'copilot' => 'Microsoft',
+            'github' => 'GitHub',
+            'chatgpt' => 'OpenAI',
+            'openai' => 'OpenAI',
+            'claude' => 'Anthropic',
+            'canva' => 'Canva',
+            'adobe' => 'Adobe',
+            'photoshop' => 'Adobe',
+            'premiere' => 'Adobe',
+            'netflix' => 'Netflix',
+            'spotify' => 'Spotify',
+            'prime video' => 'Amazon',
+            'aws' => 'Amazon',
+            'cursor' => 'Cursor',
+            'perplexity' => 'Perplexity',
+            'midjourney' => 'Midjourney',
+            'grammarly' => 'Grammarly',
+            'quillbot' => 'QuillBot',
+            'turnitin' => 'Turnitin',
+            'semrush' => 'Semrush',
+            'ahrefs' => 'Ahrefs',
+            'nordvpn' => 'NordVPN',
+            'expressvpn' => 'ExpressVPN',
+            'surfshark' => 'Surfshark',
+            'zoom' => 'Zoom',
+            'figma' => 'Figma',
+            'envato' => 'Envato',
+            'freepik' => 'Freepik',
+            'coursera' => 'Coursera',
+            'udemy' => 'Udemy',
+            'linkedin' => 'LinkedIn',
+            'discord' => 'Discord',
+            'telegram' => 'Telegram',
+        ];
+
+        foreach ($brands as $needle => $brand) {
+            if (str_contains($haystack, $needle)) {
+                return $brand;
+            }
+        }
+
+        return (string) Setting::get('store_name', 'SellMeTools');
+    }
+
+    /**
+     * Returns a clean, human-readable summary sentence (converting ALL-CAPS supplier notes into readable text).
+     */
+    public function cleanSummaryText(): string
+    {
+        $raw = trim(preg_replace('/\s+/', ' ', strip_tags((string) ($this->short_description ?: $this->description))));
+        if ($raw === '') {
+            return '';
+        }
+
+        $lettersOnly = preg_replace('/[^a-zA-Z]/', '', $raw);
+        if ($lettersOnly !== '' && strlen($lettersOnly) > 8 && strtoupper($lettersOnly) === $lettersOnly) {
+            $lower = strtolower($raw);
+            $sentences = preg_split('/([.!?]+\s*)/', $lower, -1, PREG_SPLIT_DELIM_CAPTURE);
+            $rebuilt = '';
+            foreach ($sentences as $idx => $part) {
+                $rebuilt .= ($idx % 2 === 0) ? ucfirst($part) : $part;
+            }
+            $acronyms = ['/\bai\b/i' => 'AI', '/\bpkr\b/i' => 'PKR', '/\busdt\b/i' => 'USDT', '/\bvpn\b/i' => 'VPN', '/\bfw\b/i' => 'FW', '/\bvip\b/i' => 'VIP', '/\bapi\b/i' => 'API', '/\bpc\b/i' => 'PC', '/\b4k\b/i' => '4K', '/\bhd\b/i' => 'HD', '/\botp\b/i' => 'OTP', '/\b(\d+)m\b/i' => '$1M', '/\b(\d+)y\b/i' => '$1Y'];
+            $raw = preg_replace(array_keys($acronyms), array_values($acronyms), $rebuilt) ?? $rebuilt;
+        }
+
+        return $raw;
+    }
+
     public function seoDescription(): string
     {
         if (filled($this->meta_description)) {
             return (string) $this->meta_description;
         }
 
-        $base = trim(preg_replace('/\s+/', ' ', strip_tags((string) ($this->short_description ?: $this->description))));
+        $base = $this->cleanSummaryText();
+        $hasValidPrice = (float) $this->price > 0;
+
         if ($base !== '') {
-            return Str::limit("{$this->name} price in Pakistan: ".money($this->price).". {$base}", 160);
+            if ($hasValidPrice) {
+                return Str::limit("{$this->name} price in Pakistan: ".money($this->price).". {$base}", 160);
+            }
+
+            return Str::limit("Buy {$this->name} in Pakistan. {$base} Pay via Easypaisa, JazzCash, NayaPay or Binance.", 160);
         }
 
-        return Str::limit("Buy {$this->name} in Pakistan for ".money($this->price).'. Genuine access delivered to your order page. Pay with Easypaisa, JazzCash, NayaPay, SadaPay or Binance.', 160);
+        if ($hasValidPrice) {
+            return Str::limit("Buy {$this->name} in Pakistan for ".money($this->price).'. Genuine access delivered to your order page. Pay with Easypaisa, JazzCash, NayaPay, SadaPay or Binance.', 160);
+        }
+
+        return Str::limit("Buy {$this->name} in Pakistan with instant automated delivery on your order page. Pay locally via Easypaisa, JazzCash, NayaPay, SadaPay or Binance USDT.", 160);
     }
 
     public function seoKeywords(): string

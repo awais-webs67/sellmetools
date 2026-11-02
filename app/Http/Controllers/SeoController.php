@@ -14,6 +14,7 @@ class SeoController extends Controller
     {
         $categories = Category::query()
             ->where('is_active', true)
+            ->whereHas('products', fn ($q) => $q->visible())
             ->orderBy('sort')
             ->get();
 
@@ -93,6 +94,7 @@ class SeoController extends Controller
         $storeDesc = (string) Setting::get('seo_description', Setting::get('store_tagline'));
         $products = Product::query()
             ->visible()
+            ->where('price', '>', 0)
             ->with('category')
             ->orderByDesc('is_featured')
             ->orderBy('sort')
@@ -110,7 +112,7 @@ class SeoController extends Controller
             $img = $product->imageUrl() ?: asset('favicon.svg');
             $availability = $product->inStock() ? 'in_stock' : 'out_of_stock';
             $price = number_format((float) $product->price, 2, '.', '').' PKR';
-            $brand = $product->category?->name ?: $storeName;
+            $brand = $product->brandName();
 
             $xml .= "    <item>\n";
             $xml .= '      <g:id>SMT-'.$product->id."</g:id>\n";
@@ -170,11 +172,11 @@ class SeoController extends Controller
         $md[] = '## Live Product Catalog & PKR Prices';
         foreach ($products as $p) {
             $stockStatus = ! $p->inStock() ? 'Out of Stock' : ($p->stock_unlimited ? 'In Stock (Unlimited)' : "In Stock ({$p->available_stock} available)");
-            $priceStr = money($p->price);
+            $priceStr = (float) $p->price > 0 ? money($p->price) : 'Check page for live restock price';
             $catName = $p->category?->name ?? 'General';
             $md[] = "- **[{$p->name}](".route('products.show', $p).")**: Price: **{$priceStr}** | Category: {$catName} | Status: {$stockStatus}";
-            if ($p->short_description) {
-                $md[] = "  - Summary: {$p->short_description}";
+            if ($summary = $p->cleanSummaryText()) {
+                $md[] = "  - Summary: {$summary}";
             }
             if ($p->warranty) {
                 $md[] = '  - Warranty: '.preg_replace('/\s+/', ' ', trim($p->warranty));

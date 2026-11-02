@@ -135,6 +135,39 @@
 
     @fonts
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <script type="speculationrules">
+    {
+      "prefetch": [
+        {
+          "where": {
+            "and": [
+              { "href_matches": "/*" },
+              { "not": { "href_matches": "/admin*" } },
+              { "not": { "href_matches": "/checkout*" } },
+              { "not": { "href_matches": "/orders*" } },
+              { "not": { "href_matches": "/account*" } },
+              { "not": { "href_matches": "/logout*" } },
+              { "not": { "href_matches": "/api*" } }
+            ]
+          },
+          "eagerness": "moderate"
+        }
+      ],
+      "prerender": [
+        {
+          "where": {
+            "or": [
+              { "href_matches": "/shop*" },
+              { "href_matches": "/products/*" },
+              { "href_matches": "/category/*" },
+              { "href_matches": "/pages/*" }
+            ]
+          },
+          "eagerness": "moderate"
+        }
+      ]
+    }
+    </script>
     <script>window.SMT = { stockUrl: @json(route('stock', auth()->user()?->is_reseller ? ['reseller' => auth()->id()] : [])), syncUrl: @json(route('stock.sync')), searchUrl: @json(route('search.suggest')), usdtRate: {{ \App\Models\Setting::usdtRate() }}, currencySymbol: @json(setting('currency_symbol', 'Rs')) };</script>
 </head>
 <body class="flex min-h-screen flex-col">
@@ -212,7 +245,7 @@
     <header x-data="{ open: false }" class="sticky top-0 z-40 border-b border-line bg-white/95 shadow-[0_1px_2px_rgba(0,0,0,.06)] backdrop-blur">
         <div class="container-x flex h-16 items-center justify-between gap-6 lg:h-[76px]">
             <a href="{{ route('home') }}" class="flex items-center transition active:scale-95" aria-label="{{ $storeName }} home">
-                <img src="{{ asset('images/logo.png') }}?v=6" alt="{{ $storeName }}" class="h-8 sm:h-9 lg:h-10 w-auto object-contain">
+                <img src="{{ asset('images/logo.png') }}?v=6" alt="{{ $storeName }}" width="180" height="40" fetchpriority="high" decoding="async" class="h-8 sm:h-9 lg:h-10 w-auto object-contain">
             </a>
 
             <form action="{{ route('shop') }}" method="get" class="relative hidden max-w-md flex-1 md:block" role="search"
@@ -412,7 +445,7 @@
         <div class="container-x grid gap-10 py-14 md:grid-cols-2 lg:grid-cols-4">
             <div class="lg:col-span-2">
                 <a href="{{ route('home') }}" class="flex items-center">
-                    <img src="{{ asset('images/logo-white.png') }}?v=4" alt="{{ $storeName }}" class="h-8 sm:h-9 md:h-10 w-auto object-contain">
+                    <img src="{{ asset('images/logo-white.png') }}?v=4" alt="{{ $storeName }}" width="180" height="40" loading="lazy" decoding="async" class="h-8 sm:h-9 md:h-10 w-auto object-contain">
                 </a>
                 <p class="mt-4 max-w-md text-sm leading-6">{{ setting('store_tagline') }} Pay with Easypaisa, JazzCash, NayaPay, SadaPay or Binance and receive your product automatically after verification.</p>
                 <div class="mt-5 flex flex-wrap gap-2">

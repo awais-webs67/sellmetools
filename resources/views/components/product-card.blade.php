@@ -1,11 +1,11 @@
-@props(['product'])
+@props(['product', 'priority' => false])
 @php
     $user = auth()->user();
     $effectivePrice = $product->priceFor($user);
     $comparePrice = $effectivePrice < (float) $product->price
         ? (float) $product->price
         : ($product->compare_at_price && $product->compare_at_price > $effectivePrice ? (float) $product->compare_at_price : null);
-    $discount = $comparePrice && $comparePrice > $effectivePrice
+    $discount = $comparePrice && $comparePrice > $effectivePrice && $effectivePrice > 0
         ? round(100 - ($effectivePrice / $comparePrice) * 100)
         : null;
     $initialStockLabel = ! $product->inStock()
@@ -21,15 +21,15 @@
         ->implode('');
 @endphp
 <article class="group relative flex flex-col overflow-hidden rounded-xl border border-line bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition duration-200 ease-out hover:-translate-y-0.5 hover:border-brand/45 hover:shadow-[0_12px_24px_-8px_rgba(20,23,26,0.16)] active:scale-[0.99] select-none"
-         x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, @js(money($effectivePrice)), {{ (float) $effectivePrice }})"
+         x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, @js($effectivePrice > 0 ? money($effectivePrice) : 'Out of Stock'), {{ (float) $effectivePrice }})"
          data-stock-id="{{ $product->id }}">
     {{-- Media Box: Full uncropped image (object-contain) with soft ambient backdrop --}}
     <a href="{{ route('products.show', $product) }}" class="surface-dark-solid relative block h-36 sm:h-40 overflow-hidden" tabindex="-1" aria-hidden="true">
         @if ($img = $product->imageUrl())
             {{-- Soft ambient backdrop fills side/top gaps so object-contain never leaves ugly empty bars --}}
-            <img src="{{ $img }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-md" :class="!inStock && 'grayscale'">
+            <div aria-hidden="true" style="background-image: url('{{ $img }}')" class="pointer-events-none absolute inset-0 bg-cover bg-center scale-110 opacity-35 blur-md" :class="!inStock && 'grayscale'"></div>
             {{-- Full uncropped product image --}}
-            <img src="{{ $img }}" alt="{{ $product->name }}" loading="lazy" decoding="async" class="relative z-10 h-full w-full object-contain p-1.5 transition duration-300 group-hover:scale-[1.03]" :class="!inStock && 'grayscale opacity-65'">
+            <img src="{{ $img }}" alt="{{ $product->name }}" width="400" height="250" @if ($priority) fetchpriority="high" @else loading="lazy" @endif decoding="async" class="relative z-10 h-full w-full object-contain p-1.5 transition duration-300 group-hover:scale-[1.03]" :class="!inStock && 'grayscale opacity-65'">
         @else
             <div class="surface-banner relative flex h-full w-full items-center gap-3 overflow-hidden px-3.5 sm:px-4 text-white" :class="!inStock && 'grayscale opacity-60'">
                 <div class="pointer-events-none absolute inset-0 opacity-15 [background-image:radial-gradient(rgba(255,255,255,0.55)_1px,transparent_1px)] [background-size:14px_14px]"></div>
@@ -88,7 +88,7 @@
 
         <div class="mt-2.5 flex items-center justify-between gap-2 border-t border-line pt-2.5">
             <div class="flex items-baseline gap-1.5 min-w-0">
-                <p class="display text-xl sm:text-2xl text-ink leading-none" x-text="priceText">{{ money($effectivePrice) }}</p>
+                <p class="display text-xl sm:text-2xl text-ink leading-none" x-text="unitPrice > 0 ? priceText : 'Sold Out'">{{ $effectivePrice > 0 ? money($effectivePrice) : 'Sold Out' }}</p>
                 @if ($comparePrice)
                     <p class="truncate text-[10px] sm:text-xs font-medium text-muted line-through" x-text="$store.currency.format({{ (float) $comparePrice }}, true)">{{ money($comparePrice) }}</p>
                 @endif

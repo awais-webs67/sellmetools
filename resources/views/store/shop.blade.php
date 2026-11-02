@@ -26,9 +26,35 @@
             'name' => $p->name,
         ])->all(),
     ];
+
+    $shopBreadcrumbSchema = [
+        '@context' => 'https://schema.org',
+        '@type' => 'BreadcrumbList',
+        'itemListElement' => array_values(array_filter([
+            [
+                '@type' => 'ListItem',
+                'position' => 1,
+                'name' => 'Home',
+                'item' => route('home'),
+            ],
+            [
+                '@type' => 'ListItem',
+                'position' => 2,
+                'name' => 'Shop',
+                'item' => route('shop'),
+            ],
+            $activeCategory ? [
+                '@type' => 'ListItem',
+                'position' => 3,
+                'name' => $activeCategory->name,
+                'item' => route('categories.show', $activeCategory),
+            ] : null,
+        ])),
+    ];
 @endphp
 @push('seo')
     <script type="application/ld+json">{!! json_encode($itemListSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    <script type="application/ld+json">{!! json_encode($shopBreadcrumbSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
 @endpush
 <x-layouts.store
     :title="$seoTitle"
@@ -179,7 +205,7 @@
             @else
                 <div class="mt-6 grid grid-cols-2 gap-3.5 sm:gap-5 md:grid-cols-3 xl:grid-cols-4">
                     @foreach ($products as $product)
-                        <x-product-card :product="$product" />
+                        <x-product-card :product="$product" :priority="$loop->index < 2" />
                     @endforeach
                 </div>
                 <div class="mt-10">{{ $products->links() }}</div>

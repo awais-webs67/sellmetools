@@ -73,11 +73,38 @@
             'acceptedAnswer' => ['@type' => 'Answer', 'text' => $f['a']],
         ])->all(),
     ];
+
+    $categoryBreadcrumbSchema = $activeCategory ? [
+        '@context' => 'https://schema.org',
+        '@type' => 'BreadcrumbList',
+        'itemListElement' => [
+            [
+                '@type' => 'ListItem',
+                'position' => 1,
+                'name' => 'Home',
+                'item' => route('home'),
+            ],
+            [
+                '@type' => 'ListItem',
+                'position' => 2,
+                'name' => 'Shop',
+                'item' => route('shop'),
+            ],
+            [
+                '@type' => 'ListItem',
+                'position' => 3,
+                'name' => $activeCategory->name,
+                'item' => route('categories.show', $activeCategory),
+            ],
+        ],
+    ] : null;
 @endphp
 @push('seo')
     <script type="application/ld+json">{!! json_encode($itemListSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
     @if ($isLanding)
         <script type="application/ld+json">{!! json_encode($faqSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    @elseif ($categoryBreadcrumbSchema)
+        <script type="application/ld+json">{!! json_encode($categoryBreadcrumbSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
     @endif
 @endpush
 <x-layouts.store
@@ -102,8 +129,7 @@
                     </div>
 
                     <h1 class="display mt-5 text-[clamp(36px,7.2vw,84px)] leading-[0.94] tracking-tight text-white">
-                        Premium AI Tools &amp;<br class="hidden sm:block">
-                        <span class="hero-highlight">Subscriptions</span> in Pakistan
+                        Premium AI Tools &amp; <br class="hidden sm:block"><span class="hero-highlight">Subscriptions</span> in Pakistan
                     </h1>
 
                     <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base leading-relaxed text-white/75">
@@ -187,15 +213,19 @@
         <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
                 <span class="eyebrow">{{ $search ? 'Search' : ($activeCategory ? 'Category' : 'Catalog') }}</span>
-                <h2 class="display mt-1 text-3xl sm:text-5xl">
-                    @if ($search)
-                        Results for “{{ $search }}”
-                    @elseif ($activeCategory)
-                        {{ $activeCategory->name }}
-                    @else
-                        All Products
-                    @endif
-                </h2>
+                @if ($isLanding)
+                    <h2 class="display mt-1 text-3xl sm:text-5xl">All Products</h2>
+                @else
+                    <h1 class="display mt-1 text-3xl sm:text-5xl">
+                        @if ($search)
+                            Results for “{{ $search }}”
+                        @elseif ($activeCategory)
+                            {{ $activeCategory->name }} Price in Pakistan
+                        @else
+                            All Products
+                        @endif
+                    </h1>
+                @endif
             </div>
             <div class="flex items-center gap-3">
                 <p class="text-xs sm:text-sm text-muted">
@@ -248,7 +278,7 @@
         @else
             <div class="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 xl:grid-cols-4">
                 @foreach ($products as $product)
-                    <x-product-card :product="$product" />
+                    <x-product-card :product="$product" :priority="$loop->index < 2" />
                 @endforeach
             </div>
             <div class="mt-10">{{ $products->links() }}</div>
@@ -428,10 +458,16 @@
                                         </div>
                                     </div>
                                     <div class="flex shrink-0 items-center gap-2">
-                                        <span class="rounded-lg bg-grey-soft px-2.5 py-1 text-xs sm:text-sm font-bold text-ink group-hover:bg-brand group-hover:text-white transition"
-                                              x-text="$store.currency.format({{ $dirPrice }})">
-                                            {{ money($dirPrice) }}
-                                        </span>
+                                        @if ($dirPrice > 0)
+                                            <span class="rounded-lg bg-grey-soft px-2.5 py-1 text-xs sm:text-sm font-bold text-ink group-hover:bg-brand group-hover:text-white transition"
+                                                  x-text="$store.currency.format({{ $dirPrice }})">
+                                                {{ money($dirPrice) }}
+                                            </span>
+                                        @else
+                                            <span class="rounded-lg bg-grey-soft px-2.5 py-1 text-xs font-semibold text-muted group-hover:bg-brand group-hover:text-white transition">
+                                                View Plan
+                                            </span>
+                                        @endif
                                         <svg class="h-4 w-4 text-muted transition group-hover:translate-x-0.5 group-hover:text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
                                     </div>
                                 </a>
@@ -456,6 +492,72 @@
                             </div>
                         @endif
                     </div>
+                </div>
+            </div>
+        </section>
+    @elseif ($activeCategory)
+        {{-- ================= CATEGORY SEO BUYING GUIDE ================= --}}
+        <section class="border-t border-line bg-white py-12 sm:py-16" aria-labelledby="category-guide-heading">
+            <div class="container-x">
+                <div class="grid gap-8 lg:grid-cols-[1.25fr_1fr] lg:items-start">
+                    <div>
+                        <span class="eyebrow">{{ $activeCategory->name }} in Pakistan</span>
+                        <h2 id="category-guide-heading" class="display mt-1 text-2xl sm:text-4xl text-ink">
+                            Buy Genuine {{ $activeCategory->name }} Subscriptions in Pakistan with Local PKR Wallets
+                        </h2>
+                        <div class="prose-store mt-4 space-y-3.5 text-sm sm:text-base leading-relaxed text-body">
+                            <p>
+                                Looking for verified <strong>{{ $activeCategory->name }}</strong> plans and accounts in Pakistan without paying steep international credit card markups or cross-border banking taxes? On <strong>{{ $storeName }}</strong>, you can compare live PKR and USDT pricing, check real-time stock availability, and order genuine {{ strtolower($activeCategory->name) }} tools with automated delivery directly on your private order page.
+                            </p>
+                            <p>
+                                Every {{ strtolower($activeCategory->name) }} listing on {{ $storeName }} displays its exact plan type, duration, and replacement warranty terms upfront. You can complete checkout in seconds using <strong>Easypaisa, JazzCash, NayaPay, SadaPay, local bank transfer (Raast)</strong>, or <strong>Binance Pay (USDT)</strong>, and access your saved credentials anytime from your customer dashboard.
+                            </p>
+                        </div>
+
+                        <div class="mt-6 grid gap-3.5 sm:grid-cols-3">
+                            <div class="rounded-xl border border-line bg-grey-soft/60 p-4">
+                                <h3 class="text-xs sm:text-sm font-bold text-ink">⚡ Instant Order Page Delivery</h3>
+                                <p class="mt-1 text-xs leading-relaxed text-body">
+                                    In-stock {{ strtolower($activeCategory->name) }} credentials and activation links appear on your private order page as soon as payment is verified.
+                                </p>
+                            </div>
+                            <div class="rounded-xl border border-line bg-grey-soft/60 p-4">
+                                <h3 class="text-xs sm:text-sm font-bold text-ink">🇵🇰 Local PKR &amp; USDT Checkout</h3>
+                                <p class="mt-1 text-xs leading-relaxed text-body">
+                                    Pay in Pakistani Rupees via Easypaisa, JazzCash, NayaPay, SadaPay, or in USDT via Binance Pay with zero hidden card fees.
+                                </p>
+                            </div>
+                            <div class="rounded-xl border border-line bg-grey-soft/60 p-4">
+                                <h3 class="text-xs sm:text-sm font-bold text-ink">🛡️ Clear Warranty &amp; Support</h3>
+                                <p class="mt-1 text-xs leading-relaxed text-body">
+                                    Backed by AivraSol Softwares with dedicated WhatsApp support and clear warranty coverage on every digital tool.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <aside class="card border border-line bg-grey-soft/50 p-5 sm:p-6">
+                        <h3 class="display text-xl sm:text-2xl text-ink">Explore Other Categories</h3>
+                        <p class="mt-1 text-xs sm:text-sm text-muted">Browse all digital subscription categories available in Pakistan:</p>
+                        <div class="mt-4 flex flex-wrap gap-2">
+                            @foreach ($categories as $cat)
+                                <a href="{{ route('categories.show', $cat) }}" @class([
+                                    'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition',
+                                    'border-brand bg-brand text-white' => $activeCategory->is($cat),
+                                    'border-line-strong bg-white text-ink hover:border-brand hover:text-brand' => ! $activeCategory->is($cat),
+                                ])>
+                                    @if ($cat->icon)
+                                        <span>{{ $cat->icon }}</span>
+                                    @endif
+                                    <span>{{ $cat->name }}</span>
+                                </a>
+                            @endforeach
+                        </div>
+                        <div class="mt-5 border-t border-line pt-4 flex flex-wrap items-center justify-between gap-2 text-xs">
+                            <a href="{{ route('shop') }}" class="font-bold text-brand hover:underline">Browse Full Shop Catalog →</a>
+                            <a href="{{ route('pages.show', 'faq') }}" class="font-semibold text-muted hover:text-ink">Read Buying &amp; Warranty FAQ →</a>
+                        </div>
+                    </aside>
                 </div>
             </div>
         </section>
