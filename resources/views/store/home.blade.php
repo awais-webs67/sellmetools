@@ -88,40 +88,40 @@
 >
     @if ($isLanding)
         {{-- ================= HERO ================= --}}
-        <section class="relative overflow-hidden bg-[#100307] text-white">
+        <section class="relative overflow-hidden bg-[#0B0D10] text-white">
             {{-- Layered ambient lighting & radial masked architectural grid --}}
-            <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(180,28,54,.48),transparent_60%),radial-gradient(ellipse_at_bottom_right,rgba(110,16,35,.55),transparent_55%)]" aria-hidden="true"></div>
-            <div class="pointer-events-none absolute -top-24 left-1/2 h-72 w-[36rem] -translate-x-1/2 rounded-full bg-brand/30 blur-3xl" aria-hidden="true"></div>
+            <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,.10),transparent_60%),radial-gradient(ellipse_at_bottom_right,rgba(148,163,184,.12),transparent_55%)]" aria-hidden="true"></div>
+            <div class="pointer-events-none absolute -top-24 left-1/2 h-72 w-[36rem] -translate-x-1/2 rounded-full bg-white/[0.06] blur-3xl" aria-hidden="true"></div>
             <div class="pointer-events-none absolute inset-0 opacity-[.10] [background-image:linear-gradient(rgba(255,255,255,.55)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.55)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_78%)]" aria-hidden="true"></div>
-            <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#ff6b81]/45 to-transparent" aria-hidden="true"></div>
+            <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" aria-hidden="true"></div>
 
             <div class="container-x relative py-11 sm:py-16 lg:py-20 text-center">
                 <div class="mx-auto max-w-4xl">
-                    <div class="inline-flex items-center gap-2.5 rounded-full border border-white/15 bg-white/[0.08] px-4 py-1.5 text-[11px] font-semibold tracking-wider text-white/95 uppercase shadow-inner backdrop-blur-xs">
+                    <div class="inline-flex items-center gap-2.5 rounded-full border border-white/15 bg-white/[0.07] px-4 py-1.5 text-[11px] font-semibold tracking-wider text-white/95 uppercase shadow-inner backdrop-blur-xs">
                         <span class="h-2 w-2 rounded-full bg-[#22c55e] live-dot"></span>
                         <span>Verified Digital Store</span>
                         <span class="hidden sm:inline text-white/35">·</span>
-                        <span class="hidden sm:inline text-[#ff8fa3]">Instant Automated Delivery</span>
+                        <span class="hidden sm:inline text-white/80">Instant Automated Delivery</span>
                     </div>
 
                     <h1 class="display mt-5 text-[clamp(36px,7.2vw,84px)] leading-[0.94] tracking-tight text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.45)]">
                         Premium AI Tools &amp;<br class="hidden sm:block">
-                        <span class="bg-gradient-to-r from-[#ff6b81] via-[#ff8fa3] to-[#ffb3c1] bg-clip-text text-transparent">Subscriptions</span> in Pakistan
+                        <span class="bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent">Subscriptions</span> in Pakistan
                     </h1>
 
-                    <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base leading-relaxed text-white/80">
+                    <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base leading-relaxed text-white/75">
                         Buy genuine AI tools, creative software, cloud accounts and digital subscriptions at local PKR prices. Pay easily with Easypaisa, JazzCash, NayaPay, SadaPay or Binance for instant delivery on your order page.
                     </p>
 
                     <div class="mt-7 flex flex-wrap items-center justify-center gap-3">
-                        <a href="#products" class="btn bg-[#C81E3B] text-white hover:bg-[#a81730] border border-white/15 px-6 py-3 text-sm font-bold shadow-[0_10px_25px_-5px_rgba(200,30,59,0.55)]">
+                        <a href="#products" class="btn bg-white text-ink hover:bg-gray-100 px-6 py-3 text-sm font-bold shadow-[0_10px_25px_-5px_rgba(255,255,255,0.2)]">
                             Browse All Products ↓
                         </a>
-                        <a href="{{ route('shop') }}" class="btn bg-white text-ink hover:bg-brand-tint px-6 py-3 text-sm font-bold shadow-md">
+                        <a href="{{ route('shop') }}" class="btn border border-white/25 bg-white/[0.08] text-white hover:bg-white/15 px-6 py-3 text-sm font-bold backdrop-blur-xs">
                             Open Full Shop →
                         </a>
                         @if ($waNumber !== '')
-                            <a href="https://wa.me/{{ $waNumber }}" target="_blank" rel="noopener" class="btn border border-white/25 bg-white/[0.06] text-white hover:bg-white/15 px-5 py-3 text-sm font-semibold backdrop-blur-xs">
+                            <a href="https://wa.me/{{ $waNumber }}" target="_blank" rel="noopener" class="btn border border-white/20 bg-white/[0.04] text-white hover:bg-white/12 px-5 py-3 text-sm font-semibold backdrop-blur-xs">
                                 <svg class="h-4 w-4 text-[#25D366]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.5 14.4c-.3-.1-1.8-.9-2-1s-.5-.1-.7.1-.8 1-1 1.2-.4.2-.7.1a8.2 8.2 0 0 1-4-3.5c-.3-.5.3-.5.9-1.6.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6a1.2 1.2 0 0 0-.9.4 3.6 3.6 0 0 0-1.1 2.7 6.3 6.3 0 0 0 1.3 3.3 14.4 14.4 0 0 0 5.5 4.9c2 .9 2.8 1 3.9.8a3.3 3.3 0 0 0 2.1-1.5 2.7 2.7 0 0 0 .2-1.5c-.1-.1-.3-.2-.6-.3zM12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2z"/></svg>
                                 Ask on WhatsApp
                             </a>
@@ -132,7 +132,7 @@
                         <nav class="mx-auto mt-6 hidden sm:flex max-w-2xl flex-wrap items-center justify-center gap-2 text-xs" aria-label="Popular categories">
                             <span class="font-medium text-white/55">Categories:</span>
                             @foreach ($categories->take(6) as $category)
-                                <a href="{{ route('categories.show', $category) }}#products" class="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[.07] px-3.5 py-1 font-semibold text-white/90 transition hover:border-[#ff6b81]/60 hover:bg-white/15 active:scale-95">
+                                <a href="{{ route('categories.show', $category) }}#products" class="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[.07] px-3.5 py-1 font-semibold text-white/90 transition hover:border-white/50 hover:bg-white/15 active:scale-95">
                                     @if ($category->icon)
                                         <span>{{ $category->icon }}</span>
                                     @endif
@@ -145,21 +145,21 @@
                     {{-- Desktop Trust Highlights Strip (hidden on mobile to keep mobile hero compact) --}}
                     <div class="mx-auto mt-9 hidden sm:grid max-w-3xl grid-cols-3 gap-3 text-left">
                         <div class="flex items-center gap-3 rounded-xl border border-white/12 bg-white/[0.05] px-4 py-3 backdrop-blur-xs">
-                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/30 border border-[#ff6b81]/30 text-base text-[#ff8fa3]">⚡</span>
+                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 border border-white/20 text-base text-white">⚡</span>
                             <div class="min-w-0">
                                 <p class="truncate text-xs font-bold text-white">Instant Order Page</p>
                                 <p class="truncate text-[11px] text-white/65">Auto credentials delivery</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-3 rounded-xl border border-white/12 bg-white/[0.05] px-4 py-3 backdrop-blur-xs">
-                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/30 border border-[#ff6b81]/30 text-base text-[#ff8fa3]">🇵🇰</span>
+                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 border border-white/20 text-base text-white">🇵🇰</span>
                             <div class="min-w-0">
                                 <p class="truncate text-xs font-bold text-white">100% Local PKR</p>
                                 <p class="truncate text-[11px] text-white/65">No USD card tax required</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-3 rounded-xl border border-white/12 bg-white/[0.05] px-4 py-3 backdrop-blur-xs">
-                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/30 border border-[#ff6b81]/30 text-base text-[#ff8fa3]">🛡️</span>
+                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 border border-white/20 text-base text-white">🛡️</span>
                             <div class="min-w-0">
                                 <p class="truncate text-xs font-bold text-white">Verified Warranty</p>
                                 <p class="truncate text-[11px] text-white/65">24/7 WhatsApp helpdesk</p>
@@ -304,7 +304,7 @@
                 </div>
 
                 <aside class="lg:pt-14">
-                    <div class="overflow-hidden rounded-2xl bg-[#120408] p-6 text-white lg:sticky lg:top-24">
+                    <div class="overflow-hidden rounded-2xl bg-[#14171A] p-6 text-white lg:sticky lg:top-24">
                         <p class="display text-3xl text-white">Need help choosing?</p>
                         <p class="mt-2 text-sm text-white/70">Message us with the tool you need and we'll tell you the right plan, price and delivery time.</p>
                         <div class="mt-5 space-y-2">
@@ -321,11 +321,11 @@
         </section>
 
         {{-- ================= ABOUT & TRUST SECTION ================= --}}
-        <section class="border-t border-line bg-[#120408] text-white py-14 sm:py-20" aria-labelledby="about-heading">
+        <section class="border-t border-line bg-[#0B0D10] text-white py-14 sm:py-20" aria-labelledby="about-heading">
             <div class="container-x">
                 <div class="grid gap-10 lg:grid-cols-[1.15fr_1fr] lg:items-center">
                     <div>
-                        <span class="eyebrow text-[#ff8fa3]">About {{ $storeName }}</span>
+                        <span class="eyebrow text-white/75 before:bg-white/60">About {{ $storeName }}</span>
                         <h2 id="about-heading" class="display mt-1.5 text-3xl sm:text-5xl text-white">Pakistan’s Trusted Marketplace for AI Tools &amp; Subscriptions</h2>
                         <div class="mt-4 space-y-3.5 text-sm sm:text-base leading-relaxed text-white/80">
                             <p>
@@ -402,9 +402,9 @@
 
                     {{-- Structured Live Price Directory Card (replaces old unstyled floating list) --}}
                     <div class="card overflow-hidden border border-line bg-white shadow-sm" x-data>
-                        <div class="flex items-center justify-between gap-3 border-b border-line bg-[#120408] px-5 py-4 text-white">
+                        <div class="flex items-center justify-between gap-3 border-b border-line bg-[#14171A] px-5 py-4 text-white">
                             <div>
-                                <span class="text-[10px] font-bold tracking-widest text-[#ff8fa3] uppercase" x-text="$store.currency.isUsdt ? 'Live USDT Directory' : 'Live PKR Directory'">Live PKR Directory</span>
+                                <span class="text-[10px] font-bold tracking-widest text-white/65 uppercase" x-text="$store.currency.isUsdt ? 'Live USDT Directory' : 'Live PKR Directory'">Live PKR Directory</span>
                                 <h3 class="display text-2xl text-white">Popular Price Checks in Pakistan</h3>
                             </div>
                             <a href="{{ route('shop') }}" class="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20">

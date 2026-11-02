@@ -158,7 +158,7 @@
              data-stock-id="{{ $product->id }}">
 
             {{-- Product Image (Full uncropped image with ambient backdrop) --}}
-            <div class="card relative aspect-[16/10] overflow-hidden bg-[#140408]">
+            <div class="card relative aspect-[16/10] overflow-hidden bg-[#14171A]">
                 @if ($img = $product->imageUrl())
                     <img src="{{ $img }}" alt="" aria-hidden="true" class="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-lg">
                     <img src="{{ $img }}" alt="{{ $product->name }}" class="relative z-10 h-full w-full object-contain p-3 sm:p-4">

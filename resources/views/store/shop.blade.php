@@ -37,8 +37,8 @@
     :robots="$robotsDirective"
 >
     {{-- ================= SHOP HEADER ================= --}}
-    <section class="relative overflow-hidden bg-[#120408] text-white py-10 sm:py-14">
-        <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(155,27,48,.5),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(94,16,33,.55),transparent_50%)]" aria-hidden="true"></div>
+    <section class="relative overflow-hidden bg-[#0B0D10] text-white py-10 sm:py-14">
+        <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,.08),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(148,163,184,.10),transparent_50%)]" aria-hidden="true"></div>
         <div class="container-x relative">
             <nav class="text-xs text-white/60 mb-3" aria-label="Breadcrumb">
                 <ol class="flex flex-wrap items-center gap-2">
@@ -56,7 +56,7 @@
 
             <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                    <span class="eyebrow text-[#ff8fa3]">{{ $activeCategory ? 'Category Catalog' : 'Complete Store Catalog' }}</span>
+                    <span class="eyebrow text-white/75 before:bg-white/60">{{ $activeCategory ? 'Category Catalog' : 'Complete Store Catalog' }}</span>
                     <h1 class="display mt-1.5 text-3xl sm:text-5xl lg:text-6xl text-white">
                         @if ($search !== '')
                             Search Results for “{{ $search }}”
