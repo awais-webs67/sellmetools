@@ -132,45 +132,57 @@
                                 </a>
                             @endif
 
-                            {{-- Clean 2-Card Transfer Box (Amount + Account Number) --}}
-                            <div class="grid gap-3 sm:grid-cols-2">
-                                <div class="rounded-xl border border-line-strong bg-grey-soft/60 p-4 flex items-center justify-between gap-3" x-data="copy(@js((string) $amountDue))">
-                                    <div>
-                                        <span class="block text-[11px] font-semibold uppercase tracking-wider text-muted">Amount to Send</span>
-                                        <span class="display mt-0.5 block text-3xl text-ink">{{ $amountFormatted }}</span>
-                                    </div>
-                                    <button type="button" class="btn btn-outline bg-white px-3 py-1.5 text-xs font-bold shrink-0" @click="copy" x-text="copied ? '✓ Copied' : 'Copy'">Copy</button>
+                            {{-- STEP 1: High-Contrast Dark Transfer Box (Amount + Account Number) --}}
+                            <div class="space-y-2.5">
+                                <div class="flex items-center gap-2">
+                                    <span class="rounded bg-ink px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">Step 1</span>
+                                    <span class="text-xs sm:text-sm font-bold text-ink">Copy Details &amp; Send Payment</span>
                                 </div>
 
-                                @if ($method->account_number && $method->account_number !== 'Set in admin')
-                                    <div class="rounded-xl border border-line-strong bg-grey-soft/60 p-4 flex items-center justify-between gap-3" x-data="copy(@js($method->account_number))">
-                                        <div class="min-w-0">
-                                            <span class="block text-[11px] font-semibold uppercase tracking-wider text-muted">
-                                                {{ $method->code === 'binance' ? 'Binance Pay ID' : ($method->code === 'usdt_trc20' ? 'USDT TRC20 Address' : $method->name.' Account') }}
-                                            </span>
-                                            <span class="mt-0.5 block font-mono text-base font-bold text-ink break-all">{{ $method->account_number }}</span>
-                                            @if ($method->account_title && $method->account_title !== 'Set in admin')
-                                                <span class="block text-xs text-muted truncate">{{ $method->account_title }}</span>
-                                            @endif
+                                <div class="grid gap-3 sm:grid-cols-2">
+                                    <div class="surface-banner rounded-xl border border-white/15 p-4 text-white flex items-center justify-between gap-3 shadow-md" x-data="copy(@js((string) $amountDue))">
+                                        <div>
+                                            <span class="block text-[10px] font-bold uppercase tracking-wider text-white/65">Exact Amount</span>
+                                            <span class="display mt-0.5 block text-3xl text-[#4ade80]">{{ $amountFormatted }}</span>
                                         </div>
-                                        <button type="button" class="btn btn-outline bg-white px-3 py-1.5 text-xs font-bold shrink-0" @click="copy" x-text="copied ? '✓ Copied' : 'Copy'">Copy</button>
+                                        <button type="button" class="btn btn-hero-primary px-3.5 py-2 text-xs font-bold shrink-0" @click="copy" x-text="copied ? '✓ Copied!' : '📋 Copy'">📋 Copy</button>
                                     </div>
-                                @endif
+
+                                    @if ($method->account_number && $method->account_number !== 'Set in admin')
+                                        <div class="surface-banner rounded-xl border border-white/15 p-4 text-white flex items-center justify-between gap-3 shadow-md" x-data="copy(@js($method->account_number))">
+                                            <div class="min-w-0">
+                                                <span class="block text-[10px] font-bold uppercase tracking-wider text-white/65">
+                                                    {{ $method->code === 'binance' ? 'Binance Pay ID' : ($method->code === 'usdt_trc20' ? 'USDT TRC20 Address' : $method->name.' Account') }}
+                                                </span>
+                                                <span class="mt-0.5 block font-mono text-base sm:text-lg font-bold text-white break-all">{{ $method->account_number }}</span>
+                                                @if ($method->account_title && $method->account_title !== 'Set in admin')
+                                                    <span class="block text-xs text-white/75 truncate">Title: {{ $method->account_title }}</span>
+                                                @endif
+                                            </div>
+                                            <button type="button" class="btn btn-hero-primary px-3.5 py-2 text-xs font-bold shrink-0" @click="copy" x-text="copied ? '✓ Copied!' : '📋 Copy'">📋 Copy</button>
+                                        </div>
+                                    @endif
+                                </div>
                             </div>
 
                             @if ($method->instructions)
                                 <p class="rounded-lg bg-grey-soft px-3.5 py-2.5 text-xs text-body">{{ $method->instructions }}</p>
                             @endif
 
-                            {{-- TID Submission Form --}}
+                            {{-- STEP 2: Highlighted TID Submission Box --}}
                             <form method="post"
                                   action="{{ route('orders.payment', $order) }}"
                                   enctype="multipart/form-data"
-                                  class="border-t border-line pt-5 space-y-4"
+                                  class="rounded-2xl border-2 border-ink/15 bg-grey-soft/70 p-4 sm:p-5 space-y-4"
                                   x-data="paymentSubmitter()"
                                   @submit="startSubmit()">
                                 @csrf
                                 <input type="hidden" name="token" value="{{ $token }}">
+
+                                <div class="flex items-center gap-2">
+                                    <span class="rounded bg-[#16a34a] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">Step 2</span>
+                                    <span class="text-xs sm:text-sm font-bold text-ink">Enter Transaction ID (TID)</span>
+                                </div>
 
                                 <div class="grid gap-3.5 sm:grid-cols-2">
                                     <div @class(['sm:col-span-2' => ! $method->requires_sender_number])>

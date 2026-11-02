@@ -92,20 +92,20 @@
                             <span class="text-xs font-medium text-muted">PKR &amp; USDT</span>
                         </div>
 
-                        {{-- Compact 1-Click Account Wallet Bar --}}
-                        <div class="mt-4 flex flex-col gap-3 rounded-xl border border-line-strong bg-grey-soft p-3.5 sm:flex-row sm:items-center sm:justify-between">
+                        {{-- High-Contrast 1-Click Account Wallet Spotlight Bar --}}
+                        <div class="surface-banner mt-4 flex flex-col gap-3 rounded-xl border border-white/15 p-4 text-white shadow-md sm:flex-row sm:items-center sm:justify-between">
                             <div class="flex items-center gap-3">
-                                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ink text-sm text-white">👛</span>
+                                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 text-base text-white">👛</span>
                                 <div>
                                     <div class="flex items-center gap-2">
-                                        <span class="text-xs sm:text-sm font-bold text-ink">Account Wallet</span>
-                                        <span class="rounded bg-ink px-1.5 py-0.5 text-[10px] font-bold text-white">1-Click</span>
+                                        <span class="text-sm font-bold text-white">Account Wallet</span>
+                                        <span class="rounded-full bg-[#22c55e]/20 px-2 py-0.5 text-[10px] font-bold text-[#4ade80]">⚡ 1-Click Instant</span>
                                     </div>
-                                    <p class="text-xs text-muted mt-0.5">
+                                    <p class="text-xs text-white/75 mt-0.5">
                                         @if ($user)
-                                            Balance: <strong class="font-mono text-ink">{{ money($walletBalance) }}</strong>
+                                            Balance: <strong class="font-mono text-white">{{ money($walletBalance) }}</strong>
                                         @else
-                                            Instant delivery with wallet balance
+                                            Instant delivery without Transaction ID
                                         @endif
                                     </p>
                                 </div>
@@ -118,7 +118,7 @@
                                             name="pay_with_wallet"
                                             value="1"
                                             :disabled="({{ $walletBalance }} < (livePrice * qty)) || !inStock || submitting"
-                                            class="btn btn-primary w-full sm:w-auto px-4 py-2 text-xs font-bold">
+                                            class="btn bg-[#16a34a] text-white hover:bg-[#15803d] w-full sm:w-auto px-4 py-2 text-xs font-bold shadow-sm">
                                         Pay with Wallet →
                                     </button>
                                     <div x-show="{{ $walletBalance }} < (livePrice * qty)" x-cloak>
@@ -126,17 +126,17 @@
                                             <a href="https://wa.me/{{ $waAdmin }}?text={{ urlencode('Assalam o Alaikum! I want to top-up my SellMeTools Wallet Balance for account: '.$user->email) }}"
                                                target="_blank"
                                                rel="noopener"
-                                               class="btn btn-outline bg-white w-full sm:w-auto px-3.5 py-1.5 text-xs font-semibold">
+                                               class="btn btn-hero-primary w-full sm:w-auto px-3.5 py-1.5 text-xs font-bold">
                                                 + Top-Up Wallet
                                             </a>
                                         @else
-                                            <a href="{{ route('account.orders') }}" class="btn btn-outline bg-white w-full sm:w-auto px-3.5 py-1.5 text-xs font-semibold">
+                                            <a href="{{ route('account.orders') }}" class="btn btn-hero-primary w-full sm:w-auto px-3.5 py-1.5 text-xs font-bold">
                                                 Wallet →
                                             </a>
                                         @endif
                                     </div>
                                 @else
-                                    <a href="{{ route('login') }}" class="btn btn-outline bg-white w-full sm:w-auto px-3.5 py-1.5 text-xs font-semibold">
+                                    <a href="{{ route('login') }}" class="btn btn-hero-primary w-full sm:w-auto px-3.5 py-1.5 text-xs font-bold">
                                         Login for Wallet
                                     </a>
                                 @endif
