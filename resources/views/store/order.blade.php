@@ -446,7 +446,7 @@
                                                     $parts = ['Email / Username' => trim($m[1]), 'Password' => trim($m[2])];
                                                 }
                                             @endphp
-                                            <div class="rounded-xl border border-[#2B0912]/15 bg-[#120408] p-4 text-white shadow-md">
+                                            <div class="surface-dark-solid rounded-xl border border-line p-4 text-white shadow-md">
                                                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
                                                     <span class="text-[11px] font-bold tracking-wider text-[#ff8fa3] uppercase">
                                                         🔑 Delivered Account / Key {{ $item->deliveries->count() > 1 ? '#'.($idx + 1) : '' }}

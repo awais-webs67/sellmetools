@@ -215,7 +215,7 @@
                                                 @if ($item->deliveries->isNotEmpty())
                                                     <div class="mt-2.5 grid gap-2">
                                                         @foreach ($item->deliveries as $delivery)
-                                                            <div class="flex flex-col gap-2 rounded-xl border border-[#2B0912]/15 bg-[#120408] p-3 text-white sm:flex-row sm:items-center sm:justify-between" x-data="copy(@js(trim($delivery->content)))">
+                                                            <div class="surface-dark-solid flex flex-col gap-2 rounded-xl border border-line p-3 text-white sm:flex-row sm:items-center sm:justify-between" x-data="copy(@js(trim($delivery->content)))">
                                                                 <div class="min-w-0">
                                                                     <span class="block text-[10px] font-bold uppercase tracking-wider text-[#ff8fa3]">🔑 Delivered Credential</span>
                                                                     <code class="mt-0.5 block font-mono text-xs sm:text-sm font-semibold break-all text-[#4ade80]">{{ trim($delivery->content) }}</code>

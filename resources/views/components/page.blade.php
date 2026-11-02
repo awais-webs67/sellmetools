@@ -61,7 +61,7 @@
 
             {{-- Sidebar --}}
             <aside class="space-y-5 lg:sticky lg:top-24">
-                <div class="overflow-hidden rounded-2xl bg-[#120408] p-6 text-white">
+                <div class="surface-dark-solid overflow-hidden rounded-2xl p-6 text-white">
                     <span class="text-[10px] font-bold tracking-widest text-[#ff8fa3] uppercase">24/7 Helpdesk</span>
                     <h2 class="display mt-1 text-2xl sm:text-3xl text-white">Need Fast Assistance?</h2>
                     <p class="mt-2 text-xs sm:text-sm leading-relaxed text-white/75">

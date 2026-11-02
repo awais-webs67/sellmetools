@@ -8,7 +8,7 @@
             {{-- Secret Reseller Login Screen --}}
             <div class="mx-auto max-w-md py-6 sm:py-12">
                 <div class="card overflow-hidden border-2 border-brand/30 shadow-xl">
-                    <div class="bg-[#120408] px-6 py-6 text-white">
+                    <div class="surface-dark-solid px-6 py-6 text-white">
                         <div class="flex items-center justify-between">
                             <span class="rounded-full bg-brand px-3 py-0.5 text-[11px] font-bold tracking-wider text-white uppercase">
                                 🔒 Secret VIP Reseller Portal
@@ -40,7 +40,7 @@
             </div>
         @else
             {{-- Authorized Reseller Dashboard & Special Price Catalog --}}
-            <div class="rounded-2xl border border-[#2B0912]/20 bg-[#120408] p-5 sm:p-8 text-white shadow-xl">
+            <div class="surface-banner rounded-2xl border border-line p-5 sm:p-8 text-white shadow-xl">
                 <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <div class="flex flex-wrap items-center gap-2">
@@ -195,7 +195,7 @@
                                     @if ($item->deliveries->isNotEmpty())
                                         <div class="mt-2.5 space-y-1.5">
                                             @foreach ($item->deliveries as $delivery)
-                                                <div class="flex items-center justify-between gap-2 rounded-lg bg-[#120408] px-3 py-2 text-white" x-data="copy(@js(trim($delivery->content)))">
+                                                <div class="surface-dark-solid flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-white" x-data="copy(@js(trim($delivery->content)))">
                                                     <code class="font-mono text-xs text-[#4ade80] break-all">{{ $item->product_name }}: {{ trim($delivery->content) }}</code>
                                                     <button type="button" @click="copy" class="shrink-0 rounded bg-brand px-2.5 py-1 text-[11px] font-bold text-white" x-text="copied ? 'Copied!' : 'Copy'"></button>
                                                 </div>

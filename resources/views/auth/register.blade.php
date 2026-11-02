@@ -3,7 +3,7 @@
         <div class="mx-auto max-w-lg">
             <section class="card overflow-hidden border-2 border-line shadow-2xl">
                 {{-- Branded Top Header --}}
-                <div class="bg-gradient-to-br from-[#1F070E] via-[#2B0912] to-[#120408] p-6 sm:p-8 text-white text-center">
+                <div class="surface-banner p-6 sm:p-8 text-white text-center">
                     <img src="{{ asset('images/logo-white.png') }}" alt="{{ setting('store_name') }}" class="h-9 sm:h-10 w-auto mx-auto object-contain">
                     <span class="eyebrow mt-4 text-[#ff8fa3] justify-center">Instant Registration</span>
                     <h1 class="display mt-2 text-3xl sm:text-4xl text-white">Create Your Account</h1>
