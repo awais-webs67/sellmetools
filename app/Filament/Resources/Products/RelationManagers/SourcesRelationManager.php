@@ -67,6 +67,21 @@ class SourcesRelationManager extends RelationManager
                     ->after(fn () => $this->refreshOwner()),
             ])
             ->recordActions([
+                Action::make('useDetails')
+                    ->label('Use Info')
+                    ->tooltip('Copy this supplier’s description & warranty to the product')
+                    ->icon(Heroicon::OutlinedDocumentDuplicate)
+                    ->color('gray')
+                    ->requiresConfirmation()
+                    ->modalDescription('Copies this supplier item’s Description and Warranty into your storefront Product.')
+                    ->action(function (SupplierProduct $record): void {
+                        $owner = $this->owner();
+                        $owner->update([
+                            'description' => $record->description ?: $owner->description,
+                            'warranty' => $record->warranty ?: $owner->warranty,
+                        ]);
+                        $this->dispatch('product-refreshed');
+                    }),
                 Action::make('toggleSource')
                     ->label(fn (SupplierProduct $record): string => $record->pivot?->is_active ? 'Disable' : 'Enable')
                     ->icon(fn (SupplierProduct $record): Heroicon => $record->pivot?->is_active ? Heroicon::OutlinedPause : Heroicon::OutlinedPlay)

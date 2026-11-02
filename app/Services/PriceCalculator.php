@@ -30,6 +30,19 @@ class PriceCalculator
     {
         $source = $this->rankedSources($product)->first();
 
+        // If all linked suppliers are currently out of stock (0 stock), still compute the price
+        // from the cheapest enabled supplier source so out-of-stock products keep their real price instead of Rs 0.
+        if (! $source) {
+            $product->loadMissing('activeSources.supplier');
+            $source = $product->activeSources
+                ->filter(fn (SupplierProduct $sp) => (bool) $sp->supplier?->is_active)
+                ->sortBy([
+                    fn ($a, $b) => $a->costPkr() <=> $b->costPkr(),
+                    fn ($a, $b) => ($a->supplier->priority ?? 999) <=> ($b->supplier->priority ?? 999),
+                ])
+                ->first();
+        }
+
         return $source ? round($source->costPkr(), 2) : null;
     }
 

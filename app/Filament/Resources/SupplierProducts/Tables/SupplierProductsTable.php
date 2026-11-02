@@ -78,8 +78,7 @@ class SupplierProductsTable
                     ->relationship('supplier', 'name')
                     ->preload(),
                 Filter::make('available')
-                    ->label('Available only')
-                    ->default()
+                    ->label('In-stock only')
                     ->query(fn (Builder $query): Builder => $query
                         ->where('is_available', true)
                         ->where(fn (Builder $q) => $q->where('unlimited_stock', true)->orWhere('stock', '>', 0))),
@@ -185,9 +184,10 @@ class SupplierProductsTable
             ->label('Link to product')
             ->icon(Heroicon::OutlinedLink)
             ->color('gray')
+            ->modalDescription('Links this supplier item to an existing storefront product. The product will automatically use the cheapest in-stock supplier and combine stock across all linked suppliers.')
             ->schema([
                 Select::make('product_id')
-                    ->label('Product')
+                    ->label('Select Existing Storefront Product')
                     ->required()
                     ->searchable()
                     ->getSearchResultsUsing(fn (string $search): array => Product::query()
@@ -197,14 +197,24 @@ class SupplierProductsTable
                         ->pluck('name', 'id')
                         ->all())
                     ->options(fn (): array => Product::query()->latest()->limit(50)->pluck('name', 'id')->all()),
+                Toggle::make('copy_details')
+                    ->label('Overwrite product Description & Warranty with this supplier’s info')
+                    ->helperText('Leave OFF (recommended) to keep your existing product title, image, description & warranty untouched.')
+                    ->default(false),
             ])
             ->action(function (SupplierProduct $record, array $data): void {
                 $product = Product::query()->findOrFail($data['product_id']);
+                if (! empty($data['copy_details'])) {
+                    $product->update(array_filter([
+                        'description' => $record->description ?: $product->description,
+                        'warranty' => $record->warranty ?: $product->warranty,
+                    ]));
+                }
                 Listings::link($record, $product);
 
                 Notification::make()
                     ->title("Linked to {$product->name}")
-                    ->body('Price is now '.Money::pkr($product->price).'.')
+                    ->body('Cheapest active price is now '.Money::pkr($product->price).' (Total stock: '.($product->stock_unlimited ? '∞' : $product->available_stock).').')
                     ->success()
                     ->send();
             });
