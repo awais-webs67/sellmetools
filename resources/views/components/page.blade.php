@@ -19,7 +19,7 @@
 @endphp
 <x-layouts.store :title="$title" :description="$description">
     {{-- Header Banner --}}
-    <section class="relative overflow-hidden bg-black text-white py-10 sm:py-14">
+    <section class="surface-banner relative overflow-hidden text-white py-10 sm:py-14">
         <div class="container-x relative">
             <nav class="text-xs text-white/60 mb-3" aria-label="Breadcrumb">
                 <ol class="flex items-center gap-2">
@@ -28,7 +28,7 @@
                     <li class="text-white font-semibold">{{ $title }}</li>
                 </ol>
             </nav>
-            <span class="eyebrow text-white/75 before:bg-white/60">{{ $eyebrow }}</span>
+            <span class="eyebrow text-dark-accent before:bg-current">{{ $eyebrow }}</span>
             <h1 class="display mt-1.5 text-3xl sm:text-5xl lg:text-6xl text-white">{{ $title }}</h1>
             <p class="mt-2 max-w-2xl text-xs sm:text-sm leading-relaxed text-white/75">
                 {{ $subtitle ?: ($description ?: "Official information, customer support and store policies for {$storeName} in Pakistan.") }}

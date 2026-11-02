@@ -22,6 +22,8 @@
     $announcement = setting('announcement');
     $googleVerify = setting('google_site_verification');
     $gaId = setting('google_analytics_id');
+    $storeTheme = (string) setting('store_theme', 'black');
+    $themeColorHex = $storeTheme === 'crimson' ? '#9B1B30' : '#000000';
 
     $orgSchema = array_filter([
         '@context' => 'https://schema.org',
@@ -70,7 +72,7 @@
     ];
 @endphp
 <!DOCTYPE html>
-<html lang="en-PK">
+<html lang="en-PK" data-theme="{{ $storeTheme }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -84,7 +86,7 @@
     <meta name="author" content="{{ $storeName }} | AivraSol Softwares">
     <meta name="geo.region" content="PK">
     <meta name="geo.placename" content="Pakistan">
-    <meta name="theme-color" content="#000000">
+    <meta name="theme-color" content="{{ $themeColorHex }}">
 
     <link rel="canonical" href="{{ $canonicalUrl }}">
     <link rel="alternate" hreflang="en-pk" href="{{ $canonicalUrl }}">

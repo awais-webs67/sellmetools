@@ -38,6 +38,18 @@
     --shadow-pop: 0 14px 28px -6px rgba(20, 23, 26, .14), 0 6px 12px -4px rgba(16, 24, 40, .08);
 }
 
+/* Original Wine Red (#9B1B30) Theme Override (controlled via Admin Panel -> Store Settings) */
+html[data-theme="crimson"] {
+    --color-brand: #9B1B30;
+    --color-brand-hover: #7D1426;
+    --color-brand-dark: #7D1426;
+    --color-brand-text: #7D1426;
+    --color-brand-tint: #FDF2F4;
+    --color-brand-tint-2: #FCE4E8;
+    --color-ink: #14171A;
+    --shadow-pop: 0 14px 28px -6px rgba(155, 27, 48, .14), 0 6px 12px -4px rgba(16, 24, 40, .08);
+}
+
 @layer base {
     html {
         scroll-behavior: smooth;
@@ -94,6 +106,76 @@
     .badge-muted { @apply bg-grey text-slate; }
 
     .dot { @apply inline-block h-2 w-2 rounded-full; }
+
+    /* Theme-aware Hero & Dark Surfaces (Pure Black vs Original Wine Red) */
+    .surface-hero {
+        background-color: #000000;
+    }
+    html[data-theme="crimson"] .surface-hero {
+        background-color: #100307;
+        background-image:
+            radial-gradient(ellipse at top, rgba(180, 28, 54, .48), transparent 60%),
+            radial-gradient(ellipse at bottom right, rgba(110, 16, 35, .55), transparent 55%);
+    }
+
+    .surface-banner {
+        background-color: #000000;
+    }
+    html[data-theme="crimson"] .surface-banner {
+        background-color: #120408;
+        background-image:
+            radial-gradient(ellipse at top right, rgba(155, 27, 48, .50), transparent 55%),
+            radial-gradient(ellipse at bottom left, rgba(94, 16, 33, .55), transparent 50%);
+    }
+
+    .surface-dark-solid {
+        background-color: #000000;
+    }
+    html[data-theme="crimson"] .surface-dark-solid {
+        background-color: #120408;
+    }
+
+    .hero-highlight {
+        color: #FFFFFF;
+    }
+    html[data-theme="crimson"] .hero-highlight {
+        background-image: linear-gradient(90deg, #ff6b81, #ff8fa3, #ffb3c1);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .btn-hero-primary {
+        @apply bg-white text-black hover:bg-gray-100 shadow-[0_10px_25px_-5px_rgba(255,255,255,0.2)];
+    }
+    html[data-theme="crimson"] .btn-hero-primary {
+        background-color: var(--color-brand);
+        color: #FFFFFF;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        box-shadow: 0 10px 25px -5px rgba(200, 30, 59, 0.55);
+    }
+    html[data-theme="crimson"] .btn-hero-primary:hover {
+        background-color: var(--color-brand-hover);
+    }
+
+    .btn-hero-secondary {
+        @apply border border-white/25 bg-white/[0.08] text-white hover:bg-white/15 backdrop-blur-xs;
+    }
+    html[data-theme="crimson"] .btn-hero-secondary {
+        background-color: #FFFFFF;
+        color: var(--color-ink);
+        border-color: transparent;
+    }
+    html[data-theme="crimson"] .btn-hero-secondary:hover {
+        background-color: var(--color-brand-tint);
+    }
+
+    .text-dark-accent {
+        color: rgba(255, 255, 255, 0.85);
+    }
+    html[data-theme="crimson"] .text-dark-accent {
+        color: #ff8fa3;
+    }
 
     .prose-store { @apply text-[15px] leading-7 text-body; }
     .prose-store p { @apply mb-3; }

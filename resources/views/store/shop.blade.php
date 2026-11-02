@@ -37,7 +37,7 @@
     :robots="$robotsDirective"
 >
     {{-- ================= SHOP HEADER ================= --}}
-    <section class="relative overflow-hidden bg-black text-white py-10 sm:py-14">
+    <section class="surface-banner relative overflow-hidden text-white py-10 sm:py-14">
         <div class="container-x relative">
             <nav class="text-xs text-white/60 mb-3" aria-label="Breadcrumb">
                 <ol class="flex flex-wrap items-center gap-2">
@@ -55,7 +55,7 @@
 
             <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                    <span class="eyebrow text-white/75 before:bg-white/60">{{ $activeCategory ? 'Category Catalog' : 'Complete Store Catalog' }}</span>
+                    <span class="eyebrow text-dark-accent before:bg-current">{{ $activeCategory ? 'Category Catalog' : 'Complete Store Catalog' }}</span>
                     <h1 class="display mt-1.5 text-3xl sm:text-5xl lg:text-6xl text-white">
                         @if ($search !== '')
                             Search Results for “{{ $search }}”

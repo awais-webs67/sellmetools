@@ -16,6 +16,7 @@ class Setting extends Model
         'store_name' => 'SellMeTools',
         'store_tagline' => 'Buy genuine AI tools & digital subscriptions in Pakistan with instant delivery.',
         'store_logo' => '',
+        'store_theme' => 'black',
         'usdt_rate' => '295',
         'price_rounding' => '10',
         'order_expiry_minutes' => '15',

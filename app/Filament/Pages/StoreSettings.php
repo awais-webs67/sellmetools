@@ -36,7 +36,7 @@ class StoreSettings extends Page
 {
     /** Keys managed by this page (all live in Setting::DEFAULTS). */
     protected const KEYS = [
-        'store_name', 'store_tagline', 'store_logo', 'announcement', 'currency_symbol',
+        'store_name', 'store_tagline', 'store_logo', 'store_theme', 'announcement', 'currency_symbol',
         'usdt_rate', 'price_rounding', 'order_expiry_minutes',
         'sms_webhook_secret', 'admin_quick_pin',
         'greenapi_instance_id', 'greenapi_api_token', 'ntfy_topic',
@@ -235,13 +235,23 @@ class StoreSettings extends Page
                         ])->columnSpanFull(),
                     ]),
 
-                Section::make('Store Details & Logo')
+                Section::make('Store Details, Theme & Logo')
                     ->icon(Heroicon::OutlinedBuildingStorefront)
                     ->columns(['default' => 1, 'sm' => 2])
                     ->schema([
                         TextInput::make('store_name')
                             ->label('Store Name')
                             ->maxLength(100),
+                        Select::make('store_theme')
+                            ->label('Website Color Theme')
+                            ->options([
+                                'black' => '⚫ Pure Black & White (#000000)',
+                                'crimson' => '🔴 Original Wine Red (#9B1B30)',
+                            ])
+                            ->default('black')
+                            ->native(false)
+                            ->required()
+                            ->helperText('Switch the entire storefront between Pure Black (#000000) and the Original Wine Red (#9B1B30) theme.'),
                         TextInput::make('currency_symbol')
                             ->label('Currency Symbol')
                             ->maxLength(10),
@@ -257,10 +267,10 @@ class StoreSettings extends Page
                             ->columnSpanFull(),
                         Actions::make([
                             Action::make('saveStoreSection')
-                                ->label('Save Store Details')
+                                ->label('Save Store Details & Theme')
                                 ->icon(Heroicon::OutlinedCheck)
                                 ->color('primary')
-                                ->action(fn () => $this->saveKeys(['store_name', 'currency_symbol', 'store_tagline', 'store_logo', 'announcement'], 'Store details saved')),
+                                ->action(fn () => $this->saveKeys(['store_name', 'store_theme', 'currency_symbol', 'store_tagline', 'store_logo', 'announcement'], 'Store details & theme saved')),
                         ])->columnSpanFull(),
                     ]),
 

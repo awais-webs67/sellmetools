@@ -24,14 +24,14 @@
          x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, @js(money($effectivePrice)), {{ (float) $effectivePrice }})"
          data-stock-id="{{ $product->id }}">
     {{-- Media Box: Full uncropped image (object-contain) with soft ambient backdrop --}}
-    <a href="{{ route('products.show', $product) }}" class="relative block h-36 sm:h-40 overflow-hidden bg-black" tabindex="-1" aria-hidden="true">
+    <a href="{{ route('products.show', $product) }}" class="surface-dark-solid relative block h-36 sm:h-40 overflow-hidden" tabindex="-1" aria-hidden="true">
         @if ($img = $product->imageUrl())
             {{-- Soft ambient backdrop fills side/top gaps so object-contain never leaves ugly empty bars --}}
             <img src="{{ $img }}" alt="" aria-hidden="true" loading="lazy" decoding="async" class="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-md" :class="!inStock && 'grayscale'">
             {{-- Full uncropped product image --}}
             <img src="{{ $img }}" alt="{{ $product->name }}" loading="lazy" decoding="async" class="relative z-10 h-full w-full object-contain p-1.5 transition duration-300 group-hover:scale-[1.03]" :class="!inStock && 'grayscale opacity-65'">
         @else
-            <div class="relative flex h-full w-full items-center gap-3 overflow-hidden bg-black px-3.5 sm:px-4 text-white" :class="!inStock && 'grayscale opacity-60'">
+            <div class="surface-banner relative flex h-full w-full items-center gap-3 overflow-hidden px-3.5 sm:px-4 text-white" :class="!inStock && 'grayscale opacity-60'">
                 <div class="pointer-events-none absolute inset-0 opacity-15 [background-image:radial-gradient(rgba(255,255,255,0.55)_1px,transparent_1px)] [background-size:14px_14px]"></div>
                 <div class="pointer-events-none absolute -right-6 -bottom-6 h-24 w-24 rounded-full bg-white/10 blur-xl"></div>
 

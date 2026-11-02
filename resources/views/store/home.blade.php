@@ -88,8 +88,8 @@
 >
     @if ($isLanding)
         {{-- ================= HERO ================= --}}
-        <section class="relative overflow-hidden bg-black text-white">
-            {{-- Pure black background with subtle architectural grid --}}
+        <section class="surface-hero relative overflow-hidden text-white">
+            {{-- Subtle architectural grid --}}
             <div class="pointer-events-none absolute inset-0 opacity-[.08] [background-image:linear-gradient(rgba(255,255,255,.5)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.5)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_78%)]" aria-hidden="true"></div>
 
             <div class="container-x relative py-11 sm:py-16 lg:py-20 text-center">
@@ -98,12 +98,12 @@
                         <span class="h-2 w-2 rounded-full bg-[#22c55e] live-dot"></span>
                         <span>Verified Digital Store</span>
                         <span class="hidden sm:inline text-white/35">·</span>
-                        <span class="hidden sm:inline text-white/85">Instant Automated Delivery</span>
+                        <span class="hidden sm:inline text-dark-accent">Instant Automated Delivery</span>
                     </div>
 
                     <h1 class="display mt-5 text-[clamp(36px,7.2vw,84px)] leading-[0.94] tracking-tight text-white">
                         Premium AI Tools &amp;<br class="hidden sm:block">
-                        <span>Subscriptions</span> in Pakistan
+                        <span class="hero-highlight">Subscriptions</span> in Pakistan
                     </h1>
 
                     <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base leading-relaxed text-white/75">
@@ -111,10 +111,10 @@
                     </p>
 
                     <div class="mt-7 flex flex-wrap items-center justify-center gap-3">
-                        <a href="#products" class="btn bg-white text-ink hover:bg-gray-100 px-6 py-3 text-sm font-bold shadow-[0_10px_25px_-5px_rgba(255,255,255,0.2)]">
+                        <a href="#products" class="btn btn-hero-primary px-6 py-3 text-sm font-bold">
                             Browse All Products ↓
                         </a>
-                        <a href="{{ route('shop') }}" class="btn border border-white/25 bg-white/[0.08] text-white hover:bg-white/15 px-6 py-3 text-sm font-bold backdrop-blur-xs">
+                        <a href="{{ route('shop') }}" class="btn btn-hero-secondary px-6 py-3 text-sm font-bold">
                             Open Full Shop →
                         </a>
                         @if ($waNumber !== '')
@@ -301,7 +301,7 @@
                 </div>
 
                 <aside class="lg:pt-14">
-                    <div class="overflow-hidden rounded-2xl bg-black p-6 text-white lg:sticky lg:top-24">
+                    <div class="surface-dark-solid overflow-hidden rounded-2xl p-6 text-white lg:sticky lg:top-24">
                         <p class="display text-3xl text-white">Need help choosing?</p>
                         <p class="mt-2 text-sm text-white/70">Message us with the tool you need and we'll tell you the right plan, price and delivery time.</p>
                         <div class="mt-5 space-y-2">
@@ -318,11 +318,11 @@
         </section>
 
         {{-- ================= ABOUT & TRUST SECTION ================= --}}
-        <section class="border-t border-line bg-black text-white py-14 sm:py-20" aria-labelledby="about-heading">
+        <section class="surface-banner border-t border-line text-white py-14 sm:py-20" aria-labelledby="about-heading">
             <div class="container-x">
                 <div class="grid gap-10 lg:grid-cols-[1.15fr_1fr] lg:items-center">
                     <div>
-                        <span class="eyebrow text-white/75 before:bg-white/60">About {{ $storeName }}</span>
+                        <span class="eyebrow text-dark-accent before:bg-current">About {{ $storeName }}</span>
                         <h2 id="about-heading" class="display mt-1.5 text-3xl sm:text-5xl text-white">Pakistan’s Trusted Marketplace for AI Tools &amp; Subscriptions</h2>
                         <div class="mt-4 space-y-3.5 text-sm sm:text-base leading-relaxed text-white/80">
                             <p>
@@ -399,9 +399,9 @@
 
                     {{-- Structured Live Price Directory Card (replaces old unstyled floating list) --}}
                     <div class="card overflow-hidden border border-line bg-white shadow-sm" x-data>
-                        <div class="flex items-center justify-between gap-3 border-b border-line bg-black px-5 py-4 text-white">
+                        <div class="surface-dark-solid flex items-center justify-between gap-3 border-b border-line px-5 py-4 text-white">
                             <div>
-                                <span class="text-[10px] font-bold tracking-widest text-white/65 uppercase" x-text="$store.currency.isUsdt ? 'Live USDT Directory' : 'Live PKR Directory'">Live PKR Directory</span>
+                                <span class="text-[10px] font-bold tracking-widest text-dark-accent uppercase" x-text="$store.currency.isUsdt ? 'Live USDT Directory' : 'Live PKR Directory'">Live PKR Directory</span>
                                 <h3 class="display text-2xl text-white">Popular Price Checks in Pakistan</h3>
                             </div>
                             <a href="{{ route('shop') }}" class="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20">
