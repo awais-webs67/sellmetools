@@ -22,7 +22,7 @@ class ProductController extends Controller
         $search = trim((string) $request->query('q', ''));
 
         $products = $this->catalogQuery($activeCategory, $search)
-            ->paginate(24)
+            ->paginate(12)
             ->withQueryString();
 
         return view('store.home', compact('categories', 'activeCategory', 'products', 'search'));
@@ -57,7 +57,7 @@ class ProductController extends Controller
         $search = trim((string) $request->query('q', ''));
 
         $products = $this->catalogQuery($activeCategory, $search)
-            ->paginate(24)
+            ->paginate(12)
             ->withQueryString();
 
         return view('store.home', compact('categories', 'activeCategory', 'products', 'search'));

@@ -196,7 +196,11 @@
             @endif
         </div>
 
-        <div id="shop-results" aria-live="polite">
+        <div id="shop-results"
+             data-load-more-region
+             data-next-url="{{ $products->nextPageUrl() ?? '' }}"
+             x-data="loadMoreGrid(@js($products->nextPageUrl() ?? ''), {{ (int) $products->count() }}, {{ (int) $products->total() }})"
+             aria-live="polite">
             @if ($products->isEmpty())
                 <div class="card mt-6 p-10 text-center sm:p-14">
                     <p class="display text-3xl text-ink">No matching products found</p>
@@ -204,12 +208,34 @@
                     <a href="{{ route('shop') }}" class="btn btn-primary mt-5">Show All Products</a>
                 </div>
             @else
-                <div class="mt-6 grid grid-cols-2 gap-3.5 sm:gap-5 md:grid-cols-3 xl:grid-cols-4">
+                <div data-grid-items class="mt-6 grid grid-cols-2 gap-3.5 sm:gap-5 md:grid-cols-3 xl:grid-cols-4">
                     @foreach ($products as $product)
                         <x-product-card :product="$product" :priority="$loop->index < 2" />
                     @endforeach
                 </div>
-                <div class="mt-10">{{ $products->links() }}</div>
+
+                @if ($products->total() > $products->count())
+                    <div class="mt-8 flex flex-col items-center justify-center gap-3 rounded-2xl border border-line bg-white p-5 sm:flex-row sm:justify-between sm:px-6 shadow-2xs">
+                        <p class="text-xs sm:text-sm text-muted">
+                            Showing <strong class="text-ink font-bold" x-text="shown">{{ $products->count() }}</strong> of <strong class="text-ink font-bold">{{ $products->total() }}</strong> products
+                        </p>
+                        <button type="button"
+                                x-show="nextUrl"
+                                @click="loadMore()"
+                                :disabled="loadingMore"
+                                class="btn btn-primary w-full sm:w-auto px-7 py-2.5 text-xs sm:text-sm font-bold shadow-xs">
+                            <span x-show="!loadingMore">＋ Load More Products</span>
+                            <span x-show="loadingMore" x-cloak class="inline-flex items-center gap-2">
+                                <span class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white"></span>
+                                Loading more...
+                            </span>
+                        </button>
+                    </div>
+                @endif
+
+                <noscript>
+                    <div class="mt-6">{{ $products->links() }}</div>
+                </noscript>
             @endif
         </div>
     </section>

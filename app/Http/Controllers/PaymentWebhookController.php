@@ -283,26 +283,6 @@ class PaymentWebhookController extends Controller
                     $order = $fulfillment->markDeliveredViaWhatsApp($order, $customNote ?: null);
                     $order->load(['items.deliveries', 'items.product', 'paymentMethod', 'latestPayment']);
                     $payment = $order->latestPayment;
-
-                    if ($order->status === OrderStatus::Completed) {
-                        $actionResult = 'approve';
-                        $message = "✅ Order {$order->number} Payment Confirmed & Credentials Delivered!";
-                    } else {
-                        $actionResult = 'needs_attention';
-                        $message = '✅ Payment is Approved, BUT Delivery is On Hold: '.($order->admin_note ?: 'Check supplier balance or paste credentials below to deliver manually.');
-                    }
-                } elseif ($do === 'whatsapp_delivered') {
-                    $customNote = trim((string) $request->input('credentials', ''));
-                    if ($payment && $payment->status === PaymentStatus::Pending) {
-                        $payment->update([
-                            'status' => PaymentStatus::Approved,
-                            'reviewed_at' => now(),
-                        ]);
-                        $order->update(['paid_at' => $order->paid_at ?? now()]);
-                    }
-                    $order = $fulfillment->markDeliveredViaWhatsApp($order, $customNote ?: null);
-                    $order->load(['items.deliveries', 'items.product', 'paymentMethod', 'latestPayment']);
-                    $payment = $order->latestPayment;
                     $actionResult = 'approve';
                     $message = "✅ Order {$order->number} Marked as Delivered via WhatsApp!";
                 } elseif ($do === 'reject') {

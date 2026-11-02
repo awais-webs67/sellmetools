@@ -6,7 +6,7 @@
     $rejected = $order->latestPayment?->status === \App\Enums\PaymentStatus::Rejected ? $order->latestPayment : null;
     $steps = [
         ['Placed', true],
-        ['Submitted', in_array($s, [OrderStatus::PaymentReview, OrderStatus::Processing, OrderStatus::Completed, OrderStatus::NeedsAttention], true)],
+        ['Paid', in_array($s, [OrderStatus::PaymentReview, OrderStatus::Processing, OrderStatus::Completed, OrderStatus::NeedsAttention], true)],
         ['Verified', in_array($s, [OrderStatus::Processing, OrderStatus::Completed, OrderStatus::NeedsAttention], true)],
         ['Delivered', $s === OrderStatus::Completed],
     ];
@@ -39,328 +39,248 @@
     $initialReviewTimeout = $s === OrderStatus::PaymentReview && (bool) $order->expires_at?->isPast();
 @endphp
 <x-layouts.store :title="'Order '.$order->number" robots="noindex, nofollow">
-    <div class="container-x py-5 sm:py-10" x-data="orderWatcher(@js($statusUrl), @js($s->value), @js($initialReviewTimeout))">
-        <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div class="min-w-0">
-                <span class="eyebrow">Order {{ $order->number }}</span>
-                <h1 class="display mt-1 text-3xl sm:text-5xl">
+    <div class="container-x max-w-5xl py-6 sm:py-10" x-data="orderWatcher(@js($statusUrl), @js($s->value), @js($initialReviewTimeout))">
+        {{-- Compact Header --}}
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="rounded-md bg-ink px-2.5 py-0.5 font-mono text-xs font-bold text-white">{{ $order->number }}</span>
+                    <span class="text-xs text-muted">{{ $order->created_at->format('d M Y, h:i A') }}</span>
+                </div>
+                <h1 class="display mt-1.5 text-3xl sm:text-4xl text-ink">
                     @switch($s)
                         @case(OrderStatus::PendingPayment) Complete your payment @break
                         @case(OrderStatus::PaymentReview)
-                            <span x-show="!reviewTimeout">Admin Verifying Payment (85%)</span>
-                            <span x-show="reviewTimeout" x-cloak>Order On Hold: Admin Checking</span>
+                            <span x-show="!reviewTimeout">Admin is Verifying Your Payment</span>
+                            <span x-show="reviewTimeout" x-cloak>Order On Hold</span>
                             @break
                         @case(OrderStatus::Processing) Delivering your order @break
-                        @case(OrderStatus::Completed) Order Delivered &amp; Ready @break
-                        @case(OrderStatus::NeedsAttention) Order On Hold: Admin Checking @break
+                        @case(OrderStatus::Completed) Order Delivered @break
+                        @case(OrderStatus::NeedsAttention) Order Confirmed @break
                         @default Order {{ strtolower($s->label()) }}
                     @endswitch
                 </h1>
             </div>
-            <p class="text-xs sm:text-sm text-muted">Placed {{ $order->created_at->format('d M Y, h:i A') }}</p>
+
+            {{-- Clean 4-Step Pill Progress --}}
+            @unless (in_array($s, [OrderStatus::Cancelled, OrderStatus::Expired, OrderStatus::Refunded], true))
+                <ol class="flex items-center gap-1.5 sm:gap-2" aria-label="Order progress">
+                    @foreach ($steps as $i => [$label, $done])
+                        <li class="flex items-center gap-1.5">
+                            <span @class([
+                                'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold transition',
+                                'bg-ink text-white' => $done,
+                                'bg-grey text-muted' => ! $done,
+                            ])>
+                                <span>{{ $done ? '✓' : $i + 1 }}</span>
+                                <span class="hidden sm:inline">{{ $label }}</span>
+                            </span>
+                            @if (! $loop->last)
+                                <span @class(['h-0.5 w-3 sm:w-5 rounded-full', 'bg-ink' => $done, 'bg-line-strong' => ! $done])></span>
+                            @endif
+                        </li>
+                    @endforeach
+                </ol>
+            @endunless
         </div>
 
-        {{-- Progress Stepper with Modern Visual Badges --}}
-        @unless (in_array($s, [OrderStatus::Cancelled, OrderStatus::Expired, OrderStatus::Refunded], true))
-            <ol class="mt-5 grid grid-cols-4 gap-2 sm:gap-3" aria-label="Order progress">
-                @foreach ($steps as $i => [$label, $done])
-                    <li class="min-w-0">
-                        <div class="flex items-center gap-1.5 mb-1.5">
-                            <span @class([
-                                'flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[10px] sm:text-xs font-bold transition-all shadow-xs',
-                                'bg-brand text-white shadow-brand/20' => $done,
-                                'bg-grey-soft text-muted border border-line-strong' => ! $done,
-                            ])>{{ $done ? '✓' : $i + 1 }}</span>
-                            <span @class(['truncate text-[11px] sm:text-xs font-bold', 'text-ink' => $done, 'text-muted' => ! $done])>{{ $label }}</span>
-                        </div>
-                        <div @class(['h-1.5 rounded-full transition-all duration-500', 'bg-brand' => $done, 'bg-line' => ! $done])></div>
-                    </li>
-                @endforeach
-            </ol>
-        @endunless
-
-        <div class="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
+        <div class="mt-6 grid gap-6 lg:grid-cols-[1fr_330px]">
             <div class="min-w-0 space-y-5">
-                {{-- ============ AWAITING PAYMENT ============ --}}
+                {{-- ============ 1. AWAITING PAYMENT ============ --}}
                 @if ($s === OrderStatus::PendingPayment && $method)
                     @if ($rejected)
-                        <div class="rounded-xl border border-danger/20 bg-danger-tint p-4 text-xs sm:text-sm text-danger" role="alert">
-                            <p class="font-semibold">Your previous transaction ID ({{ $rejected->transaction_id }}) could not be verified.</p>
-                            @if ($rejected->reject_reason)<p class="mt-1">Reason: {{ $rejected->reject_reason }}</p>@endif
-                            <p class="mt-1">Please submit a valid, unused Transaction ID below.</p>
+                        <div class="rounded-xl border border-danger/25 bg-danger-tint p-4 text-xs sm:text-sm text-danger" role="alert">
+                            <p class="font-bold">TID ({{ $rejected->transaction_id }}) could not be verified.</p>
+                            @if ($rejected->reject_reason)<p class="mt-0.5">{{ $rejected->reject_reason }}</p>@endif
                         </div>
                     @endif
 
                     <section class="card overflow-hidden">
-                        <div class="flex items-center justify-between gap-3 bg-ink px-4 py-3.5 sm:px-6 text-white" x-data="countdown(@js($order->expires_at?->toIso8601String()))">
-                            <p class="text-xs sm:text-sm font-medium">Stock reserved for you</p>
-                            <p class="display text-2xl sm:text-3xl text-white tabular-nums" :class="remaining < 120 && 'text-brand'" x-text="text">--:--</p>
+                        {{-- Top Dark Strip with Timer --}}
+                        <div class="flex items-center justify-between gap-3 bg-ink px-5 py-3.5 text-white" x-data="countdown(@js($order->expires_at?->toIso8601String()))">
+                            <div class="flex items-center gap-2">
+                                <span class="h-2 w-2 rounded-full bg-[#4ade80] animate-pulse"></span>
+                                <span class="text-xs sm:text-sm font-semibold">Pay via {{ $method->name }}</span>
+                            </div>
+                            <span class="rounded-md bg-white/15 px-2.5 py-0.5 font-mono text-sm font-bold text-white tabular-nums" x-text="text">--:--</span>
                         </div>
 
-                        <div class="p-4 sm:p-6">
-                            {{-- Instant Account Wallet Pay Option on Payment Page --}}
+                        <div class="p-5 sm:p-6 space-y-5">
+                            {{-- Compact 1-Line Account Wallet Option --}}
                             @php
                                 $authUser = auth()->user();
                                 $userWallet = (float) ($authUser?->wallet_balance ?? 0);
                             @endphp
-                            <div class="mb-5 flex flex-col gap-3 rounded-xl border border-line-strong bg-grey-soft/70 p-3.5 sm:flex-row sm:items-center sm:justify-between">
-                                <div class="flex items-center gap-3">
-                                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ink text-base text-white">👛</span>
-                                    <div>
-                                        <p class="text-xs sm:text-sm font-bold text-ink">Pay with Account Wallet (1-Click Instant Delivery)</p>
-                                        @if ($authUser)
-                                            <p class="text-[11px] text-body">
-                                                Available Wallet Balance: <strong class="font-mono text-ink">{{ money($userWallet) }}</strong>
-                                                @if ($userWallet < (float) $order->total)
-                                                    <span class="text-muted">(Need {{ money($order->total) }})</span>
-                                                @endif
-                                            </p>
-                                        @else
-                                            <p class="text-[11px] text-body">Log in to pay instantly from your Account Wallet without a Transaction ID.</p>
-                                        @endif
+                            @if ($authUser && $userWallet >= (float) $order->total)
+                                <div class="flex items-center justify-between gap-3 rounded-xl border border-line-strong bg-grey-soft p-3">
+                                    <div class="text-xs">
+                                        <span class="font-bold text-ink">👛 Wallet Balance: {{ money($userWallet) }}</span>
                                     </div>
+                                    <form method="post" action="{{ route('orders.pay-wallet', $order) }}">
+                                        @csrf
+                                        <input type="hidden" name="token" value="{{ $token }}">
+                                        <button type="submit" class="btn btn-primary px-3.5 py-1.5 text-xs font-bold">
+                                            1-Click Wallet Pay →
+                                        </button>
+                                    </form>
                                 </div>
-                                <div class="shrink-0">
-                                    @if ($authUser && $userWallet >= (float) $order->total)
-                                        <form method="post" action="{{ route('orders.pay-wallet', $order) }}">
-                                            @csrf
-                                            <input type="hidden" name="token" value="{{ $token }}">
-                                            <button type="submit" class="btn btn-primary w-full sm:w-auto px-4 py-2 text-xs font-bold shadow-xs">
-                                                👛 Pay {{ money($order->total) }} from Wallet →
-                                            </button>
-                                        </form>
-                                    @elseif ($authUser && $waNumber !== '')
-                                        <a href="https://wa.me/{{ $waNumber }}?text={{ urlencode('Assalam o Alaikum! I want to top-up my SellMeTools Wallet Balance for account: '.$authUser->email) }}"
-                                           target="_blank"
-                                           rel="noopener"
-                                           class="btn btn-outline bg-white w-full sm:w-auto px-3.5 py-1.5 text-xs font-semibold text-ink">
-                                            ➕ Top-Up Wallet
-                                        </a>
-                                    @elseif (! $authUser)
-                                        <a href="{{ route('login') }}" class="btn btn-outline bg-white w-full sm:w-auto px-3.5 py-1.5 text-xs font-semibold text-ink">
-                                            🔑 Log In to Use Wallet
-                                        </a>
-                                    @endif
-                                </div>
-                            </div>
-
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <h2 class="text-base sm:text-lg font-bold">Step 1: Send Payment via {{ $method->name }}</h2>
-                                <span class="badge badge-brand text-[11px]">
-                                    {{ $isBinance ? '⚡ Binance Auto-Verify' : ($method->type === 'auto' ? 'Instant Auto Gateway' : 'Instant Verify') }}
-                                </span>
-                            </div>
+                            @endif
 
                             @if ($gatewayCheckoutUrl)
-                                <div class="mt-4 rounded-xl border border-brand/30 bg-brand-tint p-4">
-                                    <p class="text-xs sm:text-sm font-semibold text-ink">Pay Online via Linked Wallet Gateway</p>
-                                    <a href="{{ $gatewayCheckoutUrl }}" target="_blank" rel="noopener" class="btn btn-primary mt-2.5 w-full sm:w-auto text-xs sm:text-sm">
-                                        Pay {{ $amountFormatted }} with {{ $method->name }} →
-                                    </a>
-                                </div>
+                                <a href="{{ $gatewayCheckoutUrl }}" target="_blank" rel="noopener" class="btn btn-primary w-full py-3 text-sm font-bold">
+                                    Pay {{ $amountFormatted }} Online via {{ $method->name }} →
+                                </a>
                             @endif
 
-                            @if ($isBinance)
-                                <div class="mt-4 rounded-xl border border-line-strong bg-grey-soft p-3.5 text-xs text-ink">
-                                    <p class="font-bold text-ink">⚡ Binance 1-Second Auto-Delivery:</p>
-                                    <p class="mt-1 text-body">Send <strong>{{ $amountFormatted }}</strong> via Binance Pay to the ID below, then paste your <strong>Binance Order ID / TxID</strong> in Step 2.</p>
+                            {{-- Clean 2-Card Transfer Box (Amount + Account Number) --}}
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <div class="rounded-xl border border-line-strong bg-grey-soft/60 p-4 flex items-center justify-between gap-3" x-data="copy(@js((string) $amountDue))">
+                                    <div>
+                                        <span class="block text-[11px] font-semibold uppercase tracking-wider text-muted">Amount to Send</span>
+                                        <span class="display mt-0.5 block text-3xl text-ink">{{ $amountFormatted }}</span>
+                                    </div>
+                                    <button type="button" class="btn btn-outline bg-white px-3 py-1.5 text-xs font-bold shrink-0" @click="copy" x-text="copied ? '✓ Copied' : 'Copy'">Copy</button>
                                 </div>
-                            @endif
 
-                            <dl class="mt-4 divide-y divide-line rounded-xl border border-line">
-                                <div class="flex flex-wrap items-center justify-between gap-2 p-3.5 sm:p-4">
-                                    <dt class="text-xs sm:text-sm text-muted">
-                                        Exact Amount to Send
-                                        @if ($method->currency !== 'PKR')
-                                            <span class="block text-[11px] text-muted">({{ money($order->total) }})</span>
-                                        @endif
-                                    </dt>
-                                    <dd class="flex items-center gap-2.5" x-data="copy(@js((string) $amountDue))">
-                                        <span class="display text-2xl sm:text-3xl text-ink">{{ $amountFormatted }}</span>
-                                        <button type="button" class="btn btn-outline px-2.5 py-1 text-xs" @click="copy" x-text="copied ? 'Copied' : 'Copy'">Copy</button>
-                                    </dd>
-                                </div>
                                 @if ($method->account_number && $method->account_number !== 'Set in admin')
-                                    <div class="flex flex-col gap-2 p-3.5 sm:flex-row sm:items-center sm:justify-between sm:p-4">
-                                        <dt class="text-xs sm:text-sm text-muted">{{ $method->code === 'binance' ? 'Binance Pay ID (UID)' : ($method->code === 'usdt_trc20' ? 'USDT Wallet Address' : 'Account Number / IBAN') }}</dt>
-                                        <dd class="flex items-center justify-between sm:justify-end gap-2.5" x-data="copy(@js($method->account_number))">
-                                            <span class="font-mono text-sm sm:text-base font-bold break-all text-ink">{{ $method->account_number }}</span>
-                                            <button type="button" class="btn btn-outline shrink-0 px-2.5 py-1 text-xs" @click="copy" x-text="copied ? 'Copied' : 'Copy'">Copy</button>
-                                        </dd>
+                                    <div class="rounded-xl border border-line-strong bg-grey-soft/60 p-4 flex items-center justify-between gap-3" x-data="copy(@js($method->account_number))">
+                                        <div class="min-w-0">
+                                            <span class="block text-[11px] font-semibold uppercase tracking-wider text-muted">
+                                                {{ $method->code === 'binance' ? 'Binance Pay ID' : ($method->code === 'usdt_trc20' ? 'USDT TRC20 Address' : $method->name.' Account') }}
+                                            </span>
+                                            <span class="mt-0.5 block font-mono text-base font-bold text-ink break-all">{{ $method->account_number }}</span>
+                                            @if ($method->account_title && $method->account_title !== 'Set in admin')
+                                                <span class="block text-xs text-muted truncate">{{ $method->account_title }}</span>
+                                            @endif
+                                        </div>
+                                        <button type="button" class="btn btn-outline bg-white px-3 py-1.5 text-xs font-bold shrink-0" @click="copy" x-text="copied ? '✓ Copied' : 'Copy'">Copy</button>
                                     </div>
                                 @endif
-                                @if ($method->account_title && $method->account_title !== 'Set in admin')
-                                    <div class="flex flex-wrap items-center justify-between gap-2 p-3.5 sm:p-4">
-                                        <dt class="text-xs sm:text-sm text-muted">{{ $isBinance ? 'Binance Nickname / Network' : 'Account Holder Name' }}</dt>
-                                        <dd class="text-xs sm:text-sm font-semibold text-ink break-words">{{ $method->account_title }}</dd>
-                                    </div>
-                                @endif
-                            </dl>
+                            </div>
 
                             @if ($method->instructions)
-                                <p class="mt-3 text-xs sm:text-sm leading-5 whitespace-pre-line text-body break-words">{{ $method->instructions }}</p>
+                                <p class="rounded-lg bg-grey-soft px-3.5 py-2.5 text-xs text-body">{{ $method->instructions }}</p>
                             @endif
-                        </div>
 
-                        <form method="post"
-                              action="{{ route('orders.payment', $order) }}"
-                              enctype="multipart/form-data"
-                              class="border-t border-line bg-grey-soft p-4 sm:p-6"
-                              x-data="paymentSubmitter()"
-                              @submit="startSubmit()">
-                            @csrf
-                            <input type="hidden" name="token" value="{{ $token }}">
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <h2 class="text-base sm:text-lg font-bold">Step 2: Submit Transaction ID (TID)</h2>
-                                <span class="badge bg-ink text-white text-[10px]">🔒 Unique TID Check</span>
-                            </div>
+                            {{-- TID Submission Form --}}
+                            <form method="post"
+                                  action="{{ route('orders.payment', $order) }}"
+                                  enctype="multipart/form-data"
+                                  class="border-t border-line pt-5 space-y-4"
+                                  x-data="paymentSubmitter()"
+                                  @submit="startSubmit()">
+                                @csrf
+                                <input type="hidden" name="token" value="{{ $token }}">
 
-                            <div class="mt-3.5 grid gap-3.5 sm:grid-cols-2">
-                                <div class="sm:col-span-2">
-                                    <label for="transaction_id" class="label text-xs sm:text-sm">
-                                        {{ $isBinance ? 'Binance Order ID / Transaction ID' : 'Transaction ID (TID / Trx ID / Ref#)' }}
-                                        <span class="text-danger">*</span>
-                                    </label>
-                                    <input id="transaction_id"
-                                           name="transaction_id"
-                                           required
-                                           minlength="3"
-                                           class="input font-mono uppercase text-sm"
-                                           value="{{ old('transaction_id') }}"
-                                           placeholder="{{ $isBinance ? 'e.g. 293847561029384756' : 'e.g. 84920194821' }}"
-                                           autocomplete="off">
-                                    @error('transaction_id')<p class="field-error text-xs">{{ $message }}</p>@enderror
-                                </div>
-                                @if ($method->requires_sender_number)
-                                    <div>
-                                        <label for="sender_number" class="label text-xs sm:text-sm">Sender Number <span class="text-danger">*</span></label>
-                                        <input id="sender_number" name="sender_number" required class="input text-sm" value="{{ old('sender_number', $order->phone) }}" placeholder="03xx xxxxxxx" inputmode="tel">
-                                        @error('sender_number')<p class="field-error text-xs">{{ $message }}</p>@enderror
+                                <div class="grid gap-3.5 sm:grid-cols-2">
+                                    <div @class(['sm:col-span-2' => ! $method->requires_sender_number])>
+                                        <label for="transaction_id" class="label text-xs font-semibold">
+                                            {{ $isBinance ? 'Binance Order ID / TxID' : 'Transaction ID (TID)' }} <span class="text-danger">*</span>
+                                        </label>
+                                        <input id="transaction_id"
+                                               name="transaction_id"
+                                               required
+                                               minlength="3"
+                                               class="input font-mono uppercase text-sm py-2.5"
+                                               value="{{ old('transaction_id') }}"
+                                               placeholder="{{ $isBinance ? 'e.g. 293847561029' : 'e.g. 84920194821' }}"
+                                               autocomplete="off">
+                                        @error('transaction_id')<p class="field-error text-xs">{{ $message }}</p>@enderror
                                     </div>
-                                @endif
-                                <div @class(['sm:col-span-2' => ! $method->requires_sender_number])>
-                                    <label for="screenshot" class="label text-xs sm:text-sm">Screenshot (Optional)</label>
-                                    <input id="screenshot" name="screenshot" type="file" accept="image/*" class="input py-1.5 text-xs file:mr-2.5 file:rounded file:border-0 file:bg-ink file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-white">
-                                    @error('screenshot')<p class="field-error text-xs">{{ $message }}</p>@enderror
-                                </div>
-                            </div>
 
-                            {{-- Live Verification Percentage Bar when submitting --}}
-                            <div x-show="submitting" x-cloak class="mt-4 rounded-xl border border-brand/30 bg-white p-3.5">
-                                <div class="flex items-center justify-between text-xs font-bold text-ink">
-                                    <span x-text="stepLabel" class="truncate pr-2">Verifying Transaction ID...</span>
-                                    <span class="text-brand tabular-nums shrink-0" x-text="percent + '%'">0%</span>
-                                </div>
-                                <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-line">
-                                    <div class="h-full rounded-full bg-brand transition-all duration-300" :style="'width: ' + percent + '%'"></div>
-                                </div>
-                            </div>
+                                    @if ($method->requires_sender_number)
+                                        <div>
+                                            <label for="sender_number" class="label text-xs font-semibold">Sender Number <span class="text-danger">*</span></label>
+                                            <input id="sender_number" name="sender_number" required class="input text-sm py-2.5" value="{{ old('sender_number', $order->phone) }}" placeholder="03001234567" inputmode="tel">
+                                            @error('sender_number')<p class="field-error text-xs">{{ $message }}</p>@enderror
+                                        </div>
+                                    @endif
 
-                            <button type="submit" class="btn btn-primary btn-lg mt-4 w-full text-sm sm:text-base" :disabled="submitting">
-                                <span x-show="!submitting">Verify Payment &amp; Get Product →</span>
-                                <span x-show="submitting" x-cloak x-text="'Verifying (' + percent + '%)...'">Verifying...</span>
-                            </button>
-                        </form>
+                                    <div class="sm:col-span-2">
+                                        <label for="screenshot" class="label text-xs font-semibold text-muted">Payment Screenshot (Optional)</label>
+                                        <input id="screenshot" name="screenshot" type="file" accept="image/*" class="input py-1.5 text-xs file:mr-2.5 file:rounded file:border-0 file:bg-ink file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-white">
+                                        @error('screenshot')<p class="field-error text-xs">{{ $message }}</p>@enderror
+                                    </div>
+                                </div>
+
+                                <div x-show="submitting" x-cloak class="rounded-xl border border-line bg-grey-soft p-3">
+                                    <div class="flex items-center justify-between text-xs font-bold text-ink">
+                                        <span x-text="stepLabel">Verifying...</span>
+                                        <span class="tabular-nums" x-text="percent + '%'">0%</span>
+                                    </div>
+                                    <div class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-line">
+                                        <div class="h-full rounded-full bg-ink transition-all duration-300" :style="'width: ' + percent + '%'"></div>
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary btn-lg w-full text-sm sm:text-base font-bold" :disabled="submitting">
+                                    <span x-show="!submitting">Verify Payment &amp; Get Product →</span>
+                                    <span x-show="submitting" x-cloak x-text="'Verifying (' + percent + '%)...'">Verifying...</span>
+                                </button>
+                            </form>
+                        </div>
                     </section>
 
-                {{-- ============ VERIFYING (85% HOLD) / ON HOLD AFTER 15 MINS / PROCESSING ============ --}}
+                {{-- ============ 2. VERIFYING / PROCESSING (CLEAN, MINIMAL CARD) ============ --}}
                 @elseif (in_array($s, [OrderStatus::PaymentReview, OrderStatus::Processing], true))
                     <section class="card overflow-hidden">
-                        {{-- Countdown bar during 15-min review window --}}
                         @if ($s === OrderStatus::PaymentReview && $order->expires_at)
                             <div x-show="!reviewTimeout"
-                                 class="flex items-center justify-between gap-3 bg-ink px-4 py-3 sm:px-6 text-white"
+                                 class="flex items-center justify-between gap-3 bg-ink px-5 py-3 text-white"
                                  x-data="countdown(@js($order->expires_at->toIso8601String()))"
                                  x-effect="if (remaining === 0) { reviewTimeout = true; }">
-                                <span class="text-xs sm:text-sm font-medium">⏳ Admin Verification Window</span>
-                                <span class="display text-xl sm:text-2xl text-white tabular-nums" x-text="text">--:--</span>
+                                <span class="text-xs font-semibold">⏳ Verification in Progress</span>
+                                <span class="font-mono text-sm font-bold tabular-nums" x-text="text">--:--</span>
                             </div>
                         @endif
 
-                        {{-- State A: Within 15-minute window (85%: Admin Verifying Payment, Please Wait) --}}
-                        <div x-show="!reviewTimeout" class="p-5 sm:p-8">
-                            <div class="flex flex-col items-center text-center">
-                                <div class="relative flex h-16 w-16 items-center justify-center">
-                                    <div class="absolute inset-0 animate-spin rounded-full border-4 border-brand-tint-2 border-t-brand" aria-hidden="true"></div>
-                                    <span class="font-mono text-xs font-bold text-ink tabular-nums" x-text="progress + '%'">85%</span>
-                                </div>
-
-                                <h2 class="mt-4 text-lg sm:text-2xl font-bold text-ink">
-                                    {{ $s === OrderStatus::PaymentReview ? 'Admin is Verifying Your Payment: Please Wait...' : 'Payment Confirmed: Delivering Credentials...' }}
-                                </h2>
-                                <p class="mt-1 text-xs sm:text-sm text-body" x-text="stageText">
-                                    Admin is verifying your payment, please wait...
-                                </p>
+                        <div class="p-6 sm:p-8 text-center">
+                            <div class="mx-auto relative flex h-16 w-16 items-center justify-center">
+                                <div class="absolute inset-0 animate-spin rounded-full border-4 border-line border-t-ink" aria-hidden="true"></div>
+                                <span class="font-mono text-xs font-bold text-ink tabular-nums" x-text="progress + '%'">85%</span>
                             </div>
 
-                            <div class="mt-5">
-                                <div class="flex items-center justify-between text-xs font-bold">
-                                    <span class="text-ink">Order Verification Progress</span>
-                                    <span class="text-brand tabular-nums" x-text="progress + '%'">85%</span>
+                            <h2 class="mt-4 text-xl sm:text-2xl font-bold text-ink">
+                                <span x-show="!reviewTimeout">{{ $s === OrderStatus::PaymentReview ? 'Admin is Verifying Your Payment' : 'Delivering Your Credentials' }}</span>
+                                <span x-show="reviewTimeout" x-cloak>Priority Verification in Progress</span>
+                            </h2>
+
+                            <p class="mt-1 text-xs sm:text-sm text-muted">
+                                TID <strong class="font-mono text-ink">{{ $order->latestPayment?->transaction_id }}</strong> received · This page unlocks automatically once approved.
+                            </p>
+
+                            <div class="mx-auto mt-5 max-w-md">
+                                <div class="h-2 w-full overflow-hidden rounded-full bg-line">
+                                    <div class="h-full rounded-full bg-ink transition-all duration-500" :style="'width: ' + progress + '%'"></div>
                                 </div>
-                                <div class="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-line">
-                                    <div class="h-full rounded-full bg-brand transition-all duration-500"
-                                         :style="'width: ' + progress + '%'"></div>
+
+                                <div class="mt-4 grid grid-cols-3 gap-2 text-[11px] font-semibold">
+                                    <div class="rounded-lg bg-grey-soft py-2 px-2 text-success">✓ Reserved</div>
+                                    <div class="rounded-lg bg-grey-soft py-2 px-2 text-success">✓ TID Sent</div>
+                                    <div class="rounded-lg bg-grey-soft py-2 px-2 text-ink">⟳ <span x-text="progress + '%'">85%</span></div>
                                 </div>
                             </div>
 
-                            <ul class="mt-5 space-y-2 rounded-xl border border-line bg-grey-soft p-3.5 text-xs">
-                                <li class="flex items-center justify-between gap-2">
-                                    <span class="font-medium text-ink">✓ Order &amp; Stock Reserved</span>
-                                    <span class="font-semibold text-success shrink-0">Done</span>
-                                </li>
-                                <li class="flex items-center justify-between gap-2">
-                                    <span class="font-medium text-ink truncate">✓ Payment TID Submitted ({{ $order->latestPayment?->transaction_id }})</span>
-                                    <span class="font-semibold text-success shrink-0">Locked</span>
-                                </li>
-                                <li class="flex items-center justify-between gap-2">
-                                    <span class="font-medium text-ink">⟳ Admin Verifying Payment: Please Wait ({{ $method?->name }})</span>
-                                    <span class="font-semibold text-brand shrink-0" x-text="progress + '%'">85%</span>
-                                </li>
-                            </ul>
-                        </div>
-
-                        {{-- State B: 15-Minute Timer Elapsed -> Order On Hold + WhatsApp Contact --}}
-                        <div x-show="reviewTimeout" x-cloak>
-                            <div class="surface-banner p-5 sm:p-6 text-white">
-                                <div class="flex flex-wrap items-center justify-between gap-2">
-                                    <span class="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold tracking-wider text-white uppercase">
-                                        ⏳ Priority Verification (85%)
-                                    </span>
-                                    <span class="font-mono text-xs text-white/80">Order #{{ $order->number }}</span>
-                                </div>
-                                <h2 class="display mt-3 text-3xl sm:text-4xl text-white">
-                                    Order On Hold: Admin is Verifying Your Payment
-                                </h2>
-                                <p class="mt-1 text-xs sm:text-sm text-white/80">
-                                    Your payment TID (<strong class="font-mono text-white">{{ $order->latestPayment?->transaction_id }}</strong>) is safely recorded. Your order is queued for priority admin verification.
-                                </p>
-                            </div>
-
-                            <div class="p-5 sm:p-6 space-y-4">
-                                <p class="text-xs sm:text-sm text-body">
-                                    As soon as the admin approves your payment, this page will automatically refresh and display your credentials. You can also contact the admin directly on WhatsApp below:
-                                </p>
-                                @if ($waNumber !== '')
+                            @if ($waNumber !== '')
+                                <div class="mt-6 pt-5 border-t border-line">
                                     <a href="{{ $waHref }}"
                                        target="_blank"
                                        rel="noopener"
-                                       class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full py-3.5 text-sm sm:text-base font-bold shadow-lg">
-                                        📲 Contact Admin on WhatsApp (Fast Approval) →
+                                       class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full sm:w-auto px-6 py-2.5 text-xs sm:text-sm font-bold shadow-xs">
+                                        📲 Instant Approval on WhatsApp →
                                     </a>
-                                @endif
-                            </div>
+                                </div>
+                            @endif
                         </div>
                     </section>
 
-                {{-- ============ ORDER ON HOLD / WHATSAPP HANDOVER / MANUAL ADMIN DISPATCH ============ --}}
+                {{-- ============ 3. CONFIRMED / WHATSAPP HANDOVER ============ --}}
                 @elseif ($s === OrderStatus::NeedsAttention)
                     @php
                         $primaryDeliveryType = $order->items->first()?->product?->delivery_type ?: 'auto';
                         $isWhatsAppHandover = $primaryDeliveryType === 'whatsapp_handover';
-                        $isManualAdmin = $primaryDeliveryType === 'manual_admin';
 
-                        $claimWaTemplate = "Assalam o Alaikum! ✅ My Order *{$order->number}* ({$itemsSummary}) on ".setting('store_name')." is CONFIRMED & VERIFIED!\n\n"
+                        $claimWaTemplate = "Assalam o Alaikum! ✅ My Order *{$order->number}* ({$itemsSummary}) on ".setting('store_name')." is CONFIRMED!\n\n"
                             ."🧾 *Order ID:* {$order->number}\n"
                             ."📦 *Product:* {$itemsSummary}\n"
                             ."💰 *Amount:* {$amountFormatted}\n"
@@ -373,137 +293,77 @@
                             ? "https://wa.me/{$waNumber}?text=".urlencode($claimWaTemplate)
                             : 'https://api.whatsapp.com/send?text='.urlencode($claimWaTemplate);
                     @endphp
-                    <section class="card overflow-hidden border-2 {{ $isWhatsAppHandover ? 'border-[#16794B]/40' : 'border-line-strong' }}">
-                        <div class="{{ $isWhatsAppHandover ? 'bg-gradient-to-r from-[#0F291E] via-[#143D2B] to-[#16794B]' : 'surface-banner' }} p-5 sm:p-6 text-white">
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <span class="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold tracking-wider text-white uppercase">
-                                    @if ($isWhatsAppHandover)
-                                        📲 Order Confirmed: Receive on WhatsApp
-                                    @elseif ($isManualAdmin)
-                                        👨‍💻 Order Confirmed: Preparing Delivery
-                                    @else
-                                        ⏳ Order Confirmed: Processing Delivery
-                                    @endif
-                                </span>
-                                <span class="font-mono text-xs text-white/80">Order #{{ $order->number }}</span>
-                            </div>
-                            <h2 class="display mt-3 text-3xl sm:text-4xl text-white">
-                                @if ($isWhatsAppHandover)
-                                    Order Confirmed! Click Below to Get Your Product on WhatsApp
-                                @elseif ($isManualAdmin)
-                                    Order Confirmed: Admin is Preparing Your Access
-                                @else
-                                    Order Confirmed: Admin is Processing Your Order
-                                @endif
-                            </h2>
-                            <p class="mt-1 text-xs sm:text-sm text-white/80">
-                                @if ($isWhatsAppHandover)
-                                    Your order (Ref: <strong class="font-mono text-white">{{ $order->latestPayment?->transaction_id ?? $order->number }}</strong>) is 100% confirmed! Tap the WhatsApp button below to receive your account/activation directly on WhatsApp.
-                                @else
-                                    Your order (Ref: <strong class="font-mono text-white">{{ $order->latestPayment?->transaction_id ?? $order->number }}</strong>) is confirmed! Our team is dispatching your access details — this page will automatically unlock as soon as they are sent.
-                                @endif
-                            </p>
-                        </div>
+                    <section class="card p-6 sm:p-8 text-center">
+                        <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-success text-2xl text-white">✓</span>
+                        <h2 class="mt-4 text-xl sm:text-2xl font-bold text-ink">
+                            {{ $isWhatsAppHandover ? 'Order Confirmed — Receive on WhatsApp' : 'Payment Verified — Preparing Delivery' }}
+                        </h2>
+                        <p class="mt-1 text-xs sm:text-sm text-muted max-w-md mx-auto">
+                            {{ $isWhatsAppHandover ? 'Tap the button below to receive your product directly on WhatsApp.' : 'Your access details are being dispatched. This page updates automatically.' }}
+                        </p>
 
-                        <div class="p-5 sm:p-6 space-y-4">
-                            <div class="rounded-xl border {{ $isWhatsAppHandover ? 'border-[#16794B]/30 bg-[#16794B]/10' : 'border-line bg-grey-soft' }} p-4 text-xs sm:text-sm text-ink">
-                                <p class="font-bold {{ $isWhatsAppHandover ? 'text-[#0F291E]' : 'text-ink' }}">
-                                    {{ $isWhatsAppHandover ? '✓ Instant WhatsApp Delivery Ready' : '✓ Order Confirmed · Live Auto-Refresh Active' }}
-                                </p>
-                                <p class="mt-1 text-body">
-                                    @if ($isWhatsAppHandover)
-                                        This product is delivered directly via WhatsApp. Click the green button below to open WhatsApp with your verified Order ID and receive your product immediately!
-                                    @else
-                                        Our admin has received an instant alert on WhatsApp &amp; Telegram to complete your delivery. This page updates automatically as soon as your credentials are dispatched, or you can message us on WhatsApp below:
-                                    @endif
-                                </p>
-                            </div>
-
-                            @if ($waNumber !== '')
+                        @if ($waNumber !== '')
+                            <div class="mt-6">
                                 <a href="{{ $claimWaHref }}"
                                    target="_blank"
                                    rel="noopener"
-                                   class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full py-3.5 text-sm sm:text-base font-bold shadow-lg">
-                                    {{ $isWhatsAppHandover ? '📲 Receive Your Order on WhatsApp Now →' : '📲 Contact Admin on WhatsApp →' }}
+                                   class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full sm:w-auto px-7 py-3 text-sm font-bold shadow-sm">
+                                    📲 {{ $isWhatsAppHandover ? 'Receive Order on WhatsApp →' : 'Message Admin on WhatsApp →' }}
                                 </a>
-                            @endif
-                        </div>
+                            </div>
+                        @endif
                     </section>
 
-                {{-- ============ COMPLETED / DELIVERED RECEIPT & CREDENTIALS TEMPLATE ============ --}}
+                {{-- ============ 4. COMPLETED / DELIVERED CREDENTIALS VAULT ============ --}}
                 @elseif ($s === OrderStatus::Completed)
                     @php
                         $allDeliveredText = $order->items->map(function ($it) {
                             $creds = $it->deliveries->pluck('content')->implode("\n");
                             return "Product: {$it->product_name} (x{$it->quantity})\nCredentials:\n{$creds}";
                         })->implode("\n\n");
-                        $fullReceiptText = "=== ".setting('store_name', 'SellMeTools')." Order Receipt ===\n"
+                        $fullReceiptText = "=== ".setting('store_name', 'SellMeTools')." Receipt ===\n"
                             ."Order ID: {$order->number}\n"
-                            ."Date: ".$order->created_at->format('d M Y, h:i A')."\n"
-                            ."Payment: ".($method?->name ?? 'Online')." (".money($order->total).")\n"
-                            ."Status: Completed & Delivered\n\n"
+                            ."Status: Delivered\n\n"
                             .$allDeliveredText;
                     @endphp
 
-                    {{-- Premium Delivered Order Header Banner --}}
-                    <section class="card overflow-hidden border-2 border-[#16794B]/30">
-                        <div class="bg-gradient-to-r from-[#0F291E] via-[#143D2B] to-[#16794B] p-5 sm:p-6 text-white">
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold tracking-wider text-[#4ade80] uppercase">
-                                    ✓ Payment Verified &amp; Delivered
-                                </span>
-                                <span class="font-mono text-xs text-white/80">Order #{{ $order->number }}</span>
+                    <section class="card overflow-hidden">
+                        <div class="bg-[#0F291E] px-5 py-4 sm:px-6 text-white flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-2.5">
+                                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-[#22c55e] text-xs font-bold text-black">✓</span>
+                                <div>
+                                    <h2 class="text-sm sm:text-base font-bold text-white">Your Access Credentials</h2>
+                                </div>
                             </div>
-                            <h2 class="display mt-3 text-3xl sm:text-4xl text-white">
-                                Your Subscription Credentials Are Ready!
-                            </h2>
-                            <p class="mt-1 text-xs sm:text-sm text-white/85">
-                                Copy your login details or activation link below. These credentials are also permanently saved in your account history.
-                            </p>
+                            <div x-data="copy(@js($fullReceiptText))">
+                                <button type="button" @click="copy" class="rounded-lg bg-white/15 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/25" x-text="copied ? '✓ Copied All' : 'Copy All'">Copy All</button>
+                            </div>
                         </div>
 
-                        {{-- Delivered Items & Credentials Vault --}}
-                        <div class="divide-y divide-line p-4 sm:p-6 space-y-6">
+                        <div class="divide-y divide-line p-5 sm:p-6 space-y-5">
                             @foreach ($order->items as $item)
-                                <div class="{{ ! $loop->first ? 'pt-6' : '' }}">
-                                    <div class="flex flex-wrap items-center justify-between gap-2">
-                                        <div class="flex items-center gap-3 min-w-0">
-                                            @if ($img = $item->product?->imageUrl())
-                                                <img src="{{ $img }}" alt="{{ $item->product_name }}" class="h-11 w-11 shrink-0 rounded-lg object-cover border border-line">
-                                            @else
-                                                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand text-white font-bold">✓</div>
-                                            @endif
-                                            <div class="min-w-0">
-                                                <h3 class="text-base sm:text-lg font-bold text-ink truncate">{{ $item->product_name }}</h3>
-                                                <p class="text-xs text-muted">Quantity: {{ $item->quantity }} · Paid {{ money($item->line_total) }}</p>
-                                            </div>
-                                        </div>
-                                        <span class="badge badge-success text-xs">{{ $item->delivered_qty }} / {{ $item->quantity }} Delivered</span>
+                                <div class="{{ ! $loop->first ? 'pt-5' : '' }}">
+                                    <div class="flex items-center justify-between gap-2 mb-3">
+                                        <h3 class="text-base font-bold text-ink">{{ $item->product_name }} <span class="text-xs font-normal text-muted">× {{ $item->quantity }}</span></h3>
+                                        <span class="badge badge-success text-[11px]">Delivered</span>
                                     </div>
 
-                                    {{-- Credentials Cards --}}
-                                    <div class="mt-4 space-y-3">
+                                    <div class="space-y-3">
                                         @foreach ($item->deliveries as $idx => $delivery)
                                             @php
                                                 $rawContent = trim($delivery->content);
-                                                // Detect common email:password or user|pass format for easy 1-click copy
                                                 $parts = null;
                                                 if (! str_contains($rawContent, "\n") && preg_match('/^([^\s:|]+@[^\s:|]+)[:|](.+)$/', $rawContent, $m)) {
-                                                    $parts = ['Email / Username' => trim($m[1]), 'Password' => trim($m[2])];
+                                                    $parts = ['Email / Login' => trim($m[1]), 'Password' => trim($m[2])];
                                                 }
                                             @endphp
-                                            <div class="surface-dark-solid rounded-xl border border-line p-4 text-white shadow-md">
-                                                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
-                                                    <span class="text-[11px] font-bold tracking-wider text-white/80 uppercase">
-                                                        🔑 Delivered Account / Key {{ $item->deliveries->count() > 1 ? '#'.($idx + 1) : '' }}
+                                            <div class="rounded-xl bg-ink p-4 text-white">
+                                                <div class="flex items-center justify-between gap-2 pb-2.5 border-b border-white/10">
+                                                    <span class="text-[11px] font-bold uppercase tracking-wider text-white/70">
+                                                        🔑 Access {{ $item->deliveries->count() > 1 ? '#'.($idx + 1) : 'Details' }}
                                                     </span>
                                                     <div x-data="copy(@js($rawContent))">
-                                                        <button type="button"
-                                                                @click="copy"
-                                                                class="rounded-md bg-brand px-3 py-1 text-xs font-bold text-white transition hover:bg-brand-hover"
-                                                                x-text="copied ? '✓ Copied Full Credential!' : 'Copy Credential'">
-                                                            Copy Credential
-                                                        </button>
+                                                        <button type="button" @click="copy" class="rounded bg-white/15 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-white/25" x-text="copied ? '✓ Copied!' : 'Copy'">Copy</button>
                                                     </div>
                                                 </div>
 
@@ -515,7 +375,7 @@
                                                                     <p class="text-[10px] uppercase tracking-wider text-white/60">{{ $pLabel }}</p>
                                                                     <p class="font-mono text-xs sm:text-sm font-bold text-white break-all">{{ $pVal }}</p>
                                                                 </div>
-                                                                <button type="button" @click="copy" class="shrink-0 rounded bg-white/15 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-white/25" x-text="copied ? 'Copied!' : 'Copy'">Copy</button>
+                                                                <button type="button" @click="copy" class="shrink-0 rounded bg-white/15 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-white/25" x-text="copied ? '✓' : 'Copy'">Copy</button>
                                                             </div>
                                                         @endforeach
                                                     </div>
@@ -527,34 +387,21 @@
                                     </div>
 
                                     @if ($item->product?->warranty)
-                                        <div class="mt-3.5 rounded-xl bg-brand-tint p-3.5 text-xs">
-                                            <p class="font-bold text-brand-text uppercase tracking-wider">Warranty &amp; Usage Rules</p>
-                                            <p class="mt-1 whitespace-pre-line text-slate break-words">{{ $item->product->warranty }}</p>
+                                        <div class="mt-3 rounded-lg bg-grey-soft p-3 text-xs text-body">
+                                            <strong class="text-ink">Warranty:</strong> {{ $item->product->warranty }}
                                         </div>
                                     @endif
                                 </div>
                             @endforeach
-
-                            {{-- Copy Complete Order Receipt Bar --}}
-                            <div class="flex flex-wrap items-center justify-between gap-3 pt-4" x-data="copy(@js($fullReceiptText))">
-                                <button type="button" @click="copy" class="btn btn-outline text-xs sm:text-sm w-full sm:w-auto" x-text="copied ? '✓ Complete Receipt Copied!' : '📋 Copy Complete Order Receipt'">
-                                    📋 Copy Complete Order Receipt
-                                </button>
-                                <a href="{{ route('home') }}" class="btn btn-primary text-xs sm:text-sm w-full sm:w-auto">Continue Shopping →</a>
-                            </div>
                         </div>
                     </section>
 
-                {{-- ============ CLOSED ============ --}}
+                {{-- ============ 5. CLOSED / EXPIRED ============ --}}
                 @else
-                    <section class="card p-6 sm:p-8 text-center">
-                        <h2 class="text-xl font-bold">This order is {{ strtolower($s->label()) }}</h2>
-                        <p class="mt-2 text-xs sm:text-sm">
-                            @if ($s === OrderStatus::Expired) The payment window ended and the reserved stock was released. @endif
-                            @if ($s === OrderStatus::Refunded) This order was refunded. @endif
-                        </p>
+                    <section class="card p-6 text-center">
+                        <h2 class="text-lg font-bold text-ink">Order {{ strtolower($s->label()) }}</h2>
                         @if ($product = $order->items->first()?->product)
-                            <a href="{{ route('products.show', $product) }}" class="btn btn-primary mt-5">Order again</a>
+                            <a href="{{ route('products.show', $product) }}" class="btn btn-primary mt-4">Order Again</a>
                         @endif
                     </section>
                 @endif
@@ -563,49 +410,49 @@
                     <form method="post" action="{{ route('orders.cancel', $order) }}" onsubmit="return confirm('Cancel this order?')">
                         @csrf
                         <input type="hidden" name="token" value="{{ $token }}">
-                        <button class="text-xs sm:text-sm text-muted underline hover:text-danger">Cancel order</button>
+                        <button class="text-xs text-muted hover:text-danger underline">Cancel order</button>
                     </form>
                 @endif
             </div>
 
-            {{-- RIGHT SIDEBAR: Order Summary + Clean 1-Click WhatsApp Button --}}
-            <aside class="min-w-0 space-y-4 lg:sticky lg:top-24 lg:self-start">
-                <div class="card p-4 sm:p-6">
-                    <h2 class="text-base sm:text-lg font-bold">Order Summary</h2>
-                    <ul class="mt-3 space-y-2.5 text-xs sm:text-sm">
+            {{-- RIGHT SIDEBAR: Compact Summary --}}
+            <aside class="min-w-0 lg:sticky lg:top-24 lg:self-start">
+                <div class="card p-5">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-muted">Order Summary</h2>
+                    <ul class="mt-3 space-y-2 text-xs sm:text-sm">
                         @foreach ($order->items as $item)
-                            <li class="flex justify-between gap-3">
-                                <span class="text-body break-words min-w-0">{{ $item->product_name }} × {{ $item->quantity }}</span>
-                                <span class="font-semibold text-ink shrink-0">{{ money($item->line_total) }}</span>
+                            <li class="flex justify-between gap-2">
+                                <span class="text-ink font-medium break-words min-w-0">{{ $item->product_name }} × {{ $item->quantity }}</span>
+                                <span class="font-bold text-ink shrink-0">{{ money($item->line_total) }}</span>
                             </li>
                         @endforeach
                     </ul>
-                    <div class="mt-4 flex items-end justify-between border-t border-line pt-3.5">
-                        <span class="text-sm font-medium text-ink">Total</span>
-                        <span class="display text-2xl sm:text-3xl text-ink">{{ money($order->total) }}</span>
+
+                    <div class="mt-3.5 flex items-baseline justify-between border-t border-line pt-3.5">
+                        <span class="text-xs font-bold text-muted uppercase">Total</span>
+                        <span class="display text-2xl text-ink">{{ money($order->total) }}</span>
                     </div>
-                    <dl class="mt-3.5 space-y-2 border-t border-line pt-3.5 text-xs sm:text-sm">
-                        <div class="flex justify-between gap-2"><dt class="text-muted">Order ID</dt><dd class="font-mono font-bold text-ink">{{ $order->number }}</dd></div>
-                        <div class="flex justify-between gap-2"><dt class="text-muted">Status</dt><dd class="font-semibold text-ink">{{ $s->label() }}</dd></div>
-                        <div class="flex justify-between gap-2"><dt class="text-muted">Gateway</dt><dd class="text-ink truncate">{{ $method?->name ?? '-' }}</dd></div>
+
+                    <dl class="mt-3.5 space-y-1.5 border-t border-line pt-3.5 text-xs">
+                        <div class="flex justify-between gap-2"><dt class="text-muted">Status</dt><dd class="font-bold text-ink">{{ $s->label() }}</dd></div>
+                        <div class="flex justify-between gap-2"><dt class="text-muted">Method</dt><dd class="text-ink truncate">{{ $method?->name ?? 'Free / Instant' }}</dd></div>
                         @if ($order->latestPayment)
-                            <div class="flex justify-between gap-2"><dt class="text-muted">TID</dt><dd class="font-mono text-ink truncate max-w-[160px]">{{ $order->latestPayment->transaction_id }}</dd></div>
+                            <div class="flex justify-between gap-2"><dt class="text-muted">TID</dt><dd class="font-mono font-bold text-ink truncate max-w-[150px]">{{ $order->latestPayment->transaction_id }}</dd></div>
                         @endif
-                        <div class="flex justify-between gap-2"><dt class="text-muted">Email</dt><dd class="text-ink truncate max-w-[180px]">{{ $order->email }}</dd></div>
+                        <div class="flex justify-between gap-2"><dt class="text-muted">Email</dt><dd class="text-ink truncate max-w-[170px]">{{ $order->email }}</dd></div>
                     </dl>
 
-                    {{-- Clean Compact WhatsApp Button (Hidden once order is Completed & Auto-Delivered) --}}
                     <div class="mt-4 border-t border-line pt-4 space-y-2">
                         @if ($s !== OrderStatus::Completed && $waNumber !== '')
                             <a href="{{ $waHref }}"
                                target="_blank"
                                rel="noopener"
-                               class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full py-2.5 text-xs sm:text-sm font-bold">
-                                📲 Send Order Info on WhatsApp
+                               class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full py-2 text-xs font-bold">
+                                📲 WhatsApp Support
                             </a>
                         @endif
                         <div x-data="copy(@js($order->customerUrl()))">
-                            <button type="button" class="btn btn-outline w-full py-2 text-xs" @click="copy" x-text="copied ? '✓ Order Link Copied!' : 'Copy Order Link'">Copy Order Link</button>
+                            <button type="button" class="btn btn-outline w-full py-2 text-xs font-semibold" @click="copy" x-text="copied ? '✓ Link Copied' : 'Copy Order Link'">Copy Order Link</button>
                         </div>
                     </div>
                 </div>

@@ -39,14 +39,16 @@ class SearchController extends Controller
     {
         try {
             return Cache::remember('smt_search_catalog_v1', 120, function (): array {
+                $totalVisible = Product::query()->visible()->count();
+
                 $products = Product::query()
                     ->visible()
                     ->with('category:id,name,slug')
                     ->orderByRaw('CASE WHEN available_stock > 0 OR stock_unlimited = 1 THEN 0 ELSE 1 END')
                     ->orderByDesc('is_featured')
                     ->orderByDesc('sold_count')
-                    ->limit(250)
-                    ->get(['id', 'name', 'slug', 'image', 'price', 'is_free', 'category_id', 'available_stock', 'stock_unlimited', 'short_description', 'updated_at']);
+                    ->limit(80)
+                    ->get(['id', 'name', 'slug', 'image', 'price', 'is_free', 'category_id', 'available_stock', 'stock_unlimited', 'short_description']);
 
                 $categories = Category::query()
                     ->where('is_active', true)
@@ -54,6 +56,7 @@ class SearchController extends Controller
                     ->get(['name', 'slug']);
 
                 return [
+                    'has_more' => $totalVisible > 80,
                     'products' => $products->map(fn (Product $p) => [
                         'id' => $p->id,
                         'name' => $p->name,
@@ -64,7 +67,7 @@ class SearchController extends Controller
                         'is_free' => $p->isFree(),
                         'category' => $p->category?->name,
                         'in_stock' => $p->inStock(),
-                        'search' => mb_strtolower($p->name.' '.($p->category?->name ?? '').' '.($p->short_description ?? '')),
+                        'search' => mb_strtolower($p->name.' '.($p->category?->name ?? '')),
                     ])->all(),
                     'categories' => $categories->map(fn (Category $c) => [
                         'name' => $c->name,
@@ -74,7 +77,7 @@ class SearchController extends Controller
                 ];
             });
         } catch (\Throwable) {
-            return ['products' => [], 'categories' => []];
+            return ['has_more' => true, 'products' => [], 'categories' => []];
         }
     }
 

@@ -269,7 +269,11 @@
             </div>
         </div>
 
-        <div id="catalog-results" aria-live="polite">
+        <div id="catalog-results"
+             data-load-more-region
+             data-next-url="{{ $products->nextPageUrl() ?? '' }}"
+             x-data="loadMoreGrid(@js($products->nextPageUrl() ?? ''), {{ (int) $products->count() }}, {{ (int) $products->total() }})"
+             aria-live="polite">
         @if ($products->isEmpty())
             <div class="card mt-6 p-10 text-center sm:p-14">
                 <p class="display text-3xl">No products found</p>
@@ -277,12 +281,44 @@
                 <a href="{{ route('home') }}#products" class="btn btn-primary mt-5">View all products</a>
             </div>
         @else
-            <div class="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 xl:grid-cols-4">
+            <div data-grid-items class="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 xl:grid-cols-4">
                 @foreach ($products as $product)
                     <x-product-card :product="$product" :priority="$loop->index < 2" />
                 @endforeach
             </div>
-            <div class="mt-10">{{ $products->links() }}</div>
+
+            {{-- Load More + Open Full Shop Controls --}}
+            <div class="mt-8 flex flex-col items-center justify-center gap-3.5 rounded-2xl border border-line bg-white p-5 sm:flex-row sm:justify-between sm:px-6 shadow-2xs">
+                <div class="flex items-center gap-3 text-xs sm:text-sm text-muted">
+                    <span class="inline-flex h-2 w-2 rounded-full bg-success"></span>
+                    <span>
+                        Showing <strong class="text-ink font-bold" x-text="shown">{{ $products->count() }}</strong> of <strong class="text-ink font-bold">{{ $products->total() }}</strong> products
+                    </span>
+                </div>
+
+                <div class="flex w-full flex-col sm:w-auto sm:flex-row items-center gap-2.5">
+                    <button type="button"
+                            x-show="nextUrl"
+                            @click="loadMore()"
+                            :disabled="loadingMore"
+                            class="btn btn-primary w-full sm:w-auto px-6 py-2.5 text-xs sm:text-sm font-bold shadow-xs">
+                        <span x-show="!loadingMore">＋ Load More Products</span>
+                        <span x-show="loadingMore" x-cloak class="inline-flex items-center gap-2">
+                            <span class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white"></span>
+                            Loading more...
+                        </span>
+                    </button>
+
+                    <a href="{{ route('shop', array_filter(['category' => $activeCategory?->slug, 'q' => $search])) }}"
+                       class="btn btn-outline w-full sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-bold">
+                        Open Full Shop ({{ $products->total() }}) →
+                    </a>
+                </div>
+            </div>
+
+            <noscript>
+                <div class="mt-6">{{ $products->links() }}</div>
+            </noscript>
         @endif
         </div>
     </section>

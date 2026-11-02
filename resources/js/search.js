@@ -130,6 +130,10 @@ function createSearchBehavior(targetSelector = null) {
             if (local) {
                 this.open = true;
                 this.apply(local);
+                // If catalog has >80 products and local matches are few, also query server in background
+                if (window.SMT?.catalog?.has_more && local.products.length < 5) {
+                    this.timer = setTimeout(() => this.search(), 90);
+                }
                 return;
             }
 

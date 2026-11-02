@@ -374,6 +374,43 @@ Alpine.data('copy', (text) => ({
     },
 }));
 
+/** In-place "Load More Products" grid appender so pages with 2,000+ products stay fast and compact. */
+Alpine.data('loadMoreGrid', (initialNextUrl, initialShown, totalCount) => ({
+    nextUrl: initialNextUrl || '',
+    shown: Number(initialShown) || 0,
+    total: Number(totalCount) || 0,
+    loadingMore: false,
+
+    async loadMore() {
+        if (!this.nextUrl || this.loadingMore) return;
+        this.loadingMore = true;
+
+        try {
+            const res = await fetch(this.nextUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            if (!res.ok) {
+                window.location.href = this.nextUrl;
+                return;
+            }
+            const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+            const regionId = this.$el.id ? `#${this.$el.id}` : '[data-load-more-region]';
+            const freshRegion = doc.querySelector(regionId);
+            const currentGrid = this.$el.querySelector('[data-grid-items]');
+            const freshCards = freshRegion ? [...freshRegion.querySelectorAll('[data-grid-items] > *')] : [];
+
+            if (currentGrid && freshCards.length) {
+                freshCards.forEach((card) => currentGrid.appendChild(card));
+                this.shown = currentGrid.children.length;
+            }
+
+            this.nextUrl = freshRegion?.getAttribute('data-next-url') || '';
+        } catch (_) {
+            if (this.nextUrl) window.location.href = this.nextUrl;
+        } finally {
+            this.loadingMore = false;
+        }
+    },
+}));
+
 window.Alpine = Alpine;
 Alpine.start();
 Alpine.store('stock').start(25000);
