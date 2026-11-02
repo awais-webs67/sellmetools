@@ -40,7 +40,7 @@ class CheckoutController extends Controller
         abort_unless($product->is_active, 404);
 
         $user = $request->user();
-        $isFree = $product->priceFor($user) <= 0;
+        $isFree = $product->isFree($user);
         $payWithWallet = ! $isFree && $request->boolean('pay_with_wallet');
 
         $data = $request->validate([

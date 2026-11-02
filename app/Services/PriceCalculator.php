@@ -33,43 +33,22 @@ class PriceCalculator
         return $source ? round($source->costPkr(), 2) : null;
     }
 
-    /**
-     * Cheapest cost across all active sources (even when temporarily out of stock),
-     * used so out-of-stock products retain their marked-up display price instead of dropping to Rs 0.
-     */
-    public function cheapestActiveSourceCost(Product $product): ?float
-    {
-        $product->loadMissing('activeSources.supplier');
-
-        $source = $product->activeSources
-            ->filter(fn (SupplierProduct $sp) => $sp->costPkr() > 0)
-            ->sortBy(fn (SupplierProduct $sp) => $sp->costPkr())
-            ->first();
-
-        return $source ? round($source->costPkr(), 2) : null;
-    }
-
     public function sellingPrice(Product $product, ?float $cost): float
     {
-        $mode = $product->pricing_mode ?? PricingMode::Fixed;
-        $markup = (float) $product->markup_value;
-        $effectiveCost = $cost ?? ($mode !== PricingMode::Fixed ? $this->cheapestActiveSourceCost($product) : null);
-
-        if ($mode !== PricingMode::Fixed && ($effectiveCost === null || $effectiveCost <= 0)) {
-            $fallback = (float) $product->fixed_price > 0
-                ? (float) $product->fixed_price
-                : (float) $product->price;
-
-            return $this->round($fallback, true);
+        if ($product->is_free) {
+            return 0.0;
         }
 
+        $mode = $product->pricing_mode ?? PricingMode::Fixed;
+        $markup = (float) $product->markup_value;
+
         $price = match (true) {
-            $mode === PricingMode::Fixed || $effectiveCost === null => (float) $product->fixed_price,
-            $mode === PricingMode::MarkupAmount => $effectiveCost + $markup,
-            $mode === PricingMode::MarkupPercent => $effectiveCost * (1 + $markup / 100),
+            $mode === PricingMode::Fixed || $cost === null => (float) $product->fixed_price,
+            $mode === PricingMode::MarkupAmount => $cost + $markup,
+            $mode === PricingMode::MarkupPercent => $cost * (1 + $markup / 100),
         };
 
-        return $this->round($price, $mode === PricingMode::Fixed || $effectiveCost === null);
+        return $this->round($price, $mode === PricingMode::Fixed || $cost === null);
     }
 
     protected function round(float $price, bool $exact): float

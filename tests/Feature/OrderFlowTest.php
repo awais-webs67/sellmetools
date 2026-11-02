@@ -192,13 +192,15 @@ class OrderFlowTest extends TestCase
         $this->assertSame('manual', $order->deliveries()->first()->source);
     }
 
-    public function test_free_course_link_product_delivers_instantly_without_payment_and_keeps_unlimited_stock(): void
+    public function test_free_course_link_product_delivers_instantly_without_payment_and_supports_limited_or_unlimited_stock(): void
     {
         $product = $this->listing([], [
             'name' => 'Free AI Masterclass Course Link',
             'delivery_type' => 'instant_link',
+            'is_free' => true,
             'fixed_price' => 0,
             'price' => 0,
+            'stock_limit' => null, // Unlimited stock first
         ]);
 
         $product->stockItems()->create([
@@ -225,7 +227,13 @@ class OrderFlowTest extends TestCase
         $this->assertSame(0.0, (float) $order1->total);
         $this->assertStringContainsString('https://drive.google.com/drive/folders/free-ai-course', $order1->deliveries()->first()->content);
 
-        // Customer 2 claims the exact same free course link — stock is still Available & Unlimited!
+        // Now set a stock limit of 1 on the free course link
+        $product->update(['stock_limit' => 1]);
+        app(InventoryService::class)->refresh($product);
+        $this->assertFalse($product->fresh()->stock_unlimited);
+        $this->assertSame(1, $product->fresh()->available_stock);
+
+        // Customer 2 claims the last remaining free spot
         $this->post(route('checkout.store', $product), [
             'quantity' => 1,
             'email' => 'student2@example.com',
@@ -236,7 +244,7 @@ class OrderFlowTest extends TestCase
 
         $order2 = Order::where('email', 'student2@example.com')->firstOrFail();
         $this->assertSame(OrderStatus::Completed, $order2->status);
-        $this->assertStringContainsString('https://drive.google.com/drive/folders/free-ai-course', $order2->deliveries()->first()->content);
-        $this->assertSame(StockStatus::Available, $product->stockItems()->first()->status);
+        $this->assertSame(0, $product->fresh()->available_stock);
+        $this->assertFalse($product->fresh()->inStock());
     }
 }

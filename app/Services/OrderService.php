@@ -62,7 +62,9 @@ class OrderService
                     ->lockForUpdate()
                     ->get();
 
-            $fromSupplier = $isReusableLink ? 0 : ($quantity - $ownItems->count());
+            $fromSupplier = $isReusableLink
+                ? ($locked->stock_limit !== null ? $quantity : 0)
+                : ($quantity - $ownItems->count());
 
             // 2) Remaining units must be covered by supplier stock not reserved by others.
             if ($fromSupplier > 0) {

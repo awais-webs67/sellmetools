@@ -93,27 +93,40 @@ class ProductForm
                 Section::make('Pricing & Profit Rule')
                     ->columns(['default' => 1, 'sm' => 2, 'lg' => 4])
                     ->schema([
+                        Toggle::make('is_free')
+                            ->label('🎁 Free Product / Giveaway Tag (0 PKR · No Payment Needed)')
+                            ->helperText('Turn ON to add the FREE tag to this product and let customers claim it without paying or entering a Transaction ID.')
+                            ->live()
+                            ->afterStateUpdated(function ($state, callable $set): void {
+                                if ($state) {
+                                    $set('pricing_mode', PricingMode::Fixed->value);
+                                    $set('fixed_price', 0);
+                                }
+                            })
+                            ->columnSpanFull(),
                         Select::make('pricing_mode')
                             ->label('Pricing Rule')
                             ->options(PricingMode::options())
                             ->default(PricingMode::Fixed->value)
                             ->required()
                             ->live()
+                            ->visible(fn (Get $get): bool => ! (bool) $get('is_free'))
                             ->columnSpan(['default' => 1, 'sm' => 2]),
                         TextInput::make('fixed_price')
                             ->label('Fixed Selling Price (PKR)')
-                            ->placeholder('550 (or 0 for FREE)')
-                            ->helperText('Enter 0 to make this a FREE product (no payment needed).')
+                            ->placeholder('550')
                             ->rule('numeric')
                             ->rule('min:0')
-                            ->required(fn (Get $get): bool => self::mode($get) === PricingMode::Fixed),
+                            ->default(0)
+                            ->visible(fn (Get $get): bool => ! (bool) $get('is_free') && self::mode($get) === PricingMode::Fixed)
+                            ->required(fn (Get $get): bool => ! (bool) $get('is_free') && self::mode($get) === PricingMode::Fixed),
                         TextInput::make('markup_value')
                             ->label(fn (Get $get): string => self::mode($get) === PricingMode::MarkupPercent ? 'Profit Markup (%)' : 'Profit Markup (PKR)')
                             ->placeholder('250')
                             ->rule('numeric')
                             ->rule('min:0')
                             ->default(0)
-                            ->visible(fn (Get $get): bool => self::mode($get) !== PricingMode::Fixed),
+                            ->visible(fn (Get $get): bool => ! (bool) $get('is_free') && self::mode($get) !== PricingMode::Fixed),
                         TextInput::make('compare_at_price')
                             ->label('Old Price / Discount Strike (PKR)')
                             ->placeholder('800')
@@ -154,11 +167,20 @@ class ProductForm
                             ->live()
                             ->columnSpanFull()
                             ->helperText(fn (Get $get): string => match ((string) $get('delivery_type')) {
-                                'instant_link' => '🔗 Reusable Course / Resource Link Mode: Stock is automatically unlimited (∞). Paste your Course Link, Google Drive URL, or download note below — every customer receives that exact link/content automatically!',
-                                'manual_admin' => '👨‍💻 Non-Supplier Manual Mode: Stock is automatically unlimited (∞). Once order is confirmed, you get an alert to paste & send credentials from Admin Panel or 1-Tap Page.',
-                                'whatsapp_handover' => '📲 Non-Supplier WhatsApp Mode: Stock is automatically unlimited (∞). Once order is confirmed, the customer sees a big "Receive Order on WhatsApp" button with their verified Order ID.',
+                                'instant_link' => '🔗 Reusable Course / Resource Link Mode: Paste your Course Link, Google Drive URL, or download note below — every customer receives that exact link/content automatically! Set a Stock Limit below or leave blank for Unlimited (∞).',
+                                'manual_admin' => '👨‍💻 Non-Supplier Manual Mode: Once order is confirmed, you get an alert to paste & send credentials from Admin Panel or 1-Tap Page.',
+                                'whatsapp_handover' => '📲 Non-Supplier WhatsApp Mode: Once order is confirmed, the customer sees a big "Receive Order on WhatsApp" button with their verified Order ID.',
                                 default => '⚡ Auto Mode: Delivers from your uploaded .TXT / Own Stock Vault first, then falls back to linked Supplier API (if any). Sold items are locked so they are NEVER sold twice.',
                             }),
+
+                        TextInput::make('stock_limit')
+                            ->label('Stock Limit / Max Claims (Optional — Leave Blank for Unlimited ∞)')
+                            ->placeholder('Leave blank for Unlimited (∞), or e.g. 50')
+                            ->numeric()
+                            ->minValue(0)
+                            ->columnSpanFull()
+                            ->visible(fn (Get $get): bool => in_array((string) ($get('delivery_type') ?: 'auto'), ['instant_link', 'manual_admin', 'whatsapp_handover'], true))
+                            ->helperText('Leave blank for Unlimited Stock (∞), OR enter a number (e.g. 20 or 100) to limit how many orders/claims are allowed before it automatically goes Out of Stock.'),
 
                         Select::make('quick_stock_separator')
                             ->label('Quick .TXT Stock Separator Mode')

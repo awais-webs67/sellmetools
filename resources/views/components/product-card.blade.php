@@ -1,11 +1,12 @@
 @props(['product', 'priority' => false])
 @php
     $user = auth()->user();
+    $isFree = $product->isFree($user);
     $effectivePrice = $product->priceFor($user);
     $comparePrice = $effectivePrice < (float) $product->price
         ? (float) $product->price
         : ($product->compare_at_price && $product->compare_at_price > $effectivePrice ? (float) $product->compare_at_price : null);
-    $discount = $comparePrice && $comparePrice > $effectivePrice && $effectivePrice > 0
+    $discount = ! $isFree && $comparePrice && $comparePrice > $effectivePrice && $effectivePrice > 0
         ? round(100 - ($effectivePrice / $comparePrice) * 100)
         : null;
     $initialStockLabel = ! $product->inStock()
@@ -21,7 +22,7 @@
         ->implode('');
 @endphp
 <article class="group relative flex flex-col overflow-hidden rounded-xl border border-line bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition duration-200 ease-out hover:-translate-y-0.5 hover:border-brand/45 hover:shadow-[0_12px_24px_-8px_rgba(20,23,26,0.16)] active:scale-[0.99] select-none"
-         x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, @js($effectivePrice > 0 ? money($effectivePrice) : ($product->inStock() ? 'FREE' : 'Out of Stock')), {{ (float) $effectivePrice }})"
+         x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, @js($isFree ? 'FREE' : money($effectivePrice)), {{ (float) $effectivePrice }})"
          data-stock-id="{{ $product->id }}">
     {{-- Media Box: Full uncropped image (object-contain) with soft ambient backdrop --}}
     <a href="{{ route('products.show', $product) }}" class="surface-dark-solid relative block h-36 sm:h-40 overflow-hidden" tabindex="-1" aria-hidden="true">
@@ -52,7 +53,9 @@
 
         {{-- Top Badges Overlay --}}
         <div class="absolute inset-x-2 top-2 z-20 flex items-center justify-between gap-1.5">
-            @if ($discount)
+            @if ($isFree)
+                <span class="rounded bg-success px-2 py-0.5 text-[10px] font-bold tracking-wide text-white shadow-xs">🎁 FREE</span>
+            @elseif ($discount)
                 <span class="rounded bg-brand px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-white shadow-xs">-{{ $discount }}%</span>
             @elseif ($product->is_featured)
                 <span class="rounded bg-black/65 backdrop-blur-xs border border-white/15 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white/95">Featured</span>
@@ -88,9 +91,11 @@
 
         <div class="mt-2.5 flex items-center justify-between gap-2 border-t border-line pt-2.5">
             <div class="flex items-baseline gap-1.5 min-w-0">
-                <p class="display text-xl sm:text-2xl leading-none"
-                   :class="unitPrice <= 0 && inStock ? 'text-success' : 'text-ink'"
-                   x-text="unitPrice > 0 ? priceText : (inStock ? 'FREE' : 'Sold Out')">{{ $effectivePrice > 0 ? money($effectivePrice) : ($product->inStock() ? 'FREE' : 'Sold Out') }}</p>
+                @if ($isFree)
+                    <p class="display text-xl sm:text-2xl text-success leading-none">FREE</p>
+                @else
+                    <p class="display text-xl sm:text-2xl text-ink leading-none" x-text="priceText">{{ money($effectivePrice) }}</p>
+                @endif
                 @if ($comparePrice)
                     <p class="truncate text-[10px] sm:text-xs font-medium text-muted line-through" x-text="$store.currency.format({{ (float) $comparePrice }}, true)">{{ money($comparePrice) }}</p>
                 @endif
@@ -98,7 +103,7 @@
 
             <span class="relative z-10 inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs font-bold transition pointer-events-none"
                   :class="inStock ? 'bg-brand text-white shadow-xs group-hover:bg-brand-dark' : 'border border-line-strong text-muted opacity-70'">
-                <span x-text="inStock ? (unitPrice <= 0 ? 'Get Free' : 'Buy Now') : 'View'">{{ $product->inStock() ? ($effectivePrice <= 0 ? 'Get Free' : 'Buy Now') : 'View' }}</span>
+                <span x-text="inStock ? '{{ $isFree ? 'Get Free' : 'Buy Now' }}' : 'View'">{{ $product->inStock() ? ($isFree ? 'Get Free' : 'Buy Now') : 'View' }}</span>
                 <svg class="h-3 w-3 hidden sm:inline transition-transform group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
             </span>
         </div>

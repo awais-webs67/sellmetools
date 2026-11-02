@@ -22,8 +22,8 @@ class Product extends Model
         'category_id', 'name', 'slug', 'short_description', 'description', 'warranty', 'image',
         'meta_title', 'meta_description', 'meta_keywords',
         'pricing_mode', 'delivery_type', 'fixed_price', 'markup_value', 'compare_at_price', 'price', 'cost_price',
-        'available_stock', 'stock_unlimited',
-        'is_active', 'is_featured', 'disabled_reason', 'max_per_order', 'sort', 'sold_count',
+        'available_stock', 'stock_limit', 'stock_unlimited',
+        'is_active', 'is_featured', 'is_free', 'disabled_reason', 'max_per_order', 'sort', 'sold_count',
     ];
 
     /**
@@ -137,9 +137,11 @@ class Product extends Model
             'price' => 'decimal:2',
             'cost_price' => 'decimal:2',
             'available_stock' => 'integer',
+            'stock_limit' => 'integer',
             'stock_unlimited' => 'boolean',
             'is_active' => 'boolean',
             'is_featured' => 'boolean',
+            'is_free' => 'boolean',
         ];
     }
 
@@ -148,6 +150,10 @@ class Product extends Model
         static::saving(function (Product $product) {
             if (blank($product->slug)) {
                 $product->slug = static::uniqueSlug($product->name);
+            }
+            if ($product->is_free) {
+                $product->fixed_price = 0;
+                $product->price = 0;
             }
         });
     }
@@ -217,6 +223,10 @@ class Product extends Model
      */
     public function priceFor(?User $user = null): float
     {
+        if ($this->is_free) {
+            return 0.0;
+        }
+
         $retail = (float) $this->price;
 
         if (! $user || ! $user->is_reseller || ! ($user->is_active ?? true)) {
@@ -262,11 +272,11 @@ class Product extends Model
     }
 
     /**
-     * True when the product is in stock and its effective price is 0 (a free giveaway / free course link).
+     * True when the product has the Free Product tag enabled (`is_free = true`).
      */
     public function isFree(?User $user = null): bool
     {
-        return $this->inStock() && $this->priceFor($user) <= 0;
+        return (bool) $this->is_free;
     }
 
     public function imageUrl(): ?string

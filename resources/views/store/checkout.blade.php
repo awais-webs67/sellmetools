@@ -1,7 +1,8 @@
 @php
     $user = auth()->user();
+    $isFree = $product->isFree($user);
     $effectivePrice = isset($unitPrice) ? (float) $unitPrice : (float) $product->priceFor($user);
-    $hasResellerDiscount = $effectivePrice < (float) $product->price;
+    $hasResellerDiscount = ! $isFree && $effectivePrice < (float) $product->price;
     $walletBalance = (float) ($user?->wallet_balance ?? 0);
 @endphp
 <x-layouts.store title="Checkout" robots="noindex, nofollow">
@@ -74,7 +75,7 @@
                     </div>
                 </section>
 
-                @if ($effectivePrice <= 0)
+                @if ($isFree)
                     {{-- FREE PRODUCT BANNER (No Payment Required) --}}
                     <section class="card border-2 border-success/35 bg-gradient-to-br from-emerald-50/70 to-white p-5 sm:p-6 shadow-xs">
                         <div class="flex items-start gap-3.5">
@@ -179,8 +180,8 @@
                             <p class="text-sm sm:text-base font-bold text-ink break-words leading-tight">{{ $product->name }}</p>
                             <div class="mt-1 flex flex-wrap items-center justify-between gap-1.5">
                                 <p class="text-xs sm:text-sm font-semibold text-ink">
-                                    @if ($effectivePrice <= 0)
-                                        <span class="text-success font-bold">FREE</span>
+                                    @if ($isFree)
+                                        <span class="text-success font-bold">🎁 FREE</span>
                                     @elseif ($hasResellerDiscount)
                                         <span class="line-through text-muted mr-1" x-text="$store.currency.format({{ (float) $product->price }})">{{ money($product->price) }}</span>
                                         <span class="text-brand font-bold" x-text="$store.currency.format(livePrice)">{{ money($effectivePrice) }}</span>
@@ -208,13 +209,13 @@
                     <div class="mt-4 flex items-end justify-between border-t border-line pt-4">
                         <div>
                             <span class="block text-sm font-medium text-ink">Total Payable</span>
-                            @if ($effectivePrice <= 0)
+                            @if ($isFree)
                                 <span class="block text-[11px] font-semibold text-success">No Payment Required</span>
                             @else
                                 <span class="block text-[11px] font-semibold text-muted" x-text="totalSecondary"></span>
                             @endif
                         </div>
-                        @if ($effectivePrice <= 0)
+                        @if ($isFree)
                             <span class="display text-3xl sm:text-4xl text-success">FREE</span>
                         @else
                             <span class="display text-3xl sm:text-4xl text-brand" x-text="totalPrimary">{{ setting('currency_symbol') }} <span x-text="totalFormatted"></span></span>
@@ -229,12 +230,12 @@
                     @error('agree')<p class="field-error text-xs">{{ $message }}</p>@enderror
 
                     {{-- Submit Button with Click Feedback --}}
-                    <button type="submit" class="btn btn-primary btn-lg mt-5 w-full text-base font-bold shadow-md" :disabled="!inStock || submitting" @disabled($effectivePrice > 0 && $methods->isEmpty())>
-                        <span x-show="!submitting && inStock">{{ $effectivePrice <= 0 ? 'Claim Free Access Now →' : 'Place Order & Pay →' }}</span>
+                    <button type="submit" class="btn btn-primary btn-lg mt-5 w-full text-base font-bold shadow-md" :disabled="!inStock || submitting" @disabled(! $isFree && $methods->isEmpty())>
+                        <span x-show="!submitting && inStock">{{ $isFree ? 'Claim Free Access Now →' : 'Place Order & Pay →' }}</span>
                         <span x-show="!submitting && !inStock" x-cloak>Out of Stock</span>
                         <span x-show="submitting" x-cloak class="flex items-center justify-center gap-2">
                             <span class="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                            {{ $effectivePrice <= 0 ? 'Unlocking Free Access...' : 'Creating Order...' }}
+                            {{ $isFree ? 'Unlocking Free Access...' : 'Creating Order...' }}
                         </span>
                     </button>
 

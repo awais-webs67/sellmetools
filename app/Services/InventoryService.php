@@ -24,13 +24,21 @@ class InventoryService
 
         $product->load('activeSources.supplier');
         $supplierUnits = 0;
-        $unlimited = in_array($product->delivery_type, ['manual_admin', 'whatsapp_handover', 'instant_link'], true);
+        $isNonConsumingMode = in_array($product->delivery_type, ['manual_admin', 'whatsapp_handover', 'instant_link'], true);
+        $hasCustomLimit = $isNonConsumingMode && $product->stock_limit !== null;
+        $unlimited = $isNonConsumingMode && ! $hasCustomLimit;
+
+        if ($hasCustomLimit) {
+            $supplierUnits = max(0, (int) $product->stock_limit);
+        }
 
         foreach ($product->activeSources as $source) {
             /** @var SupplierProduct $source */
             $units = $source->availableUnits();
             if ($units === null) {
-                $unlimited = true;
+                if (! $hasCustomLimit) {
+                    $unlimited = true;
+                }
             } else {
                 $supplierUnits += $units;
             }
@@ -40,7 +48,7 @@ class InventoryService
         $supplierFree = $unlimited ? null : max(0, $supplierUnits - $reserved);
 
         return [
-            'qty' => $own + ($supplierFree ?? 0),
+            'qty' => ($isNonConsumingMode ? 0 : $own) + ($supplierFree ?? 0),
             'unlimited' => $unlimited,
             'own' => $own,
             'supplier' => $supplierFree,

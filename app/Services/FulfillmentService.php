@@ -399,7 +399,13 @@ class FulfillmentService
             ]);
 
             foreach ($items as $item) {
-                $item->product?->increment('sold_count', $item->quantity);
+                if ($item->product) {
+                    $item->product->increment('sold_count', $item->quantity);
+                    if ($item->product->stock_limit !== null && in_array($item->product->delivery_type, ['instant_link', 'manual_admin', 'whatsapp_handover'], true)) {
+                        $newLimit = max(0, (int) $item->product->stock_limit - $item->quantity);
+                        $item->product->update(['stock_limit' => $newLimit]);
+                    }
+                }
             }
 
             $profit = round((float) $order->total - (float) $order->total_cost, 2);

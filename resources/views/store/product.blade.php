@@ -202,8 +202,9 @@
         </nav>
 
         @php
+            $isFree = $product->isFree(auth()->user());
             $effectivePrice = $product->priceFor(auth()->user());
-            $hasResellerDiscount = $effectivePrice < (float) $product->price;
+            $hasResellerDiscount = ! $isFree && $effectivePrice < (float) $product->price;
         @endphp
 
         {{-- TOP SECTION: Product Image + Sticky Buy Card --}}
@@ -243,24 +244,27 @@
                     {{-- Live Price & Stock Status Bar --}}
                     <div class="mt-5 flex flex-wrap items-end justify-between gap-3 rounded-xl bg-grey-soft p-4 border border-line">
                         <div>
-                            @if ($hasResellerDiscount)
-                                <p class="text-xs text-muted">Retail: <span class="line-through" x-text="$store.currency.format({{ (float) $product->price }})">{{ money($product->price) }}</span> <span class="badge badge-brand ml-1 text-[10px]">VIP Reseller Rate</span></p>
-                            @elseif ($product->compare_at_price && $product->compare_at_price > $effectivePrice)
-                                <p class="text-xs text-muted line-through" x-text="$store.currency.format({{ (float) $product->compare_at_price }})">{{ money($product->compare_at_price) }}</p>
-                            @endif
-                            <p class="display text-4xl sm:text-5xl"
-                               :class="unitPrice <= 0 && inStock ? 'text-success' : 'text-brand'"
-                               x-text="unitPrice > 0 ? priceText : (inStock ? 'FREE' : 'Out of Stock')">{{ $effectivePrice > 0 ? money($effectivePrice) : ($product->inStock() ? 'FREE' : 'Out of Stock') }}</p>
-                            @if ($effectivePrice > 0)
+                            @if ($isFree)
+                                <span class="badge badge-success mb-1.5 text-[10px] font-bold">🎁 FREE GIVEAWAY</span>
+                                @if ($product->compare_at_price && $product->compare_at_price > 0)
+                                    <p class="text-xs text-muted line-through" x-text="$store.currency.format({{ (float) $product->compare_at_price }})">{{ money($product->compare_at_price) }}</p>
+                                @endif
+                                <p class="display text-4xl sm:text-5xl text-success">FREE</p>
+                                <p class="mt-1 text-[11px] font-semibold text-success">
+                                    🎁 100% Free Instant Access · No Payment Required
+                                </p>
+                            @else
+                                @if ($hasResellerDiscount)
+                                    <p class="text-xs text-muted">Retail: <span class="line-through" x-text="$store.currency.format({{ (float) $product->price }})">{{ money($product->price) }}</span> <span class="badge badge-brand ml-1 text-[10px]">VIP Reseller Rate</span></p>
+                                @elseif ($product->compare_at_price && $product->compare_at_price > $effectivePrice)
+                                    <p class="text-xs text-muted line-through" x-text="$store.currency.format({{ (float) $product->compare_at_price }})">{{ money($product->compare_at_price) }}</p>
+                                @endif
+                                <p class="display text-4xl sm:text-5xl text-brand" x-text="priceText">{{ money($effectivePrice) }}</p>
                                 <p class="mt-1 text-[11px] font-semibold text-muted">
                                     <span x-text="$store.currency.isUsdt ? '≈ ' + $store.currency.symbol + ' ' + Math.round(unitPrice).toLocaleString('en-US') + ' PKR' : '≈ $' + (unitPrice / $store.currency.rate).toFixed(2) + ' USDT'">
                                         ≈ ${{ number_format($effectivePrice / \App\Models\Setting::usdtRate(), 2) }} USDT
                                     </span>
                                     · Both PKR &amp; USDT accepted
-                                </p>
-                            @elseif ($product->inStock())
-                                <p class="mt-1 text-[11px] font-semibold text-success">
-                                    🎁 100% Free Instant Access · No Payment Required
                                 </p>
                             @endif
                         </div>
@@ -282,7 +286,7 @@
                         </div>
 
                         <button type="submit" class="btn btn-primary btn-lg w-full text-base font-bold shadow-md" :disabled="!inStock">
-                            <span x-show="inStock" x-text="unitPrice <= 0 ? 'Claim Free Access Now →' : 'Proceed to Checkout →'">{{ $effectivePrice <= 0 ? 'Claim Free Access Now →' : 'Proceed to Checkout →' }}</span>
+                            <span x-show="inStock">{{ $isFree ? 'Claim Free Access Now →' : 'Proceed to Checkout →' }}</span>
                             <span x-show="!inStock" x-cloak>Currently Out of Stock</span>
                         </button>
                     </form>
