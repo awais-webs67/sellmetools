@@ -288,122 +288,66 @@
                     </button>
                 </div>
 
-                {{-- Sleek Animated Hamburger Trigger --}}
+                {{-- Clean Simple Hamburger Trigger --}}
                 <button type="button"
                         @click="open = !open"
                         :aria-expanded="open"
                         aria-controls="mobile-nav"
-                        :class="open ? 'bg-brand text-white border-brand shadow-sm' : 'bg-white text-ink border-line-strong hover:border-brand hover:bg-grey-soft'"
-                        class="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border transition duration-200 active:scale-95 lg:hidden cursor-pointer">
-                    <span class="sr-only">Toggle navigation menu</span>
-                    <span class="relative flex h-4 w-5 flex-col justify-between overflow-hidden" aria-hidden="true">
-                        <span class="block h-[2px] w-5 origin-center rounded-full bg-current transition-all duration-200 ease-out"
-                              :class="open ? 'translate-y-[7px] rotate-45' : ''"></span>
-                        <span class="block h-[2px] w-3.5 rounded-full bg-current transition-all duration-200 ease-out"
-                              :class="open ? 'translate-x-4 opacity-0' : ''"></span>
-                        <span class="block h-[2px] origin-center rounded-full bg-current transition-all duration-200 ease-out"
-                              :class="open ? 'w-5 -translate-y-[7px] -rotate-45' : 'w-4'"></span>
-                    </span>
+                        class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-line bg-white text-ink hover:bg-grey-soft lg:hidden cursor-pointer">
+                    <span class="sr-only">Menu</span>
+                    <svg x-show="!open" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    <svg x-show="open" x-cloak class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
                 </button>
             </div>
         </div>
 
-        {{-- Modern Mobile Menu Drawer --}}
+        {{-- Simple Clean Mobile Menu --}}
         <div id="mobile-nav"
              x-show="open"
              x-cloak
-             x-transition:enter="transition ease-out duration-200"
-             x-transition:enter-start="opacity-0 -translate-y-2"
-             x-transition:enter-end="opacity-100 translate-y-0"
-             x-transition:leave="transition ease-in duration-150"
-             x-transition:leave-start="opacity-100 translate-y-0"
-             x-transition:leave-end="opacity-0 -translate-y-2"
-             class="border-t border-line bg-white shadow-[0_24px_48px_-12px_rgba(0,0,0,0.18)] lg:hidden">
-            <div class="container-x py-4 space-y-3.5">
-                {{-- Mobile Instant Search --}}
-                <form action="{{ route('shop') }}" method="get" class="relative md:hidden" role="search" x-data="liveSearch" @click.outside="open = false">
+             @click.outside="open = false"
+             class="border-t border-line bg-white shadow-lg lg:hidden">
+            <div class="container-x py-3 space-y-2.5">
+                {{-- Mobile Search --}}
+                <form action="{{ route('shop') }}" method="get" class="relative md:hidden" role="search" x-data="liveSearch">
                     <label for="mobile-search" class="sr-only">Search products</label>
-                    <svg class="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                    <input id="mobile-search" type="search" name="q" value="{{ request('q') }}" placeholder="Search digital tools &amp; subscriptions..." class="input rounded-xl bg-grey-soft/70 py-2.5 pl-10 text-sm focus:bg-white" x-bind="field">
+                    <svg class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                    <input id="mobile-search" type="search" name="q" value="{{ request('q') }}" placeholder="Search products..." class="input py-2 pl-9 text-sm" x-bind="field">
                     <x-search-suggest />
                 </form>
 
-                {{-- Currency Info & Quick Switcher Card --}}
-                <div class="flex items-center justify-between gap-2 rounded-xl border border-line bg-grey-soft px-3.5 py-2.5 text-xs">
-                    <div class="flex items-center gap-2">
-                        <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand text-[11px] font-bold text-white" x-text="$store.currency.isUsdt ? '₮' : 'Rs'">Rs</span>
-                        <div>
-                            <p class="font-bold text-ink leading-tight">Both PKR &amp; USDT Accepted</p>
-                            <p class="text-[11px] text-muted">Live Rate: 1 USDT ≈ Rs {{ number_format(\App\Models\Setting::usdtRate(), 0) }}</p>
-                        </div>
-                    </div>
-                    <button type="button"
-                            @click="$store.currency.toggle()"
-                            class="rounded-lg border border-line-strong bg-white px-2.5 py-1.5 text-[11px] font-bold text-ink shadow-2xs transition active:scale-95">
-                        Switch to <span x-text="$store.currency.isUsdt ? 'PKR' : 'USDT'">USDT</span>
-                    </button>
-                </div>
-
-                {{-- Navigation Links Grid --}}
-                <nav class="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white" aria-label="Mobile navigation">
-                    @foreach ([
-                        ['label' => 'Home', 'sub' => 'Featured catalog & deals', 'url' => route('home'), 'active' => request()->routeIs('home'), 'icon' => 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5.5v-6h-5v6H4a1 1 0 0 1-1-1v-9.5Z'],
-                        ['label' => 'Shop All Products', 'sub' => 'Filter by category, price & stock', 'url' => route('shop'), 'active' => request()->routeIs('shop') || request()->routeIs('categories.show'), 'icon' => 'M4 6h16M4 12h16M4 18h10'],
-                        ['label' => 'Track Your Order', 'sub' => 'Check live status & credentials', 'url' => route('orders.track'), 'active' => request()->routeIs('orders.track'), 'icon' => 'M9 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm10 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM13 6h5l3 5v6h-2M1 6h12v11H1V6Z'],
-                        ['label' => 'About Us', 'sub' => 'Verified marketplace in Pakistan', 'url' => route('pages.show', 'about'), 'active' => request()->fullUrlIs(route('pages.show', 'about')), 'icon' => 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Zm0-14v.01M12 12v4'],
-                        ['label' => 'FAQ & Buying Guide', 'sub' => 'Delivery, payments & warranty', 'url' => route('pages.show', 'faq'), 'active' => request()->fullUrlIs(route('pages.show', 'faq')), 'icon' => 'M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3m.1 4h.01M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z'],
-                        ['label' => 'Contact & Support', 'sub' => 'WhatsApp helpdesk & ticket form', 'url' => route('pages.show', 'contact'), 'active' => request()->fullUrlIs(route('pages.show', 'contact')), 'icon' => 'M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5Z'],
-                    ] as $mItem)
-                        <a href="{{ $mItem['url'] }}"
-                           @class([
-                               'flex items-center justify-between gap-3 px-3.5 py-2.5 transition active:bg-brand-tint',
-                               'bg-brand-tint/60 text-brand' => $mItem['active'],
-                               'text-ink hover:bg-grey-soft' => ! $mItem['active'],
-                           ])>
-                            <div class="flex items-center gap-3 min-w-0">
-                                <span @class([
-                                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border',
-                                    'border-brand bg-brand text-white' => $mItem['active'],
-                                    'border-line bg-grey-soft text-ink' => ! $mItem['active'],
-                                ])>
-                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ $mItem['icon'] }}"/></svg>
-                                </span>
-                                <div class="min-w-0">
-                                    <p class="truncate text-sm font-bold leading-tight">{{ $mItem['label'] }}</p>
-                                    <p class="truncate text-[11px] text-muted">{{ $mItem['sub'] }}</p>
-                                </div>
-                            </div>
-                            <svg class="h-4 w-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
-                        </a>
-                    @endforeach
+                {{-- Simple Links --}}
+                <nav class="flex flex-col divide-y divide-line text-sm font-semibold text-ink" aria-label="Mobile navigation">
+                    <a href="{{ route('home') }}" @class(['py-2.5 hover:text-brand', 'text-brand font-bold' => request()->routeIs('home')])>Home</a>
+                    <a href="{{ route('shop') }}" @class(['py-2.5 hover:text-brand', 'text-brand font-bold' => request()->routeIs('shop')])>Shop</a>
+                    <a href="{{ route('orders.track') }}" @class(['py-2.5 hover:text-brand', 'text-brand font-bold' => request()->routeIs('orders.track')])>Track Order</a>
+                    <a href="{{ route('pages.show', 'about') }}" @class(['py-2.5 hover:text-brand', 'text-brand font-bold' => request()->fullUrlIs(route('pages.show', 'about'))])>About</a>
+                    <a href="{{ route('pages.show', 'contact') }}" @class(['py-2.5 hover:text-brand', 'text-brand font-bold' => request()->fullUrlIs(route('pages.show', 'contact'))])>Contact</a>
+                    @auth
+                        @if (auth()->user()->is_reseller && filled(auth()->user()->reseller_slug))
+                            <a href="{{ route('reseller.portal', auth()->user()->reseller_slug) }}" class="py-2.5 font-bold text-brand">★ Reseller Portal</a>
+                        @endif
+                    @endauth
                 </nav>
 
-                {{-- Account Actions --}}
+                {{-- Account Buttons --}}
                 @auth
-                    <div class="space-y-2 pt-1">
-                        @if (auth()->user()->is_reseller && filled(auth()->user()->reseller_slug))
-                            <a href="{{ route('reseller.portal', auth()->user()->reseller_slug) }}" class="btn btn-primary w-full justify-between py-2.5 text-xs font-bold">
-                                <span>★ My Reseller Portal (/{{ auth()->user()->reseller_slug }})</span>
-                                <span>→</span>
-                            </a>
-                        @endif
-                        <div class="grid grid-cols-2 gap-2">
-                            <a href="{{ route('account.orders') }}" class="btn btn-outline py-2.5 text-xs font-bold">
-                                My Account
-                                @if ((float) auth()->user()->wallet_balance > 0)
-                                    <span class="rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-bold text-white">{{ money(auth()->user()->wallet_balance) }}</span>
-                                @endif
-                            </a>
-                            <form method="post" action="{{ route('logout') }}">
-                                @csrf
-                                <button type="submit" class="btn btn-outline w-full py-2.5 text-xs font-bold text-danger hover:border-danger hover:text-danger">Logout</button>
-                            </form>
-                        </div>
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <a href="{{ route('account.orders') }}" class="btn btn-outline py-2 text-xs font-bold">
+                            My Account
+                            @if ((float) auth()->user()->wallet_balance > 0)
+                                <span class="rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-bold text-white">{{ money(auth()->user()->wallet_balance) }}</span>
+                            @endif
+                        </a>
+                        <form method="post" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="btn btn-outline w-full py-2 text-xs font-bold text-danger">Logout</button>
+                        </form>
                     </div>
                 @else
-                    <div class="grid grid-cols-2 gap-2.5 pt-1">
-                        <a href="{{ route('login') }}" class="btn btn-outline py-2.5 text-xs font-bold">Login</a>
-                        <a href="{{ route('register') }}" class="btn btn-primary py-2.5 text-xs font-bold">Create Account</a>
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <a href="{{ route('login') }}" class="btn btn-outline py-2 text-xs font-bold">Login</a>
+                        <a href="{{ route('register') }}" class="btn btn-primary py-2 text-xs font-bold">Create Account</a>
                     </div>
                 @endauth
             </div>
