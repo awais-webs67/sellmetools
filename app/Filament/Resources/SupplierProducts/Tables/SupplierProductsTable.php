@@ -136,14 +136,14 @@ class SupplierProductsTable
                             ->label('Fixed price (PKR)')
                             ->rule('numeric')
                             ->rule('min:0')
-                            ->live(debounce: 500)
+                            ->live(debounce: 250)
                             ->visible(fn (Get $get): bool => $get('pricing_mode') === PricingMode::Fixed->value)
                             ->required(fn (Get $get): bool => $get('pricing_mode') === PricingMode::Fixed->value),
                         TextInput::make('markup_value')
                             ->label(fn (Get $get): string => $get('pricing_mode') === PricingMode::MarkupPercent->value ? 'Markup (%)' : 'Markup (PKR)')
                             ->rule('numeric')
                             ->rule('min:0')
-                            ->live(debounce: 500)
+                            ->live(debounce: 250)
                             ->visible(fn (Get $get): bool => $get('pricing_mode') !== PricingMode::Fixed->value)
                             ->required(fn (Get $get): bool => $get('pricing_mode') !== PricingMode::Fixed->value),
                         TextEntry::make('cost_preview')

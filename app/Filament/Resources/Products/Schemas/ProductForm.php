@@ -4,8 +4,10 @@ namespace App\Filament\Resources\Products\Schemas;
 
 use App\Enums\PricingMode;
 use App\Filament\Support\GalleryPicker;
+use App\Filament\Support\Listings;
 use App\Filament\Support\Money;
 use App\Models\Product;
+use App\Services\PriceCalculator;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
@@ -118,6 +120,7 @@ class ProductForm
                             ->rule('numeric')
                             ->rule('min:0')
                             ->default(0)
+                            ->live(debounce: 250)
                             ->visible(fn (Get $get): bool => ! (bool) $get('is_free') && self::mode($get) === PricingMode::Fixed)
                             ->required(fn (Get $get): bool => ! (bool) $get('is_free') && self::mode($get) === PricingMode::Fixed),
                         TextInput::make('markup_value')
@@ -126,6 +129,7 @@ class ProductForm
                             ->rule('numeric')
                             ->rule('min:0')
                             ->default(0)
+                            ->live(debounce: 250)
                             ->visible(fn (Get $get): bool => ! (bool) $get('is_free') && self::mode($get) !== PricingMode::Fixed),
                         TextInput::make('compare_at_price')
                             ->label('Old Price / Discount Strike (PKR)')
@@ -134,21 +138,25 @@ class ProductForm
                             ->rule('min:0'),
                         Grid::make(['default' => 2, 'sm' => 4])
                             ->columnSpanFull()
-                            ->visibleOn('edit')
                             ->schema([
                                 TextEntry::make('cost_price')
                                     ->label('Supplier Cost')
-                                    ->state(fn (?Product $record): string => Money::pkr($record?->cost_price)),
+                                    ->state(fn (?Product $record): string => Money::pkr(self::liveCost($record))),
                                 TextEntry::make('price')
                                     ->label('Final Selling Price')
                                     ->weight('bold')
                                     ->color('primary')
-                                    ->state(fn (?Product $record): string => Money::pkr($record?->price)),
+                                    ->state(fn (?Product $record, Get $get): string => Money::pkr(self::liveSellingPrice($record, $get))),
                                 TextEntry::make('profit')
                                     ->label('Your Profit')
-                                    ->state(fn (?Product $record): string => $record?->cost_price === null
-                                        ? '-'
-                                        : Money::pkr((float) $record->price - (float) $record->cost_price)),
+                                    ->state(function (?Product $record, Get $get): string {
+                                        $cost = self::liveCost($record);
+                                        if ($cost === null) {
+                                            return '-';
+                                        }
+
+                                        return Money::pkr(round(self::liveSellingPrice($record, $get) - $cost, 2));
+                                    }),
                                 TextEntry::make('stock')
                                     ->label('Live Stock')
                                     ->state(fn (?Product $record): string => $record?->stock_unlimited ? '∞' : (string) ($record?->available_stock ?? 0)),
@@ -280,5 +288,34 @@ class ProductForm
         $mode = $get('pricing_mode');
 
         return $mode instanceof PricingMode ? $mode : (PricingMode::tryFrom((string) $mode) ?? PricingMode::Fixed);
+    }
+
+    protected static function liveCost(?Product $record): ?float
+    {
+        if (! $record) {
+            return null;
+        }
+
+        if ($record->cost_price !== null) {
+            return (float) $record->cost_price;
+        }
+
+        $cheapest = app(PriceCalculator::class)->cheapestCost($record);
+
+        return $cheapest !== null ? round($cheapest, 2) : null;
+    }
+
+    protected static function liveSellingPrice(?Product $record, Get $get): float
+    {
+        if ((bool) $get('is_free')) {
+            return 0.0;
+        }
+
+        return Listings::previewPrice(
+            self::liveCost($record),
+            self::mode($get),
+            $get('fixed_price'),
+            $get('markup_value'),
+        );
     }
 }
