@@ -47,7 +47,7 @@ class SearchController extends Controller
                     ->orderByRaw('CASE WHEN available_stock > 0 OR stock_unlimited = 1 THEN 0 ELSE 1 END')
                     ->orderByDesc('is_featured')
                     ->orderByDesc('sold_count')
-                    ->limit(80)
+                    ->limit(500)
                     ->get(['id', 'name', 'slug', 'image', 'price', 'is_free', 'category_id', 'available_stock', 'stock_unlimited', 'short_description']);
 
                 $categories = Category::query()
@@ -56,7 +56,7 @@ class SearchController extends Controller
                     ->get(['name', 'slug']);
 
                 return [
-                    'has_more' => $totalVisible > 80,
+                    'has_more' => $totalVisible > 500,
                     'products' => $products->map(fn (Product $p) => [
                         'id' => $p->id,
                         'name' => $p->name,

@@ -22,7 +22,7 @@ class ProductController extends Controller
         $search = trim((string) $request->query('q', ''));
 
         $products = $this->catalogQuery($activeCategory, $search)
-            ->paginate(12)
+            ->paginate(500)
             ->withQueryString();
 
         return view('store.home', compact('categories', 'activeCategory', 'products', 'search'));
@@ -41,7 +41,7 @@ class ProductController extends Controller
         $inStockOnly = $request->boolean('in_stock');
 
         $products = $this->catalogQuery($activeCategory, $search, $sort, $inStockOnly)
-            ->paginate(24)
+            ->paginate(500)
             ->withQueryString();
 
         return view('store.shop', compact('categories', 'activeCategory', 'products', 'search', 'sort', 'inStockOnly'));
@@ -57,7 +57,7 @@ class ProductController extends Controller
         $search = trim((string) $request->query('q', ''));
 
         $products = $this->catalogQuery($activeCategory, $search)
-            ->paginate(12)
+            ->paginate(500)
             ->withQueryString();
 
         return view('store.home', compact('categories', 'activeCategory', 'products', 'search'));
