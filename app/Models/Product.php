@@ -11,7 +11,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class Product extends Model
@@ -148,6 +150,8 @@ class Product extends Model
     protected static function booted(): void
     {
         static::saving(function (Product $product) {
+            static::ensureFreeAndStockColumnsExist();
+
             if (blank($product->slug)) {
                 $product->slug = static::uniqueSlug($product->name);
             }
@@ -156,6 +160,39 @@ class Product extends Model
                 $product->price = 0;
             }
         });
+    }
+
+    /**
+     * Self-healing schema check so saving a product never fails with "Unknown column 'is_free'"
+     * even if the live database was imported via .sql without running migrations.
+     */
+    public static function ensureFreeAndStockColumnsExist(): void
+    {
+        static $checked = false;
+        if ($checked) {
+            return;
+        }
+        $checked = true;
+
+        try {
+            if (! Schema::hasColumn('products', 'is_free')) {
+                Schema::table('products', function (Blueprint $table): void {
+                    $table->boolean('is_free')->default(false)->after('is_featured');
+                });
+            }
+            if (! Schema::hasColumn('products', 'stock_limit')) {
+                Schema::table('products', function (Blueprint $table): void {
+                    $table->unsignedInteger('stock_limit')->nullable()->after('available_stock');
+                });
+            }
+            if (! Schema::hasColumn('products', 'delivery_type')) {
+                Schema::table('products', function (Blueprint $table): void {
+                    $table->string('delivery_type', 40)->default('auto')->after('pricing_mode');
+                });
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     public static function uniqueSlug(string $name): string
