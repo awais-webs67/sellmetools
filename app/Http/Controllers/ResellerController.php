@@ -49,8 +49,8 @@ class ResellerController extends Controller
             ->with('category')
             ->when($search !== '', fn ($q) => $q->where('name', 'like', "%{$search}%"))
             ->when($categorySlug !== '', fn ($q) => $q->whereHas('category', fn ($cq) => $cq->where('slug', $categorySlug)))
-            ->orderByDesc('is_featured')
-            ->orderBy('sort')
+            ->orderByRaw('CASE WHEN available_stock > 0 OR stock_unlimited = 1 THEN 0 ELSE 1 END')
+            ->inRandomOrder()
             ->get();
 
         $categories = Category::query()

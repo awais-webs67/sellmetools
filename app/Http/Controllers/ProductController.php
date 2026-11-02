@@ -20,10 +20,12 @@ class ProductController extends Controller
             : null;
 
         $search = trim((string) $request->query('q', ''));
+        $seed = $request->integer('seed') ?: random_int(1000, 999999);
 
-        $products = $this->catalogQuery($activeCategory, $search)
+        $products = $this->catalogQuery($activeCategory, $search, 'random', false, $seed)
             ->paginate($request->boolean('all') ? 500 : 12)
-            ->withQueryString();
+            ->withQueryString()
+            ->appends(['seed' => $seed]);
 
         return view('store.home', compact('categories', 'activeCategory', 'products', 'search'));
     }
@@ -39,10 +41,12 @@ class ProductController extends Controller
         $search = trim((string) $request->query('q', ''));
         $sort = $request->string('sort', 'featured')->toString();
         $inStockOnly = $request->boolean('in_stock');
+        $seed = $request->integer('seed') ?: random_int(1000, 999999);
 
-        $products = $this->catalogQuery($activeCategory, $search, $sort, $inStockOnly)
+        $products = $this->catalogQuery($activeCategory, $search, $sort, $inStockOnly, $seed)
             ->paginate($request->boolean('all') ? 500 : 24)
-            ->withQueryString();
+            ->withQueryString()
+            ->appends(['seed' => $seed]);
 
         return view('store.shop', compact('categories', 'activeCategory', 'products', 'search', 'sort', 'inStockOnly'));
     }
@@ -55,10 +59,12 @@ class ProductController extends Controller
 
         $activeCategory = $category;
         $search = trim((string) $request->query('q', ''));
+        $seed = $request->integer('seed') ?: random_int(1000, 999999);
 
-        $products = $this->catalogQuery($activeCategory, $search)
+        $products = $this->catalogQuery($activeCategory, $search, 'random', false, $seed)
             ->paginate($request->boolean('all') ? 500 : 12)
-            ->withQueryString();
+            ->withQueryString()
+            ->appends(['seed' => $seed]);
 
         return view('store.home', compact('categories', 'activeCategory', 'products', 'search'));
     }
@@ -73,7 +79,7 @@ class ProductController extends Controller
             ->get();
     }
 
-    private function catalogQuery(?Category $activeCategory, string $search, string $sort = 'featured', bool $inStockOnly = false)
+    private function catalogQuery(?Category $activeCategory, string $search, string $sort = 'featured', bool $inStockOnly = false, ?int $seed = null)
     {
         $tokens = collect(preg_split('/\s+/u', $search, -1, PREG_SPLIT_NO_EMPTY))
             ->map(fn (string $t) => addcslashes($t, '%_'))
@@ -93,29 +99,24 @@ class ProductController extends Controller
                         ->where('name', 'like', "%{$token}%")
                         ->orWhere('short_description', 'like', "%{$token}%"));
                 }
-            });
+            })
+            // Always push out-of-stock (0 stock) products to the very end
+            ->orderByRaw('CASE WHEN available_stock > 0 OR stock_unlimited = 1 THEN 0 ELSE 1 END');
 
         return match ($sort) {
             'price_asc' => $query
-                ->orderByRaw('CASE WHEN available_stock > 0 OR stock_unlimited = 1 THEN 0 ELSE 1 END')
                 ->orderBy('price')
                 ->orderBy('id'),
             'price_desc' => $query
-                ->orderByRaw('CASE WHEN available_stock > 0 OR stock_unlimited = 1 THEN 0 ELSE 1 END')
                 ->orderByDesc('price')
                 ->orderBy('id'),
             'popular' => $query
-                ->orderByRaw('CASE WHEN available_stock > 0 OR stock_unlimited = 1 THEN 0 ELSE 1 END')
                 ->orderByDesc('sold_count')
                 ->orderByDesc('is_featured'),
             'newest' => $query
-                ->orderByRaw('CASE WHEN available_stock > 0 OR stock_unlimited = 1 THEN 0 ELSE 1 END')
                 ->orderByDesc('id'),
             default => $query
-                ->orderByDesc('is_featured')
-                ->orderByRaw('CASE WHEN available_stock > 0 OR stock_unlimited = 1 THEN 0 ELSE 1 END')
-                ->orderBy('sort')
-                ->orderByDesc('sold_count'),
+                ->inRandomOrder($seed ?: ''),
         };
     }
 
@@ -131,7 +132,8 @@ class ProductController extends Controller
             ->withCount('approvedReviews')
             ->withAvg('approvedReviews', 'rating')
             ->when($product->category_id, fn ($q) => $q->where('category_id', $product->category_id))
-            ->orderByDesc('sold_count')
+            ->orderByRaw('CASE WHEN available_stock > 0 OR stock_unlimited = 1 THEN 0 ELSE 1 END')
+            ->inRandomOrder()
             ->limit(4)
             ->get();
 
