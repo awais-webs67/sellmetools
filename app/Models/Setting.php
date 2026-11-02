@@ -48,6 +48,8 @@ class Setting extends Model
         'seo_description' => 'Buy genuine AI tools, cheap subscriptions, creative software and cloud accounts online. Pay via Binance USDT or local PKR wallets (Easypaisa, JazzCash) with instant delivery.',
         'seo_keywords' => 'buy ai tools online, cheap digital subscriptions, chatgpt plus cheap subscription, canva pro cheap subscription, buy software subscriptions online, binance pay digital store, easypaisa jazzcash subscriptions, sellmetools',
         'google_site_verification' => '',
+        'bing_site_verification' => '',
+        'indexnow_key' => 'a7f9c2e4b8d106359a2c4e6f8b0d2e4a',
         'google_analytics_id' => '',
         'mail_enabled' => '1',
         'mail_send_order_delivered' => '1',

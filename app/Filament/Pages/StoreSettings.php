@@ -46,7 +46,7 @@ class StoreSettings extends Page
         'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
         'telegram_bot_token', 'telegram_admin_chat_id',
         'support_whatsapp', 'support_telegram', 'support_email',
-        'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'google_analytics_id',
+        'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id',
         'mail_enabled', 'mail_send_order_delivered',
         'mail_host', 'mail_port', 'mail_username', 'mail_password',
         'mail_encryption', 'mail_from_address', 'mail_from_name',
@@ -57,7 +57,7 @@ class StoreSettings extends Page
         'store_name', 'store_tagline', 'store_logo', 'store_theme', 'announcement',
         'home_hero_badge', 'home_hero_title', 'home_hero_subtitle', 'home_about_heading', 'home_guide_heading', 'home_seo_content',
         'shop_seo_title', 'shop_seo_description',
-        'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'google_analytics_id',
+        'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id',
     ];
 
     /** Changing these re-prices every supplier-sourced product. */
@@ -433,14 +433,14 @@ class StoreSettings extends Page
                         ])->columnSpanFull(),
                     ]),
 
-                Section::make('SEO & Google Search Ranking (Optional)')
+                Section::make('SEO, Google Search & Bing / IndexNow (Copilot & ChatGPT Indexing)')
                     ->icon(Heroicon::OutlinedMagnifyingGlassCircle)
-                    ->description('Optimize your store for Google Search. Live XML Sitemap: '.url('/sitemap.xml').' | AI Index: '.url('/llms.txt'))
+                    ->description('Optimize your store for Google, Bing, Microsoft Copilot & ChatGPT Search. Live XML Sitemap: '.url('/sitemap.xml').' | AI Index: '.url('/llms.txt').' | IndexNow Key: '.url('/'.Setting::get('indexnow_key', 'a7f9c2e4b8d106359a2c4e6f8b0d2e4a').'.txt'))
                     ->columns(['default' => 1, 'sm' => 2])
                     ->schema([
                         TextInput::make('seo_title')
                             ->label('Homepage SEO Title')
-                            ->placeholder('Buy ChatGPT Plus, Canva Pro & Subscriptions in Pakistan')
+                            ->placeholder('Buy AI Tools & Cheap Digital Subscriptions Online')
                             ->maxLength(255)
                             ->columnSpanFull(),
                         Textarea::make('seo_description')
@@ -455,7 +455,14 @@ class StoreSettings extends Page
                             ->columnSpanFull(),
                         TextInput::make('google_site_verification')
                             ->label('Google Search Console Verification Code (Optional)')
-                            ->placeholder('Paste token only'),
+                            ->placeholder('Paste token or meta tag'),
+                        TextInput::make('bing_site_verification')
+                            ->label('Bing Webmaster Verification Code (msvalidate.01 — Optional)')
+                            ->placeholder('Paste token or <meta name="msvalidate.01" ...>'),
+                        TextInput::make('indexnow_key')
+                            ->label('IndexNow API Key (Instant Bing / Copilot / ChatGPT Indexing)')
+                            ->placeholder('a7f9c2e4b8d106359a2c4e6f8b0d2e4a')
+                            ->helperText('Automatically served at '.url('/'.Setting::get('indexnow_key', 'a7f9c2e4b8d106359a2c4e6f8b0d2e4a').'.txt').' — zero signup required!'),
                         TextInput::make('google_analytics_id')
                             ->label('Google Analytics 4 ID (Optional)')
                             ->placeholder('G-XXXXXXXXXX'),
@@ -464,7 +471,29 @@ class StoreSettings extends Page
                                 ->label('Save SEO Settings')
                                 ->icon(Heroicon::OutlinedCheck)
                                 ->color('primary')
-                                ->action(fn () => $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'google_analytics_id'], 'SEO settings saved')),
+                                ->action(fn () => $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id'], 'SEO settings saved')),
+                            Action::make('pingIndexNow')
+                                ->label('⚡ Submit All Site URLs to Bing & ChatGPT (IndexNow)')
+                                ->icon(Heroicon::OutlinedPaperAirplane)
+                                ->color('gray')
+                                ->action(function (): void {
+                                    $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id'], 'SEO settings saved');
+                                    $res = \App\Http\Controllers\SeoController::submitAllToIndexNow();
+                                    if ($res['success']) {
+                                        Notification::make()
+                                            ->title('🚀 IndexNow Batch Submitted!')
+                                            ->body($res['message'])
+                                            ->success()
+                                            ->send();
+                                    } else {
+                                        Notification::make()
+                                            ->title('IndexNow Notice')
+                                            ->body($res['message'])
+                                            ->warning()
+                                            ->persistent()
+                                            ->send();
+                                    }
+                                }),
                         ])->columnSpanFull(),
                     ]),
 

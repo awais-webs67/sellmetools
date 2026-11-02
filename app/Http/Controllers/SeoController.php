@@ -7,9 +7,107 @@ use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\Setting;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Http;
 
 class SeoController extends Controller
 {
+    /**
+     * Serves the IndexNow verification key file at /{indexnow_key}.txt for Bing, Copilot, ChatGPT Search, Yandex & Naver.
+     */
+    public function indexNowKey(string $key): Response
+    {
+        $configuredKey = trim((string) Setting::get('indexnow_key', 'a7f9c2e4b8d106359a2c4e6f8b0d2e4a'));
+        if ($configuredKey === '' || $key !== $configuredKey) {
+            abort(404);
+        }
+
+        return response($configuredKey, 200, [
+            'Content-Type' => 'text/plain; charset=UTF-8',
+            'Cache-Control' => 'public, max-age=86400',
+        ]);
+    }
+
+    /**
+     * Collects all live indexable URLs and submits them in a single batch to the IndexNow network
+     * (Bing, Microsoft Copilot, ChatGPT Search, Yandex, Naver, Seznam, Yep).
+     *
+     * @return array{success: bool, status: int, count: int, message: string}
+     */
+    public static function submitAllToIndexNow(): array
+    {
+        $key = trim((string) Setting::get('indexnow_key', 'a7f9c2e4b8d106359a2c4e6f8b0d2e4a'));
+        if ($key === '') {
+            $key = 'a7f9c2e4b8d106359a2c4e6f8b0d2e4a';
+            Setting::set('indexnow_key', $key);
+        }
+
+        $urls = [
+            route('home'),
+            route('shop'),
+        ];
+
+        $categories = Category::query()
+            ->where('is_active', true)
+            ->orderBy('sort')
+            ->get();
+
+        foreach ($categories as $category) {
+            $urls[] = route('categories.show', $category);
+        }
+
+        $products = Product::query()
+            ->visible()
+            ->orderByDesc('updated_at')
+            ->get();
+
+        foreach ($products as $product) {
+            $urls[] = route('products.show', $product);
+        }
+
+        foreach (['about', 'faq', 'contact', 'terms', 'refund', 'privacy'] as $page) {
+            $urls[] = route('pages.show', $page);
+        }
+
+        $urls = array_values(array_unique($urls));
+        $host = parse_url(url('/'), PHP_URL_HOST) ?: 'sellmetools.com';
+        $keyLocation = url("/{$key}.txt");
+
+        try {
+            $res = Http::timeout(12)
+                ->acceptJson()
+                ->asJson()
+                ->post('https://api.indexnow.org/indexnow', [
+                    'host' => $host,
+                    'key' => $key,
+                    'keyLocation' => $keyLocation,
+                    'urlList' => $urls,
+                ]);
+
+            $status = $res->status();
+            if (in_array($status, [200, 202], true)) {
+                return [
+                    'success' => true,
+                    'status' => $status,
+                    'count' => count($urls),
+                    'message' => count($urls)." URLs submitted to IndexNow (Bing, Microsoft Copilot, ChatGPT Search, Yandex & Naver). HTTP {$status}.",
+                ];
+            }
+
+            return [
+                'success' => false,
+                'status' => $status,
+                'count' => count($urls),
+                'message' => "IndexNow returned HTTP {$status}: ".substr(trim($res->body()), 0, 200),
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'status' => 0,
+                'count' => count($urls),
+                'message' => 'IndexNow connection error: '.$e->getMessage(),
+            ];
+        }
+    }
     public function sitemap(): Response
     {
         $categories = Category::query()
@@ -208,7 +306,11 @@ class SeoController extends Controller
             'Disallow: /login',
             'Disallow: /register',
             '',
-            '# Welcome AI Search & Answer Engines (AEO / GEO)',
+            '# Welcome AI Search & Answer Engines (AEO / GEO) + Bing / Copilot',
+            'User-agent: bingbot',
+            'Allow: /',
+            'User-agent: msnbot',
+            'Allow: /',
             'User-agent: GPTBot',
             'Allow: /',
             'User-agent: OAI-SearchBot',

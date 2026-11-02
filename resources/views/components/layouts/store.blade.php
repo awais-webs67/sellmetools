@@ -25,6 +25,8 @@
     $announcement = setting('announcement');
     $rawGoogleVerify = trim((string) setting('google_site_verification'));
     $googleVerify = preg_match('/content=["\']([^"\']+)["\']/i', $rawGoogleVerify, $m) ? trim($m[1]) : $rawGoogleVerify;
+    $rawBingVerify = trim((string) setting('bing_site_verification'));
+    $bingVerify = preg_match('/content=["\']([^"\']+)["\']/i', $rawBingVerify, $bm) ? trim($bm[1]) : $rawBingVerify;
     $gaId = setting('google_analytics_id');
     $storeTheme = (string) setting('store_theme', 'black');
     $themeColorHex = $storeTheme === 'crimson' ? '#9B1B30' : '#000000';
@@ -110,6 +112,9 @@
 
     @if ($googleVerify)
         <meta name="google-site-verification" content="{{ $googleVerify }}">
+    @endif
+    @if ($bingVerify)
+        <meta name="msvalidate.01" content="{{ $bingVerify }}">
     @endif
 
     <link rel="icon" href="{{ asset('favicon.svg') }}?v=6" type="image/svg+xml">

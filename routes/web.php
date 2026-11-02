@@ -42,6 +42,10 @@ Route::get('/llms-full.txt', [SeoController::class, 'llmsTxt'])
 Route::get('/robots.txt', [SeoController::class, 'robots'])
     ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
     ->name('robots');
+Route::get('/{key}.txt', [SeoController::class, 'indexNowKey'])
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
+    ->where('key', '[a-zA-Z0-9\-]{8,64}')
+    ->name('indexnow.key');
 
 // Catalog
 Route::get('/', [ProductController::class, 'index'])->name('home');
