@@ -10,6 +10,14 @@ class SecurityHeaders
 {
     public function handle(Request $request, Closure $next): Response
     {
+        $host = strtolower((string) $request->getHost());
+        if (str_starts_with($host, 'www.')) {
+            $nonWwwHost = substr($host, 4);
+            $targetUrl = 'https://'.$nonWwwHost.$request->getRequestUri();
+
+            return redirect()->to($targetUrl, 301);
+        }
+
         /** @var Response $response */
         $response = $next($request);
 

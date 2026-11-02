@@ -45,6 +45,11 @@ class StorefrontTest extends TestCase
         $this->get(route('feed.google-shopping'))->assertOk()->assertSee($product->name);
         $this->get(route('llms'))->assertOk()->assertSee($product->name);
         $this->get(route('robots'))->assertOk()->assertSee('Sitemap:');
+
+        // www to non-www 301 permanent redirect for canonical SEO
+        $this->get('https://www.sellmetools.com/shop?q=ai')
+            ->assertStatus(301)
+            ->assertRedirect('https://sellmetools.com/shop?q=ai');
     }
 
     public function test_inactive_product_is_hidden(): void
