@@ -88,56 +88,95 @@
 >
     @if ($isLanding)
         {{-- ================= HERO ================= --}}
-        <section class="relative bg-[#120408] text-white">
-            <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(155,27,48,.55),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(94,16,33,.6),transparent_50%)]" aria-hidden="true"></div>
-            <div class="pointer-events-none absolute inset-0 opacity-[.07] [background-image:linear-gradient(rgba(255,255,255,.6)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.6)_1px,transparent_1px)] [background-size:40px_40px]" aria-hidden="true"></div>
+        <section class="relative overflow-hidden bg-[#100307] text-white">
+            {{-- Layered ambient lighting & radial masked architectural grid --}}
+            <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(180,28,54,.48),transparent_60%),radial-gradient(ellipse_at_bottom_right,rgba(110,16,35,.55),transparent_55%)]" aria-hidden="true"></div>
+            <div class="pointer-events-none absolute -top-24 left-1/2 h-72 w-[36rem] -translate-x-1/2 rounded-full bg-brand/30 blur-3xl" aria-hidden="true"></div>
+            <div class="pointer-events-none absolute inset-0 opacity-[.10] [background-image:linear-gradient(rgba(255,255,255,.55)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.55)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_78%)]" aria-hidden="true"></div>
+            <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#ff6b81]/45 to-transparent" aria-hidden="true"></div>
 
-            <div class="container-x relative py-12 sm:py-16 lg:py-20 text-center">
+            <div class="container-x relative py-11 sm:py-16 lg:py-20 text-center">
                 <div class="mx-auto max-w-4xl">
-                    <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1 text-[11px] font-semibold tracking-wider text-white/90 uppercase">
+                    <div class="inline-flex items-center gap-2.5 rounded-full border border-white/15 bg-white/[0.08] px-4 py-1.5 text-[11px] font-semibold tracking-wider text-white/95 uppercase shadow-inner backdrop-blur-xs">
                         <span class="h-2 w-2 rounded-full bg-[#22c55e] live-dot"></span>
-                        Verified Digital Store
-                    </span>
+                        <span>Verified Digital Store</span>
+                        <span class="hidden sm:inline text-white/35">·</span>
+                        <span class="hidden sm:inline text-[#ff8fa3]">Instant Automated Delivery</span>
+                    </div>
 
-                    <h1 class="display mt-4 text-[clamp(34px,7vw,80px)] leading-[0.95] text-white">
+                    <h1 class="display mt-5 text-[clamp(36px,7.2vw,84px)] leading-[0.94] tracking-tight text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.45)]">
                         Premium AI Tools &amp;<br class="hidden sm:block">
-                        <span class="text-[#ff6b81]">Subscriptions</span> in Pakistan
+                        <span class="bg-gradient-to-r from-[#ff6b81] via-[#ff8fa3] to-[#ffb3c1] bg-clip-text text-transparent">Subscriptions</span> in Pakistan
                     </h1>
 
-                    <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base leading-relaxed text-white/75">
+                    <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base leading-relaxed text-white/80">
                         Buy genuine AI tools, creative software, cloud accounts and digital subscriptions at local PKR prices. Pay easily with Easypaisa, JazzCash, NayaPay, SadaPay or Binance for instant delivery on your order page.
                     </p>
 
                     <div class="mt-7 flex flex-wrap items-center justify-center gap-3">
-                        <a href="#products" class="btn bg-white text-ink hover:bg-brand-tint px-6 py-3 text-sm font-bold shadow-md">Browse All Products ↓</a>
-                        <a href="{{ route('shop') }}" class="btn border border-white/25 text-white hover:bg-white/10 px-6 py-3 text-sm font-semibold">Open Full Shop →</a>
+                        <a href="#products" class="btn bg-brand text-white hover:bg-brand-dark border border-white/15 px-6 py-3 text-sm font-bold shadow-[0_10px_25px_-5px_rgba(200,30,59,0.55)]">
+                            Browse All Products ↓
+                        </a>
+                        <a href="{{ route('shop') }}" class="btn bg-white text-ink hover:bg-brand-tint px-6 py-3 text-sm font-bold shadow-md">
+                            Open Full Shop →
+                        </a>
                         @if ($waNumber !== '')
-                            <a href="https://wa.me/{{ $waNumber }}" target="_blank" rel="noopener" class="btn border border-white/25 text-white hover:bg-white/10 px-6 py-3 text-sm font-semibold">
-                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.5 14.4c-.3-.1-1.8-.9-2-1s-.5-.1-.7.1-.8 1-1 1.2-.4.2-.7.1a8.2 8.2 0 0 1-4-3.5c-.3-.5.3-.5.9-1.6.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6a1.2 1.2 0 0 0-.9.4 3.6 3.6 0 0 0-1.1 2.7 6.3 6.3 0 0 0 1.3 3.3 14.4 14.4 0 0 0 5.5 4.9c2 .9 2.8 1 3.9.8a3.3 3.3 0 0 0 2.1-1.5 2.7 2.7 0 0 0 .2-1.5c-.1-.1-.3-.2-.6-.3zM12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2z"/></svg>
+                            <a href="https://wa.me/{{ $waNumber }}" target="_blank" rel="noopener" class="btn border border-white/25 bg-white/[0.06] text-white hover:bg-white/15 px-5 py-3 text-sm font-semibold backdrop-blur-xs">
+                                <svg class="h-4 w-4 text-[#25D366]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.5 14.4c-.3-.1-1.8-.9-2-1s-.5-.1-.7.1-.8 1-1 1.2-.4.2-.7.1a8.2 8.2 0 0 1-4-3.5c-.3-.5.3-.5.9-1.6.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6a1.2 1.2 0 0 0-.9.4 3.6 3.6 0 0 0-1.1 2.7 6.3 6.3 0 0 0 1.3 3.3 14.4 14.4 0 0 0 5.5 4.9c2 .9 2.8 1 3.9.8a3.3 3.3 0 0 0 2.1-1.5 2.7 2.7 0 0 0 .2-1.5c-.1-.1-.3-.2-.6-.3zM12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2z"/></svg>
                                 Ask on WhatsApp
                             </a>
                         @endif
                     </div>
 
                     @if ($categories->isNotEmpty())
-                        <nav class="mx-auto mt-5 hidden sm:flex max-w-xl flex-wrap items-center justify-center gap-x-2 gap-y-2 text-xs" aria-label="Popular categories">
-                            <span class="text-white/55">Popular:</span>
-                            @foreach ($categories->take(5) as $category)
-                                <a href="{{ route('categories.show', $category) }}#products" class="rounded-full border border-white/15 bg-white/[.06] px-3 py-1 font-semibold text-white/85 transition hover:border-white/40 hover:bg-white/10 active:scale-95">{{ $category->name }}</a>
+                        <nav class="mx-auto mt-6 hidden sm:flex max-w-2xl flex-wrap items-center justify-center gap-2 text-xs" aria-label="Popular categories">
+                            <span class="font-medium text-white/55">Categories:</span>
+                            @foreach ($categories->take(6) as $category)
+                                <a href="{{ route('categories.show', $category) }}#products" class="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[.07] px-3.5 py-1 font-semibold text-white/90 transition hover:border-[#ff6b81]/60 hover:bg-white/15 active:scale-95">
+                                    @if ($category->icon)
+                                        <span>{{ $category->icon }}</span>
+                                    @endif
+                                    <span>{{ $category->name }}</span>
+                                </a>
                             @endforeach
                         </nav>
                     @endif
+
+                    {{-- Desktop Trust Highlights Strip (hidden on mobile to keep mobile hero compact) --}}
+                    <div class="mx-auto mt-9 hidden sm:grid max-w-3xl grid-cols-3 gap-3 text-left">
+                        <div class="flex items-center gap-3 rounded-xl border border-white/12 bg-white/[0.05] px-4 py-3 backdrop-blur-xs">
+                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/30 border border-[#ff6b81]/30 text-base text-[#ff8fa3]">⚡</span>
+                            <div class="min-w-0">
+                                <p class="truncate text-xs font-bold text-white">Instant Order Page</p>
+                                <p class="truncate text-[11px] text-white/65">Auto credentials delivery</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 rounded-xl border border-white/12 bg-white/[0.05] px-4 py-3 backdrop-blur-xs">
+                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/30 border border-[#ff6b81]/30 text-base text-[#ff8fa3]">🇵🇰</span>
+                            <div class="min-w-0">
+                                <p class="truncate text-xs font-bold text-white">100% Local PKR</p>
+                                <p class="truncate text-[11px] text-white/65">No USD card tax required</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 rounded-xl border border-white/12 bg-white/[0.05] px-4 py-3 backdrop-blur-xs">
+                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/30 border border-[#ff6b81]/30 text-base text-[#ff8fa3]">🛡️</span>
+                            <div class="min-w-0">
+                                <p class="truncate text-xs font-bold text-white">Verified Warranty</p>
+                                <p class="truncate text-[11px] text-white/65">24/7 WhatsApp helpdesk</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {{-- Payment strip (Desktop/Tablet only as requested) --}}
             @if ($paymentMethods !== [])
-                <div class="relative hidden sm:block border-t border-white/10 bg-black/25">
-                    <div class="container-x flex flex-col items-center justify-center gap-2.5 py-4 sm:flex-row sm:gap-4">
+                <div class="relative hidden sm:block border-t border-white/10 bg-black/30 backdrop-blur-xs">
+                    <div class="container-x flex flex-col items-center justify-center gap-2.5 py-3.5 sm:flex-row sm:gap-4">
                         <p class="shrink-0 text-[11px] font-semibold tracking-wider text-white/50 uppercase">Pay securely with</p>
                         <div class="flex flex-wrap items-center justify-center gap-1.5">
                             @foreach ($paymentMethods as $pm)
-                                <span class="rounded-md border border-white/10 bg-white/[.06] px-2.5 py-1 text-[11px] sm:text-xs font-semibold text-white/85">{{ $pm }}</span>
+                                <span class="rounded-md border border-white/12 bg-white/[.07] px-2.5 py-1 text-[11px] sm:text-xs font-semibold text-white/90">{{ $pm }}</span>
                             @endforeach
                         </div>
                     </div>

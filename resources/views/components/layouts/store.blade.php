@@ -110,10 +110,10 @@
         <meta name="google-site-verification" content="{{ $googleVerify }}">
     @endif
 
-    <link rel="icon" href="{{ asset('favicon.svg') }}?v=4" type="image/svg+xml">
-    <link rel="icon" href="{{ asset('favicon.png') }}?v=4" type="image/png" sizes="64x64">
-    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v=4">
-    <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}?v=4">
+    <link rel="icon" href="{{ asset('favicon.svg') }}?v=6" type="image/svg+xml">
+    <link rel="icon" href="{{ asset('favicon.png') }}?v=6" type="image/png" sizes="64x64">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v=6">
+    <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}?v=6">
     <link rel="sitemap" type="application/xml" title="Sitemap" href="{{ route('sitemap') }}">
 
     {{-- Global Organization & WebSite JSON-LD Schema --}}
@@ -210,7 +210,7 @@
     <header x-data="{ open: false }" class="sticky top-0 z-40 border-b border-line bg-white/95 shadow-[0_1px_2px_rgba(0,0,0,.06)] backdrop-blur">
         <div class="container-x flex h-16 items-center justify-between gap-6 lg:h-[76px]">
             <a href="{{ route('home') }}" class="flex items-center transition active:scale-95" aria-label="{{ $storeName }} home">
-                <img src="{{ asset('images/logo.png') }}?v=5" alt="{{ $storeName }}" class="h-8 sm:h-9 lg:h-10 w-auto object-contain">
+                <img src="{{ asset('images/logo.png') }}?v=6" alt="{{ $storeName }}" class="h-8 sm:h-9 lg:h-10 w-auto object-contain">
             </a>
 
             <form action="{{ route('shop') }}" method="get" class="relative hidden max-w-md flex-1 md:block" role="search"
