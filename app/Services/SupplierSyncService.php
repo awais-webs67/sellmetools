@@ -27,6 +27,12 @@ class SupplierSyncService
      */
     public function sync(Supplier $supplier): array
     {
+        try {
+            app(OrderService::class)->expireStale();
+        } catch (Throwable) {
+            // Ignore
+        }
+
         $driver = $this->manager->driver($supplier);
         $balanceResult = null;
 

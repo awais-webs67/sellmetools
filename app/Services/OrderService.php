@@ -51,32 +51,13 @@ class OrderService
                 throw new StoreException('Selected payment method is unavailable.');
             }
 
-            // 1) Reserve our own stock first (except for reusable 'instant_link' products where the same link is shared across all orders).
-            $isReusableLink = $locked->delivery_type === 'instant_link';
-
-            $ownItems = $isReusableLink
-                ? collect()
-                : StockItem::query()
-                    ->where('product_id', $locked->id)
-                    ->where('status', StockStatus::Available)
-                    ->orderBy('id')
-                    ->limit($quantity)
-                    ->lockForUpdate()
-                    ->get();
-
-            $fromSupplier = $isReusableLink
-                ? ($locked->stock_limit !== null ? $quantity : 0)
-                : ($quantity - $ownItems->count());
-
-            // 2) Remaining units must be covered by supplier stock not reserved by others.
-            if ($fromSupplier > 0) {
-                $stock = $this->inventory->calculate($locked);
-                if (! $stock['unlimited'] && ($stock['supplier'] ?? 0) < $fromSupplier) {
-                    $available = $ownItems->count() + (int) $stock['supplier'];
-                    throw new StoreException($available > 0
-                        ? "Only {$available} left in stock."
-                        : 'Sorry, this product just went out of stock.');
-                }
+            // Check real available stock (own stock + supplier stock); stock is only deducted once paid/delivered.
+            $stock = $this->inventory->calculate($locked);
+            if (! $stock['unlimited'] && $stock['qty'] < $quantity) {
+                $available = (int) $stock['qty'];
+                throw new StoreException($available > 0
+                    ? "Only {$available} left in stock."
+                    : 'Sorry, this product just went out of stock.');
             }
 
             $unitPrice = $locked->priceFor($user);
@@ -99,21 +80,14 @@ class OrderService
                 'ip' => $customer['ip'] ?? null,
             ]);
 
-            $item = $order->items()->create([
+            $order->items()->create([
                 'product_id' => $locked->id,
                 'product_name' => $locked->name,
                 'unit_price' => $unitPrice,
                 'quantity' => $quantity,
                 'line_total' => $total,
-                'reserved_supplier_qty' => $fromSupplier,
+                'reserved_supplier_qty' => 0,
             ]);
-
-            if ($ownItems->isNotEmpty()) {
-                StockItem::whereIn('id', $ownItems->pluck('id'))->update([
-                    'status' => StockStatus::Reserved,
-                    'order_item_id' => $item->id,
-                ]);
-            }
 
             $this->inventory->refresh($locked);
 

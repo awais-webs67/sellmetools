@@ -107,6 +107,8 @@ class StoreSettings extends Page
                         Artisan::call('view:clear');
                         Artisan::call('cache:clear');
                         Artisan::call('route:clear');
+                        app(\App\Services\OrderService::class)->expireStale();
+                        \App\Models\Product::query()->each(fn (\App\Models\Product $p) => Listings::refresh($p));
                     } catch (\Throwable $e) {
                         Notification::make()
                             ->title('Migration / Cache Error')

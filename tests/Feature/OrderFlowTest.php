@@ -29,21 +29,28 @@ class OrderFlowTest extends TestCase
         $this->setUpStore();
     }
 
-    public function test_last_unit_can_only_be_reserved_once(): void
+    public function test_unpaid_pending_order_does_not_reduce_shop_stock_until_paid(): void
     {
-        $sp = $this->supplierProduct($this->supplier(), ['stock' => 1]);
+        $sp = $this->supplierProduct($this->supplier(['base_url' => 'https://bot.test/api']), ['external_id' => '72', 'stock' => 6]);
         $product = $this->listing([$sp]);
         $method = $this->paymentMethod();
         $orders = app(OrderService::class);
 
-        $orders->create($product, 1, $this->customer(), $method);
-        $this->assertSame(0, $product->refresh()->available_stock, 'others see zero immediately');
+        $order = $orders->create($product, 1, $this->customer(), $method);
+        $this->assertSame(6, $product->refresh()->available_stock, 'unpaid checkout does not reduce shop stock from 6 to 5');
 
-        $this->expectException(StoreException::class);
-        $orders->create($product, 1, $this->customer(), $method);
+        Http::fake(['bot.test/api/order' => Http::response(['ok' => true, 'order' => [
+            'order_id' => 'ORD123', 'product_id' => 72, 'quantity' => 1, 'unit_price' => 1.0,
+            'total' => 1.0, 'balance_after' => 9.0, 'items' => ['user@outlook.com:secret'],
+        ]])]);
+
+        $payment = app(PaymentService::class)->submit($order, 'TID-STOCK-6', '03001112222');
+        app(PaymentService::class)->approve($payment);
+
+        $this->assertSame(5, $product->refresh()->available_stock, 'stock drops from 6 to 5 only after order is paid and delivered');
     }
 
-    public function test_own_stock_is_reserved_first_and_released_on_expiry(): void
+    public function test_own_stock_stays_available_until_paid_and_expires_cleanly(): void
     {
         $product = $this->listing();
         $product->stockItems()->createMany([['content' => 'a@x.com:pass1'], ['content' => 'b@x.com:pass2']]);
@@ -52,9 +59,8 @@ class OrderFlowTest extends TestCase
 
         $order = app(OrderService::class)->create($product, 2, $this->customer(), $this->paymentMethod());
 
-        $this->assertSame(2, $product->stockItems()->where('status', StockStatus::Reserved)->count());
-        $this->assertSame(0, $order->items->first()->reserved_supplier_qty);
-        $this->assertSame(0, $product->refresh()->available_stock);
+        $this->assertSame(2, $product->stockItems()->where('status', StockStatus::Available)->count());
+        $this->assertSame(2, $product->refresh()->available_stock);
 
         $this->travel(16)->minutes();
         $this->assertSame(1, app(OrderService::class)->expireStale());

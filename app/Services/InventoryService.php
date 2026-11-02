@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Enums\StockStatus;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\StockItem;
 use App\Models\SupplierProduct;
 
 class InventoryService
@@ -13,13 +14,27 @@ class InventoryService
     /**
      * Live sellable quantity of a product.
      *
-     * own available stock + supplier stock (all active sources) − supplier units already
-     * reserved by unpaid / in-progress orders.
+     * own available stock + supplier stock (all active sources).
      *
      * @return array{qty: int, unlimited: bool, own: int, supplier: int|null}
      */
     public function calculate(Product $product): array
     {
+        // Restore any StockItems left in Reserved state on unpaid/expired/cancelled orders
+        StockItem::query()
+            ->where('product_id', $product->id)
+            ->where('status', StockStatus::Reserved)
+            ->where(function ($q) {
+                $q->whereNull('order_item_id')
+                    ->orWhereHas('orderItem.order', fn ($oq) => $oq->whereIn('status', [
+                        OrderStatus::PendingPayment,
+                        OrderStatus::Expired,
+                        OrderStatus::Cancelled,
+                        OrderStatus::Refunded,
+                    ]));
+            })
+            ->update(['status' => StockStatus::Available, 'order_item_id' => null]);
+
         $own = $product->stockItems()->where('status', StockStatus::Available)->count();
 
         $product->load('activeSources.supplier');
@@ -44,8 +59,7 @@ class InventoryService
             }
         }
 
-        $reserved = $this->reservedSupplierQty($product);
-        $supplierFree = $unlimited ? null : max(0, $supplierUnits - $reserved);
+        $supplierFree = $unlimited ? null : max(0, $supplierUnits);
 
         return [
             'qty' => ($isNonConsumingMode ? 0 : $own) + ($supplierFree ?? 0),
