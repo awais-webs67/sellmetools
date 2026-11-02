@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\Suppliers\SupplierManager;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
@@ -54,14 +55,23 @@ class AppServiceProvider extends ServiceProvider
             $files = glob(database_path('migrations/*.php')) ?: [];
             $gitHeadFile = base_path('.git/refs/heads/main');
             $gitRev = is_file($gitHeadFile) ? trim((string) @file_get_contents($gitHeadFile)) : '';
-            $hash = md5(implode('|', array_map('basename', $files)).'|'.$gitRev);
+            $hash = md5('v2|'.implode('|', array_map('basename', $files)).'|'.$gitRev);
             $stampFile = storage_path('framework/migration_hash.txt');
 
             if (is_file($stampFile) && trim((string) file_get_contents($stampFile)) === $hash) {
                 return;
             }
 
-            Artisan::call('migrate', ['--force' => true]);
+            $this->ensureRequiredSchemaColumns();
+
+            try {
+                Artisan::call('migrate', ['--force' => true]);
+            } catch (Throwable $e) {
+                // If database was imported via .sql and an older migration table already exists,
+                // ensureRequiredSchemaColumns() above guarantees all new columns exist.
+                report($e);
+            }
+
             Artisan::call('view:clear');
             Artisan::call('cache:clear');
 
@@ -72,6 +82,35 @@ class AppServiceProvider extends ServiceProvider
             @file_put_contents($stampFile, $hash);
         } catch (Throwable $e) {
             report($e);
+        }
+    }
+
+    /**
+     * Guarantees that newly added columns exist even when the production database was
+     * imported via phpMyAdmin (.sql) without full Laravel migration history.
+     */
+    protected function ensureRequiredSchemaColumns(): void
+    {
+        if (! Schema::hasTable('products')) {
+            return;
+        }
+
+        if (! Schema::hasColumn('products', 'delivery_type')) {
+            Schema::table('products', function (Blueprint $table): void {
+                $table->string('delivery_type', 40)->default('auto')->after('pricing_mode');
+            });
+        }
+
+        if (! Schema::hasColumn('products', 'is_free')) {
+            Schema::table('products', function (Blueprint $table): void {
+                $table->boolean('is_free')->default(false)->after('is_featured');
+            });
+        }
+
+        if (! Schema::hasColumn('products', 'stock_limit')) {
+            Schema::table('products', function (Blueprint $table): void {
+                $table->unsignedInteger('stock_limit')->nullable()->after('available_stock');
+            });
         }
     }
 }
