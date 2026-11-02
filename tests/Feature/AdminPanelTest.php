@@ -10,6 +10,7 @@ use App\Enums\SupplierOrderStatus;
 use App\Filament\Pages\StoreSettings;
 use App\Filament\Resources\Categories\CategoryResource;
 use App\Filament\Resources\Orders\OrderResource;
+use App\Filament\Resources\Orders\Pages\ListOrders;
 use App\Filament\Resources\Orders\Pages\ViewOrder;
 use App\Filament\Resources\PaymentMethods\PaymentMethodResource;
 use App\Filament\Resources\Payments\Pages\ListPayments;
@@ -293,6 +294,22 @@ class AdminPanelTest extends TestCase
             ->callAction('cancelOrder');
 
         $this->assertSame(OrderStatus::Cancelled, $this->order->fresh()->status);
+    }
+
+    public function test_orders_tabs_and_view_order_approve_work(): void
+    {
+        $this->actingAs($this->admin);
+
+        Livewire::test(ListOrders::class)
+            ->assertCanSeeTableRecords([$this->order])
+            ->set('activeTab', 'review')
+            ->assertCanSeeTableRecords([$this->order]);
+
+        Livewire::test(ViewOrder::class, ['record' => $this->order->getRouteKey()])
+            ->callAction('approvePayment')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame(PaymentStatus::Approved, $this->payment->fresh()->status);
     }
 
     public function test_settings_save_reprices_sourced_products(): void

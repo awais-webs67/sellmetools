@@ -222,16 +222,24 @@ class PaymentService
         $order->load(['items', 'paymentMethod']);
         $isAuto = $order->paymentMethod?->isAuto() ?? false;
 
-        $this->telegram->notifyAdmin(
-            ($isAuto ? '⚡✅ <b>AUTO-PAYMENT VERIFIED!</b>' : '💳✅ <b>PAYMENT APPROVED BY ADMIN!</b>')."\n".
-            "━━━━━━━━━━━━━━━━━━\n".
-            "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
-            $order->items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
-            '💳 <b>Gateway:</b> '.T::e($order->paymentMethod?->name ?? 'Online')."\n".
-            "💵 <b>Paid:</b> <b>{$payment->currency} {$payment->amount}</b> (Rs {$order->total})\n".
-            '🔑 <b>TID:</b> <code>'.T::e($payment->transaction_id)."</code>\n".
-            '👤 <b>Customer:</b> '.T::e($order->email)
-        );
+        $notifyApproval = function () use ($order, $payment, $isAuto): void {
+            $this->telegram->notifyAdmin(
+                ($isAuto ? '⚡✅ <b>AUTO-PAYMENT VERIFIED!</b>' : '💳✅ <b>PAYMENT APPROVED BY ADMIN!</b>')."\n".
+                "━━━━━━━━━━━━━━━━━━\n".
+                "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
+                $order->items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
+                '💳 <b>Gateway:</b> '.T::e($order->paymentMethod?->name ?? 'Online')."\n".
+                "💵 <b>Paid:</b> <b>{$payment->currency} {$payment->amount}</b> (Rs {$order->total})\n".
+                '🔑 <b>TID:</b> <code>'.T::e($payment->transaction_id)."</code>\n".
+                '👤 <b>Customer:</b> '.T::e($order->email)
+            );
+        };
+
+        if (app()->runningUnitTests()) {
+            $notifyApproval();
+        } else {
+            defer($notifyApproval);
+        }
 
         return $this->fulfillment->fulfill($order);
     }

@@ -36,7 +36,6 @@ class IncomingPaymentResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->poll('10s')
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('provider')

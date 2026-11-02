@@ -35,7 +35,6 @@ class SupplierProductsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->poll('10s')
             ->modifyQueryUsing(fn (Builder $query) => $query->with('supplier')->withCount('listings'))
             ->defaultSort('name')
             ->columns([

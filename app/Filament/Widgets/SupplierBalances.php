@@ -16,12 +16,11 @@ class SupplierBalances extends TableWidget
 
     protected int|string|array $columnSpan = 'full';
 
-    protected static ?string $heading = 'Supplier balances (Live 10s Sync)';
+    protected static ?string $heading = 'Supplier Balances';
 
     public function table(Table $table): Table
     {
         return $table
-            ->poll('10s')
             ->query(fn () => Supplier::query()->where('is_active', true)->orderBy('priority'))
             ->paginated(false)
             ->emptyStateHeading('No active suppliers')

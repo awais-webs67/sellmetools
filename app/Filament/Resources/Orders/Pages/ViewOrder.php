@@ -30,23 +30,51 @@ class ViewOrder extends ViewRecord
 
     protected function getHeaderActions(): array
     {
-        $latestPayment = fn (Model $record): ?Payment => $record instanceof Order ? $record->latestPayment : null;
+        $latestPayment = fn (?Model $record = null): ?Payment => ($record instanceof Order ? $record : $this->record)->latestPayment;
 
         return [
-            PaymentActions::approve($latestPayment)->label('Approve payment')
+            PaymentActions::approve($latestPayment)
+                ->record(fn (): Model => $this->record)
+                ->label('Approve Payment')
                 ->after(fn () => $this->refreshRecord()),
-            PaymentActions::reject($latestPayment)->label('Reject payment')
+            PaymentActions::reject($latestPayment)
+                ->record(fn (): Model => $this->record)
+                ->label('Reject Payment')
                 ->after(fn () => $this->refreshRecord()),
             $this->retryFulfillmentAction(),
             $this->deliverManuallyAction(),
             $this->markWhatsappDeliveredAction(),
+            $this->chatCustomerWhatsappAction(),
             ActionGroup::make([
-                PaymentActions::screenshot($latestPayment)->label('Payment screenshot'),
+                PaymentActions::screenshot($latestPayment)
+                    ->record(fn (): Model => $this->record)
+                    ->label('Payment Screenshot'),
+                Action::make('openCustomerPage')
+                    ->label('Open Customer Order Page')
+                    ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
+                    ->url(fn (): string => $this->record->customerUrl())
+                    ->openUrlInNewTab(),
                 $this->adminNoteAction(),
                 $this->cancelAction(),
                 $this->refundAction(),
-            ])->label('More')->icon(Heroicon::OutlinedEllipsisVertical)->button()->color('gray'),
+            ])->label('More Actions')->icon(Heroicon::OutlinedEllipsisVertical)->button()->color('gray'),
         ];
+    }
+
+    protected function chatCustomerWhatsappAction(): Action
+    {
+        return Action::make('chatCustomerWhatsapp')
+            ->label('WhatsApp Customer')
+            ->icon(Heroicon::OutlinedChatBubbleLeftRight)
+            ->color('gray')
+            ->visible(fn (): bool => filled($this->record->phone) && format_whatsapp((string) $this->record->phone) !== '')
+            ->url(function (): string {
+                $phone = format_whatsapp((string) $this->record->phone);
+                $text = urlencode("Assalam o Alaikum! Regarding your order {$this->record->number} on ".setting('store_name', 'SellMeTools').': ');
+
+                return "https://wa.me/{$phone}?text={$text}";
+            })
+            ->openUrlInNewTab();
     }
 
     protected function retryFulfillmentAction(): Action

@@ -19,25 +19,29 @@ use Illuminate\Support\HtmlString;
 use Throwable;
 
 /**
- * Payment review actions. By default they act on the table/page record (a Payment);
- * pass a resolver (Closure(Model): ?Payment) to use them from another record, e.g. an Order's latest payment.
+ * Payment review actions. Works seamlessly on Payment records (PaymentsTable),
+ * Order records (OrdersTable / LatestOrders), and ViewOrder page header actions.
  */
 final class PaymentActions
 {
     public static function approve(?Closure $resolve = null): Action
     {
-        $resolve ??= self::self();
-
         return Action::make('approvePayment')
             ->label('Approve')
             ->icon(Heroicon::OutlinedCheckCircle)
             ->color('success')
-            ->visible(fn (Model $record): bool => $resolve($record)?->status === PaymentStatus::Pending)
+            ->visible(fn (?Model $record = null, mixed $livewire = null): bool => self::resolvePayment($record, $livewire, $resolve)?->status === PaymentStatus::Pending)
             ->requiresConfirmation()
-            ->modalHeading('Approve payment')
-            ->modalDescription(fn (Model $record): string => self::describe($resolve($record)).' Delivery starts immediately after approval.')
-            ->action(function (Model $record) use ($resolve): void {
-                $payment = $resolve($record);
+            ->modalHeading('Approve Payment & Deliver Order')
+            ->modalDescription(fn (?Model $record = null, mixed $livewire = null): string => self::describe(self::resolvePayment($record, $livewire, $resolve)).' Delivery starts immediately after approval.')
+            ->action(function (?Model $record = null, mixed $livewire = null) use ($resolve): void {
+                $payment = self::resolvePayment($record, $livewire, $resolve);
+
+                if (! $payment) {
+                    Notification::make()->title('No pending payment found')->warning()->send();
+
+                    return;
+                }
 
                 try {
                     /** @var User|null $admin */
@@ -55,15 +59,13 @@ final class PaymentActions
 
     public static function reject(?Closure $resolve = null): Action
     {
-        $resolve ??= self::self();
-
         return Action::make('rejectPayment')
             ->label('Reject')
             ->icon(Heroicon::OutlinedXCircle)
             ->color('danger')
-            ->visible(fn (Model $record): bool => $resolve($record)?->status === PaymentStatus::Pending)
-            ->modalHeading('Reject payment')
-            ->modalDescription(fn (Model $record): string => self::describe($resolve($record)).' The customer can submit a new transaction ID.')
+            ->visible(fn (?Model $record = null, mixed $livewire = null): bool => self::resolvePayment($record, $livewire, $resolve)?->status === PaymentStatus::Pending)
+            ->modalHeading('Reject Payment')
+            ->modalDescription(fn (?Model $record = null, mixed $livewire = null): string => self::describe(self::resolvePayment($record, $livewire, $resolve)).' The customer can submit a new transaction ID.')
             ->schema([
                 Textarea::make('reason')
                     ->label('Reason (shown to the customer)')
@@ -72,11 +74,19 @@ final class PaymentActions
                     ->maxLength(255)
                     ->rows(3),
             ])
-            ->action(function (Model $record, array $data) use ($resolve): void {
+            ->action(function (array $data, ?Model $record = null, mixed $livewire = null) use ($resolve): void {
+                $payment = self::resolvePayment($record, $livewire, $resolve);
+
+                if (! $payment) {
+                    Notification::make()->title('No pending payment found')->warning()->send();
+
+                    return;
+                }
+
                 try {
                     /** @var User|null $admin */
                     $admin = auth()->user();
-                    app(PaymentService::class)->reject($resolve($record), $data['reason'], $admin);
+                    app(PaymentService::class)->reject($payment, (string) ($data['reason'] ?? 'Payment not verified.'), $admin);
                 } catch (Throwable $e) {
                     Notification::make()->title('Could not reject payment')->body($e->getMessage())->danger()->send();
 
@@ -89,23 +99,48 @@ final class PaymentActions
 
     public static function screenshot(?Closure $resolve = null): Action
     {
-        $resolve ??= self::self();
-
         return Action::make('viewScreenshot')
             ->label('Screenshot')
             ->icon(Heroicon::OutlinedPhoto)
             ->color('gray')
-            ->visible(fn (Model $record): bool => filled($resolve($record)?->screenshot))
-            ->modalHeading(fn (Model $record): string => 'Screenshot: TID '.$resolve($record)?->transaction_id)
+            ->visible(fn (?Model $record = null, mixed $livewire = null): bool => filled(self::resolvePayment($record, $livewire, $resolve)?->screenshot))
+            ->modalHeading(fn (?Model $record = null, mixed $livewire = null): string => 'Screenshot: TID '.(self::resolvePayment($record, $livewire, $resolve)?->transaction_id ?? '-'))
             ->modalWidth('4xl')
             ->modalSubmitAction(false)
             ->modalCancelActionLabel('Close')
-            ->modalContent(fn (Model $record): HtmlString => new HtmlString(Screenshots::html($resolve($record)?->screenshot)));
+            ->modalContent(fn (?Model $record = null, mixed $livewire = null): HtmlString => new HtmlString(Screenshots::html(self::resolvePayment($record, $livewire, $resolve)?->screenshot)));
     }
 
-    private static function self(): Closure
+    private static function resolvePayment(?Model $record, mixed $livewire, ?Closure $resolve): ?Payment
     {
-        return fn (Model $record): ?Payment => $record instanceof Payment ? $record : null;
+        $target = $record;
+        if (! $target && is_object($livewire) && method_exists($livewire, 'getRecord')) {
+            try {
+                $target = $livewire->getRecord();
+            } catch (Throwable) {
+                $target = null;
+            }
+        }
+
+        if (! $target) {
+            return null;
+        }
+
+        if ($resolve) {
+            return $resolve($target);
+        }
+
+        if ($target instanceof Payment) {
+            return $target;
+        }
+
+        if ($target instanceof Order) {
+            return $target->relationLoaded('latestPayment')
+                ? $target->latestPayment
+                : $target->latestPayment()->first();
+        }
+
+        return null;
     }
 
     private static function describe(?Payment $payment): string

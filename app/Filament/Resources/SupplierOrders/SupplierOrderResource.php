@@ -68,7 +68,6 @@ class SupplierOrderResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->poll('10s')
             ->modifyQueryUsing(fn (Builder $query) => $query->with(['supplier', 'supplierProduct', 'orderItem.order']))
             ->defaultSort('created_at', 'desc')
             ->columns([

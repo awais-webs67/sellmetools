@@ -374,16 +374,24 @@ class FulfillmentService
             }
 
             $profit = round((float) $order->total - (float) $order->total_cost, 2);
-            $this->telegram->notifyAdmin(
-                "🎉✅ <b>ORDER DELIVERED SUCCESSFULLY!</b>\n".
-                "━━━━━━━━━━━━━━━━━━\n".
-                "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
-                $items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
-                "💵 <b>Sale:</b> Rs {$order->total} · <b>Cost:</b> Rs {$order->total_cost} · 💰 <b>Profit: Rs {$profit}</b>\n".
-                '👤 <b>Customer:</b> '.T::e($order->email)
-            );
-            app(WhatsAppNotifier::class)->notifyOrderDelivered($order);
-            app(EmailNotifier::class)->sendOrderDelivered($order);
+            $notifyDelivered = function () use ($order, $items, $profit): void {
+                $this->telegram->notifyAdmin(
+                    "🎉✅ <b>ORDER DELIVERED SUCCESSFULLY!</b>\n".
+                    "━━━━━━━━━━━━━━━━━━\n".
+                    "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
+                    $items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
+                    "💵 <b>Sale:</b> Rs {$order->total} · <b>Cost:</b> Rs {$order->total_cost} · 💰 <b>Profit: Rs {$profit}</b>\n".
+                    '👤 <b>Customer:</b> '.T::e($order->email)
+                );
+                app(WhatsAppNotifier::class)->notifyOrderDelivered($order);
+                app(EmailNotifier::class)->sendOrderDelivered($order);
+            };
+
+            if (app()->runningUnitTests()) {
+                $notifyDelivered();
+            } else {
+                defer($notifyDelivered);
+            }
         } else {
             $reasonText = implode(' | ', array_unique($problems)) ?: 'Order on hold, awaiting admin stock dispatch';
             $order->update([
@@ -394,17 +402,25 @@ class FulfillmentService
             $adminOrderUrl = route('filament.admin.resources.orders.view', ['record' => $order->number]);
             $quickControlUrl = route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']);
 
-            $this->telegram->notifyAdmin(
-                "⏸️⚠️ <b>PAYMENT CONFIRMED: DELIVERY PENDING / FAILED!</b>\n".
-                "━━━━━━━━━━━━━━━━━━\n".
-                "✅ <b>Payment Status:</b> CONFIRMED (Rs {$order->total})\n".
-                "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
-                $items->map(fn ($i) => '📦 '.T::e($i->product_name)." ({$i->delivered_qty}/{$i->quantity} delivered)")->implode("\n")."\n".
-                '⚠️ <b>Reason:</b> '.T::e($reasonText)."\n".
-                '👤 <b>Customer:</b> '.T::e($order->email).($order->phone ? ' (+'.T::e($order->phone).')' : '')."\n".
-                "🔗 <a href=\"{$adminOrderUrl}\">Open Order in Admin Panel</a> · <a href=\"{$quickControlUrl}\">1-Tap Manual Deliver</a>"
-            );
-            app(WhatsAppNotifier::class)->notifyOrderOnHoldLowBalance($order, $problems);
+            $notifyHold = function () use ($order, $items, $reasonText, $adminOrderUrl, $quickControlUrl, $problems): void {
+                $this->telegram->notifyAdmin(
+                    "⏸️⚠️ <b>PAYMENT CONFIRMED: DELIVERY PENDING / FAILED!</b>\n".
+                    "━━━━━━━━━━━━━━━━━━\n".
+                    "✅ <b>Payment Status:</b> CONFIRMED (Rs {$order->total})\n".
+                    "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
+                    $items->map(fn ($i) => '📦 '.T::e($i->product_name)." ({$i->delivered_qty}/{$i->quantity} delivered)")->implode("\n")."\n".
+                    '⚠️ <b>Reason:</b> '.T::e($reasonText)."\n".
+                    '👤 <b>Customer:</b> '.T::e($order->email).($order->phone ? ' (+'.T::e($order->phone).')' : '')."\n".
+                    "🔗 <a href=\"{$adminOrderUrl}\">Open Order in Admin Panel</a> · <a href=\"{$quickControlUrl}\">1-Tap Manual Deliver</a>"
+                );
+                app(WhatsAppNotifier::class)->notifyOrderOnHoldLowBalance($order, $problems);
+            };
+
+            if (app()->runningUnitTests()) {
+                $notifyHold();
+            } else {
+                defer($notifyHold);
+            }
         }
 
         $this->inventory->refreshMany($items->pluck('product')->filter());

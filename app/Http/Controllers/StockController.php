@@ -54,7 +54,7 @@ class StockController extends Controller
      */
     public function sync(): JsonResponse
     {
-        if (app()->runningUnitTests() || ! Cache::add('auto_supplier_sync_tick', 1, 8)) {
+        if (app()->runningUnitTests() || ! Cache::add('auto_supplier_sync_tick', 1, 300)) {
             return response()->json(['synced' => false]);
         }
 

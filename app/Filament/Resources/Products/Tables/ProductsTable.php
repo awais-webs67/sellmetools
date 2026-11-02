@@ -33,7 +33,6 @@ class ProductsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->poll('10s')
             ->modifyQueryUsing(fn (Builder $query) => $query->with('category'))
             ->defaultSort('sort')
             ->columns([

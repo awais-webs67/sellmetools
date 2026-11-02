@@ -25,13 +25,14 @@ class OrderInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema
-            ->columns(3)
+            ->columns(['default' => 1, 'lg' => 3])
             ->components([
-                Section::make('Order')
-                    ->columnSpan(2)
-                    ->columns(3)
+                Section::make('Order Summary')
+                    ->columnSpan(['default' => 1, 'lg' => 2])
+                    ->columns(['default' => 2, 'sm' => 3])
                     ->schema([
                         TextEntry::make('number')
+                            ->label('Order #')
                             ->copyable()
                             ->weight('bold'),
                         TextEntry::make('status')
@@ -39,9 +40,11 @@ class OrderInfolist
                             ->formatStateUsing(fn (OrderStatus $state): string => $state->label())
                             ->color(fn (OrderStatus $state): string => $state->color()),
                         TextEntry::make('paymentMethod.name')
-                            ->label('Payment method')
+                            ->label('Payment Method')
                             ->placeholder('-'),
                         TextEntry::make('total')
+                            ->label('Total Payable')
+                            ->weight('bold')
                             ->formatStateUsing(fn ($state): string => Money::pkr($state)),
                         TextEntry::make('total_cost')
                             ->label('Cost')
@@ -53,56 +56,63 @@ class OrderInfolist
                             ->color(fn ($state): ?string => $state !== null && $state < 0 ? 'danger' : 'success')
                             ->placeholder('-'),
                         TextEntry::make('created_at')
-                            ->label('Placed')
-                            ->dateTime(),
+                            ->label('Placed At')
+                            ->dateTime('d M Y, h:i A'),
                         TextEntry::make('paid_at')
-                            ->dateTime()
+                            ->label('Paid At')
+                            ->dateTime('d M Y, h:i A')
                             ->placeholder('-'),
                         TextEntry::make('completed_at')
-                            ->dateTime()
+                            ->label('Completed At')
+                            ->dateTime('d M Y, h:i A')
                             ->placeholder('-'),
                         TextEntry::make('expires_at')
-                            ->label('Payment deadline')
-                            ->dateTime()
+                            ->label('Payment Deadline')
+                            ->dateTime('d M Y, h:i A')
                             ->placeholder('-'),
                         TextEntry::make('usdt_rate')
-                            ->label('USDT rate (snapshot)')
+                            ->label('USDT Rate')
                             ->placeholder('-'),
                         TextEntry::make('admin_note')
+                            ->label('Admin Note / Status Log')
                             ->placeholder('-')
                             ->columnSpanFull(),
                     ]),
-                Section::make('Customer')
-                    ->columnSpan(1)
+                Section::make('Customer Details')
+                    ->columnSpan(['default' => 1, 'lg' => 1])
+                    ->columns(['default' => 1, 'sm' => 2, 'lg' => 1])
                     ->schema([
                         TextEntry::make('customer_name')
                             ->label('Name')
+                            ->weight('bold')
                             ->placeholder('-'),
                         TextEntry::make('email')
+                            ->label('Email')
                             ->copyable(),
                         TextEntry::make('phone')
+                            ->label('WhatsApp / Phone')
                             ->copyable()
                             ->placeholder('-'),
                         TextEntry::make('user.email')
-                            ->label('Account')
-                            ->placeholder('Guest'),
+                            ->label('Registered Account')
+                            ->placeholder('Guest Checkout'),
                         TextEntry::make('ip')
-                            ->label('IP')
+                            ->label('IP Address')
                             ->placeholder('-'),
                     ]),
-                Section::make('Items & deliveries')
+                Section::make('Items & Delivered Credentials')
                     ->columnSpanFull()
                     ->schema([
                         RepeatableEntry::make('items')
                             ->hiddenLabel()
                             ->schema([
-                                Grid::make(5)->schema([
+                                Grid::make(['default' => 2, 'sm' => 5])->schema([
                                     TextEntry::make('product_name')
                                         ->label('Product')
                                         ->weight('bold')
-                                        ->columnSpan(2),
+                                        ->columnSpan(['default' => 2, 'sm' => 2]),
                                     TextEntry::make('unit_price')
-                                        ->label('Unit price')
+                                        ->label('Unit Price')
                                         ->formatStateUsing(fn ($state): string => Money::pkr($state)),
                                     TextEntry::make('delivered')
                                         ->label('Delivered')
@@ -110,11 +120,12 @@ class OrderInfolist
                                         ->badge()
                                         ->color(fn (OrderItem $record): string => $record->delivered_qty >= $record->quantity ? 'success' : 'warning'),
                                     TextEntry::make('cost')
+                                        ->label('Cost')
                                         ->formatStateUsing(fn ($state): string => Money::pkr($state))
                                         ->placeholder('-'),
                                 ]),
                                 RepeatableEntry::make('deliveries')
-                                    ->label('Delivered content')
+                                    ->label('Delivered Content')
                                     ->placeholder('Nothing delivered yet.')
                                     ->table([
                                         TableColumn::make('Content'),
@@ -128,56 +139,60 @@ class OrderInfolist
                                         TextEntry::make('source')
                                             ->badge(),
                                         TextEntry::make('created_at')
-                                            ->dateTime(),
+                                            ->dateTime('d M Y, h:i A'),
                                     ]),
                             ]),
                     ]),
-                Section::make('Payments')
+                Section::make('Submitted Payments & Receipts')
                     ->columnSpanFull()
-                    ->collapsible()
                     ->schema([
                         RepeatableEntry::make('payments')
                             ->hiddenLabel()
                             ->placeholder('No payment submitted yet.')
                             ->schema([
-                                Grid::make(6)->schema([
+                                Grid::make(['default' => 2, 'sm' => 3, 'lg' => 6])->schema([
                                     TextEntry::make('transaction_id')
-                                        ->label('TID')
+                                        ->label('TID / Reference')
                                         ->copyable()
+                                        ->weight('bold')
                                         ->fontFamily('mono')
-                                        ->columnSpan(2),
+                                        ->columnSpan(['default' => 2, 'sm' => 2]),
                                     TextEntry::make('sender_number')
-                                        ->label('Sender')
+                                        ->label('Sender Phone / Acc')
+                                        ->copyable()
                                         ->placeholder('-'),
                                     TextEntry::make('amount')
+                                        ->label('Amount')
+                                        ->weight('bold')
                                         ->state(fn (Payment $record): string => Money::currency($record->amount, $record->currency)),
                                     TextEntry::make('paymentMethod.name')
-                                        ->label('Method')
+                                        ->label('Gateway')
                                         ->placeholder('-'),
                                     TextEntry::make('status')
                                         ->badge()
                                         ->formatStateUsing(fn (PaymentStatus $state): string => ucfirst($state->value))
                                         ->color(fn (PaymentStatus $state): string => $state->color()),
                                     TextEntry::make('created_at')
-                                        ->label('Submitted')
-                                        ->dateTime()
-                                        ->columnSpan(2),
+                                        ->label('Submitted At')
+                                        ->dateTime('d M Y, h:i A')
+                                        ->columnSpan(['default' => 1, 'sm' => 2]),
                                     TextEntry::make('reviewer.name')
-                                        ->label('Reviewed by')
+                                        ->label('Reviewed By')
                                         ->placeholder('-')
-                                        ->columnSpan(2),
+                                        ->columnSpan(['default' => 1, 'sm' => 2]),
                                     TextEntry::make('reject_reason')
+                                        ->label('Reject Reason')
                                         ->placeholder('-')
-                                        ->columnSpan(2),
+                                        ->columnSpan(['default' => 2, 'sm' => 2]),
                                     TextEntry::make('screenshot')
-                                        ->label('Screenshot')
+                                        ->label('Receipt Screenshot')
                                         ->formatStateUsing(fn (?string $state): HtmlString => new HtmlString(Screenshots::html($state, '320px')))
                                         ->placeholder('No screenshot uploaded.')
                                         ->columnSpanFull(),
                                 ]),
                             ]),
                     ]),
-                Section::make('Supplier attempts')
+                Section::make('Supplier API Attempts')
                     ->columnSpanFull()
                     ->collapsible()
                     ->schema([

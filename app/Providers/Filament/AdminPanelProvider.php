@@ -36,18 +36,25 @@ class AdminPanelProvider extends PanelProvider
             ->brandName(fn (): string => $this->storeName())
             ->favicon(fn (): string => asset('favicon.png').'?v=6')
             ->sidebarCollapsibleOnDesktop()
-            ->spa()
             ->maxContentWidth(Width::Full)
             ->colors([
                 'primary' => Color::hex('#9B1B30'),
             ])
+            ->renderHook(
+                PanelsRenderHook::USER_MENU_BEFORE,
+                fn (): HtmlString => new HtmlString(
+                    '<a href="'.e(url('/')).'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.4rem 0.75rem;border-radius:0.55rem;font-size:0.78rem;font-weight:600;border:1px solid rgba(128,128,128,0.28);text-decoration:none;white-space:nowrap;">'
+                    .'<span>🌐 Live Store</span>'
+                    .'</a>'
+                )
+            )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): HtmlString => new HtmlString('<style>
                     /* Modern Responsive Admin Login Page (.fi-simple-layout) */
                     .fi-simple-layout {
                         min-height: 100dvh !important;
-                        background: radial-gradient(circle at top right, #5E1021 0%, #2B0912 45%, #120408 100%) !important;
+                        background: radial-gradient(circle at top right, #262B31 0%, #14171A 50%, #090A0C 100%) !important;
                         padding: 1rem !important;
                         display: flex !important;
                         align-items: center !important;
@@ -63,55 +70,87 @@ class AdminPanelProvider extends PanelProvider
                         padding: 1.75rem 1.5rem !important;
                         border-radius: 1.25rem !important;
                         box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.55) !important;
-                        border: 1px solid rgba(155, 27, 48, 0.28) !important;
+                        border: 1px solid rgba(255, 255, 255, 0.12) !important;
                     }
                     .fi-simple-header-heading {
                         font-weight: 800 !important;
                         letter-spacing: -0.02em !important;
                     }
-                    /* Clean, responsive inputs, buttons & tables across Admin Panel */
+
+                    /* Executive Polish for Inputs, Buttons, Cards & Tables */
                     .fi-input-wrp {
                         min-width: 0 !important;
-                        border-radius: 0.65rem !important;
+                        border-radius: 0.6rem !important;
                     }
                     .fi-input {
-                        min-width: 80px !important;
-                        font-size: 0.95rem !important;
-                        padding-top: 0.55rem !important;
-                        padding-bottom: 0.55rem !important;
+                        min-width: 70px !important;
+                        font-size: 0.92rem !important;
                     }
                     .fi-btn {
-                        border-radius: 0.65rem !important;
+                        border-radius: 0.6rem !important;
                         font-weight: 600 !important;
+                    }
+                    .fi-section, .fi-ta-ctn, .fi-wi-stats-overview-stat {
+                        border-radius: 0.85rem !important;
                     }
                     .fi-ta-content {
                         overflow-x: auto !important;
                         -webkit-overflow-scrolling: touch;
                     }
-                    .fi-section {
-                        border-radius: 0.9rem !important;
+
+                    /* Smooth horizontally scrollable status tabs on all devices */
+                    .fi-tabs {
+                        overflow-x: auto !important;
+                        flex-wrap: nowrap !important;
+                        scrollbar-width: none !important;
+                        -webkit-overflow-scrolling: touch;
+                        max-width: 100% !important;
                     }
+                    .fi-tabs::-webkit-scrollbar {
+                        display: none !important;
+                    }
+                    .fi-tabs-item {
+                        white-space: nowrap !important;
+                        flex-shrink: 0 !important;
+                    }
+
+                    /* Responsive Header & Action Wrapping */
+                    .fi-header {
+                        display: flex !important;
+                        flex-wrap: wrap !important;
+                        gap: 0.75rem !important;
+                    }
+                    .fi-header-actions {
+                        display: flex !important;
+                        flex-wrap: wrap !important;
+                        gap: 0.45rem !important;
+                    }
+
                     /* Mobile Responsiveness for Admin Panel */
                     @media (max-width: 768px) {
                         .fi-main {
-                            padding-left: 0.75rem !important;
-                            padding-right: 0.75rem !important;
+                            padding-left: 0.65rem !important;
+                            padding-right: 0.65rem !important;
                         }
                         .fi-section-content, .fi-section-header {
-                            padding: 0.9rem !important;
+                            padding: 0.85rem !important;
                         }
                         .fi-wi-stats-overview-stats-ctn {
                             grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-                            gap: 0.65rem !important;
+                            gap: 0.6rem !important;
                         }
                         .fi-wi-stats-overview-stat {
                             padding: 0.85rem !important;
                         }
-                        .fi-header {
-                            gap: 0.5rem !important;
-                        }
                         .fi-header-heading {
-                            font-size: 1.35rem !important;
+                            font-size: 1.3rem !important;
+                            line-height: 1.25 !important;
+                        }
+                        .fi-ta-cell, .fi-ta-header-cell {
+                            padding-left: 0.65rem !important;
+                            padding-right: 0.65rem !important;
+                            padding-top: 0.55rem !important;
+                            padding-bottom: 0.55rem !important;
                         }
                         .fi-simple-main {
                             padding: 1.35rem 1.15rem !important;
@@ -124,23 +163,6 @@ class AdminPanelProvider extends PanelProvider
                         }
                     }
                 </style>')
-            )
-            ->renderHook(
-                PanelsRenderHook::BODY_END,
-                fn (): HtmlString => new HtmlString('<script>
-                    (function () {
-                        const syncUrl = '.json_encode(url('/api/sync')).';
-                        const triggerSync = () => {
-                            if (document.hidden) return;
-                            fetch(syncUrl, { method: "POST", keepalive: true }).catch(() => {});
-                        };
-                        triggerSync();
-                        setInterval(triggerSync, 10000);
-                        document.addEventListener("visibilitychange", () => {
-                            if (!document.hidden) triggerSync();
-                        });
-                    })();
-                </script>')
             )
             ->navigationGroups([
                 NavigationGroup::make('Sales'),
