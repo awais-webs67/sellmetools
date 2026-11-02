@@ -4,6 +4,7 @@ namespace App\Filament\Resources\MediaItems;
 
 use App\Filament\Resources\MediaItems\Pages\ListMediaItems;
 use App\Models\MediaItem;
+use App\Models\Product;
 use App\Services\ImageOptimizer;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
@@ -51,6 +52,7 @@ class MediaItemResource extends Resource
                     ->maxLength(150),
                 FileUpload::make('path')
                     ->label('Image File')
+                    ->helperText('Replacing this image automatically updates the picture on all Products & Payment Methods using it.')
                     ->image()
                     ->disk('public')
                     ->directory('gallery')
@@ -75,6 +77,15 @@ class MediaItemResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
+                TextColumn::make('linked_products')
+                    ->label('Linked Products')
+                    ->badge()
+                    ->color('info')
+                    ->state(function (MediaItem $record): string {
+                        $count = Product::withTrashed()->where('image', $record->path)->count();
+
+                        return $count > 0 ? "{$count} product".($count === 1 ? '' : 's') : 'Unused';
+                    }),
                 TextColumn::make('path')
                     ->label('File Path')
                     ->copyable()

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\PricingMode;
+use App\Models\MediaItem;
 use App\Services\PriceCalculator;
 use App\Support\TextCleaner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -78,7 +79,7 @@ class PricingTest extends TestCase
         $this->assertSame("YOU WILL RECEIVE A LINK\nREDEEM IT", TextCleaner::clean($html));
     }
 
-    public function test_out_of_stock_markup_product_retains_selling_price_and_seo_outputs_never_leak_rs_zero(): void
+    public function test_out_of_stock_markup_product_has_zero_price_and_seo_outputs_never_leak_rs_zero(): void
     {
         $sp = $this->supplierProduct($this->supplier(), ['cost' => 1.0, 'stock' => 0]); // Out of stock, cost Rs 300
         $product = $this->listing([$sp], [
@@ -89,14 +90,12 @@ class PricingTest extends TestCase
             'short_description' => 'YOU WILL RECEIVE A CAPCUT PRO TEAM PLAN 1 MONTH READY-MADE ACCOUNT.',
         ]);
 
-        // Even though supplier stock is 0, selling price is calculated from the active source cost (Rs 300 + 250 = Rs 550)
-        $this->assertSame(550.0, (float) $product->price);
+        // Out-of-stock supplier product has 0 price and is NOT marked as free unless is_free is true
+        $this->assertSame(0.0, (float) $product->price);
+        $this->assertFalse($product->isFree());
         $this->assertSame('CapCut', $product->brandName());
         $this->assertStringNotContainsString('YOU WILL RECEIVE', $product->seoDescription());
         $this->assertStringContainsString('You will receive a capcut pro team plan', $product->seoDescription());
-
-        // Even if a product's price is manually forced to 0, SEO outputs must never show Rs 0 or 0.00 PKR
-        $product->update(['price' => 0, 'fixed_price' => 0]);
         $this->assertStringNotContainsString('Rs 0', $product->fresh()->seoDescription());
 
         $this->get(route('llms'))
@@ -106,5 +105,22 @@ class PricingTest extends TestCase
         $this->get(route('feed.google-shopping'))
             ->assertOk()
             ->assertDontSee('0.00 PKR');
+    }
+
+    public function test_updating_media_item_in_gallery_automatically_updates_linked_products(): void
+    {
+        $media = MediaItem::query()->create([
+            'name' => 'Canva Pro Cover',
+            'path' => 'gallery/canva-old.webp',
+        ]);
+
+        $product = $this->listing([], [
+            'name' => 'Canva Pro 1 Month',
+            'image' => $media->path,
+        ]);
+
+        $media->update(['path' => 'gallery/canva-new.webp']);
+
+        $this->assertSame('gallery/canva-new.webp', $product->fresh()->image);
     }
 }

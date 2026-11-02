@@ -153,7 +153,7 @@
 
                 {{-- Search + Sort Form --}}
                 <form action="{{ route('shop') }}" method="get" class="flex flex-col gap-2.5 sm:flex-row sm:items-center lg:shrink-0" role="search"
-                      x-data="liveFilter('#shop-results')" @submit.prevent="run()">
+                      x-data="liveFilter('#shop-results')" @click.outside="open = false" @submit.prevent="open = false; run()">
                     @if ($activeCategory)
                         <input type="hidden" name="category" value="{{ $activeCategory->slug }}">
                     @endif
@@ -161,8 +161,9 @@
                     <div class="relative w-full sm:w-64">
                         <label for="shop-search" class="sr-only">Search products in shop</label>
                         <svg class="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                        <input id="shop-search" type="search" name="q" value="{{ $search }}" placeholder="Filter tools as you type..." autocomplete="off" class="input py-2 pl-10 pr-8 text-sm" @input.debounce.250ms="run()">
+                        <input id="shop-search" type="search" name="q" value="{{ $search }}" placeholder="Filter tools as you type..." autocomplete="off" class="input py-2 pl-10 pr-8 text-sm" x-bind="field">
                         <span x-show="loading" x-cloak class="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-line border-t-brand" aria-hidden="true"></span>
+                        <x-search-suggest />
                     </div>
 
                     <div class="flex items-center gap-2">

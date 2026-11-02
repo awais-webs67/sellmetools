@@ -21,13 +21,61 @@ class SearchController extends Controller
     {
         $term = Str::of((string) $request->query('q', ''))->squish()->limit(60, '')->lower()->toString();
 
-        if (mb_strlen($term) < 2) {
+        if (mb_strlen($term) < 1) {
             return response()->json(['products' => [], 'categories' => []]);
         }
 
         $payload = Cache::remember('search.suggest.'.md5($term), 60, fn () => $this->lookup($term));
 
         return response()->json($payload)->header('Cache-Control', 'public, max-age=30');
+    }
+
+    /**
+     * Lightweight preloaded catalog index for 0ms client-side instant search across all search bars.
+     *
+     * @return array{products: array<int, array<string, mixed>>, categories: array<int, array<string, string>>}
+     */
+    public static function instantCatalog(): array
+    {
+        try {
+            return Cache::remember('smt_search_catalog_v1', 120, function (): array {
+                $products = Product::query()
+                    ->visible()
+                    ->with('category:id,name,slug')
+                    ->orderByRaw('CASE WHEN available_stock > 0 OR stock_unlimited = 1 THEN 0 ELSE 1 END')
+                    ->orderByDesc('is_featured')
+                    ->orderByDesc('sold_count')
+                    ->limit(250)
+                    ->get(['id', 'name', 'slug', 'image', 'price', 'is_free', 'category_id', 'available_stock', 'stock_unlimited', 'short_description', 'updated_at']);
+
+                $categories = Category::query()
+                    ->where('is_active', true)
+                    ->orderBy('sort')
+                    ->get(['name', 'slug']);
+
+                return [
+                    'products' => $products->map(fn (Product $p) => [
+                        'id' => $p->id,
+                        'name' => $p->name,
+                        'url' => route('products.show', $p),
+                        'image' => $p->imageUrl(),
+                        'price' => $p->isFree() ? 'FREE' : money($p->price),
+                        'price_raw' => $p->isFree() ? 0.0 : (float) $p->price,
+                        'is_free' => $p->isFree(),
+                        'category' => $p->category?->name,
+                        'in_stock' => $p->inStock(),
+                        'search' => mb_strtolower($p->name.' '.($p->category?->name ?? '').' '.($p->short_description ?? '')),
+                    ])->all(),
+                    'categories' => $categories->map(fn (Category $c) => [
+                        'name' => $c->name,
+                        'url' => route('categories.show', $c),
+                        'search' => mb_strtolower($c->name),
+                    ])->all(),
+                ];
+            });
+        } catch (\Throwable) {
+            return ['products' => [], 'categories' => []];
+        }
     }
 
     /** @return array{products: array<int, array<string, mixed>>, categories: array<int, array<string, string>>} */
@@ -60,7 +108,7 @@ class SearchController extends Controller
             ->orderByRaw('CASE WHEN available_stock > 0 OR stock_unlimited = 1 THEN 0 ELSE 1 END')
             ->orderByDesc('sold_count')
             ->limit(self::LIMIT)
-            ->get(['id', 'name', 'slug', 'image', 'price', 'category_id', 'available_stock', 'stock_unlimited']);
+            ->get(['id', 'name', 'slug', 'image', 'price', 'is_free', 'category_id', 'available_stock', 'stock_unlimited']);
 
         $categories = Category::query()
             ->where('is_active', true)
@@ -74,8 +122,9 @@ class SearchController extends Controller
                 'name' => $p->name,
                 'url' => route('products.show', $p),
                 'image' => $p->imageUrl(),
-                'price' => money($p->price),
-                'price_raw' => (float) $p->price,
+                'price' => $p->isFree() ? 'FREE' : money($p->price),
+                'price_raw' => $p->isFree() ? 0.0 : (float) $p->price,
+                'is_free' => $p->isFree(),
                 'category' => $p->category?->name,
                 'in_stock' => $p->inStock(),
             ])->all(),

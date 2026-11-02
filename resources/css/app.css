@@ -64,6 +64,10 @@ html[data-theme="crimson"] {
         overflow-x: hidden;
         max-width: 100%;
     }
+    a, button, input, select, textarea, summary, label, [role="button"] {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
     .grid > * { min-width: 0; }
     h1, h2, h3, h4 { @apply text-ink; line-height: 1.2; }
     :focus-visible { outline: 3px solid var(--color-brand); outline-offset: 2px; }

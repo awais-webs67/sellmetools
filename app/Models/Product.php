@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -159,6 +160,32 @@ class Product extends Model
                 $product->fixed_price = 0;
                 $product->price = 0;
             }
+        });
+
+        static::saved(function (Product $product) {
+            if ($product->image && ! Str::startsWith($product->image, ['http://', 'https://'])) {
+                try {
+                    if (! MediaItem::query()->where('path', $product->image)->exists()) {
+                        $item = MediaItem::query()->create([
+                            'name' => Str::limit((string) ($product->name ?: 'Product Image'), 140, ''),
+                            'path' => $product->image,
+                        ]);
+                        if ($item->path && $item->path !== $product->image) {
+                            static::withoutEvents(function () use ($product, $item): void {
+                                $product->forceFill(['image' => $item->path])->saveQuietly();
+                            });
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
+
+            Cache::forget('smt_search_catalog_v1');
+        });
+
+        static::deleted(function () {
+            Cache::forget('smt_search_catalog_v1');
         });
     }
 

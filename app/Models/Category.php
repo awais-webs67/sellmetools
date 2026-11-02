@@ -4,10 +4,17 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 
 class Category extends Model
 {
     protected $fillable = ['name', 'slug', 'icon', 'meta_title', 'meta_description', 'sort', 'is_active'];
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => Cache::forget('smt_search_catalog_v1'));
+        static::deleted(fn () => Cache::forget('smt_search_catalog_v1'));
+    }
 
     protected function casts(): array
     {

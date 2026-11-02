@@ -1,6 +1,6 @@
 {{-- Instant search suggestions. Place inside a `relative` element that has x-data="liveSearch". --}}
-<div x-show="open && term.length >= 2" x-cloak
-     x-transition:enter="transition ease-out duration-150"
+<div x-show="open && term.length >= 1" x-cloak
+     x-transition:enter="transition ease-out duration-100"
      x-transition:enter-start="opacity-0 -translate-y-1"
      x-transition:enter-end="opacity-100 translate-y-0"
      class="absolute inset-x-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-line bg-white text-left shadow-[0_18px_40px_-12px_rgba(16,24,40,.28)]"
@@ -34,7 +34,7 @@
                     <span class="block truncate text-xs text-muted" x-text="p.category || 'Digital product'"></span>
                 </span>
                 <span class="shrink-0 text-right">
-                    <span class="block text-sm font-bold" :class="p.price_raw > 0 ? 'text-ink' : (p.in_stock ? 'text-success' : 'text-muted')" x-text="p.price_raw > 0 ? $store.currency.format(p.price_raw) : (p.in_stock ? 'FREE' : p.price)"></span>
+                    <span class="block text-sm font-bold" :class="p.is_free ? 'text-success' : (p.price_raw > 0 ? 'text-ink' : 'text-muted')" x-text="p.is_free ? '🎁 FREE' : (p.price_raw > 0 ? $store.currency.format(p.price_raw) : p.price)"></span>
                     <span class="block text-[11px] font-semibold" :class="p.in_stock ? 'text-success' : 'text-danger'" x-text="p.in_stock ? 'In stock' : 'Sold out'"></span>
                 </span>
             </a>

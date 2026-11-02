@@ -150,25 +150,12 @@
               { "not": { "href_matches": "/api*" } }
             ]
           },
-          "eagerness": "moderate"
-        }
-      ],
-      "prerender": [
-        {
-          "where": {
-            "or": [
-              { "href_matches": "/shop*" },
-              { "href_matches": "/products/*" },
-              { "href_matches": "/category/*" },
-              { "href_matches": "/pages/*" }
-            ]
-          },
-          "eagerness": "moderate"
+          "eagerness": "conservative"
         }
       ]
     }
     </script>
-    <script>window.SMT = { stockUrl: @json(route('stock', auth()->user()?->is_reseller ? ['reseller' => auth()->id()] : [])), syncUrl: @json(route('stock.sync')), searchUrl: @json(route('search.suggest')), usdtRate: {{ \App\Models\Setting::usdtRate() }}, currencySymbol: @json(setting('currency_symbol', 'Rs')) };</script>
+    <script>window.SMT = { stockUrl: @json(route('stock', auth()->user()?->is_reseller ? ['reseller' => auth()->id()] : [])), syncUrl: @json(route('stock.sync')), searchUrl: @json(route('search.suggest')), catalog: @json(\App\Http\Controllers\SearchController::instantCatalog()), usdtRate: {{ \App\Models\Setting::usdtRate() }}, currencySymbol: @json(setting('currency_symbol', 'Rs')) };</script>
 </head>
 <body class="flex min-h-screen flex-col">
     <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded focus:bg-ink focus:px-4 focus:py-2 focus:text-white">Skip to content</a>

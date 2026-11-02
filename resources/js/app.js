@@ -66,8 +66,11 @@ Alpine.store('stock', {
     justSynced: false,
     hiddenAt: null,
 
-    start(intervalMs = 10000) {
-        this.poll();
+    start(intervalMs = 25000) {
+        setTimeout(() => {
+            if (!document.hidden) this.poll();
+        }, 6000);
+
         clearInterval(this.timer);
         this.timer = setInterval(() => document.hidden || this.poll(), intervalMs);
 
@@ -77,16 +80,12 @@ Alpine.store('stock', {
             } else {
                 const awayMs = this.hiddenAt ? Date.now() - this.hiddenAt : 0;
                 this.hiddenAt = null;
-                if (awayMs > 8000) {
+                if (awayMs > 900000) {
                     this.stale = true;
                 }
-                this.poll(true);
-            }
-        });
-
-        window.addEventListener('focus', () => {
-            if (!document.hidden) {
-                this.poll();
+                if (awayMs > 15000) {
+                    this.poll(false);
+                }
             }
         });
     },
@@ -122,9 +121,22 @@ Alpine.store('stock', {
             if (res.ok) {
                 const payload = await res.json();
                 const items = payload.items ?? payload;
-                this.items = { ...this.items, ...items };
+                for (const [id, next] of Object.entries(items)) {
+                    const prev = this.items[id];
+                    if (
+                        !prev ||
+                        prev.qty !== next.qty ||
+                        prev.in_stock !== next.in_stock ||
+                        prev.price !== next.price ||
+                        prev.unlimited !== next.unlimited
+                    ) {
+                        this.items[id] = next;
+                    }
+                }
                 if (payload.need_sync && window.SMT?.syncUrl) {
-                    fetch(window.SMT.syncUrl, { method: 'POST', keepalive: true }).catch(() => {});
+                    setTimeout(() => {
+                        fetch(window.SMT.syncUrl, { method: 'POST', keepalive: true }).catch(() => {});
+                    }, 2000);
                 }
             }
         } catch (_) {
@@ -364,4 +376,4 @@ Alpine.data('copy', (text) => ({
 
 window.Alpine = Alpine;
 Alpine.start();
-Alpine.store('stock').start(10000);
+Alpine.store('stock').start(25000);

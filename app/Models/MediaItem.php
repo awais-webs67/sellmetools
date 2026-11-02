@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Services\ImageOptimizer;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -14,6 +15,8 @@ class MediaItem extends Model
     protected static function booted(): void
     {
         static::saving(function (MediaItem $item) {
+            $oldPath = $item->exists ? $item->getOriginal('path') : null;
+
             if ($item->path && ! Str::startsWith($item->path, ['http://', 'https://'])) {
                 $res = app(ImageOptimizer::class)->optimizePublicFile($item->path);
                 $item->path = $res['path'];
@@ -21,12 +24,38 @@ class MediaItem extends Model
                     $item->size = $res['new_size'];
                 }
             }
+
+            if ($item->exists && $oldPath && $item->path) {
+                if ($oldPath !== $item->path) {
+                    Product::withTrashed()->where('image', $oldPath)->update([
+                        'image' => $item->path,
+                        'updated_at' => now(),
+                    ]);
+                    PaymentMethod::query()->where('logo', $oldPath)->update([
+                        'logo' => $item->path,
+                        'updated_at' => now(),
+                    ]);
+
+                    if (! Str::startsWith($oldPath, ['http://', 'https://'])) {
+                        Storage::disk('public')->delete($oldPath);
+                    }
+                } else {
+                    Product::withTrashed()->where('image', $item->path)->update([
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+        });
+
+        static::saved(function () {
+            Cache::forget('smt_search_catalog_v1');
         });
 
         static::deleting(function (MediaItem $item) {
             if ($item->path) {
                 Storage::disk('public')->delete($item->path);
             }
+            Cache::forget('smt_search_catalog_v1');
         });
     }
 
