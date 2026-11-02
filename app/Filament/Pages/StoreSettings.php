@@ -380,20 +380,24 @@ class StoreSettings extends Page
                             ])
                             ->default('ssl'),
                         TextInput::make('mail_username')
-                            ->label('SMTP Username / Email')
-                            ->placeholder('support@yourdomain.com'),
+                            ->label('SMTP Username / Email (Must match your exact mailbox)')
+                            ->placeholder('contact@sellmetools.com')
+                            ->autocomplete(false)
+                            ->extraInputAttributes(['autocomplete' => 'off', 'data-lpignore' => 'true', 'data-1p-ignore' => 'true', 'data-form-type' => 'other'])
+                            ->helperText('Enter your exact mailbox address (e.g. contact@sellmetools.com). Watch out for browser autofill changing this!'),
                         TextInput::make('mail_password')
                             ->label('SMTP Password / App Password')
                             ->password()
                             ->revealable()
                             ->autocomplete('new-password')
-                            ->placeholder(fn () => filled(Setting::get('mail_password')) ? 'Saved securely, leave empty to keep' : 'Enter SMTP password')
-                            ->helperText('Stored encrypted. Gmail needs a 16-character App Password, not your normal password.'),
+                            ->extraInputAttributes(['autocomplete' => 'new-password', 'data-lpignore' => 'true', 'data-1p-ignore' => 'true', 'data-form-type' => 'other'])
+                            ->placeholder(fn () => filled(EmailNotifier::decryptPassword((string) Setting::get('mail_password'))) ? 'Saved securely, leave empty to keep' : 'Enter SMTP password')
+                            ->helperText('Stored encrypted. Enter the exact password for the mailbox above.'),
                         TextInput::make('mail_from_address')
                             ->label('From Email Address (Optional)')
                             ->email()
-                            ->placeholder('Leave empty to use SMTP Username')
-                            ->helperText('Best deliverability: keep this the same as the SMTP username.'),
+                            ->placeholder('Leave empty to use SMTP Username (contact@sellmetools.com)')
+                            ->helperText('Leave empty or keep identical to SMTP Username (contact@sellmetools.com).'),
                         TextInput::make('mail_from_name')
                             ->label('From Display Name')
                             ->placeholder('SellMeTools'),
@@ -407,19 +411,24 @@ class StoreSettings extends Page
                                     'mail_encryption', 'mail_username', 'mail_password', 'mail_from_address', 'mail_from_name',
                                 ], 'Email & SMTP settings saved')),
                             Action::make('testSmtpEmail')
-                                ->label('Send Test Email')
+                                ->label('Save & Send Test Email')
                                 ->icon(Heroicon::OutlinedPaperAirplane)
                                 ->color('gray')
-                                ->modalDescription('Uses the values currently in the form, even if not saved yet.')
+                                ->modalDescription('Saves your current SMTP settings above and sends a test email.')
                                 ->form([
                                     TextInput::make('recipient')
-                                        ->label('Recipient Email Address')
+                                        ->label('Send Test Email To')
                                         ->email()
                                         ->required()
                                         ->default(fn () => Setting::get('support_email') ?: (auth()->user()?->email ?? '')),
                                 ])
                                 ->action(function (array $data): void {
-                                    $res = app(EmailNotifier::class)->sendTest($data['recipient'], is_array($this->data) ? $this->data : []);
+                                    $overrides = is_array($this->data) ? $this->data : [];
+                                    $this->saveKeys([
+                                        'mail_enabled', 'mail_send_order_delivered', 'mail_host', 'mail_port',
+                                        'mail_encryption', 'mail_username', 'mail_password', 'mail_from_address', 'mail_from_name',
+                                    ], 'SMTP settings saved');
+                                    $res = app(EmailNotifier::class)->sendTest($data['recipient'], $overrides);
                                     if ($res['success']) {
                                         Notification::make()->title('Email Sent')->body($res['message'])->success()->send();
                                     } else {
