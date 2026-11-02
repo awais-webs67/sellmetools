@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\Products\Pages;
 
+use App\Enums\StockStatus;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Support\Listings;
 use App\Models\Product;
+use App\Services\InventoryService;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
@@ -68,6 +70,22 @@ class EditProduct extends EditRecord
         }
 
         if (trim($combined) !== '') {
+            if ($product->delivery_type === 'instant_link') {
+                $product->stockItems()->where('status', StockStatus::Available)->delete();
+                $product->stockItems()->create([
+                    'content' => trim($combined),
+                    'status' => StockStatus::Available,
+                ]);
+                app(InventoryService::class)->refresh($product);
+
+                Notification::make()
+                    ->title('Reusable course / resource link updated!')
+                    ->success()
+                    ->send();
+
+                return;
+            }
+
             $separator = (string) ($rawState['quick_stock_separator'] ?? 'auto');
             $added = $product->importStockItems($combined, $separator);
 

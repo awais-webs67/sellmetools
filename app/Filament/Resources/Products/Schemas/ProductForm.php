@@ -102,7 +102,8 @@ class ProductForm
                             ->columnSpan(['default' => 1, 'sm' => 2]),
                         TextInput::make('fixed_price')
                             ->label('Fixed Selling Price (PKR)')
-                            ->placeholder('550')
+                            ->placeholder('550 (or 0 for FREE)')
+                            ->helperText('Enter 0 to make this a FREE product (no payment needed).')
                             ->rule('numeric')
                             ->rule('min:0')
                             ->required(fn (Get $get): bool => self::mode($get) === PricingMode::Fixed),
@@ -153,8 +154,9 @@ class ProductForm
                             ->live()
                             ->columnSpanFull()
                             ->helperText(fn (Get $get): string => match ((string) $get('delivery_type')) {
-                                'manual_admin' => '👨‍💻 Non-Supplier Manual Mode: Stock is automatically unlimited (∞). Once payment is confirmed, you get an alert to paste & send credentials from Admin Panel or 1-Tap Page.',
-                                'whatsapp_handover' => '📲 Non-Supplier WhatsApp Mode: Stock is automatically unlimited (∞). Once payment is confirmed, the customer sees a big "Receive Order on WhatsApp" button with their verified Order ID.',
+                                'instant_link' => '🔗 Reusable Course / Resource Link Mode: Stock is automatically unlimited (∞). Paste your Course Link, Google Drive URL, or download note below — every customer receives that exact link/content automatically!',
+                                'manual_admin' => '👨‍💻 Non-Supplier Manual Mode: Stock is automatically unlimited (∞). Once order is confirmed, you get an alert to paste & send credentials from Admin Panel or 1-Tap Page.',
+                                'whatsapp_handover' => '📲 Non-Supplier WhatsApp Mode: Stock is automatically unlimited (∞). Once order is confirmed, the customer sees a big "Receive Order on WhatsApp" button with their verified Order ID.',
                                 default => '⚡ Auto Mode: Delivers from your uploaded .TXT / Own Stock Vault first, then falls back to linked Supplier API (if any). Sold items are locked so they are NEVER sold twice.',
                             }),
 
@@ -181,13 +183,19 @@ class ProductForm
                             ->helperText('Upload a .txt file here to immediately add stock units when you click Save.'),
 
                         Textarea::make('quick_stock_text')
-                            ->label('Or Quick Paste Stock Credentials (Optional: Added to Vault on Save)')
+                            ->label(fn (Get $get): string => ((string) $get('delivery_type')) === 'instant_link'
+                                ? '🔗 Paste Reusable Course Link / Download URL / Access Instructions'
+                                : 'Or Quick Paste Stock Credentials (Optional: Added to Vault on Save)')
                             ->rows(5)
                             ->dehydrated(false)
                             ->columnSpanFull()
-                            ->visible(fn (Get $get): bool => ((string) ($get('delivery_type') ?: 'auto')) === 'auto')
-                            ->placeholder("Email: userA@gmail.com\nPassword: pass123\n---\nEmail: userB@gmail.com\nPassword: pass456")
-                            ->helperText('Put --- on its own line between Account A and Account B for multi-line credentials. When a user orders 2 PCs, 2 blocks are extracted, delivered, and marked Sold forever.'),
+                            ->visible(fn (Get $get): bool => in_array((string) ($get('delivery_type') ?: 'auto'), ['auto', 'instant_link'], true))
+                            ->placeholder(fn (Get $get): string => ((string) $get('delivery_type')) === 'instant_link'
+                                ? "Course Link: https://drive.google.com/drive/folders/...\nPasscode / Note: Join our community for updates!"
+                                : "Email: userA@gmail.com\nPassword: pass123\n---\nEmail: userB@gmail.com\nPassword: pass456")
+                            ->helperText(fn (Get $get): string => ((string) $get('delivery_type')) === 'instant_link'
+                                ? 'Everything you paste here will be delivered as a single block to EVERY customer who orders/claims this product (Unlimited Stock).'
+                                : 'Put --- on its own line between Account A and Account B for multi-line credentials. When a user orders 2 PCs, 2 blocks are extracted, delivered, and marked Sold forever.'),
                     ]),
 
                 Section::make('Description, Warranty & Display')

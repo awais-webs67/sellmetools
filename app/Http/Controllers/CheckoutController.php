@@ -28,7 +28,7 @@ class CheckoutController extends Controller
         $quantity = max(1, min((int) $request->query('qty', 1), $product->max_per_order));
         $methods = PaymentMethod::query()
             ->where('is_active', true)
-            ->where('code', '!=', 'wallet')
+            ->whereNotIn('code', ['wallet', 'free'])
             ->orderBy('sort')
             ->get();
 
@@ -40,14 +40,15 @@ class CheckoutController extends Controller
         abort_unless($product->is_active, 404);
 
         $user = $request->user();
-        $payWithWallet = $request->boolean('pay_with_wallet');
+        $isFree = $product->priceFor($user) <= 0;
+        $payWithWallet = ! $isFree && $request->boolean('pay_with_wallet');
 
         $data = $request->validate([
             'quantity' => ['required', 'integer', 'min:1', 'max:'.$product->max_per_order],
             'email' => ['required', 'email:rfc', 'max:190'],
             'name' => ['nullable', 'string', 'max:100'],
             'phone' => ['nullable', 'string', 'max:32'],
-            'payment_method_id' => [$payWithWallet ? 'nullable' : 'required', Rule::exists('payment_methods', 'id')->where('is_active', true)],
+            'payment_method_id' => [$isFree || $payWithWallet ? 'nullable' : 'required', Rule::exists('payment_methods', 'id')->where('is_active', true)],
             'agree' => ['accepted'],
         ], [
             'agree.accepted' => 'Please accept the terms & refund policy.',
@@ -66,7 +67,21 @@ class CheckoutController extends Controller
         }
 
         try {
-            if ($payWithWallet) {
+            if ($isFree) {
+                $method = PaymentMethod::query()->firstOrCreate(
+                    ['code' => 'free'],
+                    [
+                        'name' => 'Free Instant Access (No Payment Required)',
+                        'type' => 'auto',
+                        'currency' => 'PKR',
+                        'is_active' => true,
+                        'sort' => 998,
+                    ]
+                );
+                if (! $method->is_active) {
+                    $method->update(['is_active' => true]);
+                }
+            } elseif ($payWithWallet) {
                 if (! $user) {
                     throw new StoreException('Please log in to pay with your Account Wallet Balance.');
                 }
@@ -97,8 +112,11 @@ class CheckoutController extends Controller
                 $user,
             );
 
-            // If user selected Wallet payment (or payment method is 'wallet'), deduct wallet & auto-deliver immediately!
-            if (($payWithWallet || $method->code === 'wallet') && $user) {
+            // Free product: auto-approve and fulfill immediately without payment or TID!
+            if ($isFree) {
+                $order = $payments->completeFreeOrder($order);
+            } elseif (($payWithWallet || $method->code === 'wallet') && $user) {
+                // If user selected Wallet payment (or payment method is 'wallet'), deduct wallet & auto-deliver immediately!
                 $order = $payments->payWithWallet($order, $user);
             }
         } catch (StoreException $e) {

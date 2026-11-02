@@ -21,7 +21,7 @@
         ->implode('');
 @endphp
 <article class="group relative flex flex-col overflow-hidden rounded-xl border border-line bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition duration-200 ease-out hover:-translate-y-0.5 hover:border-brand/45 hover:shadow-[0_12px_24px_-8px_rgba(20,23,26,0.16)] active:scale-[0.99] select-none"
-         x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, @js($effectivePrice > 0 ? money($effectivePrice) : 'Out of Stock'), {{ (float) $effectivePrice }})"
+         x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, @js($effectivePrice > 0 ? money($effectivePrice) : ($product->inStock() ? 'FREE' : 'Out of Stock')), {{ (float) $effectivePrice }})"
          data-stock-id="{{ $product->id }}">
     {{-- Media Box: Full uncropped image (object-contain) with soft ambient backdrop --}}
     <a href="{{ route('products.show', $product) }}" class="surface-dark-solid relative block h-36 sm:h-40 overflow-hidden" tabindex="-1" aria-hidden="true">
@@ -88,7 +88,9 @@
 
         <div class="mt-2.5 flex items-center justify-between gap-2 border-t border-line pt-2.5">
             <div class="flex items-baseline gap-1.5 min-w-0">
-                <p class="display text-xl sm:text-2xl text-ink leading-none" x-text="unitPrice > 0 ? priceText : 'Sold Out'">{{ $effectivePrice > 0 ? money($effectivePrice) : 'Sold Out' }}</p>
+                <p class="display text-xl sm:text-2xl leading-none"
+                   :class="unitPrice <= 0 && inStock ? 'text-success' : 'text-ink'"
+                   x-text="unitPrice > 0 ? priceText : (inStock ? 'FREE' : 'Sold Out')">{{ $effectivePrice > 0 ? money($effectivePrice) : ($product->inStock() ? 'FREE' : 'Sold Out') }}</p>
                 @if ($comparePrice)
                     <p class="truncate text-[10px] sm:text-xs font-medium text-muted line-through" x-text="$store.currency.format({{ (float) $comparePrice }}, true)">{{ money($comparePrice) }}</p>
                 @endif
@@ -96,7 +98,7 @@
 
             <span class="relative z-10 inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs font-bold transition pointer-events-none"
                   :class="inStock ? 'bg-brand text-white shadow-xs group-hover:bg-brand-dark' : 'border border-line-strong text-muted opacity-70'">
-                <span x-text="inStock ? 'Buy Now' : 'View'">Buy Now</span>
+                <span x-text="inStock ? (unitPrice <= 0 ? 'Get Free' : 'Buy Now') : 'View'">{{ $product->inStock() ? ($effectivePrice <= 0 ? 'Get Free' : 'Buy Now') : 'View' }}</span>
                 <svg class="h-3 w-3 hidden sm:inline transition-transform group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
             </span>
         </div>

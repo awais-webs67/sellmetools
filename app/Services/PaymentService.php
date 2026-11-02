@@ -91,6 +91,49 @@ class PaymentService
         return $this->fulfillment->fulfill($order);
     }
 
+    /**
+     * Instantly approves and fulfills a 0-PKR free order without requiring any payment or Transaction ID.
+     */
+    public function completeFreeOrder(Order $order): Order
+    {
+        DB::transaction(function () use ($order) {
+            $order = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+
+            if ((float) $order->total > 0) {
+                throw new StoreException('Only free (0 PKR) orders can be claimed without payment.');
+            }
+
+            if (! in_array($order->status, [OrderStatus::PendingPayment, OrderStatus::PaymentReview], true)) {
+                return;
+            }
+
+            $order->payments()->create([
+                'payment_method_id' => $order->payment_method_id,
+                'amount' => 0,
+                'currency' => 'PKR',
+                'transaction_id' => 'FREE-'.$order->number,
+                'sender_number' => $order->phone ?: $order->email,
+                'status' => PaymentStatus::Approved,
+                'reviewed_by' => $order->user_id,
+                'reviewed_at' => now(),
+            ]);
+
+            $order->update(['status' => OrderStatus::Processing, 'paid_at' => now()]);
+        });
+
+        $order->refresh()->load(['items', 'paymentMethod']);
+        $this->telegram->notifyAdmin(
+            "🎁✨ <b>FREE PRODUCT CLAIMED!</b>\n".
+            "━━━━━━━━━━━━━━━━━━\n".
+            "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
+            $order->items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
+            "💵 <b>Price:</b> <b>FREE (PKR 0)</b>\n".
+            '👤 <b>Customer:</b> '.T::e($order->email).($order->phone ? ' (+'.T::e($order->phone).')' : '')
+        );
+
+        return $this->fulfillment->fulfill($order);
+    }
+
     /** Customer submits a transaction ID for verification. */
     public function submit(Order $order, string $transactionId, ?string $senderNumber = null, ?UploadedFile $screenshot = null): Payment
     {

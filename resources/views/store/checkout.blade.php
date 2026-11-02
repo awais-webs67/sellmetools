@@ -74,67 +74,83 @@
                     </div>
                 </section>
 
-                {{-- VIP Account Wallet Checkout (If balance exists) --}}
-                @if ($user && $walletBalance > 0)
-                    <section class="card border-2 border-brand/30 bg-gradient-to-br from-brand-tint/50 to-white p-5 sm:p-6 shadow-xs">
-                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                @if ($effectivePrice <= 0)
+                    {{-- FREE PRODUCT BANNER (No Payment Required) --}}
+                    <section class="card border-2 border-success/35 bg-gradient-to-br from-emerald-50/70 to-white p-5 sm:p-6 shadow-xs">
+                        <div class="flex items-start gap-3.5">
+                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-success text-lg text-white shadow-xs">🎁</span>
                             <div>
-                                <span class="badge badge-brand text-[10px] font-bold">⚡ 1-Click Instant Buy</span>
-                                <h2 class="mt-1.5 text-base sm:text-lg font-bold text-ink">Pay with Wallet Balance</h2>
-                                <p class="text-xs text-body mt-0.5">Available Balance: <strong class="font-mono text-ink text-sm">{{ money($walletBalance) }}</strong></p>
+                                <span class="badge badge-success text-[10px] font-bold">100% FREE INSTANT ACCESS</span>
+                                <h2 class="mt-1 text-base sm:text-lg font-bold text-ink">No Payment or Transaction ID Required</h2>
+                                <p class="mt-1 text-xs sm:text-sm text-body leading-relaxed">
+                                    This item is completely free! Simply enter your Email and WhatsApp number above and click <strong>Claim Free Access Now</strong> to unlock your link or credentials immediately on the next page.
+                                </p>
                             </div>
-                            <button type="submit"
-                                    name="pay_with_wallet"
-                                    value="1"
-                                    :disabled="({{ $walletBalance }} < (livePrice * qty)) || !inStock || submitting"
-                                    class="btn btn-primary px-5 py-3 text-xs sm:text-sm font-bold shadow-md disabled:opacity-50">
-                                <span x-show="{{ $walletBalance }} >= (livePrice * qty)">👛 Instant Buy with Wallet →</span>
-                                <span x-show="{{ $walletBalance }} < (livePrice * qty)" x-cloak>Insufficient Balance</span>
-                            </button>
                         </div>
                     </section>
-                @endif
-
-                {{-- STEP 2: Payment Method Selection --}}
-                <section class="card p-5 sm:p-7 shadow-xs">
-                    <div class="flex items-center gap-2.5 border-b border-line pb-3.5">
-                        <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand text-xs font-bold text-white">2</span>
-                        <div>
-                            <h2 class="text-base sm:text-lg font-bold text-ink">Select Payment Method</h2>
-                            <p class="text-xs text-muted">Choose how you wish to pay in PKR or USDT</p>
-                        </div>
-                    </div>
-
-                    @if ($methods->isEmpty())
-                        <div class="mt-4 rounded-xl bg-danger-tint p-4 text-xs sm:text-sm text-danger">
-                            No active payment methods found. Please contact our support team on WhatsApp.
-                        </div>
-                    @else
-                        <div class="mt-4 grid gap-3 sm:grid-cols-2">
-                            @foreach ($methods as $method)
-                                <label class="relative flex min-w-0 cursor-pointer items-center gap-3.5 rounded-xl border-2 p-3.5 sm:p-4 transition active:scale-[0.98]"
-                                       :class="method == '{{ $method->id }}' ? 'border-brand bg-brand-tint/60 shadow-xs' : 'border-line hover:border-line-strong bg-white'">
-                                    <input type="radio" name="payment_method_id" value="{{ $method->id }}" x-model="method" class="sr-only">
-                                    @if ($logoUrl = $method->logoUrl())
-                                        <img src="{{ $logoUrl }}" alt="{{ $method->name }}" class="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-lg object-contain border border-line bg-white p-1">
-                                    @else
-                                        <span class="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-ink text-xs sm:text-sm font-bold text-white shadow-xs">{{ mb_substr($method->name, 0, 1) }}</span>
-                                    @endif
-                                    <span class="min-w-0 flex-1 pr-5">
-                                        <span class="block truncate text-xs sm:text-sm font-bold text-ink">{{ $method->name }}</span>
-                                        <span class="block truncate text-[11px] text-muted mt-0.5">
-                                            {{ $method->currency === 'USDT' ? 'USDT (TRC20 / Binance Pay)' : 'Pakistani Wallets / Bank Transfer' }}
-                                        </span>
-                                    </span>
-                                    <div x-show="method == '{{ $method->id }}'" class="absolute top-3.5 right-3.5 flex h-5 w-5 items-center justify-center rounded-full bg-brand text-white shadow-xs">
-                                        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>
-                                    </div>
-                                </label>
-                            @endforeach
-                        </div>
-                        @error('payment_method_id')<p class="field-error text-xs">{{ $message }}</p>@enderror
+                @else
+                    {{-- VIP Account Wallet Checkout (If balance exists) --}}
+                    @if ($user && $walletBalance > 0)
+                        <section class="card border-2 border-brand/30 bg-gradient-to-br from-brand-tint/50 to-white p-5 sm:p-6 shadow-xs">
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                <div>
+                                    <span class="badge badge-brand text-[10px] font-bold">⚡ 1-Click Instant Buy</span>
+                                    <h2 class="mt-1.5 text-base sm:text-lg font-bold text-ink">Pay with Wallet Balance</h2>
+                                    <p class="text-xs text-body mt-0.5">Available Balance: <strong class="font-mono text-ink text-sm">{{ money($walletBalance) }}</strong></p>
+                                </div>
+                                <button type="submit"
+                                        name="pay_with_wallet"
+                                        value="1"
+                                        :disabled="({{ $walletBalance }} < (livePrice * qty)) || !inStock || submitting"
+                                        class="btn btn-primary px-5 py-3 text-xs sm:text-sm font-bold shadow-md disabled:opacity-50">
+                                    <span x-show="{{ $walletBalance }} >= (livePrice * qty)">👛 Instant Buy with Wallet →</span>
+                                    <span x-show="{{ $walletBalance }} < (livePrice * qty)" x-cloak>Insufficient Balance</span>
+                                </button>
+                            </div>
+                        </section>
                     @endif
-                </section>
+
+                    {{-- STEP 2: Payment Method Selection --}}
+                    <section class="card p-5 sm:p-7 shadow-xs">
+                        <div class="flex items-center gap-2.5 border-b border-line pb-3.5">
+                            <span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand text-xs font-bold text-white">2</span>
+                            <div>
+                                <h2 class="text-base sm:text-lg font-bold text-ink">Select Payment Method</h2>
+                                <p class="text-xs text-muted">Choose how you wish to pay in PKR or USDT</p>
+                            </div>
+                        </div>
+
+                        @if ($methods->isEmpty())
+                            <div class="mt-4 rounded-xl bg-danger-tint p-4 text-xs sm:text-sm text-danger">
+                                No active payment methods found. Please contact our support team on WhatsApp.
+                            </div>
+                        @else
+                            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                                @foreach ($methods as $method)
+                                    <label class="relative flex min-w-0 cursor-pointer items-center gap-3.5 rounded-xl border-2 p-3.5 sm:p-4 transition active:scale-[0.98]"
+                                           :class="method == '{{ $method->id }}' ? 'border-brand bg-brand-tint/60 shadow-xs' : 'border-line hover:border-line-strong bg-white'">
+                                        <input type="radio" name="payment_method_id" value="{{ $method->id }}" x-model="method" class="sr-only">
+                                        @if ($logoUrl = $method->logoUrl())
+                                            <img src="{{ $logoUrl }}" alt="{{ $method->name }}" class="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-lg object-contain border border-line bg-white p-1">
+                                        @else
+                                            <span class="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-ink text-xs sm:text-sm font-bold text-white shadow-xs">{{ mb_substr($method->name, 0, 1) }}</span>
+                                        @endif
+                                        <span class="min-w-0 flex-1 pr-5">
+                                            <span class="block truncate text-xs sm:text-sm font-bold text-ink">{{ $method->name }}</span>
+                                            <span class="block truncate text-[11px] text-muted mt-0.5">
+                                                {{ $method->currency === 'USDT' ? 'USDT (TRC20 / Binance Pay)' : 'Pakistani Wallets / Bank Transfer' }}
+                                            </span>
+                                        </span>
+                                        <div x-show="method == '{{ $method->id }}'" class="absolute top-3.5 right-3.5 flex h-5 w-5 items-center justify-center rounded-full bg-brand text-white shadow-xs">
+                                            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>
+                                        </div>
+                                    </label>
+                                @endforeach
+                            </div>
+                            @error('payment_method_id')<p class="field-error text-xs">{{ $message }}</p>@enderror
+                        @endif
+                    </section>
+                @endif
             </div>
 
             {{-- SIDEBAR: Order Summary & Placement --}}
@@ -163,7 +179,9 @@
                             <p class="text-sm sm:text-base font-bold text-ink break-words leading-tight">{{ $product->name }}</p>
                             <div class="mt-1 flex flex-wrap items-center justify-between gap-1.5">
                                 <p class="text-xs sm:text-sm font-semibold text-ink">
-                                    @if ($hasResellerDiscount)
+                                    @if ($effectivePrice <= 0)
+                                        <span class="text-success font-bold">FREE</span>
+                                    @elseif ($hasResellerDiscount)
                                         <span class="line-through text-muted mr-1" x-text="$store.currency.format({{ (float) $product->price }})">{{ money($product->price) }}</span>
                                         <span class="text-brand font-bold" x-text="$store.currency.format(livePrice)">{{ money($effectivePrice) }}</span>
                                         <span class="badge badge-brand ml-1 text-[10px]">VIP</span>
@@ -173,7 +191,7 @@
                                 </p>
                                 <span :class="inStock ? 'badge badge-success' : 'badge badge-danger'" class="text-[10px]">
                                     <span class="dot" :class="inStock ? 'bg-success live-dot' : 'bg-danger'"></span>
-                                    <span x-text="stockLabel">Stock: {{ (int) $product->available_stock }}</span>
+                                    <span x-text="stockLabel">{{ $product->stock_unlimited ? 'Unlimited Stock' : 'Stock: '.(int) $product->available_stock }}</span>
                                 </span>
                             </div>
                         </div>
@@ -190,9 +208,17 @@
                     <div class="mt-4 flex items-end justify-between border-t border-line pt-4">
                         <div>
                             <span class="block text-sm font-medium text-ink">Total Payable</span>
-                            <span class="block text-[11px] font-semibold text-muted" x-text="totalSecondary"></span>
+                            @if ($effectivePrice <= 0)
+                                <span class="block text-[11px] font-semibold text-success">No Payment Required</span>
+                            @else
+                                <span class="block text-[11px] font-semibold text-muted" x-text="totalSecondary"></span>
+                            @endif
                         </div>
-                        <span class="display text-3xl sm:text-4xl text-brand" x-text="totalPrimary">{{ setting('currency_symbol') }} <span x-text="totalFormatted"></span></span>
+                        @if ($effectivePrice <= 0)
+                            <span class="display text-3xl sm:text-4xl text-success">FREE</span>
+                        @else
+                            <span class="display text-3xl sm:text-4xl text-brand" x-text="totalPrimary">{{ setting('currency_symbol') }} <span x-text="totalFormatted"></span></span>
+                        @endif
                     </div>
 
                     {{-- Agreement Checkbox --}}
@@ -203,12 +229,12 @@
                     @error('agree')<p class="field-error text-xs">{{ $message }}</p>@enderror
 
                     {{-- Submit Button with Click Feedback --}}
-                    <button type="submit" class="btn btn-primary btn-lg mt-5 w-full text-base font-bold shadow-md" :disabled="!inStock || submitting" @disabled($methods->isEmpty())>
-                        <span x-show="!submitting && inStock">Place Order &amp; Pay →</span>
+                    <button type="submit" class="btn btn-primary btn-lg mt-5 w-full text-base font-bold shadow-md" :disabled="!inStock || submitting" @disabled($effectivePrice > 0 && $methods->isEmpty())>
+                        <span x-show="!submitting && inStock">{{ $effectivePrice <= 0 ? 'Claim Free Access Now →' : 'Place Order & Pay →' }}</span>
                         <span x-show="!submitting && !inStock" x-cloak>Out of Stock</span>
                         <span x-show="submitting" x-cloak class="flex items-center justify-center gap-2">
                             <span class="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                            Creating Order...
+                            {{ $effectivePrice <= 0 ? 'Unlocking Free Access...' : 'Creating Order...' }}
                         </span>
                     </button>
 

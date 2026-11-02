@@ -32,9 +32,10 @@ class Product extends Model
     public static function deliveryTypeOptions(): array
     {
         return [
-            'auto' => '⚡ Auto Delivery: From .TXT Stock Vault or Linked Supplier API',
-            'manual_admin' => '👨‍💻 Admin Manual Delivery: Admin Delivers Credentials After Payment Confirmed',
-            'whatsapp_handover' => '📲 Direct WhatsApp Delivery: Show WhatsApp Claim Button After Payment Confirmed',
+            'auto' => '⚡ Auto Delivery: Unique Accounts from .TXT Stock Vault or Supplier API (1 Unit Consumed Per Order)',
+            'instant_link' => '🔗 Reusable Course / Resource Link: Same Link or Text Auto-Delivered to Every Customer (Unlimited Stock)',
+            'manual_admin' => '👨‍💻 Admin Manual Delivery: Admin Delivers Credentials After Order Confirmed',
+            'whatsapp_handover' => '📲 Direct WhatsApp Delivery: Show WhatsApp Claim Button After Order Confirmed',
         ];
     }
 
@@ -260,6 +261,14 @@ class Product extends Model
         return $this->stock_unlimited || $this->available_stock > 0;
     }
 
+    /**
+     * True when the product is in stock and its effective price is 0 (a free giveaway / free course link).
+     */
+    public function isFree(?User $user = null): bool
+    {
+        return $this->inStock() && $this->priceFor($user) <= 0;
+    }
+
     public function imageUrl(): ?string
     {
         if (! $this->image) {
@@ -377,6 +386,14 @@ class Product extends Model
 
         $base = $this->cleanSummaryText();
         $hasValidPrice = (float) $this->price > 0;
+
+        if ($this->isFree()) {
+            if ($base !== '') {
+                return Str::limit("Get {$this->name} for FREE in Pakistan. {$base}", 160);
+            }
+
+            return Str::limit("Get {$this->name} for FREE in Pakistan with instant automated delivery on your order page — no payment required.", 160);
+        }
 
         if ($base !== '') {
             if ($hasValidPrice) {

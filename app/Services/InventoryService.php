@@ -24,7 +24,7 @@ class InventoryService
 
         $product->load('activeSources.supplier');
         $supplierUnits = 0;
-        $unlimited = in_array($product->delivery_type, ['manual_admin', 'whatsapp_handover'], true);
+        $unlimited = in_array($product->delivery_type, ['manual_admin', 'whatsapp_handover', 'instant_link'], true);
 
         foreach ($product->activeSources as $source) {
             /** @var SupplierProduct $source */

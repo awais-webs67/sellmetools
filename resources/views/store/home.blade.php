@@ -463,6 +463,10 @@
                                                   x-text="$store.currency.format({{ $dirPrice }})">
                                                 {{ money($dirPrice) }}
                                             </span>
+                                        @elseif ($p->inStock())
+                                            <span class="rounded-lg bg-success/10 px-2.5 py-1 text-xs sm:text-sm font-bold text-success group-hover:bg-brand group-hover:text-white transition">
+                                                FREE
+                                            </span>
                                         @else
                                             <span class="rounded-lg bg-grey-soft px-2.5 py-1 text-xs font-semibold text-muted group-hover:bg-brand group-hover:text-white transition">
                                                 View Plan

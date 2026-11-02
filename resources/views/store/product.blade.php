@@ -33,7 +33,7 @@
             '@type' => 'Offer',
             'url' => $productUrl,
             'priceCurrency' => 'PKR',
-            'price' => $schemaPrice > 0 ? number_format($schemaPrice, 2, '.', '') : null,
+            'price' => $schemaPrice > 0 ? number_format($schemaPrice, 2, '.', '') : ($product->isFree() ? '0.00' : null),
             'priceValidUntil' => now()->addMonths(6)->toDateString(),
             'availability' => $product->inStock()
                 ? 'https://schema.org/InStock'
@@ -248,13 +248,21 @@
                             @elseif ($product->compare_at_price && $product->compare_at_price > $effectivePrice)
                                 <p class="text-xs text-muted line-through" x-text="$store.currency.format({{ (float) $product->compare_at_price }})">{{ money($product->compare_at_price) }}</p>
                             @endif
-                            <p class="display text-4xl sm:text-5xl text-brand" x-text="priceText">{{ money($effectivePrice) }}</p>
-                            <p class="mt-1 text-[11px] font-semibold text-muted">
-                                <span x-text="$store.currency.isUsdt ? '≈ ' + $store.currency.symbol + ' ' + Math.round(unitPrice).toLocaleString('en-US') + ' PKR' : '≈ $' + (unitPrice / $store.currency.rate).toFixed(2) + ' USDT'">
-                                    ≈ ${{ number_format($effectivePrice / \App\Models\Setting::usdtRate(), 2) }} USDT
-                                </span>
-                                · Both PKR &amp; USDT accepted
-                            </p>
+                            <p class="display text-4xl sm:text-5xl"
+                               :class="unitPrice <= 0 && inStock ? 'text-success' : 'text-brand'"
+                               x-text="unitPrice > 0 ? priceText : (inStock ? 'FREE' : 'Out of Stock')">{{ $effectivePrice > 0 ? money($effectivePrice) : ($product->inStock() ? 'FREE' : 'Out of Stock') }}</p>
+                            @if ($effectivePrice > 0)
+                                <p class="mt-1 text-[11px] font-semibold text-muted">
+                                    <span x-text="$store.currency.isUsdt ? '≈ ' + $store.currency.symbol + ' ' + Math.round(unitPrice).toLocaleString('en-US') + ' PKR' : '≈ $' + (unitPrice / $store.currency.rate).toFixed(2) + ' USDT'">
+                                        ≈ ${{ number_format($effectivePrice / \App\Models\Setting::usdtRate(), 2) }} USDT
+                                    </span>
+                                    · Both PKR &amp; USDT accepted
+                                </p>
+                            @elseif ($product->inStock())
+                                <p class="mt-1 text-[11px] font-semibold text-success">
+                                    🎁 100% Free Instant Access · No Payment Required
+                                </p>
+                            @endif
                         </div>
                         <span :class="inStock ? 'badge badge-success' : 'badge badge-danger'" class="text-xs py-1 px-3">
                             <span class="dot" :class="inStock ? 'bg-success live-dot' : 'bg-danger'"></span>
@@ -274,7 +282,7 @@
                         </div>
 
                         <button type="submit" class="btn btn-primary btn-lg w-full text-base font-bold shadow-md" :disabled="!inStock">
-                            <span x-show="inStock">Proceed to Checkout →</span>
+                            <span x-show="inStock" x-text="unitPrice <= 0 ? 'Claim Free Access Now →' : 'Proceed to Checkout →'">{{ $effectivePrice <= 0 ? 'Claim Free Access Now →' : 'Proceed to Checkout →' }}</span>
                             <span x-show="!inStock" x-cloak>Currently Out of Stock</span>
                         </button>
                     </form>

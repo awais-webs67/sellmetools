@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Enums\StockStatus;
 use App\Enums\SupplierOrderStatus;
 use App\Exceptions\StoreException;
+use App\Models\Order;
 use App\Models\SupplierOrder;
 use App\Services\FulfillmentService;
 use App\Services\InventoryService;
@@ -189,5 +190,53 @@ class OrderFlowTest extends TestCase
 
         $this->assertSame(OrderStatus::Completed, $order->status);
         $this->assertSame('manual', $order->deliveries()->first()->source);
+    }
+
+    public function test_free_course_link_product_delivers_instantly_without_payment_and_keeps_unlimited_stock(): void
+    {
+        $product = $this->listing([], [
+            'name' => 'Free AI Masterclass Course Link',
+            'delivery_type' => 'instant_link',
+            'fixed_price' => 0,
+            'price' => 0,
+        ]);
+
+        $product->stockItems()->create([
+            'content' => "Course Link: https://drive.google.com/drive/folders/free-ai-course\nPasscode: SMT2026",
+            'status' => StockStatus::Available,
+        ]);
+        app(InventoryService::class)->refresh($product);
+
+        $this->assertTrue($product->fresh()->isFree());
+        $this->assertTrue($product->fresh()->stock_unlimited);
+
+        // Customer 1 claims free course without payment_method_id
+        $response1 = $this->post(route('checkout.store', $product), [
+            'quantity' => 1,
+            'email' => 'student1@example.com',
+            'name' => 'Student One',
+            'phone' => '03001234567',
+            'agree' => '1',
+        ]);
+
+        $order1 = Order::where('email', 'student1@example.com')->firstOrFail();
+        $response1->assertRedirect($order1->customerUrl());
+        $this->assertSame(OrderStatus::Completed, $order1->status);
+        $this->assertSame(0.0, (float) $order1->total);
+        $this->assertStringContainsString('https://drive.google.com/drive/folders/free-ai-course', $order1->deliveries()->first()->content);
+
+        // Customer 2 claims the exact same free course link — stock is still Available & Unlimited!
+        $this->post(route('checkout.store', $product), [
+            'quantity' => 1,
+            'email' => 'student2@example.com',
+            'name' => 'Student Two',
+            'phone' => '03007654321',
+            'agree' => '1',
+        ]);
+
+        $order2 = Order::where('email', 'student2@example.com')->firstOrFail();
+        $this->assertSame(OrderStatus::Completed, $order2->status);
+        $this->assertStringContainsString('https://drive.google.com/drive/folders/free-ai-course', $order2->deliveries()->first()->content);
+        $this->assertSame(StockStatus::Available, $product->stockItems()->first()->status);
     }
 }

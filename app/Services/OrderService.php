@@ -49,16 +49,20 @@ class OrderService
                 throw new StoreException('Selected payment method is unavailable.');
             }
 
-            // 1) Reserve our own stock first.
-            $ownItems = StockItem::query()
-                ->where('product_id', $locked->id)
-                ->where('status', StockStatus::Available)
-                ->orderBy('id')
-                ->limit($quantity)
-                ->lockForUpdate()
-                ->get();
+            // 1) Reserve our own stock first (except for reusable 'instant_link' products where the same link is shared across all orders).
+            $isReusableLink = $locked->delivery_type === 'instant_link';
 
-            $fromSupplier = $quantity - $ownItems->count();
+            $ownItems = $isReusableLink
+                ? collect()
+                : StockItem::query()
+                    ->where('product_id', $locked->id)
+                    ->where('status', StockStatus::Available)
+                    ->orderBy('id')
+                    ->limit($quantity)
+                    ->lockForUpdate()
+                    ->get();
+
+            $fromSupplier = $isReusableLink ? 0 : ($quantity - $ownItems->count());
 
             // 2) Remaining units must be covered by supplier stock not reserved by others.
             if ($fromSupplier > 0) {

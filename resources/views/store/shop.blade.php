@@ -130,7 +130,7 @@
                         All Categories
                     </a>
                     @foreach ($categories as $category)
-                        <a href="{{ route('shop', array_filter(['category' => $category->slug, 'q' => $search ?: null, 'sort' => $sort !== 'featured' ? $sort : null, 'in_stock' => $inStockOnly ? 1 : null])) }}"
+                        <a href="{{ route('categories.show', $category) }}"
                            @class([
                                'shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition whitespace-nowrap',
                                'border-brand bg-brand text-white' => $activeCategory?->is($category),

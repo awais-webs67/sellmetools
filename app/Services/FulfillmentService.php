@@ -98,6 +98,10 @@ class FulfillmentService
             return ['Payment confirmed, customer directed to WhatsApp for order handover.'];
         }
 
+        if ($deliveryType === 'instant_link') {
+            return ['Order confirmed, awaiting Admin course/resource link in product stock vault.'];
+        }
+
         // 3: suppliers (for 'auto' products).
         foreach ($this->pricing->rankedSources($item->product) as $source) {
             if ($item->remainingQty() === 0) {
@@ -136,6 +140,31 @@ class FulfillmentService
             $item->refresh();
             $need = $item->remainingQty();
             if ($need === 0) {
+                return;
+            }
+
+            // Reusable Course / Resource Link mode: deliver the saved link/content without consuming the StockItem row!
+            if ($item->product && $item->product->delivery_type === 'instant_link') {
+                $reusableStock = StockItem::query()
+                    ->where('product_id', $item->product_id)
+                    ->where('status', StockStatus::Available)
+                    ->orderBy('id')
+                    ->first();
+
+                $reusableContent = trim((string) ($reusableStock?->content ?? ''));
+                if ($reusableContent !== '') {
+                    for ($i = 0; $i < $need; $i++) {
+                        $item->deliveries()->create([
+                            'content' => $reusableContent,
+                            'source' => 'stock',
+                            'stock_item_id' => $reusableStock?->id,
+                        ]);
+                    }
+                    $item->delivered_qty += $need;
+                    $item->reserved_supplier_qty = 0;
+                    $item->save();
+                }
+
                 return;
             }
 
