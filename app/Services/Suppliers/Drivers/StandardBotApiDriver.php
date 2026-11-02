@@ -61,6 +61,7 @@ class StandardBotApiDriver implements SupplierDriver
         ]);
 
         $prodResponse = $responses['products'] ?? null;
+        $balResponse = $responses['balance'] ?? null;
         if (! $prodResponse instanceof Response) {
             throw new SupplierException('Could not connect to supplier /products endpoint.');
         }
@@ -68,34 +69,48 @@ class StandardBotApiDriver implements SupplierDriver
 
         $products = $this->parseProductsResponse($prodResponse);
 
-        $balanceObj = null;
-        $balResponse = $responses['balance'] ?? null;
-        if ($balResponse instanceof Response && $balResponse->successful() && $balResponse->json('ok') !== false) {
-            $rawBal = $balResponse->json('balance')
-                ?? $balResponse->json('data.balance')
-                ?? $balResponse->json('user.balance')
-                ?? $balResponse->json('wallet')
-                ?? $balResponse->json('credits');
+        $balanceObj = $this->extractBalanceFromResponse($balResponse)
+            ?? $this->extractBalanceFromResponse($prodResponse);
 
-            if ($rawBal !== null && is_numeric($rawBal)) {
-                $balanceObj = new SupplierBalance(
-                    balance: (float) $rawBal,
-                    currency: (string) ($balResponse->json('currency') ?? $balResponse->json('data.currency') ?? $this->supplier->currency),
-                    raw: $balResponse->json() ?? [],
-                );
+        // Fallback for suppliers like BunaiStore where balance is on GET /me instead of /balance
+        if ($balanceObj === null && $balResponse instanceof Response && $balResponse->status() === 404) {
+            try {
+                $meResponse = $this->http(6)->get('/me');
+                $balanceObj = $this->extractBalanceFromResponse($meResponse);
+            } catch (\Throwable) {
+                // Ignore if /me is also unavailable
             }
-        } elseif (($inlineBal = $prodResponse->json('balance') ?? $prodResponse->json('user.balance')) !== null && is_numeric($inlineBal)) {
-            $balanceObj = new SupplierBalance(
-                balance: (float) $inlineBal,
-                currency: (string) ($prodResponse->json('currency') ?? $this->supplier->currency),
-                raw: $prodResponse->json() ?? [],
-            );
         }
 
         return [
             'products' => $products,
             'balance' => $balanceObj,
         ];
+    }
+
+    protected function extractBalanceFromResponse(?Response $response): ?SupplierBalance
+    {
+        if (! $response instanceof Response || ! $response->successful() || $response->json('ok') === false || $response->json('success') === false) {
+            return null;
+        }
+
+        $rawBal = $response->json('balance')
+            ?? $response->json('balance_usdt')
+            ?? $response->json('data.balance')
+            ?? $response->json('data.balance_usdt')
+            ?? $response->json('user.balance')
+            ?? $response->json('wallet')
+            ?? $response->json('credits');
+
+        if ($rawBal === null || ! is_numeric($rawBal)) {
+            return null;
+        }
+
+        return new SupplierBalance(
+            balance: (float) $rawBal,
+            currency: (string) ($response->json('currency') ?? $response->json('data.currency') ?? $this->supplier->currency),
+            raw: $response->json() ?? [],
+        );
     }
 
     public function products(): array
@@ -111,32 +126,51 @@ class StandardBotApiDriver implements SupplierDriver
      */
     protected function parseProductsResponse(Response $response): array
     {
-        $rows = $response->json('products') ?? $response->json('data.products') ?? $response->json('items');
+        $rows = $response->json('products')
+            ?? $response->json('data.products')
+            ?? $response->json('items')
+            ?? $response->json('data.items')
+            ?? $response->json('variants')
+            ?? (is_array($response->json()) && array_is_list($response->json()) ? $response->json() : null);
+
         if (! is_array($rows)) {
             throw new SupplierException('Unexpected products response format.');
         }
 
         return array_values(array_filter(array_map(function ($row) {
-            if (! is_array($row) || ! isset($row['id'], $row['name'], $row['price'])) {
+            if (! is_array($row)) {
                 return null;
             }
 
-            $unlimited = (bool) ($row['unlimited_stock'] ?? false);
-            $stock = isset($row['stock']) && is_numeric($row['stock']) ? (int) $row['stock'] : null;
+            $id = $row['id'] ?? $row['product_id'] ?? $row['productId'] ?? $row['code'] ?? null;
+            $name = $row['name'] ?? $row['title'] ?? $row['product_name'] ?? null;
+            $rawPrice = $row['price'] ?? $row['unit_price'] ?? $row['price_usdt'] ?? $row['cost'] ?? null;
+
+            if ($id === null || $name === null || $rawPrice === null || ! is_numeric($rawPrice)) {
+                return null;
+            }
+
+            $unlimited = (bool) ($row['unlimited_stock'] ?? $row['stock_unlimited'] ?? false);
+            $rawStock = $row['stock'] ?? $row['quantity'] ?? $row['available_stock'] ?? null;
+            $stock = $rawStock !== null && is_numeric($rawStock) ? (int) $rawStock : null;
+
             // A null stock without the unlimited flag is treated as unlimited only when marked available.
-            if ($stock === null && ! $unlimited && ($row['available'] ?? false)) {
+            if ($stock === null && ! $unlimited && ($row['available'] ?? $row['is_available'] ?? false)) {
                 $unlimited = true;
             }
 
+            $warranty = $row['warranty'] ?? $row['warranty_period'] ?? $row['subscription_type'] ?? null;
+            $description = $row['description'] ?? $row['instructions'] ?? null;
+
             return new SupplierProductData(
-                externalId: (string) $row['id'],
-                name: TextCleaner::clean((string) $row['name']),
-                cost: (float) $row['price'],
+                externalId: (string) $id,
+                name: TextCleaner::clean((string) $name),
+                cost: (float) $rawPrice,
                 stock: $stock,
                 unlimitedStock: $unlimited,
-                available: (bool) ($row['available'] ?? ($unlimited || $stock > 0)),
-                warranty: TextCleaner::clean($row['warranty'] ?? null),
-                description: TextCleaner::clean($row['description'] ?? null),
+                available: (bool) ($row['available'] ?? $row['is_available'] ?? ($unlimited || $stock > 0)),
+                warranty: TextCleaner::clean(is_scalar($warranty) ? (string) $warranty : null),
+                description: TextCleaner::clean(is_scalar($description) ? (string) $description : null),
                 raw: $row,
             );
         }, $rows)));
@@ -145,10 +179,15 @@ class StandardBotApiDriver implements SupplierDriver
     public function balance(): SupplierBalance
     {
         $response = $this->send(fn () => $this->http(8)->get('/balance'));
+        if ($response->status() === 404) {
+            $response = $this->send(fn () => $this->http(8)->get('/me'));
+        }
         $this->guard($response);
 
         $rawBal = $response->json('balance')
+            ?? $response->json('balance_usdt')
             ?? $response->json('data.balance')
+            ?? $response->json('data.balance_usdt')
             ?? $response->json('user.balance')
             ?? $response->json('wallet')
             ?? $response->json('credits')
@@ -163,13 +202,58 @@ class StandardBotApiDriver implements SupplierDriver
 
     public function placeOrder(string $externalProductId, int $quantity, string $requestId): SupplierOrderResult
     {
+        $baseUrl = strtolower((string) $this->supplier->base_url);
+        $apiKey = (string) $this->supplier->api_key;
+        $normalizedId = is_numeric($externalProductId) ? (int) $externalProductId : $externalProductId;
+
+        $isQamifyOrBunai = str_contains($baseUrl, 'qamify')
+            || str_contains($baseUrl, 'bunaistore')
+            || str_starts_with($apiKey, 'qamify_')
+            || str_starts_with($apiKey, 'psk_');
+        $isTunvn = str_contains($baseUrl, 'tunvnmmo');
+        $isCanboso = str_contains($baseUrl, 'canboso') || str_starts_with($apiKey, 'tgb_');
+
         try {
-            // No automatic retries: an order must never be sent twice by accident.
-            $response = $this->http(60)->post('/order', [
-                'product_id' => is_numeric($externalProductId) ? (int) $externalProductId : $externalProductId,
-                'quantity' => $quantity,
-                'request_id' => $requestId,
-            ]);
+            if ($isQamifyOrBunai) {
+                $response = $this->http(60)
+                    ->withHeaders(['Idempotency-Key' => $requestId])
+                    ->post('/orders', [
+                        'product_id' => $normalizedId,
+                        'qty' => $quantity,
+                    ]);
+            } elseif ($isTunvn) {
+                $response = $this->http(60)->post('/buy', [
+                    'product_id' => $normalizedId,
+                    'quantity' => $quantity,
+                    'currency' => strtolower($this->supplier->currency ?: 'usdt'),
+                ]);
+            } elseif ($isCanboso) {
+                $response = $this->http(60)->post('/purchase', [
+                    'product_id' => $normalizedId,
+                    'productId' => (string) $externalProductId,
+                    'quantity' => $quantity,
+                    'qty' => $quantity,
+                    'request_id' => $requestId,
+                ]);
+            } else {
+                // Default / Standard Bot / EliteToolz
+                $response = $this->http(60)->post('/order', [
+                    'product_id' => $normalizedId,
+                    'productId' => (string) $externalProductId,
+                    'quantity' => $quantity,
+                    'request_id' => $requestId,
+                ]);
+
+                // Safe 404 fallback (route does not exist -> nothing was charged)
+                if ($response->status() === 404) {
+                    $response = $this->http(60)
+                        ->withHeaders(['Idempotency-Key' => $requestId])
+                        ->post('/orders', [
+                            'product_id' => $normalizedId,
+                            'qty' => $quantity,
+                        ]);
+                }
+            }
         } catch (ConnectionException $e) {
             throw SupplierUnknownResultException::withContext('Connection error while placing order: '.$e->getMessage());
         }
@@ -180,14 +264,38 @@ class StandardBotApiDriver implements SupplierDriver
 
         $this->guard($response);
 
-        $order = $response->json('order');
-        $rawItems = is_array($order['items'] ?? null)
-            ? $order['items']
-            : ($response->json('items') ?? $response->json('data.items') ?? []);
+        $order = is_array($response->json('order')) ? $response->json('order') : (is_array($response->json('data')) ? $response->json('data') : []);
+        $rawItems = $order['items']
+            ?? $order['accounts']
+            ?? $order['codes']
+            ?? $order['deliveries']
+            ?? $response->json('items')
+            ?? $response->json('accounts')
+            ?? $response->json('codes')
+            ?? $response->json('data.items')
+            ?? $response->json('data.accounts')
+            ?? [];
+
+        if (is_string($rawItems) && trim($rawItems) !== '') {
+            $rawItems = [trim($rawItems)];
+        }
 
         $items = is_array($rawItems)
             ? array_values(array_filter(
-                array_map(fn ($v): string => is_scalar($v) ? trim((string) $v) : '', $rawItems),
+                array_map(function ($v): string {
+                    if (is_scalar($v)) {
+                        return trim((string) $v);
+                    }
+                    if (is_array($v)) {
+                        foreach (['content', 'account', 'credential', 'code', 'data', 'value', 'text'] as $k) {
+                            if (isset($v[$k]) && is_scalar($v[$k]) && trim((string) $v[$k]) !== '') {
+                                return trim((string) $v[$k]);
+                            }
+                        }
+                    }
+
+                    return '';
+                }, $rawItems),
                 fn (string $v): bool => $v !== ''
             ))
             : [];
@@ -196,11 +304,15 @@ class StandardBotApiDriver implements SupplierDriver
             throw SupplierUnknownResultException::withContext('Order accepted by supplier but returned empty credentials.', ['body' => $response->json()]);
         }
 
+        $extOrderId = $order['order_id'] ?? $order['code'] ?? $order['id'] ?? $response->json('order_id') ?? $response->json('code') ?? null;
+        $totalCost = $order['total'] ?? $order['total_usdt'] ?? $response->json('total') ?? $response->json('total_usdt') ?? null;
+        $balAfter = $order['balance_after'] ?? $response->json('balance_after') ?? $response->json('balance') ?? $response->json('balance_usdt') ?? null;
+
         return new SupplierOrderResult(
             items: $items,
-            externalOrderId: isset($order['order_id']) ? (string) $order['order_id'] : null,
-            total: isset($order['total']) ? (float) $order['total'] : null,
-            balanceAfter: isset($order['balance_after']) ? (float) $order['balance_after'] : null,
+            externalOrderId: $extOrderId !== null && is_scalar($extOrderId) ? (string) $extOrderId : null,
+            total: $totalCost !== null && is_numeric($totalCost) ? (float) $totalCost : null,
+            balanceAfter: $balAfter !== null && is_numeric($balAfter) ? (float) $balAfter : null,
             raw: $response->json() ?? [],
         );
     }
@@ -217,12 +329,19 @@ class StandardBotApiDriver implements SupplierDriver
     /** Maps HTTP / payload errors to typed exceptions. */
     protected function guard(Response $response): void
     {
-        $failed = $response->failed() || $response->json('ok') === false;
+        $failed = $response->failed() || $response->json('ok') === false || $response->json('success') === false;
         if (! $failed) {
             return;
         }
 
-        $message = (string) ($response->json('error') ?? $response->json('message') ?? '');
+        $rawErr = $response->json('error.message')
+            ?? $response->json('error')
+            ?? $response->json('message')
+            ?? $response->json('detail');
+
+        $message = is_scalar($rawErr)
+            ? (string) $rawErr
+            : (is_array($rawErr) ? (string) json_encode($rawErr) : '');
         $lower = Str::lower($message);
 
         if (in_array($response->status(), [401, 403], true)) {
