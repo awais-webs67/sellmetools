@@ -141,16 +141,23 @@
 
     $hasValidPrice = (float) $product->price > 0;
     $priceStr = $hasValidPrice ? money($product->price) : null;
+    $usdPriceStr = $hasValidPrice ? number_format((float) $product->price / \App\Models\Setting::usdtRate(), 2) : null;
     $productFaqs = [
+        [
+            'q' => "Where can I buy a {$product->name} cheap subscription online with instant delivery?",
+            'a' => $hasValidPrice
+                ? "You can buy a genuine {$product->name} cheap subscription online on {$storeName} for just {$priceStr} (approx. \${$usdPriceStr} USDT) with instant automated delivery on your private order page."
+                : "You can buy a genuine {$product->name} cheap subscription online on {$storeName} with instant automated delivery on your private order page as soon as stock is available.",
+        ],
         [
             'q' => "What is the price of {$product->name} in Pakistan?",
             'a' => $hasValidPrice
-                ? "You can buy {$product->name} in Pakistan for just {$priceStr} on {$storeName} with instant delivery on your private order page."
-                : "Check the live PKR and USDT price of {$product->name} on {$storeName}. As soon as stock is available, you can order with instant automated delivery in Pakistan.",
+                ? "The current price of {$product->name} in Pakistan is {$priceStr} (approx. \${$usdPriceStr} USDT) on {$storeName}, including instant delivery on your private order page."
+                : "Check the live PKR and USDT price of {$product->name} on {$storeName}. As soon as stock is available, you can order with instant automated delivery in Pakistan and worldwide.",
         ],
         [
-            'q' => "How to buy {$product->name} in Pakistan with Easypaisa, JazzCash, or Binance?",
-            'a' => "Click Buy Now, choose Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer/Raast, or Binance Pay (USDT), submit your Transaction ID, and receive your credentials automatically on your order page after verification.",
+            'q' => "How to buy {$product->name} online with Easypaisa, JazzCash, or Binance USDT?",
+            'a' => "Click Proceed to Checkout, choose Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer/Raast, or Binance Pay (USDT), submit your Transaction ID, and receive your credentials automatically on your order page after verification.",
         ],
         [
             'q' => "How is {$product->name} delivered and what warranty is included?",
@@ -320,10 +327,20 @@
                 <div>
                     <h2 class="display text-2xl sm:text-3xl">Product Overview &amp; Delivery Guide</h2>
                     @if ($product->description)
-                        <div class="prose-store mt-3 text-xs sm:text-sm break-words leading-relaxed text-body">{!! nl2br(e(strip_tags($product->description))) !!}</div>
+                        @php
+                            $rawDesc = (string) $product->description;
+                            $hasHtmlTags = $rawDesc !== strip_tags($rawDesc);
+                        @endphp
+                        <div class="prose-store mt-3 text-xs sm:text-sm break-words leading-relaxed text-body">
+                            @if ($hasHtmlTags)
+                                {!! strip_tags($rawDesc, '<h2><h3><h4><p><br><ul><ol><li><strong><b><em><i><u><s><a><blockquote><code><hr>') !!}
+                            @else
+                                {!! nl2br(e($rawDesc)) !!}
+                            @endif
+                        </div>
                     @endif
                     <p class="mt-3 text-xs sm:text-sm leading-relaxed text-body">
-                        Buy <strong>{{ $product->name }}</strong> online in Pakistan from <strong>{{ $storeName }}</strong> with local PKR or USDT checkout. Your stock is reserved at checkout and your login credentials, invite link, or activation instructions are delivered directly to your private order page as soon as your payment is verified.
+                        Looking for a genuine <strong>{{ $product->name }} cheap subscription</strong> with <strong>instant delivery</strong>? Buy <strong>{{ $product->name }}</strong> online in Pakistan and worldwide from <strong>{{ $storeName }}</strong> with local PKR or USDT checkout. Your stock is reserved at checkout and your login credentials, invite link, or activation instructions are delivered directly to your private order page as soon as your payment is verified.
                     </p>
                 </div>
 

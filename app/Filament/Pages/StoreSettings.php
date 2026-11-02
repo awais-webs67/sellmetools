@@ -9,6 +9,7 @@ use App\Services\EmailNotifier;
 use App\Services\TelegramNotifier;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -37,6 +38,8 @@ class StoreSettings extends Page
     /** Keys managed by this page (all live in Setting::DEFAULTS). */
     protected const KEYS = [
         'store_name', 'store_tagline', 'store_logo', 'store_theme', 'announcement', 'currency_symbol',
+        'home_hero_badge', 'home_hero_title', 'home_hero_subtitle', 'home_about_heading', 'home_guide_heading', 'home_seo_content',
+        'shop_seo_title', 'shop_seo_description',
         'usdt_rate', 'price_rounding', 'order_expiry_minutes',
         'sms_webhook_secret', 'admin_quick_pin',
         'greenapi_instance_id', 'greenapi_api_token', 'ntfy_topic',
@@ -47,6 +50,14 @@ class StoreSettings extends Page
         'mail_enabled', 'mail_send_order_delivered',
         'mail_host', 'mail_port', 'mail_username', 'mail_password',
         'mail_encryption', 'mail_from_address', 'mail_from_name',
+    ];
+
+    /** Keys that the SEO & Content Specialist role is allowed to save. */
+    protected const SEO_STAFF_KEYS = [
+        'store_name', 'store_tagline', 'store_logo', 'store_theme', 'announcement',
+        'home_hero_badge', 'home_hero_title', 'home_hero_subtitle', 'home_about_heading', 'home_guide_heading', 'home_seo_content',
+        'shop_seo_title', 'shop_seo_description',
+        'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'google_analytics_id',
     ];
 
     /** Changing these re-prices every supplier-sourced product. */
@@ -94,6 +105,28 @@ class StoreSettings extends Page
 
     protected function getHeaderActions(): array
     {
+        if (auth()->user()?->isSeoStaff()) {
+            return [
+                Action::make('clearSeoCache')
+                    ->label('🔄 Clear SEO & Site Cache')
+                    ->icon(Heroicon::OutlinedArrowPath)
+                    ->color('primary')
+                    ->action(function (): void {
+                        try {
+                            Artisan::call('view:clear');
+                            Artisan::call('cache:clear');
+                        } catch (\Throwable) {
+                        }
+
+                        Notification::make()
+                            ->title('✅ SEO & Site Content Cache Cleared!')
+                            ->body('All updated titles, meta tags, sitemaps, and page content are now live.')
+                            ->success()
+                            ->send();
+                    }),
+            ];
+        }
+
         if (! auth()->user()?->isSuperAdmin()) {
             return [];
         }
@@ -250,7 +283,7 @@ class StoreSettings extends Page
                     ]),
 
                 Section::make('Store Details, Theme & Logo')
-                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
+                    ->visible(fn (): bool => (bool) (auth()->user()?->isSuperAdmin() || auth()->user()?->isSeoStaff()))
                     ->icon(Heroicon::OutlinedBuildingStorefront)
                     ->columns(['default' => 1, 'sm' => 2])
                     ->schema([
@@ -269,9 +302,10 @@ class StoreSettings extends Page
                             ->helperText('Switch the entire storefront between Pure Black (#000000) and the Original Wine Red (#9B1B30) theme.'),
                         TextInput::make('currency_symbol')
                             ->label('Currency Symbol')
+                            ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
                             ->maxLength(10),
                         TextInput::make('store_tagline')
-                            ->label('Short Tagline')
+                            ->label('Short Tagline (Footer & Default Store Description)')
                             ->maxLength(255)
                             ->columnSpanFull(),
                         GalleryPicker::make('store_logo', 'Custom Store Logo (Optional)', 'gallery'),
@@ -286,6 +320,75 @@ class StoreSettings extends Page
                                 ->icon(Heroicon::OutlinedCheck)
                                 ->color('primary')
                                 ->action(fn () => $this->saveKeys(['store_name', 'store_theme', 'currency_symbol', 'store_tagline', 'store_logo', 'announcement'], 'Store details & theme saved')),
+                        ])->columnSpanFull(),
+                    ]),
+
+                Section::make('Homepage & Shop Site Content (Hero, Headings & Rich SEO Copy)')
+                    ->visible(fn (): bool => (bool) (auth()->user()?->isSuperAdmin() || auth()->user()?->isSeoStaff()))
+                    ->icon(Heroicon::OutlinedDocumentText)
+                    ->description('Edit the main headings, intro text, and rich SEO guide content shown on the Homepage and /shop catalog page.')
+                    ->columns(['default' => 1, 'sm' => 2])
+                    ->schema([
+                        TextInput::make('home_hero_badge')
+                            ->label('Homepage Hero Top Badge')
+                            ->placeholder('Global Digital Marketplace · Instant Worldwide Delivery')
+                            ->maxLength(160),
+                        TextInput::make('home_hero_title')
+                            ->label('Homepage Main H1 Heading')
+                            ->placeholder('Buy AI Tools & Digital Subscriptions Online')
+                            ->maxLength(180),
+                        Textarea::make('home_hero_subtitle')
+                            ->label('Homepage Hero Intro Paragraph (Optional — Leave blank for default)')
+                            ->placeholder('Welcome to SellMeTools — buy genuine AI tools, cheap subscriptions, premium software and cloud accounts online...')
+                            ->rows(2)
+                            ->maxLength(600)
+                            ->columnSpanFull(),
+                        TextInput::make('home_about_heading')
+                            ->label('Homepage About Section Heading (H2)')
+                            ->placeholder('Pakistan’s Trusted Marketplace for AI Tools & Subscriptions')
+                            ->maxLength(180),
+                        TextInput::make('home_guide_heading')
+                            ->label('Homepage Buying Guide Heading (H2)')
+                            ->placeholder('Buy AI Tools & Digital Subscriptions Online — USDT & Local PKR Prices')
+                            ->maxLength(180),
+                        RichEditor::make('home_seo_content')
+                            ->label('Homepage Custom SEO Article / Buying Guide Content (Optional)')
+                            ->toolbarButtons([
+                                'bold',
+                                'italic',
+                                'underline',
+                                'strike',
+                                'h2',
+                                'h3',
+                                'bulletList',
+                                'orderedList',
+                                'blockquote',
+                                'link',
+                                'undo',
+                                'redo',
+                            ])
+                            ->helperText('Write rich SEO content, keyword guides (e.g. ChatGPT Plus cheap subscription, Canva Pro, etc.), or internal links to display in the Homepage Buying Guide section.')
+                            ->columnSpanFull(),
+                        TextInput::make('shop_seo_title')
+                            ->label('Full Shop Page (/shop) SEO Title')
+                            ->placeholder('Shop All AI Tools & Digital Subscriptions — Cheap Prices & Instant Delivery')
+                            ->maxLength(255)
+                            ->columnSpanFull(),
+                        Textarea::make('shop_seo_description')
+                            ->label('Full Shop Page (/shop) Meta Description')
+                            ->rows(2)
+                            ->maxLength(500)
+                            ->columnSpanFull(),
+                        Actions::make([
+                            Action::make('saveSiteContentSection')
+                                ->label('Save Homepage & Shop Site Content')
+                                ->icon(Heroicon::OutlinedCheck)
+                                ->color('primary')
+                                ->action(fn () => $this->saveKeys([
+                                    'home_hero_badge', 'home_hero_title', 'home_hero_subtitle',
+                                    'home_about_heading', 'home_guide_heading', 'home_seo_content',
+                                    'shop_seo_title', 'shop_seo_description',
+                                ], 'Homepage & Shop site content saved')),
                         ])->columnSpanFull(),
                     ]),
 
@@ -482,7 +585,7 @@ class StoreSettings extends Page
     public function saveKeys(array $keys, string $title = 'Settings saved'): void
     {
         if (auth()->user()?->isSeoStaff()) {
-            $keys = array_values(array_intersect($keys, ['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'google_analytics_id']));
+            $keys = array_values(array_intersect($keys, self::SEO_STAFF_KEYS));
         }
         $raw = is_array($this->data) ? $this->data : [];
         $before = Setting::values();

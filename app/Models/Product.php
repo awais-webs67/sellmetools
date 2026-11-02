@@ -365,7 +365,11 @@ class Product extends Model
             return (string) $this->meta_title;
         }
 
-        return "{$this->name} — Buy Online | Instant Delivery";
+        if (str_contains(strtolower((string) $this->name), 'subscription')) {
+            return "Buy {$this->name} Cheap Online | Instant Delivery";
+        }
+
+        return "Buy {$this->name} Cheap Subscription Online | Instant Delivery";
     }
 
     /**
@@ -471,17 +475,17 @@ class Product extends Model
 
         if ($base !== '') {
             if ($hasValidPrice) {
-                return Str::limit("Buy {$this->name} online (".money($this->price)."). {$base}", 160);
+                return Str::limit("Buy {$this->name} cheap subscription online (".money($this->price)."). {$base}", 160);
             }
 
-            return Str::limit("Buy {$this->name} online with instant delivery. {$base} Pay via Binance USDT, Easypaisa or JazzCash.", 160);
+            return Str::limit("Buy {$this->name} cheap subscription online with instant delivery. {$base} Pay via Binance USDT, Easypaisa or JazzCash.", 160);
         }
 
         if ($hasValidPrice) {
-            return Str::limit("Buy {$this->name} online for ".money($this->price).'. Instant worldwide delivery via Binance USDT or local PKR wallets (Easypaisa, JazzCash).', 160);
+            return Str::limit("Buy {$this->name} cheap subscription online for ".money($this->price).'. Instant worldwide delivery via Binance USDT or local PKR wallets (Easypaisa, JazzCash).', 160);
         }
 
-        return Str::limit("Buy {$this->name} online with instant automated delivery worldwide. Pay via Binance Pay / USDT or local PKR wallets.", 160);
+        return Str::limit("Buy {$this->name} cheap subscription online with instant automated delivery worldwide. Pay via Binance Pay / USDT or local PKR wallets.", 160);
     }
 
     public function seoKeywords(): string
@@ -491,11 +495,14 @@ class Product extends Model
         }
 
         return implode(', ', array_filter([
+            "{$this->name} cheap subscription",
+            "buy {$this->name} cheap subscription",
             "buy {$this->name} online",
             "{$this->name} subscription",
             "{$this->name} cheap price",
-            "{$this->name} USDT Binance",
             "{$this->name} price in Pakistan",
+            "{$this->name} instant delivery",
+            "{$this->name} USDT Binance",
             $this->category ? $this->category->name : null,
             (string) Setting::get('store_name', 'SellMeTools'),
         ]));

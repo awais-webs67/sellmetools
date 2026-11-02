@@ -123,18 +123,32 @@
                 <div class="mx-auto max-w-4xl">
                     <div class="inline-flex items-center gap-2.5 rounded-full border border-white/20 bg-white/[0.06] px-4 py-1.5 text-[11px] font-semibold tracking-wider text-white uppercase">
                         <span class="h-2 w-2 rounded-full bg-[#22c55e] live-dot"></span>
-                        <span>Global Digital Marketplace</span>
-                        <span class="hidden sm:inline text-white/35">·</span>
-                        <span class="hidden sm:inline text-dark-accent">Instant Worldwide Delivery</span>
+                        <span>{{ setting('home_hero_badge', 'Global Digital Marketplace · Instant Worldwide Delivery') }}</span>
                     </div>
 
-                    <h1 class="display mt-5 text-[clamp(36px,7.2vw,84px)] leading-[0.94] tracking-tight text-white">
-                        Buy AI Tools &amp; <br class="hidden sm:block"><span class="hero-highlight">Digital Subscriptions</span> Online
-                    </h1>
+                    @php
+                        $customHeroTitle = trim((string) setting('home_hero_title', ''));
+                        $customHeroSubtitle = trim((string) setting('home_hero_subtitle', ''));
+                    @endphp
+                    @if ($customHeroTitle !== '' && $customHeroTitle !== 'Buy AI Tools & Digital Subscriptions Online')
+                        <h1 class="display mt-5 text-[clamp(36px,7.2vw,84px)] leading-[0.94] tracking-tight text-white">
+                            {{ $customHeroTitle }}
+                        </h1>
+                    @else
+                        <h1 class="display mt-5 text-[clamp(36px,7.2vw,84px)] leading-[0.94] tracking-tight text-white">
+                            Buy AI Tools &amp; <br class="hidden sm:block"><span class="hero-highlight">Digital Subscriptions</span> Online
+                        </h1>
+                    @endif
 
-                    <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base leading-relaxed text-white/75">
-                        Welcome to <strong>{{ $storeName }}</strong> — buy genuine AI tools, premium software, cloud accounts and digital subscriptions online in Pakistan and worldwide. Pay globally with <strong>USDT / Binance Pay</strong> or locally in <strong>PKR (Easypaisa, JazzCash &amp; Bank)</strong> for instant automated delivery.
-                    </p>
+                    @if ($customHeroSubtitle !== '')
+                        <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base leading-relaxed text-white/75">
+                            {{ $customHeroSubtitle }}
+                        </p>
+                    @else
+                        <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base leading-relaxed text-white/75">
+                            Welcome to <strong>{{ $storeName }}</strong> — buy genuine AI tools, cheap subscriptions, premium software, cloud accounts and digital plans online in Pakistan and worldwide. Pay globally with <strong>USDT / Binance Pay</strong> or locally in <strong>PKR (Easypaisa, JazzCash &amp; Bank)</strong> for instant automated delivery.
+                        </p>
+                    @endif
 
                     <div class="mt-7 flex flex-wrap items-center justify-center gap-3">
                         <a href="#products" class="btn btn-hero-primary px-6 py-3 text-sm font-bold">
@@ -387,7 +401,7 @@
                 <div class="grid gap-10 lg:grid-cols-[1.15fr_1fr] lg:items-center">
                     <div>
                         <span class="eyebrow text-dark-accent before:bg-current">About {{ $storeName }}</span>
-                        <h2 id="about-heading" class="display mt-1.5 text-3xl sm:text-5xl text-white">Pakistan’s Trusted Marketplace for AI Tools &amp; Subscriptions</h2>
+                        <h2 id="about-heading" class="display mt-1.5 text-3xl sm:text-5xl text-white">{{ setting('home_about_heading', 'Pakistan’s Trusted Marketplace for AI Tools & Subscriptions') }}</h2>
                         <div class="mt-4 space-y-3.5 text-sm sm:text-base leading-relaxed text-white/80">
                             <p>
                                 International software, AI platforms, creative suites and cloud services normally charge in USD and require international credit cards that carry heavy cross-border banking taxes or fail outright in Pakistan.
@@ -426,11 +440,18 @@
                 <div class="grid gap-10 lg:grid-cols-[1.15fr_1fr] lg:items-start">
                     <div>
                         <span class="eyebrow">Global &amp; Local Buying Guide</span>
-                        <h2 id="guide-heading" class="display mt-1 text-3xl sm:text-5xl text-ink">Buy AI Tools &amp; Digital Subscriptions Online — USDT &amp; Local PKR Prices</h2>
+                        <h2 id="guide-heading" class="display mt-1 text-3xl sm:text-5xl text-ink">{{ setting('home_guide_heading', 'Buy AI Tools & Digital Subscriptions Online — USDT & Local PKR Prices') }}</h2>
                         <div class="prose-store mt-4 space-y-4 text-sm sm:text-base leading-relaxed text-body">
-                            <p>
-                                Finding genuine digital subscriptions online in Pakistan or anywhere in the world at fair prices should not require risky social media deals or complicated credit cards. On <strong>{{ $storeName }}</strong>, every product page shows the exact price in USDT and PKR, real-time stock count, delivery format and warranty terms before you place an order.
-                            </p>
+                            @php
+                                $customHomeSeoContent = trim((string) setting('home_seo_content', ''));
+                            @endphp
+                            @if ($customHomeSeoContent !== '')
+                                {!! strip_tags($customHomeSeoContent, '<h2><h3><h4><p><br><ul><ol><li><strong><b><em><i><u><s><a><blockquote><code><hr>') !!}
+                            @else
+                                <p>
+                                    Finding genuine digital subscriptions and cheap AI tool plans online in Pakistan or anywhere in the world at fair prices should not require risky social media deals or complicated credit cards. On <strong>{{ $storeName }}</strong>, every product page shows the exact price in USDT and PKR, real-time stock count, delivery format and warranty terms before you place an order.
+                                </p>
+                            @endif
                         </div>
 
                         <div class="mt-6 grid gap-4 sm:grid-cols-2">
