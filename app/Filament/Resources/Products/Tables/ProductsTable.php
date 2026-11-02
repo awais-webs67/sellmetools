@@ -52,6 +52,15 @@ class ProductsTable
                 TextColumn::make('cost_price')
                     ->label('Cost')
                     ->formatStateUsing(fn ($state): string => Money::pkr($state))
+                    ->description(function (Product $record): ?string {
+                        if ($record->cost_price === null) {
+                            return null;
+                        }
+                        $usd = (float) $record->cost_price / max(1.0, \App\Models\Setting::usdtRate());
+                        $formatted = preg_replace('/(\.\d{2}\d*?)0+$/', '$1', number_format($usd, 4));
+
+                        return '$'.$formatted;
+                    })
                     ->placeholder('-')
                     ->sortable()
                     ->toggleable(),

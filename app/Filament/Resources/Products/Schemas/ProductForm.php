@@ -7,6 +7,7 @@ use App\Filament\Support\GalleryPicker;
 use App\Filament\Support\Listings;
 use App\Filament\Support\Money;
 use App\Models\Product;
+use App\Models\Setting;
 use App\Services\PriceCalculator;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\RichEditor;
@@ -141,7 +142,7 @@ class ProductForm
                             ->schema([
                                 TextEntry::make('cost_price')
                                     ->label('Supplier Cost')
-                                    ->state(fn (?Product $record): string => Money::pkr(self::liveCost($record))),
+                                    ->state(fn (?Product $record): string => self::formatSupplierCost($record)),
                                 TextEntry::make('price')
                                     ->label('Final Selling Price')
                                     ->weight('bold')
@@ -303,6 +304,37 @@ class ProductForm
         $cheapest = app(PriceCalculator::class)->cheapestCost($record);
 
         return $cheapest !== null ? round($cheapest, 2) : null;
+    }
+
+    protected static function formatSupplierCost(?Product $record): string
+    {
+        $costPkr = self::liveCost($record);
+        if ($costPkr === null) {
+            return '-';
+        }
+
+        $usd = null;
+        if ($record) {
+            $source = app(PriceCalculator::class)->rankedSources($record)->first()
+                ?? $record->activeSources()
+                    ->with('supplier')
+                    ->whereHas('supplier', fn ($q) => $q->where('is_active', true))
+                    ->get()
+                    ->sortBy(fn ($s) => $s->costPkr())
+                    ->first();
+
+            if ($source && strtoupper((string) $source->supplier?->currency) !== 'PKR') {
+                $usd = (float) $source->cost;
+            }
+        }
+
+        if ($usd === null) {
+            $usd = $costPkr / max(1.0, Setting::usdtRate());
+        }
+
+        $usdFormatted = preg_replace('/(\.\d{2}\d*?)0+$/', '$1', number_format($usd, 4));
+
+        return Money::pkr($costPkr)." (\${$usdFormatted})";
     }
 
     protected static function liveSellingPrice(?Product $record, Get $get): float
