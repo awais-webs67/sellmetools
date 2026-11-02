@@ -90,6 +90,7 @@ Route::get('/orders/{order:number}', [OrderController::class, 'show'])->name('or
 Route::get('/orders/{order:number}/status', [OrderController::class, 'status'])->middleware('throttle:300,1')->name('orders.status');
 Route::get('/orders/{order:number}/payment', fn (Order $order) => redirect()->to($order->customerUrl()));
 Route::post('/orders/{order:number}/payment', [OrderController::class, 'submitPayment'])->middleware('throttle:60,1')->name('orders.payment');
+Route::post('/orders/{order:number}/pay-wallet', [OrderController::class, 'payWithWallet'])->middleware(['auth', 'throttle:30,1'])->name('orders.pay-wallet');
 Route::post('/orders/{order:number}/cancel', [OrderController::class, 'cancel'])->middleware('throttle:60,1')->name('orders.cancel');
 Route::get('/track', [OrderController::class, 'track'])->name('orders.track');
 Route::post('/track', [OrderController::class, 'lookup'])->middleware('throttle:60,1')->name('orders.lookup');

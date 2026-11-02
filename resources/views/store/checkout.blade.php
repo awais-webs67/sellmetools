@@ -90,26 +90,66 @@
                         </div>
                     </section>
                 @else
-                    {{-- VIP Account Wallet Checkout (If balance exists) --}}
-                    @if ($user && $walletBalance > 0)
-                        <section class="card border-2 border-brand/30 bg-gradient-to-br from-brand-tint/50 to-white p-5 sm:p-6 shadow-xs">
-                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    {{-- Account Wallet Checkout Card (Always visible so users & resellers can pay or top-up) --}}
+                    @php
+                        $waAdmin = admin_whatsapp_number();
+                    @endphp
+                    <section class="card border-2 border-line-strong bg-grey-soft/60 p-5 sm:p-6 shadow-xs">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div class="flex items-start gap-3.5">
+                                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ink text-lg text-white shadow-xs">👛</span>
                                 <div>
-                                    <span class="badge badge-brand text-[10px] font-bold">⚡ 1-Click Instant Buy</span>
-                                    <h2 class="mt-1.5 text-base sm:text-lg font-bold text-ink">Pay with Wallet Balance</h2>
-                                    <p class="text-xs text-body mt-0.5">Available Balance: <strong class="font-mono text-ink text-sm">{{ money($walletBalance) }}</strong></p>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <h2 class="text-sm sm:text-base font-bold text-ink">Account Wallet (1-Click Instant Delivery)</h2>
+                                        <span class="badge badge-brand text-[10px] font-bold">⚡ Auto-Delivers in 1s</span>
+                                    </div>
+                                    @if ($user)
+                                        <p class="text-xs text-body mt-1">
+                                            Your Wallet Balance: <strong class="font-mono text-ink text-sm">{{ money($walletBalance) }}</strong>
+                                            <span x-show="{{ $walletBalance }} < (livePrice * qty)" class="text-muted">
+                                                (Need <span x-text="$store.currency.format(livePrice * qty)">{{ money($effectivePrice * $quantity) }}</span> for this order)
+                                            </span>
+                                        </p>
+                                    @else
+                                        <p class="text-xs text-body mt-1">
+                                            Have wallet balance in your account? Log in to buy instantly with 1 click without entering a Transaction ID.
+                                        </p>
+                                    @endif
                                 </div>
-                                <button type="submit"
-                                        name="pay_with_wallet"
-                                        value="1"
-                                        :disabled="({{ $walletBalance }} < (livePrice * qty)) || !inStock || submitting"
-                                        class="btn btn-primary px-5 py-3 text-xs sm:text-sm font-bold shadow-md disabled:opacity-50">
-                                    <span x-show="{{ $walletBalance }} >= (livePrice * qty)">👛 Instant Buy with Wallet →</span>
-                                    <span x-show="{{ $walletBalance }} < (livePrice * qty)" x-cloak>Insufficient Balance</span>
-                                </button>
                             </div>
-                        </section>
-                    @endif
+
+                            <div class="shrink-0">
+                                @if ($user)
+                                    <button type="submit"
+                                            x-show="{{ $walletBalance }} >= (livePrice * qty)"
+                                            name="pay_with_wallet"
+                                            value="1"
+                                            :disabled="({{ $walletBalance }} < (livePrice * qty)) || !inStock || submitting"
+                                            class="btn btn-primary w-full sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-bold shadow-md">
+                                        👛 Pay Instantly with Wallet →
+                                    </button>
+                                    <div x-show="{{ $walletBalance }} < (livePrice * qty)" x-cloak class="flex flex-wrap items-center gap-2">
+                                        @if ($waAdmin !== '')
+                                            <a href="https://wa.me/{{ $waAdmin }}?text={{ urlencode('Assalam o Alaikum! I want to top-up my SellMeTools Wallet Balance for account: '.$user->email) }}"
+                                               target="_blank"
+                                               rel="noopener"
+                                               class="btn btn-outline bg-white px-4 py-2 text-xs font-bold text-ink hover:border-ink">
+                                                ➕ Top-Up Wallet on WhatsApp
+                                            </a>
+                                        @else
+                                            <a href="{{ route('account.orders') }}" class="btn btn-outline bg-white px-4 py-2 text-xs font-bold text-ink">
+                                                Open Wallet Panel →
+                                            </a>
+                                        @endif
+                                    </div>
+                                @else
+                                    <a href="{{ route('login') }}" class="btn btn-outline bg-white w-full sm:w-auto px-4 py-2.5 text-xs font-bold text-ink hover:border-ink">
+                                        🔑 Log In to Use Wallet →
+                                    </a>
+                                @endif
+                            </div>
+                        </div>
+                    </section>
 
                     {{-- STEP 2: Payment Method Selection --}}
                     <section class="card p-5 sm:p-7 shadow-xs">

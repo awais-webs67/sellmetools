@@ -98,6 +98,52 @@
                         </div>
 
                         <div class="p-4 sm:p-6">
+                            {{-- Instant Account Wallet Pay Option on Payment Page --}}
+                            @php
+                                $authUser = auth()->user();
+                                $userWallet = (float) ($authUser?->wallet_balance ?? 0);
+                            @endphp
+                            <div class="mb-5 flex flex-col gap-3 rounded-xl border border-line-strong bg-grey-soft/70 p-3.5 sm:flex-row sm:items-center sm:justify-between">
+                                <div class="flex items-center gap-3">
+                                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ink text-base text-white">👛</span>
+                                    <div>
+                                        <p class="text-xs sm:text-sm font-bold text-ink">Pay with Account Wallet (1-Click Instant Delivery)</p>
+                                        @if ($authUser)
+                                            <p class="text-[11px] text-body">
+                                                Available Wallet Balance: <strong class="font-mono text-ink">{{ money($userWallet) }}</strong>
+                                                @if ($userWallet < (float) $order->total)
+                                                    <span class="text-muted">(Need {{ money($order->total) }})</span>
+                                                @endif
+                                            </p>
+                                        @else
+                                            <p class="text-[11px] text-body">Log in to pay instantly from your Account Wallet without a Transaction ID.</p>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="shrink-0">
+                                    @if ($authUser && $userWallet >= (float) $order->total)
+                                        <form method="post" action="{{ route('orders.pay-wallet', $order) }}">
+                                            @csrf
+                                            <input type="hidden" name="token" value="{{ $token }}">
+                                            <button type="submit" class="btn btn-primary w-full sm:w-auto px-4 py-2 text-xs font-bold shadow-xs">
+                                                👛 Pay {{ money($order->total) }} from Wallet →
+                                            </button>
+                                        </form>
+                                    @elseif ($authUser && $waNumber !== '')
+                                        <a href="https://wa.me/{{ $waNumber }}?text={{ urlencode('Assalam o Alaikum! I want to top-up my SellMeTools Wallet Balance for account: '.$authUser->email) }}"
+                                           target="_blank"
+                                           rel="noopener"
+                                           class="btn btn-outline bg-white w-full sm:w-auto px-3.5 py-1.5 text-xs font-semibold text-ink">
+                                            ➕ Top-Up Wallet
+                                        </a>
+                                    @elseif (! $authUser)
+                                        <a href="{{ route('login') }}" class="btn btn-outline bg-white w-full sm:w-auto px-3.5 py-1.5 text-xs font-semibold text-ink">
+                                            🔑 Log In to Use Wallet
+                                        </a>
+                                    @endif
+                                </div>
+                            </div>
+
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <h2 class="text-base sm:text-lg font-bold">Step 1: Send Payment via {{ $method->name }}</h2>
                                 <span class="badge badge-brand text-[11px]">
@@ -115,8 +161,8 @@
                             @endif
 
                             @if ($isBinance)
-                                <div class="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-ink">
-                                    <p class="font-bold text-amber-900">⚡ Binance 1-Second Auto-Delivery:</p>
+                                <div class="mt-4 rounded-xl border border-line-strong bg-grey-soft p-3.5 text-xs text-ink">
+                                    <p class="font-bold text-ink">⚡ Binance 1-Second Auto-Delivery:</p>
                                     <p class="mt-1 text-body">Send <strong>{{ $amountFormatted }}</strong> via Binance Pay to the ID below, then paste your <strong>Binance Order ID / TxID</strong> in Step 2.</p>
                                 </div>
                             @endif
@@ -253,7 +299,7 @@
                                     <span class="text-brand tabular-nums" x-text="progress + '%'">85%</span>
                                 </div>
                                 <div class="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-line">
-                                    <div class="h-full rounded-full bg-gradient-to-r from-brand to-[#ff4d6d] transition-all duration-500"
+                                    <div class="h-full rounded-full bg-brand transition-all duration-500"
                                          :style="'width: ' + progress + '%'"></div>
                                 </div>
                             </div>
@@ -276,18 +322,18 @@
 
                         {{-- State B: 15-Minute Timer Elapsed -> Order On Hold + WhatsApp Contact --}}
                         <div x-show="reviewTimeout" x-cloak>
-                            <div class="bg-[#b45309] p-5 sm:p-6 text-white">
+                            <div class="surface-banner p-5 sm:p-6 text-white">
                                 <div class="flex flex-wrap items-center justify-between gap-2">
-                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-bold tracking-wider text-white uppercase">
-                                        ⏸️ Order On Hold (85%)
+                                    <span class="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold tracking-wider text-white uppercase">
+                                        ⏳ Priority Verification (85%)
                                     </span>
-                                    <span class="font-mono text-xs text-white/90">Order #{{ $order->number }}</span>
+                                    <span class="font-mono text-xs text-white/80">Order #{{ $order->number }}</span>
                                 </div>
                                 <h2 class="display mt-3 text-3xl sm:text-4xl text-white">
-                                    Order On Hold: Admin is Checking Your Order
+                                    Order On Hold: Admin is Verifying Your Payment
                                 </h2>
-                                <p class="mt-1 text-xs sm:text-sm text-white/90">
-                                    Your payment TID (<strong class="font-mono">{{ $order->latestPayment?->transaction_id }}</strong>) is safely recorded. Because the 15-minute window has passed, your order is now on hold for priority admin verification.
+                                <p class="mt-1 text-xs sm:text-sm text-white/80">
+                                    Your payment TID (<strong class="font-mono text-white">{{ $order->latestPayment?->transaction_id }}</strong>) is safely recorded. Your order is queued for priority admin verification.
                                 </p>
                             </div>
 
@@ -300,7 +346,7 @@
                                        target="_blank"
                                        rel="noopener"
                                        class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full py-3.5 text-sm sm:text-base font-bold shadow-lg">
-                                        📲 Contact Admin on WhatsApp (Order On Hold) →
+                                        📲 Contact Admin on WhatsApp (Fast Approval) →
                                     </a>
                                 @endif
                             </div>
@@ -314,61 +360,61 @@
                         $isWhatsAppHandover = $primaryDeliveryType === 'whatsapp_handover';
                         $isManualAdmin = $primaryDeliveryType === 'manual_admin';
 
-                        $claimWaTemplate = "Assalam o Alaikum! ✅ My payment for Order *{$order->number}* ({$itemsSummary}) on ".setting('store_name')." is CONFIRMED & VERIFIED!\n\n"
+                        $claimWaTemplate = "Assalam o Alaikum! ✅ My Order *{$order->number}* ({$itemsSummary}) on ".setting('store_name')." is CONFIRMED & VERIFIED!\n\n"
                             ."🧾 *Order ID:* {$order->number}\n"
                             ."📦 *Product:* {$itemsSummary}\n"
-                            ."💰 *Paid:* {$amountFormatted}\n"
+                            ."💰 *Amount:* {$amountFormatted}\n"
                             ."🔑 *TID:* ".($order->latestPayment?->transaction_id ?? 'Verified')."\n"
                             ."📧 *Email:* {$order->email}\n\n"
-                            ."Please deliver my order here on WhatsApp.\n"
+                            ."Please deliver my order.\n"
                             ."🔗 *Admin 1-Tap Control:* {$quickApproveUrl}";
 
                         $claimWaHref = $waNumber !== ''
                             ? "https://wa.me/{$waNumber}?text=".urlencode($claimWaTemplate)
                             : 'https://api.whatsapp.com/send?text='.urlencode($claimWaTemplate);
                     @endphp
-                    <section class="card overflow-hidden border-2 {{ $isWhatsAppHandover ? 'border-[#16794B]/40' : 'border-amber-500/40' }}">
-                        <div class="{{ $isWhatsAppHandover ? 'bg-gradient-to-r from-[#0F291E] via-[#143D2B] to-[#16794B]' : 'bg-[#b45309]' }} p-5 sm:p-6 text-white">
+                    <section class="card overflow-hidden border-2 {{ $isWhatsAppHandover ? 'border-[#16794B]/40' : 'border-line-strong' }}">
+                        <div class="{{ $isWhatsAppHandover ? 'bg-gradient-to-r from-[#0F291E] via-[#143D2B] to-[#16794B]' : 'surface-banner' }} p-5 sm:p-6 text-white">
                             <div class="flex flex-wrap items-center justify-between gap-2">
-                                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-bold tracking-wider text-white uppercase">
+                                <span class="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold tracking-wider text-white uppercase">
                                     @if ($isWhatsAppHandover)
-                                        📲 Payment Verified: Receive on WhatsApp
+                                        📲 Order Confirmed: Receive on WhatsApp
                                     @elseif ($isManualAdmin)
-                                        👨‍💻 Payment Verified: Admin Preparing Credentials
+                                        👨‍💻 Order Confirmed: Preparing Delivery
                                     @else
-                                        ⏸️ Order On Hold: Payment Verified
+                                        ⏳ Order Confirmed: Processing Delivery
                                     @endif
                                 </span>
-                                <span class="font-mono text-xs text-white/90">Order #{{ $order->number }}</span>
+                                <span class="font-mono text-xs text-white/80">Order #{{ $order->number }}</span>
                             </div>
                             <h2 class="display mt-3 text-3xl sm:text-4xl text-white">
                                 @if ($isWhatsAppHandover)
-                                    Payment Confirmed! Click Below to Get Your Product on WhatsApp
+                                    Order Confirmed! Click Below to Get Your Product on WhatsApp
                                 @elseif ($isManualAdmin)
-                                    Payment Confirmed: Admin is Preparing Your Credentials
+                                    Order Confirmed: Admin is Preparing Your Access
                                 @else
-                                    Order On Hold: Admin is Checking Your Order
+                                    Order Confirmed: Admin is Processing Your Order
                                 @endif
                             </h2>
-                            <p class="mt-1 text-xs sm:text-sm text-white/90">
+                            <p class="mt-1 text-xs sm:text-sm text-white/80">
                                 @if ($isWhatsAppHandover)
-                                    Your payment (TID: <strong class="font-mono">{{ $order->latestPayment?->transaction_id ?? 'Verified' }}</strong>) is 100% confirmed! Tap the WhatsApp button below to receive your account/activation directly on WhatsApp.
+                                    Your order (Ref: <strong class="font-mono text-white">{{ $order->latestPayment?->transaction_id ?? $order->number }}</strong>) is 100% confirmed! Tap the WhatsApp button below to receive your account/activation directly on WhatsApp.
                                 @else
-                                    Your payment (TID: <strong class="font-mono">{{ $order->latestPayment?->transaction_id ?? 'Verified' }}</strong>) has been confirmed! Your order is currently being processed while our admin dispatches your subscription credentials.
+                                    Your order (Ref: <strong class="font-mono text-white">{{ $order->latestPayment?->transaction_id ?? $order->number }}</strong>) is confirmed! Our team is dispatching your access details — this page will automatically unlock as soon as they are sent.
                                 @endif
                             </p>
                         </div>
 
                         <div class="p-5 sm:p-6 space-y-4">
-                            <div class="rounded-xl border {{ $isWhatsAppHandover ? 'border-[#16794B]/30 bg-[#16794B]/10' : 'border-amber-500/30 bg-amber-500/10' }} p-4 text-xs sm:text-sm text-ink">
-                                <p class="font-bold {{ $isWhatsAppHandover ? 'text-[#0F291E]' : 'text-amber-950' }}">
-                                    {{ $isWhatsAppHandover ? '✓ Instant WhatsApp Delivery Ready' : '✓ Payment Confirmed: Admin Notified' }}
+                            <div class="rounded-xl border {{ $isWhatsAppHandover ? 'border-[#16794B]/30 bg-[#16794B]/10' : 'border-line bg-grey-soft' }} p-4 text-xs sm:text-sm text-ink">
+                                <p class="font-bold {{ $isWhatsAppHandover ? 'text-[#0F291E]' : 'text-ink' }}">
+                                    {{ $isWhatsAppHandover ? '✓ Instant WhatsApp Delivery Ready' : '✓ Order Confirmed · Live Auto-Refresh Active' }}
                                 </p>
                                 <p class="mt-1 text-body">
                                     @if ($isWhatsAppHandover)
                                         This product is delivered directly via WhatsApp. Click the green button below to open WhatsApp with your verified Order ID and receive your product immediately!
                                     @else
-                                        Our admin has received an urgent alert on WhatsApp &amp; Telegram to complete your delivery. This page will update automatically as soon as your credentials are dispatched, or you can message us on WhatsApp below:
+                                        Our admin has received an instant alert on WhatsApp &amp; Telegram to complete your delivery. This page updates automatically as soon as your credentials are dispatched, or you can message us on WhatsApp below:
                                     @endif
                                 </p>
                             </div>
@@ -448,7 +494,7 @@
                                             @endphp
                                             <div class="surface-dark-solid rounded-xl border border-line p-4 text-white shadow-md">
                                                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
-                                                    <span class="text-[11px] font-bold tracking-wider text-[#ff8fa3] uppercase">
+                                                    <span class="text-[11px] font-bold tracking-wider text-white/80 uppercase">
                                                         🔑 Delivered Account / Key {{ $item->deliveries->count() > 1 ? '#'.($idx + 1) : '' }}
                                                     </span>
                                                     <div x-data="copy(@js($rawContent))">

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\OrderStatus;
 use App\Exceptions\StoreException;
 use App\Models\Order;
+use App\Models\PaymentMethod;
 use App\Services\OrderService;
 use App\Services\PaymentService;
 use Illuminate\Http\JsonResponse;
@@ -70,6 +71,35 @@ class OrderController extends Controller
         }
 
         return redirect()->to($order->customerUrl())->with('success', 'Payment submitted! We are verifying it, your order will be delivered automatically.');
+    }
+
+    public function payWithWallet(Request $request, Order $order, PaymentService $payments): RedirectResponse
+    {
+        $this->authorizeAccess($request, $order);
+
+        $user = $request->user();
+        if (! $user) {
+            return redirect()->route('login');
+        }
+
+        try {
+            $walletMethod = PaymentMethod::query()->firstOrCreate(
+                ['code' => 'wallet'],
+                [
+                    'name' => 'Account Wallet Balance (Instant Auto Delivery)',
+                    'type' => 'auto',
+                    'currency' => 'PKR',
+                    'is_active' => true,
+                    'sort' => 0,
+                ]
+            );
+            $order->update(['payment_method_id' => $walletMethod->id, 'user_id' => $order->user_id ?: $user->id]);
+            $payments->payWithWallet($order, $user);
+        } catch (StoreException $e) {
+            return redirect()->to($order->customerUrl())->with('error', $e->getMessage());
+        }
+
+        return redirect()->to($order->customerUrl())->with('success', 'Paid instantly from your Account Wallet! Your order is ready.');
     }
 
     public function cancel(Request $request, Order $order, OrderService $orders): RedirectResponse
