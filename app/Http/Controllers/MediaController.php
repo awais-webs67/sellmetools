@@ -16,7 +16,14 @@ class MediaController extends Controller
         $path = ltrim(str_replace(['..', '\\'], ['', '/'], $path), '/');
         $disk = Storage::disk('public');
 
-        abort_unless($disk->exists($path), 404);
+        if (! $disk->exists($path)) {
+            $webpFallback = preg_replace('/\.[^.\/]+$/', '.webp', $path);
+            if ($webpFallback && $disk->exists($webpFallback)) {
+                $path = $webpFallback;
+            } else {
+                abort(404);
+            }
+        }
 
         return $disk->response($path, null, [
             'Cache-Control' => 'public, max-age=31536000, immutable',

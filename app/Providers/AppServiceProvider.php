@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Services\ImageOptimizer;
 use App\Services\Suppliers\SupplierManager;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Database\Eloquent\Model;
@@ -55,7 +56,7 @@ class AppServiceProvider extends ServiceProvider
             $files = glob(database_path('migrations/*.php')) ?: [];
             $gitHeadFile = base_path('.git/refs/heads/main');
             $gitRev = is_file($gitHeadFile) ? trim((string) @file_get_contents($gitHeadFile)) : '';
-            $hash = md5('v2|'.implode('|', array_map('basename', $files)).'|'.$gitRev);
+            $hash = md5('v3|'.implode('|', array_map('basename', $files)).'|'.$gitRev);
             $stampFile = storage_path('framework/migration_hash.txt');
 
             if (is_file($stampFile) && trim((string) file_get_contents($stampFile)) === $hash) {
@@ -69,6 +70,12 @@ class AppServiceProvider extends ServiceProvider
             } catch (Throwable $e) {
                 // If database was imported via .sql and an older migration table already exists,
                 // ensureRequiredSchemaColumns() above guarantees all new columns exist.
+                report($e);
+            }
+
+            try {
+                app(ImageOptimizer::class)->optimizeAllExisting();
+            } catch (Throwable $e) {
                 report($e);
             }
 

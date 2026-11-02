@@ -4,6 +4,7 @@ namespace App\Filament\Resources\MediaItems;
 
 use App\Filament\Resources\MediaItems\Pages\ListMediaItems;
 use App\Models\MediaItem;
+use App\Services\ImageOptimizer;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -17,6 +18,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Storage;
 use UnitEnum;
 
 class MediaItemResource extends Resource
@@ -78,6 +80,12 @@ class MediaItemResource extends Resource
                     ->copyable()
                     ->color('gray')
                     ->toggleable(),
+                TextColumn::make('size')
+                    ->label('Weight (KB)')
+                    ->badge()
+                    ->color('success')
+                    ->state(fn (MediaItem $record): string => ImageOptimizer::formatKb($record->size ?: (Storage::disk('public')->exists((string) $record->path) ? Storage::disk('public')->size((string) $record->path) : null)))
+                    ->sortable(),
                 TextColumn::make('created_at')
                     ->label('Uploaded')
                     ->since()

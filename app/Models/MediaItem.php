@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ImageOptimizer;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -12,6 +13,16 @@ class MediaItem extends Model
 
     protected static function booted(): void
     {
+        static::saving(function (MediaItem $item) {
+            if ($item->path && ! Str::startsWith($item->path, ['http://', 'https://'])) {
+                $res = app(ImageOptimizer::class)->optimizePublicFile($item->path);
+                $item->path = $res['path'];
+                if ($res['new_size'] > 0) {
+                    $item->size = $res['new_size'];
+                }
+            }
+        });
+
         static::deleting(function (MediaItem $item) {
             if ($item->path) {
                 Storage::disk('public')->delete($item->path);

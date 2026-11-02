@@ -6,6 +6,7 @@ use App\Filament\Resources\MediaItems\MediaItemResource;
 use App\Models\MediaItem;
 use App\Models\PaymentMethod;
 use App\Models\Product;
+use App\Services\ImageOptimizer;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Notifications\Notification;
@@ -30,6 +31,18 @@ class ListMediaItems extends ListRecords
                     }
 
                     return $data;
+                }),
+            Action::make('optimizeAll')
+                ->label('⚡ Compress All Images (KB WebP)')
+                ->icon(Heroicon::OutlinedSparkles)
+                ->color('success')
+                ->action(function (): void {
+                    $res = app(ImageOptimizer::class)->optimizeAllExisting();
+
+                    Notification::make()
+                        ->title("Optimized {$res['count']} image(s) · Saved {$res['saved_kb']} KB!")
+                        ->success()
+                        ->send();
                 }),
             Action::make('syncExisting')
                 ->label('Import existing product images')

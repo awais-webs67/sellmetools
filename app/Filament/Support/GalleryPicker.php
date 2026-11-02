@@ -3,6 +3,7 @@
 namespace App\Filament\Support;
 
 use App\Models\MediaItem;
+use App\Services\ImageOptimizer;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -89,10 +90,10 @@ class GalleryPicker
                                     ->required(),
                             ])
                             ->action(function (array $data, Set $set) use ($field): void {
-                                $path = (string) $data['file'];
-                                $size = Storage::disk('public')->exists($path)
-                                    ? Storage::disk('public')->size($path)
-                                    : null;
+                                $rawPath = (string) $data['file'];
+                                $optimized = app(ImageOptimizer::class)->optimizePublicFile($rawPath);
+                                $path = $optimized['path'];
+                                $size = $optimized['new_size'] ?: (Storage::disk('public')->exists($path) ? Storage::disk('public')->size($path) : null);
 
                                 $item = MediaItem::updateOrCreate(
                                     ['path' => $path],
@@ -104,9 +105,13 @@ class GalleryPicker
 
                                 $set($field, $item->path);
 
+                                $sizeLabel = $optimized['old_size'] > 0 && $optimized['new_size'] > 0 && $optimized['old_size'] !== $optimized['new_size']
+                                    ? ImageOptimizer::formatKb($optimized['old_size']).' → '.ImageOptimizer::formatKb($optimized['new_size']).' (WebP)'
+                                    : ImageOptimizer::formatKb($size);
+
                                 Notification::make()
-                                    ->title('Uploaded to gallery & selected')
-                                    ->body($item->name)
+                                    ->title('Uploaded, auto-compressed & selected!')
+                                    ->body($item->name.' · '.$sizeLabel)
                                     ->success()
                                     ->send();
                             })
