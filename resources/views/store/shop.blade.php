@@ -37,8 +37,7 @@
     :robots="$robotsDirective"
 >
     {{-- ================= SHOP HEADER ================= --}}
-    <section class="relative overflow-hidden bg-[#0B0D10] text-white py-10 sm:py-14">
-        <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,.08),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(148,163,184,.10),transparent_50%)]" aria-hidden="true"></div>
+    <section class="relative overflow-hidden bg-black text-white py-10 sm:py-14">
         <div class="container-x relative">
             <nav class="text-xs text-white/60 mb-3" aria-label="Breadcrumb">
                 <ol class="flex flex-wrap items-center gap-2">

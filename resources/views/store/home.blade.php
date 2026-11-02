@@ -88,25 +88,22 @@
 >
     @if ($isLanding)
         {{-- ================= HERO ================= --}}
-        <section class="relative overflow-hidden bg-[#0B0D10] text-white">
-            {{-- Layered ambient lighting & radial masked architectural grid --}}
-            <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,.10),transparent_60%),radial-gradient(ellipse_at_bottom_right,rgba(148,163,184,.12),transparent_55%)]" aria-hidden="true"></div>
-            <div class="pointer-events-none absolute -top-24 left-1/2 h-72 w-[36rem] -translate-x-1/2 rounded-full bg-white/[0.06] blur-3xl" aria-hidden="true"></div>
-            <div class="pointer-events-none absolute inset-0 opacity-[.10] [background-image:linear-gradient(rgba(255,255,255,.55)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.55)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_78%)]" aria-hidden="true"></div>
-            <div class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" aria-hidden="true"></div>
+        <section class="relative overflow-hidden bg-black text-white">
+            {{-- Pure black background with subtle architectural grid --}}
+            <div class="pointer-events-none absolute inset-0 opacity-[.08] [background-image:linear-gradient(rgba(255,255,255,.5)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.5)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_78%)]" aria-hidden="true"></div>
 
             <div class="container-x relative py-11 sm:py-16 lg:py-20 text-center">
                 <div class="mx-auto max-w-4xl">
-                    <div class="inline-flex items-center gap-2.5 rounded-full border border-white/15 bg-white/[0.07] px-4 py-1.5 text-[11px] font-semibold tracking-wider text-white/95 uppercase shadow-inner backdrop-blur-xs">
+                    <div class="inline-flex items-center gap-2.5 rounded-full border border-white/20 bg-white/[0.06] px-4 py-1.5 text-[11px] font-semibold tracking-wider text-white uppercase">
                         <span class="h-2 w-2 rounded-full bg-[#22c55e] live-dot"></span>
                         <span>Verified Digital Store</span>
                         <span class="hidden sm:inline text-white/35">·</span>
-                        <span class="hidden sm:inline text-white/80">Instant Automated Delivery</span>
+                        <span class="hidden sm:inline text-white/85">Instant Automated Delivery</span>
                     </div>
 
-                    <h1 class="display mt-5 text-[clamp(36px,7.2vw,84px)] leading-[0.94] tracking-tight text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.45)]">
+                    <h1 class="display mt-5 text-[clamp(36px,7.2vw,84px)] leading-[0.94] tracking-tight text-white">
                         Premium AI Tools &amp;<br class="hidden sm:block">
-                        <span class="bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent">Subscriptions</span> in Pakistan
+                        <span>Subscriptions</span> in Pakistan
                     </h1>
 
                     <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base leading-relaxed text-white/75">
@@ -304,7 +301,7 @@
                 </div>
 
                 <aside class="lg:pt-14">
-                    <div class="overflow-hidden rounded-2xl bg-[#14171A] p-6 text-white lg:sticky lg:top-24">
+                    <div class="overflow-hidden rounded-2xl bg-black p-6 text-white lg:sticky lg:top-24">
                         <p class="display text-3xl text-white">Need help choosing?</p>
                         <p class="mt-2 text-sm text-white/70">Message us with the tool you need and we'll tell you the right plan, price and delivery time.</p>
                         <div class="mt-5 space-y-2">
@@ -321,7 +318,7 @@
         </section>
 
         {{-- ================= ABOUT & TRUST SECTION ================= --}}
-        <section class="border-t border-line bg-[#0B0D10] text-white py-14 sm:py-20" aria-labelledby="about-heading">
+        <section class="border-t border-line bg-black text-white py-14 sm:py-20" aria-labelledby="about-heading">
             <div class="container-x">
                 <div class="grid gap-10 lg:grid-cols-[1.15fr_1fr] lg:items-center">
                     <div>
@@ -402,7 +399,7 @@
 
                     {{-- Structured Live Price Directory Card (replaces old unstyled floating list) --}}
                     <div class="card overflow-hidden border border-line bg-white shadow-sm" x-data>
-                        <div class="flex items-center justify-between gap-3 border-b border-line bg-[#14171A] px-5 py-4 text-white">
+                        <div class="flex items-center justify-between gap-3 border-b border-line bg-black px-5 py-4 text-white">
                             <div>
                                 <span class="text-[10px] font-bold tracking-widest text-white/65 uppercase" x-text="$store.currency.isUsdt ? 'Live USDT Directory' : 'Live PKR Directory'">Live PKR Directory</span>
                                 <h3 class="display text-2xl text-white">Popular Price Checks in Pakistan</h3>
