@@ -20,7 +20,8 @@
         : asset('images/og-image.png');
     $ogImage = $image ?: $defaultOgImage;
     $announcement = setting('announcement');
-    $googleVerify = setting('google_site_verification');
+    $rawGoogleVerify = trim((string) setting('google_site_verification'));
+    $googleVerify = preg_match('/content=["\']([^"\']+)["\']/i', $rawGoogleVerify, $m) ? trim($m[1]) : $rawGoogleVerify;
     $gaId = setting('google_analytics_id');
     $storeTheme = (string) setting('store_theme', 'black');
     $themeColorHex = $storeTheme === 'crimson' ? '#9B1B30' : '#000000';
