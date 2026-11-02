@@ -61,11 +61,11 @@ class EmailNotifier
             return trim((string) Setting::get($key, $default));
         };
 
-        $host = $get('mail_host');
-        $username = $get('mail_username');
-        $password = array_key_exists('mail_password', $overrides) && (string) $overrides['mail_password'] !== ''
-            ? (string) $overrides['mail_password']
-            : self::decryptPassword((string) Setting::get('mail_password', ''));
+        $host = trim($get('mail_host'));
+        $username = trim($get('mail_username'));
+        $password = array_key_exists('mail_password', $overrides) && trim((string) $overrides['mail_password']) !== ''
+            ? trim((string) $overrides['mail_password'])
+            : trim(self::decryptPassword((string) Setting::get('mail_password', '')));
 
         if ($host === '' || $username === '') {
             return false;
@@ -238,9 +238,42 @@ class EmailNotifier
                 'message' => "Test email sent to {$recipientEmail}. Check your inbox (and the Spam folder).",
             ];
         } catch (\Throwable $e) {
+            // If authentication (535) failed and password had hyphens or spaces (e.g. App Password "g55p-zgcn-ne10-ctpt"), retry once with hyphens/spaces stripped
+            $currentPass = (string) (config('mail.mailers.'.self::MAILER.'.password') ?? '');
+            $strippedPass = str_replace(['-', ' '], '', $currentPass);
+            if ($strippedPass !== '' && $strippedPass !== $currentPass && str_contains(strtolower($e->getMessage()), '535')) {
+                try {
+                    $retryOverrides = array_merge($overrides, ['mail_password' => $strippedPass]);
+                    $this->configure($retryOverrides);
+                    $storeName = (string) Setting::get('store_name', 'SellMeTools');
+                    $cfg = config('mail.mailers.'.self::MAILER);
+
+                    Mail::mailer(self::MAILER)->raw(
+                        "Assalam o Alaikum!\n\nThis is a test email from your {$storeName} store. Your SMTP configuration is working.\n\n".
+                        "Host: {$cfg['host']}:{$cfg['port']} ({$cfg['scheme']})\nSent at: ".now()->toDayDateTimeString(),
+                        function ($message) use ($recipientEmail, $storeName) {
+                            $message->to($recipientEmail)->subject("SMTP test successful - {$storeName}");
+                            $this->applyReplyTo($message);
+                        }
+                    );
+
+                    Setting::set('mail_password', self::encryptPassword($strippedPass));
+
+                    return [
+                        'success' => true,
+                        'message' => "Test email sent to {$recipientEmail}! (Auto-formatted App Password without dashes).",
+                    ];
+                } catch (\Throwable) {
+                    // Fall through to original error report
+                }
+            }
+
+            $cfg = config('mail.mailers.'.self::MAILER, []);
+            $usedInfo = '[Used Host: '.($cfg['host'] ?? '?').':'.($cfg['port'] ?? '?').' | Username: '.($cfg['username'] ?? '?').'] ';
+
             return [
                 'success' => false,
-                'message' => $this->explainError($e->getMessage()),
+                'message' => $usedInfo.$this->explainError($e->getMessage()),
             ];
         }
     }
