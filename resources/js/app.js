@@ -10,7 +10,15 @@ registerSearch(Alpine);
 Alpine.store('currency', {
     current: (() => {
         try {
-            return localStorage.getItem('smt_currency') === 'USDT' ? 'USDT' : 'PKR';
+            const saved = localStorage.getItem('smt_currency');
+            if (saved === 'USDT' || saved === 'PKR') {
+                return saved;
+            }
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+            if (tz && tz !== 'Asia/Karachi') {
+                return 'USDT';
+            }
+            return 'PKR';
         } catch (_) {
             return 'PKR';
         }

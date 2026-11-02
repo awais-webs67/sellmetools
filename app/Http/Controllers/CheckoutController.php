@@ -57,9 +57,9 @@ class CheckoutController extends Controller
         $normalizedPhone = null;
         if (filled($data['phone'] ?? null)) {
             $normalizedPhone = format_whatsapp((string) $data['phone']);
-            if (! preg_match('/^923\d{9}$/', $normalizedPhone) && ! preg_match('/^\d{10,15}$/', $normalizedPhone)) {
+            if (! preg_match('/^\d{8,15}$/', $normalizedPhone)) {
                 throw ValidationException::withMessages([
-                    'phone' => 'Enter a valid WhatsApp number in exact format (e.g. 923001234567 or 03001234567).',
+                    'phone' => 'Enter a valid WhatsApp number with country code (e.g. +1..., +44..., +971..., or 03001234567).',
                 ]);
             }
         } elseif ($user?->phone) {

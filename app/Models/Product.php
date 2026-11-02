@@ -365,7 +365,7 @@ class Product extends Model
             return (string) $this->meta_title;
         }
 
-        return "{$this->name} Price in Pakistan | Buy Online";
+        return "{$this->name} — Buy Online | Instant Delivery";
     }
 
     /**
@@ -463,25 +463,25 @@ class Product extends Model
 
         if ($this->isFree()) {
             if ($base !== '') {
-                return Str::limit("Get {$this->name} for FREE in Pakistan. {$base}", 160);
+                return Str::limit("Get {$this->name} for FREE with instant online access. {$base}", 160);
             }
 
-            return Str::limit("Get {$this->name} for FREE in Pakistan with instant automated delivery on your order page — no payment required.", 160);
+            return Str::limit("Get {$this->name} for FREE with instant automated delivery on your order page — no payment required.", 160);
         }
 
         if ($base !== '') {
             if ($hasValidPrice) {
-                return Str::limit("{$this->name} price in Pakistan: ".money($this->price).". {$base}", 160);
+                return Str::limit("Buy {$this->name} online (".money($this->price)."). {$base}", 160);
             }
 
-            return Str::limit("Buy {$this->name} in Pakistan. {$base} Pay via Easypaisa, JazzCash, NayaPay or Binance.", 160);
+            return Str::limit("Buy {$this->name} online with instant delivery. {$base} Pay via Binance USDT, Easypaisa or JazzCash.", 160);
         }
 
         if ($hasValidPrice) {
-            return Str::limit("Buy {$this->name} in Pakistan for ".money($this->price).'. Genuine access delivered to your order page. Pay with Easypaisa, JazzCash, NayaPay, SadaPay or Binance.', 160);
+            return Str::limit("Buy {$this->name} online for ".money($this->price).'. Instant worldwide delivery via Binance USDT or local PKR wallets (Easypaisa, JazzCash).', 160);
         }
 
-        return Str::limit("Buy {$this->name} in Pakistan with instant automated delivery on your order page. Pay locally via Easypaisa, JazzCash, NayaPay, SadaPay or Binance USDT.", 160);
+        return Str::limit("Buy {$this->name} online with instant automated delivery worldwide. Pay via Binance Pay / USDT or local PKR wallets.", 160);
     }
 
     public function seoKeywords(): string
@@ -491,11 +491,12 @@ class Product extends Model
         }
 
         return implode(', ', array_filter([
+            "buy {$this->name} online",
+            "{$this->name} subscription",
+            "{$this->name} cheap price",
+            "{$this->name} USDT Binance",
             "{$this->name} price in Pakistan",
-            "buy {$this->name} in Pakistan",
-            "{$this->name} subscription Pakistan",
-            "{$this->name} Easypaisa JazzCash",
-            $this->category ? "{$this->category->name} price in Pakistan" : null,
+            $this->category ? $this->category->name : null,
             (string) Setting::get('store_name', 'SellMeTools'),
         ]));
     }

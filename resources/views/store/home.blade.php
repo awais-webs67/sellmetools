@@ -36,7 +36,7 @@
     $itemListSchema = [
         '@context' => 'https://schema.org',
         '@type' => 'ItemList',
-        'name' => $activeCategory ? $activeCategory->name : 'Digital Tools & Subscriptions in Pakistan',
+        'name' => $activeCategory ? $activeCategory->name : 'Premium AI Tools & Digital Subscriptions',
         'itemListElement' => $products->getCollection()->values()->map(fn ($p, $idx) => [
             '@type' => 'ListItem',
             'position' => $idx + 1,
@@ -48,11 +48,11 @@
     $faqs = [
         [
             'q' => 'How fast will I receive my digital tool or subscription order?',
-            'a' => 'In-stock subscriptions and accounts are delivered automatically on your private order page as soon as your payment is verified. Manual wallet transfers are normally checked within 15 minutes during working hours, and you can track live status on your order page.',
+            'a' => 'In-stock subscriptions and accounts are delivered automatically on your private order page as soon as your payment is verified. You can order from anywhere in the world 24/7.',
         ],
         [
-            'q' => 'Which Pakistani payment methods do you accept?',
-            'a' => 'You can pay in PKR using Easypaisa, JazzCash, NayaPay, SadaPay or local bank transfer, as well as USDT via Binance Pay. You do not need an international credit or debit card, and every Transaction ID is protected against duplicate use.',
+            'q' => 'Which global and local payment methods do you accept?',
+            'a' => 'Worldwide customers can pay in USDT via Binance Pay or TRC20. Customers in Pakistan can also pay in PKR using Easypaisa, JazzCash, NayaPay, SadaPay or Bank Transfer.',
         ],
         [
             'q' => 'Where do I get my login credentials or activation link after buying?',
@@ -123,17 +123,17 @@
                 <div class="mx-auto max-w-4xl">
                     <div class="inline-flex items-center gap-2.5 rounded-full border border-white/20 bg-white/[0.06] px-4 py-1.5 text-[11px] font-semibold tracking-wider text-white uppercase">
                         <span class="h-2 w-2 rounded-full bg-[#22c55e] live-dot"></span>
-                        <span>Verified Digital Store</span>
+                        <span>Global Digital Marketplace</span>
                         <span class="hidden sm:inline text-white/35">·</span>
-                        <span class="hidden sm:inline text-dark-accent">Instant Automated Delivery</span>
+                        <span class="hidden sm:inline text-dark-accent">Instant Worldwide Delivery</span>
                     </div>
 
                     <h1 class="display mt-5 text-[clamp(36px,7.2vw,84px)] leading-[0.94] tracking-tight text-white">
-                        Premium AI Tools &amp; <br class="hidden sm:block"><span class="hero-highlight">Subscriptions</span> in Pakistan
+                        Premium AI Tools &amp; <br class="hidden sm:block"><span class="hero-highlight">Digital Subscriptions</span>
                     </h1>
 
                     <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base leading-relaxed text-white/75">
-                        Buy genuine AI tools, creative software, cloud accounts and digital subscriptions at local PKR prices. Pay easily with Easypaisa, JazzCash, NayaPay, SadaPay or Binance for instant delivery on your order page.
+                        Buy genuine AI tools, creative software, cloud accounts and digital subscriptions from anywhere in the world. Pay globally with <strong>USDT / Binance Pay</strong> or locally in <strong>PKR (Easypaisa, JazzCash &amp; Bank)</strong> for instant automated delivery.
                     </p>
 
                     <div class="mt-7 flex flex-wrap items-center justify-center gap-3">

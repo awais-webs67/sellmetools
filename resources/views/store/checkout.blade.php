@@ -52,7 +52,7 @@
                             @error('name')<p class="field-error text-xs">{{ $message }}</p>@enderror
                         </div>
 
-                        <div x-data="{ rawPhone: @js(old('phone', $user?->phone ?? '')), normalize() { let d = (this.rawPhone || '').replace(/\D+/g, ''); if (d.startsWith('00')) d = d.slice(2); if (d.length === 11 && d.startsWith('03')) d = '92' + d.slice(1); else if (d.length === 10 && d.startsWith('3')) d = '92' + d; else if (d.length === 13 && d.startsWith('9203')) d = '92' + d.slice(3); this.rawPhone = d; } }">
+                        <div x-data="{ rawPhone: @js(old('phone', $user?->phone ?? '')), normalize() { let d = (this.rawPhone || '').replace(/\D+/g, ''); if (d.startsWith('00')) d = d.slice(2); if (d.length === 11 && d.startsWith('03')) d = '92' + d.slice(1); else if (d.length === 10 && d.startsWith('3')) d = '92' + d; else if (d.length === 13 && d.startsWith('9203')) d = '92' + d.slice(3); if (d.length >= 8) this.rawPhone = d; } }">
                             <label for="phone" class="label text-xs font-semibold">WhatsApp Number <span class="text-danger">*</span></label>
                             <input id="phone"
                                    name="phone"
@@ -61,10 +61,10 @@
                                    autocomplete="tel"
                                    x-model="rawPhone"
                                    @blur="normalize()"
-                                   pattern="^(923\d{9}|03\d{9}|\d{10,15})$"
-                                   title="Enter valid WhatsApp number e.g. 03001234567"
+                                   pattern="^\+?[\d\s\-]{8,18}$"
+                                   title="Enter your WhatsApp number with country code (e.g. +1..., +44..., +971..., or 03001234567)"
                                    class="input font-mono py-2.5 text-sm"
-                                   placeholder="03001234567">
+                                   placeholder="+1 / +44 / +971 / 03001234567">
                             @error('phone')<p class="field-error text-xs">{{ $message }}</p>@enderror
                         </div>
                     </div>

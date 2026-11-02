@@ -4,10 +4,10 @@
 
     $seoTitle = $activeCategory
         ? $activeCategory->seoTitle()
-        : ($search !== '' ? "Search Results for “{$search}” in Shop" : 'Shop All AI Tools & Digital Subscriptions in Pakistan');
+        : ($search !== '' ? "Search Results for “{$search}” in Shop" : 'Shop All AI Tools & Digital Subscriptions — Instant Delivery');
     $seoDescription = $activeCategory
         ? $activeCategory->seoDescription()
-        : 'Browse our complete catalog of AI tools, design software, streaming accounts and cloud subscriptions in Pakistan. Compare live PKR prices and pay with Easypaisa, JazzCash, NayaPay or Binance.';
+        : 'Browse our complete catalog of AI tools, design software, streaming accounts and cloud subscriptions. Compare live prices and pay worldwide with Binance USDT or locally in PKR (Easypaisa, JazzCash).';
     $canonicalUrl = $activeCategory
         ? route('categories.show', $activeCategory)
         : route('shop');
@@ -18,7 +18,7 @@
     $itemListSchema = [
         '@context' => 'https://schema.org',
         '@type' => 'ItemList',
-        'name' => $activeCategory ? $activeCategory->name : 'All Digital Tools & Subscriptions in Pakistan',
+        'name' => $activeCategory ? $activeCategory->name : 'All Digital Tools & Subscriptions',
         'itemListElement' => $products->getCollection()->values()->map(fn ($p, $idx) => [
             '@type' => 'ListItem',
             'position' => $idx + 1,

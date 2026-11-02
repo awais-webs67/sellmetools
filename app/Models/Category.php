@@ -37,7 +37,7 @@ class Category extends Model
             return (string) $this->meta_title;
         }
 
-        return "{$this->name} Price in Pakistan | Buy Subscriptions Online";
+        return "{$this->name} Subscriptions — Buy Online | Instant Delivery";
     }
 
     public function seoDescription(): string
@@ -46,6 +46,6 @@ class Category extends Model
             return (string) $this->meta_description;
         }
 
-        return "Compare {$this->name} plans and prices in Pakistan. Buy genuine {$this->name} subscriptions with Easypaisa, JazzCash, NayaPay, SadaPay or Binance, delivered to your order page.";
+        return "Compare {$this->name} plans and buy genuine {$this->name} subscriptions worldwide with USDT / Binance Pay or local PKR wallets (Easypaisa, JazzCash), delivered instantly.";
     }
 }

@@ -33,13 +33,10 @@
         'url' => url('/'),
         'logo' => $logoSetting ? $defaultOgImage : asset('images/logo.png'),
         'description' => $metaDescription,
-        'currenciesAccepted' => 'PKR, USDT',
-        'paymentAccepted' => 'Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer, Raast, Binance Pay, USDT',
-        'priceRange' => 'PKR 100 - PKR 25000',
-        'areaServed' => [
-            '@type' => 'Country',
-            'name' => 'Pakistan',
-        ],
+        'currenciesAccepted' => 'USD, USDT, PKR',
+        'paymentAccepted' => 'Binance Pay, USDT (TRC20), Cryptocurrency, Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer',
+        'priceRange' => '$1 - $100 / PKR 100 - PKR 25000',
+        'areaServed' => 'Worldwide',
         'founder' => [
             '@type' => 'Organization',
             'name' => 'AivraSol Softwares',
@@ -72,7 +69,7 @@
     ];
 @endphp
 <!DOCTYPE html>
-<html lang="en-PK" data-theme="{{ $storeTheme }}">
+<html lang="en" data-theme="{{ $storeTheme }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -84,11 +81,10 @@
     @endif
     <meta name="robots" content="{{ $robots }}">
     <meta name="author" content="{{ $storeName }} | AivraSol Softwares">
-    <meta name="geo.region" content="PK">
-    <meta name="geo.placename" content="Pakistan">
     <meta name="theme-color" content="{{ $themeColorHex }}">
 
     <link rel="canonical" href="{{ $canonicalUrl }}">
+    <link rel="alternate" hreflang="en" href="{{ $canonicalUrl }}">
     <link rel="alternate" hreflang="en-pk" href="{{ $canonicalUrl }}">
     <link rel="alternate" hreflang="x-default" href="{{ $canonicalUrl }}">
 
