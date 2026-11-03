@@ -75,25 +75,17 @@ Alpine.store('stock', {
     hiddenAt: null,
     lastActiveAt: Date.now(),
 
-    start(intervalMs = 10000) {
+    start(intervalMs = 45000) {
         const markActive = () => {
-            const wasIdle = Date.now() - this.lastActiveAt > 90000;
             this.lastActiveAt = Date.now();
-            if (wasIdle && !document.hidden) {
-                this.poll(false);
-            }
         };
-        ['pointerdown', 'keydown', 'scroll', 'touchstart'].forEach((ev) =>
+        ['pointerdown', 'keydown'].forEach((ev) =>
             window.addEventListener(ev, markActive, { passive: true })
         );
 
-        setTimeout(() => {
-            if (!document.hidden) this.poll();
-        }, 4000);
-
         clearInterval(this.timer);
         this.timer = setInterval(() => {
-            if (document.hidden || Date.now() - this.lastActiveAt > 90000) return;
+            if (document.hidden || Date.now() - this.lastActiveAt > 120000) return;
             this.poll();
         }, intervalMs);
 
@@ -107,7 +99,7 @@ Alpine.store('stock', {
                 if (awayMs > 900000) {
                     this.stale = true;
                 }
-                if (awayMs > 4000) {
+                if (awayMs > 30000) {
                     this.poll(false);
                 }
             }
@@ -156,15 +148,6 @@ Alpine.store('stock', {
                     ) {
                         this.items[id] = next;
                     }
-                }
-                if (payload.need_sync && window.SMT?.syncUrl) {
-                    fetch(window.SMT.syncUrl, { method: 'POST', keepalive: true })
-                        .then(() => {
-                            setTimeout(() => {
-                                if (!document.hidden) this.poll(false);
-                            }, 2500);
-                        })
-                        .catch(() => {});
                 }
             }
         } catch (_) {
@@ -352,7 +335,7 @@ Alpine.data('orderWatcher', (statusUrl, currentStatus, initialReviewTimeout = fa
                     setTimeout(() => window.location.reload(), 250);
                 }
             } catch (_) {}
-        }, 3000);
+        }, 5000);
     },
 }));
 
@@ -441,4 +424,4 @@ Alpine.data('loadMoreGrid', (initialNextUrl, initialShown, totalCount) => ({
 
 window.Alpine = Alpine;
 Alpine.start();
-Alpine.store('stock').start(10000);
+Alpine.store('stock').start(45000);

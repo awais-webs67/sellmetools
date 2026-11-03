@@ -100,23 +100,25 @@
                             <span class="text-xs font-medium text-muted">PKR &amp; USDT</span>
                         </div>
 
-                        {{-- High-Contrast 1-Click Account Wallet Spotlight Bar --}}
+                        {{-- Clean 1-Click Account Wallet Option Card --}}
                         <div @click="if ({{ $user ? 'true' : 'false' }} && ({{ $walletBalance }} >= (livePrice * qty))) { method = 'wallet'; }"
-                             :class="method === 'wallet' ? 'ring-2 ring-[#22c55e] border-[#22c55e]' : 'border-white/15'"
-                             class="surface-banner mt-4 flex cursor-pointer flex-col gap-3 rounded-xl border p-4 text-white shadow-md transition sm:flex-row sm:items-center sm:justify-between">
+                             :class="method === 'wallet' ? 'border-ink bg-grey-soft/80 shadow-2xs' : 'border-line hover:border-line-strong bg-white'"
+                             class="mt-4 flex cursor-pointer flex-col gap-3 rounded-xl border-2 p-4 transition sm:flex-row sm:items-center sm:justify-between">
                             <div class="flex items-center gap-3">
-                                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 text-base text-white">👛</span>
+                                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-ink text-white">
+                                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+                                </span>
                                 <div>
                                     <div class="flex flex-wrap items-center gap-2">
-                                        <span class="text-sm font-bold text-white">Account Wallet</span>
-                                        <span class="rounded-full bg-[#22c55e]/20 px-2 py-0.5 text-[10px] font-bold text-[#4ade80]">⚡ Direct Instant · No TID Required</span>
+                                        <span class="text-sm font-bold text-ink">Account Wallet</span>
+                                        <span class="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Instant · No TID Required</span>
                                     </div>
-                                    <p class="text-xs text-white/75 mt-0.5">
+                                    <p class="text-xs text-muted mt-0.5">
                                         @if ($user)
-                                            Balance: <strong class="font-mono text-white">{{ money($walletBalance) }}</strong>
-                                            <span x-show="method === 'wallet'" class="ml-1.5 font-semibold text-[#4ade80]">✓ Selected for Direct Checkout</span>
+                                            Balance: <strong class="font-mono text-ink">{{ money($walletBalance) }}</strong>
+                                            <span x-show="method === 'wallet'" class="ml-1.5 font-semibold text-emerald-700">✓ Selected</span>
                                         @else
-                                            Instant delivery without Transaction ID
+                                            Instant checkout using your account balance
                                         @endif
                                     </p>
                                 </div>
@@ -128,8 +130,8 @@
                                             x-show="{{ $walletBalance }} >= (livePrice * qty)"
                                             @click.stop="method = 'wallet'"
                                             :disabled="!inStock || submitting"
-                                            class="btn bg-[#16a34a] text-white hover:bg-[#15803d] w-full sm:w-auto px-4 py-2 text-xs font-bold shadow-sm">
-                                        ⚡ Pay Instantly Now →
+                                            class="btn bg-[#16a34a] text-white hover:bg-[#15803d] w-full sm:w-auto px-4 py-2 text-xs font-bold shadow-2xs">
+                                        Pay Instantly →
                                     </button>
                                     <div x-show="{{ $walletBalance }} < (livePrice * qty)" x-cloak>
                                         @if ($waAdmin !== '')
@@ -137,17 +139,17 @@
                                                target="_blank"
                                                rel="noopener"
                                                @click.stop
-                                               class="btn btn-hero-primary w-full sm:w-auto px-3.5 py-1.5 text-xs font-bold">
+                                               class="btn btn-outline w-full sm:w-auto px-3.5 py-1.5 text-xs font-semibold">
                                                 + Top-Up Wallet
                                             </a>
                                         @else
-                                            <a href="{{ route('account.orders') }}" @click.stop class="btn btn-hero-primary w-full sm:w-auto px-3.5 py-1.5 text-xs font-bold">
+                                            <a href="{{ route('account.orders') }}" @click.stop class="btn btn-outline w-full sm:w-auto px-3.5 py-1.5 text-xs font-semibold">
                                                 Wallet →
                                             </a>
                                         @endif
                                     </div>
                                 @else
-                                    <a href="{{ route('login') }}" @click.stop class="btn btn-hero-primary w-full sm:w-auto px-3.5 py-1.5 text-xs font-bold">
+                                    <a href="{{ route('login') }}" @click.stop class="btn btn-outline w-full sm:w-auto px-3.5 py-1.5 text-xs font-semibold">
                                         Login for Wallet
                                     </a>
                                 @endif

@@ -4,10 +4,13 @@
     $method = $order->paymentMethod;
     $statusUrl = route('orders.status', ['order' => $order->number, 'token' => $token]);
     $rejected = $order->latestPayment?->status === \App\Enums\PaymentStatus::Rejected ? $order->latestPayment : null;
+    $isPaid = in_array($s, [OrderStatus::Processing, OrderStatus::Completed, OrderStatus::NeedsAttention], true)
+        || $order->paid_at !== null;
+
     $steps = [
         ['Placed', true],
-        ['Paid', in_array($s, [OrderStatus::PaymentReview, OrderStatus::Processing, OrderStatus::Completed, OrderStatus::NeedsAttention], true)],
-        ['Verified', in_array($s, [OrderStatus::Processing, OrderStatus::Completed, OrderStatus::NeedsAttention], true)],
+        ['TID Sent', in_array($s, [OrderStatus::PaymentReview, OrderStatus::Processing, OrderStatus::Completed, OrderStatus::NeedsAttention], true)],
+        ['Verified', $isPaid],
         ['Delivered', $s === OrderStatus::Completed],
     ];
 
@@ -19,14 +22,14 @@
     $isBinance = $method && in_array($method->code, ['binance', 'usdt_trc20'], true);
 
     $waTemplate = "Assalam o Alaikum! Here are my order details on ".setting('store_name').":\n\n"
-        ."🧾 *Order ID:* {$order->number}\n"
-        ."📦 *Product:* {$itemsSummary}\n"
-        ."💰 *Amount:* {$amountFormatted}\n"
-        ."💳 *Method:* ".($method?->name ?? 'Manual')."\n"
-        ."🔑 *TID:* ".($order->latestPayment?->transaction_id ?? 'Pending')."\n"
-        .($order->latestPayment?->sender_number || $order->phone ? "📱 *Sender:* ".($order->latestPayment?->sender_number ?: $order->phone)."\n" : '')
-        ."📧 *Email:* {$order->email}\n"
-        ."🔗 *Order Link:* ".$order->customerUrl();
+        ."Order ID: {$order->number}\n"
+        ."Product: {$itemsSummary}\n"
+        ."Amount: {$amountFormatted}\n"
+        ."Method: ".($method?->name ?? 'Manual')."\n"
+        ."TID: ".($order->latestPayment?->transaction_id ?? 'Pending')."\n"
+        .($order->latestPayment?->sender_number || $order->phone ? "Sender: ".($order->latestPayment?->sender_number ?: $order->phone)."\n" : '')
+        ."Email: {$order->email}\n"
+        ."Order Link: ".$order->customerUrl();
 
     $waHref = $waNumber !== ''
         ? "https://wa.me/{$waNumber}?text=".urlencode($waTemplate)
@@ -105,37 +108,39 @@
                         $userWallet = (float) ($authUser?->wallet_balance ?? 0);
                     @endphp
                     @if ($authUser && $userWallet >= (float) $order->total)
-                        <div class="surface-banner flex flex-col gap-3 rounded-2xl border border-[#22c55e]/40 p-4 sm:p-5 text-white shadow-md sm:flex-row sm:items-center sm:justify-between">
+                        <div class="card flex flex-col gap-3 border border-emerald-500/30 bg-emerald-50/50 p-4 sm:p-5 sm:flex-row sm:items-center sm:justify-between">
                             <div class="flex items-center gap-3">
-                                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#22c55e]/20 text-lg">👛</span>
+                                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white">
+                                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+                                </span>
                                 <div>
                                     <div class="flex flex-wrap items-center gap-2">
-                                        <span class="text-sm sm:text-base font-bold text-white">Pay Directly with Wallet</span>
-                                        <span class="rounded-full bg-[#22c55e]/20 px-2 py-0.5 text-[10px] font-bold text-[#4ade80]">⚡ No Transaction ID Needed</span>
+                                        <span class="text-sm sm:text-base font-bold text-ink">Pay Directly with Account Wallet</span>
+                                        <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">No TID Needed</span>
                                     </div>
-                                    <p class="mt-0.5 text-xs text-white/75">
-                                        Your Wallet Balance: <strong class="font-mono text-white">{{ money($userWallet) }}</strong> · Skip manual transfer &amp; unlock credentials immediately.
+                                    <p class="mt-0.5 text-xs text-body">
+                                        Available Balance: <strong class="font-mono text-ink">{{ money($userWallet) }}</strong> · Unlock credentials immediately.
                                     </p>
                                 </div>
                             </div>
                             <form method="post" action="{{ route('orders.pay-wallet', $order) }}" class="shrink-0">
                                 @csrf
                                 <input type="hidden" name="token" value="{{ $token }}">
-                                <button type="submit" class="btn bg-[#16a34a] text-white hover:bg-[#15803d] w-full sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-bold shadow-sm">
-                                    ⚡ 1-Click Instant Wallet Pay →
+                                <button type="submit" class="btn bg-[#16a34a] text-white hover:bg-[#15803d] w-full sm:w-auto px-5 py-2.5 text-xs sm:text-sm font-bold shadow-xs">
+                                    Pay Instantly from Wallet →
                                 </button>
                             </form>
                         </div>
                     @endif
 
                     <section class="card overflow-hidden">
-                        {{-- Top Dark Strip with Timer --}}
-                        <div class="flex items-center justify-between gap-3 bg-ink px-5 py-3.5 text-white" x-data="countdown(@js($order->expires_at?->toIso8601String()))">
+                        {{-- Clean Header Strip with Timer --}}
+                        <div class="flex items-center justify-between gap-3 border-b border-line bg-grey-soft px-5 py-3.5" x-data="countdown(@js($order->expires_at?->toIso8601String()))">
                             <div class="flex items-center gap-2">
-                                <span class="h-2 w-2 rounded-full bg-[#4ade80] animate-pulse"></span>
-                                <span class="text-xs sm:text-sm font-semibold">Pay via {{ $method->name }}</span>
+                                <span class="h-2 w-2 rounded-full bg-emerald-600"></span>
+                                <span class="text-xs sm:text-sm font-bold text-ink">Pay via {{ $method->name }}</span>
                             </div>
-                            <span class="rounded-md bg-white/15 px-2.5 py-0.5 font-mono text-sm font-bold text-white tabular-nums" x-text="text">--:--</span>
+                            <span class="rounded-md border border-line bg-white px-2.5 py-0.5 font-mono text-xs sm:text-sm font-bold text-ink tabular-nums" x-text="text">--:--</span>
                         </div>
 
                         <div class="p-5 sm:p-6 space-y-5">
@@ -145,7 +150,7 @@
                                 </a>
                             @endif
 
-                            {{-- STEP 1: High-Contrast Dark Transfer Box (Amount + Account Number) --}}
+                            {{-- STEP 1: Clean Structured Transfer Cards (Amount + Account Number) --}}
                             <div class="space-y-2.5">
                                 <div class="flex items-center gap-2">
                                     <span class="rounded bg-ink px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">Step 1</span>
@@ -153,48 +158,54 @@
                                 </div>
 
                                 <div class="grid gap-3 sm:grid-cols-2">
-                                    <div class="surface-banner rounded-xl border border-white/15 p-4 text-white flex items-center justify-between gap-3 shadow-md" x-data="copy(@js((string) $amountDue))">
+                                    <div class="rounded-xl border border-line-strong bg-grey-soft/60 p-4 flex items-center justify-between gap-3" x-data="copy(@js((string) $amountDue))">
                                         <div>
-                                            <span class="block text-[10px] font-bold uppercase tracking-wider text-white/65">Exact Amount</span>
-                                            <span class="display mt-0.5 block text-3xl text-[#4ade80]">{{ $amountFormatted }}</span>
+                                            <span class="block text-[10px] font-bold uppercase tracking-wider text-muted">Exact Amount to Send</span>
+                                            <span class="font-mono mt-0.5 block text-xl sm:text-2xl font-bold text-ink">{{ $amountFormatted }}</span>
                                         </div>
-                                        <button type="button" class="btn btn-hero-primary px-3.5 py-2 text-xs font-bold shrink-0" @click="copy" x-text="copied ? '✓ Copied!' : '📋 Copy'">📋 Copy</button>
+                                        <button type="button" class="btn btn-outline bg-white px-3 py-1.5 text-xs font-semibold shrink-0 inline-flex items-center gap-1.5" @click="copy">
+                                            <svg class="h-3.5 w-3.5 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                            <span x-text="copied ? 'Copied' : 'Copy'">Copy</span>
+                                        </button>
                                     </div>
 
                                     @if ($method->account_number && $method->account_number !== 'Set in admin')
-                                        <div class="surface-banner rounded-xl border border-white/15 p-4 text-white flex items-center justify-between gap-3 shadow-md" x-data="copy(@js($method->account_number))">
+                                        <div class="rounded-xl border border-line-strong bg-grey-soft/60 p-4 flex items-center justify-between gap-3" x-data="copy(@js($method->account_number))">
                                             <div class="min-w-0">
-                                                <span class="block text-[10px] font-bold uppercase tracking-wider text-white/65">
+                                                <span class="block text-[10px] font-bold uppercase tracking-wider text-muted">
                                                     {{ $method->code === 'binance' ? 'Binance Pay ID' : ($method->code === 'usdt_trc20' ? 'USDT TRC20 Address' : $method->name.' Account') }}
                                                 </span>
-                                                <span class="mt-0.5 block font-mono text-base sm:text-lg font-bold text-white break-all">{{ $method->account_number }}</span>
+                                                <span class="mt-0.5 block font-mono text-base sm:text-lg font-bold text-ink break-all">{{ $method->account_number }}</span>
                                                 @if ($method->account_title && $method->account_title !== 'Set in admin')
-                                                    <span class="block text-xs text-white/75 truncate">Title: {{ $method->account_title }}</span>
+                                                    <span class="block text-xs text-muted truncate">Title: <strong class="text-ink font-medium">{{ $method->account_title }}</strong></span>
                                                 @endif
                                             </div>
-                                            <button type="button" class="btn btn-hero-primary px-3.5 py-2 text-xs font-bold shrink-0" @click="copy" x-text="copied ? '✓ Copied!' : '📋 Copy'">📋 Copy</button>
+                                            <button type="button" class="btn btn-outline bg-white px-3 py-1.5 text-xs font-semibold shrink-0 inline-flex items-center gap-1.5" @click="copy">
+                                                <svg class="h-3.5 w-3.5 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                                <span x-text="copied ? 'Copied' : 'Copy'">Copy</span>
+                                            </button>
                                         </div>
                                     @endif
                                 </div>
                             </div>
 
                             @if ($method->instructions)
-                                <p class="rounded-lg bg-grey-soft px-3.5 py-2.5 text-xs text-body">{{ $method->instructions }}</p>
+                                <p class="rounded-lg border border-line bg-grey-soft/50 px-3.5 py-2.5 text-xs text-body">{{ $method->instructions }}</p>
                             @endif
 
                             {{-- STEP 2: Highlighted TID Submission Box --}}
                             <form method="post"
                                   action="{{ route('orders.payment', $order) }}"
                                   enctype="multipart/form-data"
-                                  class="rounded-2xl border-2 border-ink/15 bg-grey-soft/70 p-4 sm:p-5 space-y-4"
+                                  class="rounded-2xl border border-line-strong bg-grey-soft/40 p-4 sm:p-5 space-y-4"
                                   x-data="paymentSubmitter()"
                                   @submit="startSubmit()">
                                 @csrf
                                 <input type="hidden" name="token" value="{{ $token }}">
 
                                 <div class="flex items-center gap-2">
-                                    <span class="rounded bg-[#16a34a] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">Step 2</span>
-                                    <span class="text-xs sm:text-sm font-bold text-ink">Enter Transaction ID (TID)</span>
+                                    <span class="rounded bg-ink px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">Step 2</span>
+                                    <span class="text-xs sm:text-sm font-bold text-ink">Submit Transaction ID (TID)</span>
                                 </div>
 
                                 <div class="grid gap-3.5 sm:grid-cols-2">
@@ -206,7 +217,7 @@
                                                name="transaction_id"
                                                required
                                                minlength="3"
-                                               class="input font-mono uppercase text-sm py-2.5"
+                                               class="input font-mono uppercase text-sm py-2.5 bg-white"
                                                value="{{ old('transaction_id') }}"
                                                placeholder="{{ $isBinance ? 'e.g. 293847561029' : 'e.g. 84920194821' }}"
                                                autocomplete="off">
@@ -216,27 +227,27 @@
                                     @if ($method->requires_sender_number)
                                         <div>
                                             <label for="sender_number" class="label text-xs font-semibold">Sender Number <span class="text-danger">*</span></label>
-                                            <input id="sender_number" name="sender_number" required class="input text-sm py-2.5" value="{{ old('sender_number', $order->phone) }}" placeholder="03001234567" inputmode="tel">
+                                            <input id="sender_number" name="sender_number" required class="input text-sm py-2.5 bg-white" value="{{ old('sender_number', $order->phone) }}" placeholder="03001234567" inputmode="tel">
                                             @error('sender_number')<p class="field-error text-xs">{{ $message }}</p>@enderror
                                         </div>
                                     @endif
 
                                     <div class="sm:col-span-2">
                                         <label for="screenshot" class="label text-xs font-semibold text-muted">Payment Screenshot (Optional)</label>
-                                        <input id="screenshot" name="screenshot" type="file" accept="image/*" class="input py-1.5 text-xs file:mr-2.5 file:rounded file:border-0 file:bg-ink file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-white">
+                                        <input id="screenshot" name="screenshot" type="file" accept="image/*" class="input py-1.5 text-xs bg-white file:mr-2.5 file:rounded file:border-0 file:bg-ink file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-white">
                                         @error('screenshot')<p class="field-error text-xs">{{ $message }}</p>@enderror
                                     </div>
 
                                     @if ($customerInputLabel)
                                         <div class="sm:col-span-2 rounded-xl border border-amber-500/40 bg-amber-50 p-3.5">
                                             <label for="customer_input" class="label text-xs font-bold text-ink">
-                                                📝 {{ $customerInputLabel }} <span class="text-danger">*</span>
+                                                {{ $customerInputLabel }} <span class="text-danger">*</span>
                                             </label>
                                             <textarea id="customer_input"
                                                       name="customer_input"
                                                       rows="2"
                                                       required
-                                                      class="input mt-1 text-xs sm:text-sm"
+                                                      class="input mt-1 text-xs sm:text-sm bg-white"
                                                       placeholder="Enter your activation details here (e.g., Email / Username / Account ID)...">{{ old('customer_input', $order->customer_input) }}</textarea>
                                             <p class="mt-1 text-[11px] text-muted">Admin will use these details to activate and deliver your subscription.</p>
                                             @error('customer_input')<p class="field-error text-xs">{{ $message }}</p>@enderror
@@ -244,7 +255,7 @@
                                     @endif
                                 </div>
 
-                                <div x-show="submitting" x-cloak class="rounded-xl border border-line bg-grey-soft p-3">
+                                <div x-show="submitting" x-cloak class="rounded-xl border border-line bg-white p-3">
                                     <div class="flex items-center justify-between text-xs font-bold text-ink">
                                         <span x-text="stepLabel">Verifying...</span>
                                         <span class="tabular-nums" x-text="percent + '%'">0%</span>
@@ -267,11 +278,11 @@
                     <section class="card overflow-hidden">
                         @if ($s === OrderStatus::PaymentReview && $order->expires_at)
                             <div x-show="!reviewTimeout"
-                                 class="flex items-center justify-between gap-3 bg-ink px-5 py-3 text-white"
+                                 class="flex items-center justify-between gap-3 border-b border-line bg-grey-soft px-5 py-3"
                                  x-data="countdown(@js($order->expires_at->toIso8601String()))"
                                  x-effect="if (remaining === 0) { reviewTimeout = true; }">
-                                <span class="text-xs font-semibold">⏳ Verification in Progress</span>
-                                <span class="font-mono text-sm font-bold tabular-nums" x-text="text">--:--</span>
+                                <span class="text-xs font-semibold text-ink">Verification in Progress</span>
+                                <span class="font-mono text-xs sm:text-sm font-bold text-ink tabular-nums" x-text="text">--:--</span>
                             </div>
                         @endif
 
@@ -308,7 +319,7 @@
                                        target="_blank"
                                        rel="noopener"
                                        class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full sm:w-auto px-6 py-2.5 text-xs sm:text-sm font-bold shadow-xs">
-                                        📲 Instant Approval on WhatsApp →
+                                        Instant Approval on WhatsApp →
                                     </a>
                                 </div>
                             @endif
@@ -321,26 +332,28 @@
                         $primaryDeliveryType = $order->items->first()?->product?->delivery_type ?: 'auto';
                         $isWhatsAppHandover = $primaryDeliveryType === 'whatsapp_handover';
 
-                        $claimWaTemplate = "Assalam o Alaikum! ✅ My Order *{$order->number}* ({$itemsSummary}) on ".setting('store_name')." is CONFIRMED!\n\n"
-                            ."🧾 *Order ID:* {$order->number}\n"
-                            ."📦 *Product:* {$itemsSummary}\n"
-                            ."💰 *Amount:* {$amountFormatted}\n"
-                            ."🔑 *TID:* ".($order->latestPayment?->transaction_id ?? 'Verified')."\n"
-                            ."📧 *Email:* {$order->email}\n\n"
+                        $claimWaTemplate = "Assalam o Alaikum! My Order *{$order->number}* ({$itemsSummary}) on ".setting('store_name')." is CONFIRMED!\n\n"
+                            ."Order ID: {$order->number}\n"
+                            ."Product: {$itemsSummary}\n"
+                            ."Amount: {$amountFormatted}\n"
+                            ."TID: ".($order->latestPayment?->transaction_id ?? 'Verified')."\n"
+                            ."Email: {$order->email}\n\n"
                             ."Please deliver my order.\n"
-                            ."🔗 *Order Link:* ".$order->customerUrl();
+                            ."Order Link: ".$order->customerUrl();
 
                         $claimWaHref = $waNumber !== ''
                             ? "https://wa.me/{$waNumber}?text=".urlencode($claimWaTemplate)
                             : 'https://api.whatsapp.com/send?text='.urlencode($claimWaTemplate);
                     @endphp
                     <section class="card p-6 sm:p-8 text-center">
-                        <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-success text-2xl text-white">✓</span>
+                        <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">
+                            <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                        </span>
                         <h2 class="mt-4 text-xl sm:text-2xl font-bold text-ink">
                             {{ $isWhatsAppHandover ? 'Order Confirmed — Receive on WhatsApp' : 'Payment Verified — Preparing Delivery' }}
                         </h2>
                         <p class="mt-1 text-xs sm:text-sm text-muted max-w-md mx-auto">
-                            {{ $isWhatsAppHandover ? 'Tap the button below to receive your product directly on WhatsApp.' : 'Your access details are being dispatched. This page updates automatically.' }}
+                            {{ $isWhatsAppHandover ? 'Click the button below to receive your product directly on WhatsApp.' : 'Your access details are being dispatched. This page updates automatically.' }}
                         </p>
 
                         @if ($waNumber !== '')
@@ -348,14 +361,14 @@
                                 <a href="{{ $claimWaHref }}"
                                    target="_blank"
                                    rel="noopener"
-                                   class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full sm:w-auto px-7 py-3 text-sm font-bold shadow-sm">
-                                    📲 {{ $isWhatsAppHandover ? 'Receive Order on WhatsApp →' : 'Message Admin on WhatsApp →' }}
+                                   class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full sm:w-auto px-7 py-3 text-sm font-bold shadow-xs">
+                                    {{ $isWhatsAppHandover ? 'Receive Order on WhatsApp →' : 'Message Support on WhatsApp →' }}
                                 </a>
                             </div>
                         @endif
                     </section>
 
-                {{-- ============ 4. COMPLETED / DELIVERED CREDENTIALS VAULT ============ --}}
+                {{-- ============ 4. COMPLETED / DELIVERED CREDENTIALS (CLEAN SAAS LICENSE CARD) ============ --}}
                 @elseif ($s === OrderStatus::Completed)
                     @php
                         $allDeliveredText = $order->items->map(function ($it) {
@@ -368,16 +381,24 @@
                             .$allDeliveredText;
                     @endphp
 
-                    <section class="card overflow-hidden">
-                        <div class="bg-[#0F291E] px-5 py-4 sm:px-6 text-white flex items-center justify-between gap-3">
-                            <div class="flex items-center gap-2.5">
-                                <span class="flex h-7 w-7 items-center justify-center rounded-full bg-[#22c55e] text-xs font-bold text-black">✓</span>
+                    <section class="card overflow-hidden border border-line bg-white">
+                        <div class="h-1.5 w-full bg-[#16a34a]"></div>
+
+                        <div class="border-b border-line px-5 py-4 sm:px-6 flex flex-wrap items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700">
+                                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                                </span>
                                 <div>
-                                    <h2 class="text-sm sm:text-base font-bold text-white">Your Access Credentials</h2>
+                                    <h2 class="text-sm sm:text-base font-bold text-ink">Delivered Access Credentials</h2>
+                                    <p class="text-xs text-muted">Copy your login details or activation links below.</p>
                                 </div>
                             </div>
                             <div x-data="copy(@js($fullReceiptText))">
-                                <button type="button" @click="copy" class="rounded-lg bg-white/15 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/25" x-text="copied ? '✓ Copied All' : 'Copy All'">Copy All</button>
+                                <button type="button" @click="copy" class="btn btn-outline py-1.5 px-3 text-xs font-semibold inline-flex items-center gap-1.5">
+                                    <svg class="h-3.5 w-3.5 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                    <span x-text="copied ? 'Copied All' : 'Copy All'">Copy All</span>
+                                </button>
                             </div>
                         </div>
 
@@ -385,8 +406,10 @@
                             @foreach ($order->items as $item)
                                 <div class="{{ ! $loop->first ? 'pt-5' : '' }}">
                                     <div class="flex items-center justify-between gap-2 mb-3">
-                                        <h3 class="text-base font-bold text-ink">{{ $item->product_name }} <span class="text-xs font-normal text-muted">× {{ $item->quantity }}</span></h3>
-                                        <span class="badge badge-success text-[11px]">Delivered</span>
+                                        <h3 class="text-sm sm:text-base font-bold text-ink">{{ $item->product_name }} <span class="text-xs font-normal text-muted">× {{ $item->quantity }}</span></h3>
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                                            Delivered
+                                        </span>
                                     </div>
 
                                     <div class="space-y-3">
@@ -395,40 +418,53 @@
                                                 $rawContent = trim($delivery->content);
                                                 $parts = null;
                                                 if (! str_contains($rawContent, "\n") && preg_match('/^([^\s:|]+@[^\s:|]+)[:|](.+)$/', $rawContent, $m)) {
-                                                    $parts = ['Email / Login' => trim($m[1]), 'Password' => trim($m[2])];
+                                                    $parts = ['Email / Username' => trim($m[1]), 'Password' => trim($m[2])];
+                                                }
+                                                $firstUrl = null;
+                                                if (preg_match('/https?:\/\/[^\s"\'<>]+/i', $rawContent, $urlMatch)) {
+                                                    $firstUrl = $urlMatch[0];
                                                 }
                                             @endphp
-                                            <div class="rounded-xl bg-ink p-4 text-white">
-                                                <div class="flex items-center justify-between gap-2 pb-2.5 border-b border-white/10">
-                                                    <span class="text-[11px] font-bold uppercase tracking-wider text-white/70">
-                                                        🔑 Access {{ $item->deliveries->count() > 1 ? '#'.($idx + 1) : 'Details' }}
+                                            <div class="rounded-xl border border-line bg-grey-soft/60 p-4">
+                                                <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-line">
+                                                    <span class="text-xs font-semibold text-muted">
+                                                        {{ $item->deliveries->count() > 1 ? 'Access Item #'.($idx + 1) : 'Account / License Details' }}
                                                     </span>
-                                                    <div x-data="copy(@js($rawContent))">
-                                                        <button type="button" @click="copy" class="rounded bg-white/15 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-white/25" x-text="copied ? '✓ Copied!' : 'Copy'">Copy</button>
+                                                    <div class="flex items-center gap-2" x-data="copy(@js($rawContent))">
+                                                        @if ($firstUrl)
+                                                            <a href="{{ $firstUrl }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 rounded-md border border-line bg-white px-2.5 py-1 text-xs font-semibold text-ink hover:bg-grey-soft">
+                                                                <span>Open Link</span>
+                                                                <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M7 7h10v10"/></svg>
+                                                            </a>
+                                                        @endif
+                                                        <button type="button" @click="copy" class="inline-flex items-center gap-1 rounded-md border border-line bg-white px-2.5 py-1 text-xs font-semibold text-ink hover:bg-grey-soft">
+                                                            <svg class="h-3 w-3 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                                            <span x-text="copied ? 'Copied' : 'Copy'">Copy</span>
+                                                        </button>
                                                     </div>
                                                 </div>
 
                                                 @if ($parts)
                                                     <div class="mt-3 grid gap-2.5 sm:grid-cols-2">
                                                         @foreach ($parts as $pLabel => $pVal)
-                                                            <div class="flex items-center justify-between gap-2 rounded-lg bg-white/10 px-3 py-2" x-data="copy(@js($pVal))">
+                                                            <div class="flex items-center justify-between gap-2 rounded-lg border border-line bg-white px-3.5 py-2.5" x-data="copy(@js($pVal))">
                                                                 <div class="min-w-0">
-                                                                    <p class="text-[10px] uppercase tracking-wider text-white/60">{{ $pLabel }}</p>
-                                                                    <p class="font-mono text-xs sm:text-sm font-bold text-white break-all">{{ $pVal }}</p>
+                                                                    <p class="text-[10px] font-semibold uppercase tracking-wider text-muted">{{ $pLabel }}</p>
+                                                                    <p class="mt-0.5 font-mono text-xs sm:text-sm font-semibold text-ink break-all">{{ $pVal }}</p>
                                                                 </div>
-                                                                <button type="button" @click="copy" class="shrink-0 rounded bg-white/15 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-white/25" x-text="copied ? '✓' : 'Copy'">Copy</button>
+                                                                <button type="button" @click="copy" class="shrink-0 rounded-md border border-line bg-grey-soft px-2.5 py-1 text-[11px] font-semibold text-ink hover:bg-line/50" x-text="copied ? 'Copied' : 'Copy'">Copy</button>
                                                             </div>
                                                         @endforeach
                                                     </div>
                                                 @else
-                                                    <pre class="mt-3 font-mono text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-all text-[#4ade80]">{{ $rawContent }}</pre>
+                                                    <pre class="mt-3 rounded-lg border border-line bg-white p-3.5 font-mono text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-all text-ink">{{ $rawContent }}</pre>
                                                 @endif
                                             </div>
                                         @endforeach
                                     </div>
 
                                     @if ($item->product?->warranty)
-                                        <div class="mt-3 rounded-lg bg-grey-soft p-3 text-xs text-body">
+                                        <div class="mt-3 rounded-lg border border-line bg-grey-soft/40 p-3 text-xs text-body">
                                             <strong class="text-ink">Warranty:</strong> {{ $item->product->warranty }}
                                         </div>
                                     @endif
@@ -459,23 +495,18 @@
                 @endif
 
                 @if ($customerInputLabel && in_array($s, [OrderStatus::PaymentReview, OrderStatus::Processing, OrderStatus::NeedsAttention, OrderStatus::Completed], true))
-                    <section class="card border-2 {{ filled($order->customer_input) ? 'border-success/30' : 'border-amber-500' }} p-5 sm:p-6">
+                    <section class="card border {{ filled($order->customer_input) ? 'border-emerald-300' : 'border-amber-400' }} p-5 sm:p-6">
                         <div class="flex flex-wrap items-center justify-between gap-2">
-                            <div class="flex items-center gap-2">
-                                <span class="flex h-8 w-8 items-center justify-center rounded-lg {{ filled($order->customer_input) ? 'bg-success text-white' : 'bg-amber-500 text-black' }} text-sm font-bold">
-                                    {{ filled($order->customer_input) ? '✓' : '📝' }}
-                                </span>
-                                <div>
-                                    <h3 class="text-sm sm:text-base font-bold text-ink">{{ $customerInputLabel }}</h3>
-                                    <p class="text-xs text-muted">
-                                        {{ filled($order->customer_input) ? 'Submitted to Admin for custom activation.' : 'Required so Admin can activate and deliver your subscription.' }}
-                                    </p>
-                                </div>
+                            <div>
+                                <h3 class="text-sm sm:text-base font-bold text-ink">{{ $customerInputLabel }}</h3>
+                                <p class="text-xs text-muted">
+                                    {{ filled($order->customer_input) ? 'Submitted for custom activation.' : 'Required so our team can activate and deliver your subscription.' }}
+                                </p>
                             </div>
                             @if (filled($order->customer_input))
-                                <span class="badge badge-success text-[11px]">Sent to Admin</span>
+                                <span class="badge badge-success text-[11px]">Received</span>
                             @else
-                                <span class="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">Action Required</span>
+                                <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">Action Required</span>
                             @endif
                         </div>
 
@@ -509,7 +540,7 @@
             {{-- RIGHT SIDEBAR: Compact Summary --}}
             <aside class="min-w-0 lg:sticky lg:top-24 lg:self-start">
                 <div class="card p-5">
-                    <h2 class="text-sm font-bold uppercase tracking-wider text-muted">Order Summary</h2>
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-muted">Order Summary</h2>
                     <ul class="mt-3 space-y-2 text-xs sm:text-sm">
                         @foreach ($order->items as $item)
                             <li class="flex justify-between gap-2">
@@ -520,12 +551,18 @@
                     </ul>
 
                     <div class="mt-3.5 flex items-baseline justify-between border-t border-line pt-3.5">
-                        <span class="text-xs font-bold text-muted uppercase">Total</span>
+                        <span class="text-xs font-bold text-muted uppercase">{{ $isPaid ? 'Total Paid' : 'Amount Due' }}</span>
                         <span class="display text-2xl text-ink">{{ money($order->total) }}</span>
                     </div>
 
                     <dl class="mt-3.5 space-y-1.5 border-t border-line pt-3.5 text-xs">
-                        <div class="flex justify-between gap-2"><dt class="text-muted">Status</dt><dd class="font-bold text-ink">{{ $s->label() }}</dd></div>
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-muted">Payment</dt>
+                            <dd class="font-bold {{ $isPaid ? 'text-emerald-700' : ($s === OrderStatus::PaymentReview ? 'text-amber-700' : 'text-ink') }}">
+                                {{ $isPaid ? 'Paid' : ($s === OrderStatus::PaymentReview ? 'Verifying TID' : 'Unpaid') }}
+                            </dd>
+                        </div>
+                        <div class="flex justify-between gap-2"><dt class="text-muted">Order Status</dt><dd class="font-semibold text-ink">{{ $s->label() }}</dd></div>
                         <div class="flex justify-between gap-2"><dt class="text-muted">Method</dt><dd class="text-ink truncate">{{ $method?->name ?? 'Free / Instant' }}</dd></div>
                         @if ($order->latestPayment)
                             <div class="flex justify-between gap-2"><dt class="text-muted">TID</dt><dd class="font-mono font-bold text-ink truncate max-w-[150px]">{{ $order->latestPayment->transaction_id }}</dd></div>
@@ -535,23 +572,23 @@
 
                     <div class="mt-4 border-t border-line pt-4 space-y-2">
                         <div class="grid grid-cols-2 gap-2">
-                            <a href="{{ $receiptUrl }}" target="_blank" class="btn btn-outline py-2 text-xs font-bold text-center">
-                                🧾 View Receipt
+                            <a href="{{ $receiptUrl }}" target="_blank" class="btn btn-outline py-2 text-xs font-semibold text-center">
+                                {{ $isPaid ? 'View Receipt' : 'View Invoice' }}
                             </a>
-                            <a href="{{ $pdfReceiptUrl }}" class="btn btn-primary py-2 text-xs font-bold text-center">
-                                📥 PDF Receipt
+                            <a href="{{ $pdfReceiptUrl }}" class="btn btn-primary py-2 text-xs font-semibold text-center">
+                                {{ $isPaid ? 'PDF Receipt' : 'PDF Invoice' }}
                             </a>
                         </div>
                         @if ($s !== OrderStatus::Completed && $waNumber !== '')
                             <a href="{{ $waHref }}"
                                target="_blank"
                                rel="noopener"
-                               class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full py-2 text-xs font-bold">
-                                📲 WhatsApp Support
+                               class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full py-2 text-xs font-semibold">
+                                WhatsApp Support
                             </a>
                         @endif
                         <div x-data="copy(@js($order->customerUrl()))">
-                            <button type="button" class="btn btn-outline w-full py-2 text-xs font-semibold" @click="copy" x-text="copied ? '✓ Link Copied' : 'Copy Order Link'">Copy Order Link</button>
+                            <button type="button" class="btn btn-outline w-full py-2 text-xs font-semibold" @click="copy" x-text="copied ? 'Link Copied' : 'Copy Order Link'">Copy Order Link</button>
                         </div>
                     </div>
                 </div>

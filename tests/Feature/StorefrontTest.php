@@ -89,10 +89,21 @@ class StorefrontTest extends TestCase
         $this->assertSame('923001234567', $order->phone);
 
         // WhatsApp button points directly to normalized Admin phone (wa.me/923001234567)
+        // Before payment is verified, order & invoice must show Unpaid / Amount Due (never Total Paid)
         $this->get($order->customerUrl())
             ->assertOk()
             ->assertSee('Complete your payment')
+            ->assertSee('Amount Due')
+            ->assertDontSee('Total Paid')
             ->assertSee('https://wa.me/923001234567?text=', false);
+
+        $this->get(route('orders.receipt', ['order' => $order->number, 'token' => $order->access_token]))
+            ->assertOk()
+            ->assertSee('Order Invoice')
+            ->assertSee('Unpaid')
+            ->assertSee('Amount Due')
+            ->assertSee('images/logo.png', false)
+            ->assertDontSee('Total Paid');
 
         $this->get(route('orders.show', ['order' => $order->number, 'token' => 'wrong']))->assertOk(); // allowed in same guest session
 
@@ -144,8 +155,28 @@ class StorefrontTest extends TestCase
         // Logged-in customer and admin can both view the order page cleanly without any Admin Only banner on the customer page
         $customerUser = User::factory()->create();
         $adminUser = User::factory()->create(['is_admin' => true]);
-        $this->actingAs($customerUser)->get($order->customerUrl())->assertOk()->assertDontSee('Admin Only')->assertDontSee('Supplier / Source');
-        $this->actingAs($adminUser)->get($order->customerUrl())->assertOk()->assertDontSee('Admin Only')->assertDontSee('Supplier / Source');
+        $this->actingAs($customerUser)->get($order->customerUrl())
+            ->assertOk()
+            ->assertSee('Delivered Access Credentials')
+            ->assertSee('Total Paid')
+            ->assertDontSee('Admin Only')
+            ->assertDontSee('Supplier / Source');
+        $this->actingAs($adminUser)->get($order->customerUrl())
+            ->assertOk()
+            ->assertDontSee('Admin Only')
+            ->assertDontSee('Supplier / Source');
+
+        $this->get(route('orders.receipt', ['order' => $order->number, 'token' => $order->access_token]))
+            ->assertOk()
+            ->assertSee('Payment Receipt')
+            ->assertSee('Total Paid')
+            ->assertSee('images/logo.png', false);
+
+        $pdfResponse = $this->get(route('orders.receipt', ['order' => $order->number, 'token' => $order->access_token, 'download' => 'pdf']));
+        $pdfResponse->assertOk();
+        $this->assertStringContainsString('PAYMENT RECEIPT', $pdfResponse->getContent());
+        $this->assertStringContainsString('TOTAL PAID:', $pdfResponse->getContent());
+        $this->assertStringContainsString('/Im1', $pdfResponse->getContent());
     }
 
     public function test_one_tap_approve_holds_order_when_supplier_balance_is_low_and_delivers_when_admin_pastes_credentials(): void

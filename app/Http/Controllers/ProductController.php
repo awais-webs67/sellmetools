@@ -19,6 +19,8 @@ class ProductController extends Controller
 
     public function index(Request $request): View
     {
+        StockController::deferBackgroundSync();
+
         if ($request->user()?->is_reseller) {
             $request->user()->loadMissing('resellerProductPrices');
         }
@@ -42,6 +44,8 @@ class ProductController extends Controller
 
     public function shop(Request $request): View
     {
+        StockController::deferBackgroundSync();
+
         if ($request->user()?->is_reseller) {
             $request->user()->loadMissing('resellerProductPrices');
         }
