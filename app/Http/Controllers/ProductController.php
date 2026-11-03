@@ -90,12 +90,12 @@ class ProductController extends Controller
 
     private function activeCategories()
     {
-        return Cache::remember('smt_active_categories_v2', 120, fn () => Category::query()
+        return Category::query()
             ->where('is_active', true)
             ->withCount(['products' => fn ($q) => $q->visible()])
             ->orderBy('sort')
             ->orderBy('name')
-            ->get());
+            ->get();
     }
 
     private function catalogQuery(?Category $activeCategory, string $search, string $sort = 'featured', bool $inStockOnly = false, ?int $seed = null)
