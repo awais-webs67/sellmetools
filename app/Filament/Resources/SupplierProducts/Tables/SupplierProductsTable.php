@@ -237,7 +237,7 @@ class SupplierProductsTable
                     ->label('Category')
                     ->options(fn (): array => Category::query()->orderBy('sort')->pluck('name', 'id')->all())
                     ->searchable(),
-                Grid::make(2)->schema([
+                Grid::make(['default' => 1, 'sm' => 2])->schema([
                     Select::make('pricing_mode')
                         ->options([
                             PricingMode::MarkupPercent->value => PricingMode::MarkupPercent->label(),

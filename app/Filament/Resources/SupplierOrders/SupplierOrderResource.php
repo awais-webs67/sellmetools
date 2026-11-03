@@ -143,7 +143,7 @@ class SupplierOrderResource extends Resource
                     ->modalSubmitAction(false)
                     ->schema(fn (SupplierOrder $r): array => [
                         Section::make('Summary')
-                            ->columns(2)
+                            ->columns(['default' => 1, 'sm' => 2])
                             ->schema([
                                 TextEntry::make('supplier.name')->label('Vendor'),
                                 TextEntry::make('external_order_id')->label('Vendor Order ID')->placeholder('-'),
@@ -159,7 +159,7 @@ class SupplierOrderResource extends Resource
                                     ->state(function () use ($r): HtmlString {
                                         $lines = $r->orderItem->deliveries()->where('supplier_order_id', $r->id)->get()->map(fn ($d) => e($d->content))->implode('<br>');
 
-                                        return new HtmlString('<pre class="rounded bg-gray-900 p-3 text-xs text-green-400 overflow-x-auto">'.$lines.'</pre>');
+                                        return new HtmlString('<pre class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs font-mono text-slate-800 whitespace-pre-wrap break-all overflow-x-auto">'.$lines.'</pre>');
                                     }),
                             ]),
                         Section::make('Raw API Response')
@@ -167,7 +167,7 @@ class SupplierOrderResource extends Resource
                                 TextEntry::make('raw_json')
                                     ->label('')
                                     ->state(fn (): HtmlString => new HtmlString(
-                                        '<pre class="rounded bg-gray-100 p-3 text-xs overflow-x-auto">'
+                                        '<pre class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs font-mono text-slate-800 whitespace-pre-wrap break-all overflow-x-auto">'
                                         .e(json_encode($r->response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES))
                                         .'</pre>'
                                     )),

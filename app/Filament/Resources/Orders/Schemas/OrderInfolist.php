@@ -12,7 +12,6 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\SupplierOrder;
 use Filament\Infolists\Components\RepeatableEntry;
-use Filament\Infolists\Components\RepeatableEntry\TableColumn;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -29,7 +28,7 @@ class OrderInfolist
             ->components([
                 Section::make('Order Summary')
                     ->columnSpan(['default' => 1, 'lg' => 2])
-                    ->columns(['default' => 2, 'sm' => 3])
+                    ->columns(['default' => 1, 'sm' => 2, 'xl' => 3])
                     ->schema([
                         TextEntry::make('number')
                             ->label('Order #')
@@ -40,10 +39,11 @@ class OrderInfolist
                             ->formatStateUsing(fn (OrderStatus $state): string => $state->label())
                             ->color(fn (OrderStatus $state): string => $state->color()),
                         TextEntry::make('supplier_summary')
-                            ->label('🏭 Supplier / Source')
+                            ->label('Supplier / Source')
                             ->badge()
                             ->color('info')
-                            ->state(fn (Order $record): string => $record->adminSupplierSummary(true)),
+                            ->state(fn (Order $record): string => $record->adminSupplierSummary(true))
+                            ->columnSpan(['default' => 1, 'sm' => 2, 'xl' => 1]),
                         TextEntry::make('paymentMethod.name')
                             ->label('Payment Method')
                             ->placeholder('-'),
@@ -79,7 +79,7 @@ class OrderInfolist
                             ->label('USDT Rate')
                             ->placeholder('-'),
                         TextEntry::make('customer_input')
-                            ->label('📝 Customer Submitted Activation Data')
+                            ->label('Customer Submitted Activation Data')
                             ->copyable()
                             ->weight('bold')
                             ->color('primary')
@@ -118,16 +118,17 @@ class OrderInfolist
                         RepeatableEntry::make('items')
                             ->hiddenLabel()
                             ->schema([
-                                Grid::make(['default' => 2, 'sm' => 6])->schema([
+                                Grid::make(['default' => 1, 'sm' => 2, 'lg' => 5])->schema([
                                     TextEntry::make('product_name')
                                         ->label('Product')
                                         ->weight('bold')
-                                        ->columnSpan(['default' => 2, 'sm' => 2]),
+                                        ->columnSpan(['default' => 1, 'sm' => 2, 'lg' => 1]),
                                     TextEntry::make('supplier_source')
-                                        ->label('🏭 Supplier / Source')
+                                        ->label('Supplier / Source')
                                         ->badge()
                                         ->color('info')
-                                        ->state(fn (OrderItem $record): string => $record->adminSourceSummary(true)),
+                                        ->state(fn (OrderItem $record): string => $record->adminSourceSummary(true))
+                                        ->columnSpan(['default' => 1, 'sm' => 2, 'lg' => 1]),
                                     TextEntry::make('unit_price')
                                         ->label('Unit Price')
                                         ->formatStateUsing(fn ($state): string => Money::pkr($state)),
@@ -144,19 +145,20 @@ class OrderInfolist
                                 RepeatableEntry::make('deliveries')
                                     ->label('Delivered Content')
                                     ->placeholder('Nothing delivered yet.')
-                                    ->table([
-                                        TableColumn::make('Content'),
-                                        TableColumn::make('Source'),
-                                        TableColumn::make('Delivered'),
-                                    ])
                                     ->schema([
-                                        TextEntry::make('content')
-                                            ->copyable()
-                                            ->fontFamily('mono'),
-                                        TextEntry::make('source')
-                                            ->badge(),
-                                        TextEntry::make('created_at')
-                                            ->dateTime('d M Y, h:i A'),
+                                        Grid::make(['default' => 1, 'sm' => 2, 'lg' => 4])->schema([
+                                            TextEntry::make('content')
+                                                ->label('Credentials / Content')
+                                                ->copyable()
+                                                ->fontFamily('mono')
+                                                ->columnSpan(['default' => 1, 'sm' => 2, 'lg' => 2]),
+                                            TextEntry::make('source')
+                                                ->label('Source')
+                                                ->badge(),
+                                            TextEntry::make('created_at')
+                                                ->label('Delivered At')
+                                                ->dateTime('d M Y, h:i A'),
+                                        ]),
                                     ]),
                             ]),
                     ]),
@@ -167,13 +169,12 @@ class OrderInfolist
                             ->hiddenLabel()
                             ->placeholder('No payment submitted yet.')
                             ->schema([
-                                Grid::make(['default' => 2, 'sm' => 3, 'lg' => 6])->schema([
+                                Grid::make(['default' => 1, 'sm' => 2, 'lg' => 4])->schema([
                                     TextEntry::make('transaction_id')
                                         ->label('TID / Reference')
                                         ->copyable()
                                         ->weight('bold')
-                                        ->fontFamily('mono')
-                                        ->columnSpan(['default' => 2, 'sm' => 2]),
+                                        ->fontFamily('mono'),
                                     TextEntry::make('sender_number')
                                         ->label('Sender Phone / Acc')
                                         ->copyable()
@@ -191,16 +192,13 @@ class OrderInfolist
                                         ->color(fn (PaymentStatus $state): string => $state->color()),
                                     TextEntry::make('created_at')
                                         ->label('Submitted At')
-                                        ->dateTime('d M Y, h:i A')
-                                        ->columnSpan(['default' => 1, 'sm' => 2]),
+                                        ->dateTime('d M Y, h:i A'),
                                     TextEntry::make('reviewer.name')
                                         ->label('Reviewed By')
-                                        ->placeholder('-')
-                                        ->columnSpan(['default' => 1, 'sm' => 2]),
+                                        ->placeholder('-'),
                                     TextEntry::make('reject_reason')
                                         ->label('Reject Reason')
-                                        ->placeholder('-')
-                                        ->columnSpan(['default' => 2, 'sm' => 2]),
+                                        ->placeholder('-'),
                                     TextEntry::make('screenshot')
                                         ->label('Receipt Screenshot')
                                         ->formatStateUsing(fn (?string $state): HtmlString => new HtmlString(Screenshots::html($state, '320px')))
@@ -221,27 +219,34 @@ class OrderInfolist
                                 ->latest('id')
                                 ->get())
                             ->placeholder('No supplier orders were placed.')
-                            ->table([
-                                TableColumn::make('Supplier'),
-                                TableColumn::make('Product'),
-                                TableColumn::make('Request ID'),
-                                TableColumn::make('Qty'),
-                                TableColumn::make('Status'),
-                                TableColumn::make('Cost'),
-                                TableColumn::make('Error'),
-                            ])
                             ->schema([
-                                TextEntry::make('supplier.name'),
-                                TextEntry::make('supplierProduct.name')->placeholder('-'),
-                                TextEntry::make('request_id')->copyable()->fontFamily('mono'),
-                                TextEntry::make('quantity'),
-                                TextEntry::make('status')
-                                    ->badge()
-                                    ->formatStateUsing(fn (SupplierOrderStatus $state): string => ucfirst($state->value))
-                                    ->color(fn (SupplierOrderStatus $state): string => $state->color()),
-                                TextEntry::make('cost')
-                                    ->state(fn (SupplierOrder $record): string => Money::currency($record->cost, $record->supplier?->currency)),
-                                TextEntry::make('error')->color('danger')->placeholder('-')->wrap(),
+                                Grid::make(['default' => 1, 'sm' => 2, 'lg' => 4])->schema([
+                                    TextEntry::make('supplier.name')
+                                        ->label('Supplier')
+                                        ->weight('bold'),
+                                    TextEntry::make('supplierProduct.name')
+                                        ->label('Supplier Product')
+                                        ->placeholder('-'),
+                                    TextEntry::make('request_id')
+                                        ->label('Request ID')
+                                        ->copyable()
+                                        ->fontFamily('mono'),
+                                    TextEntry::make('status')
+                                        ->label('Status')
+                                        ->badge()
+                                        ->formatStateUsing(fn (SupplierOrderStatus $state): string => ucfirst($state->value))
+                                        ->color(fn (SupplierOrderStatus $state): string => $state->color()),
+                                    TextEntry::make('quantity')
+                                        ->label('Qty'),
+                                    TextEntry::make('cost')
+                                        ->label('Cost')
+                                        ->state(fn (SupplierOrder $record): string => Money::currency($record->cost, $record->supplier?->currency)),
+                                    TextEntry::make('error')
+                                        ->label('API Error')
+                                        ->color('danger')
+                                        ->placeholder('-')
+                                        ->columnSpan(['default' => 1, 'sm' => 2]),
+                                ]),
                             ]),
                     ]),
             ]);

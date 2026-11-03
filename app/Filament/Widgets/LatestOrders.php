@@ -49,9 +49,10 @@ class LatestOrders extends TableWidget
                     ->state(fn (Order $record): string => $record->items
                         ->map(fn (OrderItem $item): string => "{$item->quantity}× {$item->product_name}")
                         ->implode(', '))
-                    ->limit(40),
+                    ->limit(40)
+                    ->wrap(),
                 TextColumn::make('supplier_badge')
-                    ->label('🏭 Supplier')
+                    ->label('Supplier / Source')
                     ->badge()
                     ->color('info')
                     ->state(fn (Order $record): string => $record->adminSupplierSummary(false)),

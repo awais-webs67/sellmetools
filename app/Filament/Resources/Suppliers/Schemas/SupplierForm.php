@@ -16,7 +16,7 @@ class SupplierForm
         return $schema
             ->components([
                 Section::make('Connection')
-                    ->columns(2)
+                    ->columns(['default' => 1, 'sm' => 2])
                     ->columnSpanFull()
                     ->schema([
                         TextInput::make('name')
@@ -46,7 +46,7 @@ class SupplierForm
                                 : 'Stored encrypted.'),
                     ]),
                 Section::make('Settings')
-                    ->columns(2)
+                    ->columns(['default' => 1, 'sm' => 2])
                     ->columnSpanFull()
                     ->schema([
                         TextInput::make('currency')

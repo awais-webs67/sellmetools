@@ -61,7 +61,7 @@ class OrdersTable
                     ->limit(48)
                     ->wrap(),
                 TextColumn::make('supplier_badge')
-                    ->label('🏭 Supplier / Source')
+                    ->label('Supplier / Source')
                     ->badge()
                     ->color('info')
                     ->state(fn (Order $record): string => $record->adminSupplierSummary(false)),
@@ -92,7 +92,7 @@ class OrdersTable
                     ->sortable()
                     ->toggleable(),
             ])
-            ->filtersLayout(FiltersLayout::AboveContent)
+            ->filtersLayout(FiltersLayout::AboveContentCollapsible)
             ->filtersFormColumns([
                 'default' => 1,
                 'sm' => 2,
@@ -102,13 +102,13 @@ class OrdersTable
                 SelectFilter::make('period')
                     ->label('Date Range')
                     ->options([
-                        'today' => '📅 Today',
-                        'yesterday' => '⏮️ Yesterday',
-                        'week' => '📆 Last 7 Days (Weekly)',
-                        'month' => '🗓️ Last 30 Days (Monthly)',
-                        'all' => '🌐 All Time',
+                        'all' => 'All Time',
+                        'today' => 'Today',
+                        'yesterday' => 'Yesterday',
+                        'week' => 'Last 7 Days (Weekly)',
+                        'month' => 'Last 30 Days (Monthly)',
                     ])
-                    ->default('today')
+                    ->default('all')
                     ->selectablePlaceholder(false)
                     ->query(function (Builder $query, array $data): Builder {
                         $val = $data['value'] ?? 'all';

@@ -35,7 +35,7 @@ class PaymentsTable
                         : null)
                     ->description(fn (Payment $record): ?string => $record->order?->email),
                 TextColumn::make('supplier_badge')
-                    ->label('🏭 Supplier')
+                    ->label('Supplier')
                     ->badge()
                     ->color('info')
                     ->state(fn (Payment $record): string => $record->order?->adminSupplierSummary(false) ?? '-'),
@@ -75,19 +75,19 @@ class PaymentsTable
                     ->dateTimeTooltip()
                     ->sortable(),
             ])
-            ->filtersLayout(FiltersLayout::AboveContent)
+            ->filtersLayout(FiltersLayout::AboveContentCollapsible)
             ->filtersFormColumns(['default' => 1, 'sm' => 3])
             ->filters([
                 SelectFilter::make('period')
                     ->label('Date Range')
                     ->options([
-                        'today' => '📅 Today',
-                        'yesterday' => '⏮️ Yesterday',
-                        'week' => '📆 Last 7 Days (Weekly)',
-                        'month' => '🗓️ Last 30 Days (Monthly)',
-                        'all' => '🌐 All Time',
+                        'all' => 'All Time',
+                        'today' => 'Today',
+                        'yesterday' => 'Yesterday',
+                        'week' => 'Last 7 Days (Weekly)',
+                        'month' => 'Last 30 Days (Monthly)',
                     ])
-                    ->default('today')
+                    ->default('all')
                     ->selectablePlaceholder(false)
                     ->query(function (Builder $query, array $data): Builder {
                         return match ($data['value'] ?? 'all') {
