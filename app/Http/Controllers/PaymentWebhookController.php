@@ -90,7 +90,11 @@ class PaymentWebhookController extends Controller
         // Handle customer text messages (/start, /shop, product search, or Order ID lookup)
         $message = $request->input('message');
         if (is_array($message) && $botEnabled) {
-            $this->handleStoreBotMessage($message, $telegram);
+            try {
+                $this->handleStoreBotMessage($message, $telegram);
+            } catch (Throwable $e) {
+                report($e);
+            }
 
             return response()->json(['ok' => true]);
         }
@@ -105,9 +109,13 @@ class PaymentWebhookController extends Controller
         $chatId = (string) ($callback['message']['chat']['id'] ?? '');
         $messageId = (int) ($callback['message']['message_id'] ?? 0);
 
-        // Handle customer Store Bot navigation callbacks (store:home, store:cat:{id}, store:prod:{id})
+        // Handle customer Store Bot navigation callbacks (store:home, store:list:*, store:prod:*)
         if (str_starts_with($data, 'store:') && $botEnabled) {
-            $this->handleStoreBotCallback($callbackId, $chatId, $messageId, $data, $telegram);
+            try {
+                $this->handleStoreBotCallback($callbackId, $chatId, $messageId, $data, $telegram);
+            } catch (Throwable $e) {
+                report($e);
+            }
 
             return response()->json(['ok' => true]);
         }
@@ -409,7 +417,7 @@ class PaymentWebhookController extends Controller
             return;
         }
 
-        $lower = strtolower($text);
+        $lower = mb_strtolower($text, 'UTF-8');
         $storeName = TelegramNotifier::e((string) Setting::get('store_name', 'SellMeTools'));
 
         // 1. /start -> Pin persistent bottom keyboard buttons AND show Direct Products List with Tool Icons
@@ -426,7 +434,7 @@ class PaymentWebhookController extends Controller
         }
 
         // 2. All Products (/products, /shop, or bottom button "🛍️ All Products")
-        if (in_array($lower, ['/products', '/shop', '🛍️ all products', 'all products'], true)) {
+        if (in_array($lower, ['/products', '/shop'], true) || str_contains($lower, 'all products')) {
             [$html, $keyboard] = $this->buildProductsCatalog(1, 'all');
             $telegram->send($token, $chatId, $html, $keyboard);
 
@@ -434,7 +442,7 @@ class PaymentWebhookController extends Controller
         }
 
         // 3. In-Stock Products Only (/instock, /stock, or bottom button "🟢 In-Stock Only")
-        if (in_array($lower, ['/instock', '/stock', '🟢 in-stock only', 'in-stock only'], true)) {
+        if (in_array($lower, ['/instock', '/stock'], true) || str_contains($lower, 'in-stock only') || str_contains($lower, 'in stock only')) {
             [$html, $keyboard] = $this->buildProductsCatalog(1, 'instock');
             $telegram->send($token, $chatId, $html, $keyboard);
 
@@ -442,7 +450,7 @@ class PaymentWebhookController extends Controller
         }
 
         // 4. Search Prompt (/search or bottom button "🔍 Search Product")
-        if (in_array($lower, ['/search', '🔍 search product', 'search product'], true)) {
+        if ($lower === '/search' || str_contains($lower, 'search product')) {
             $telegram->send(
                 $token,
                 $chatId,
@@ -455,7 +463,7 @@ class PaymentWebhookController extends Controller
         }
 
         // 5. Track Order Prompt (/track or bottom button "🧾 Track Order")
-        if (in_array($lower, ['/track', '🧾 track order', 'track order'], true)) {
+        if ($lower === '/track' || str_contains($lower, 'track order')) {
             $telegram->send(
                 $token,
                 $chatId,
@@ -467,7 +475,7 @@ class PaymentWebhookController extends Controller
         }
 
         // 6. Visit Website (bottom button "🌐 Visit Website")
-        if (in_array($lower, ['/web', '/website', '🌐 visit website', 'visit website'], true)) {
+        if (in_array($lower, ['/web', '/website'], true) || str_contains($lower, 'visit website')) {
             $telegram->send(
                 $token,
                 $chatId,
@@ -483,7 +491,7 @@ class PaymentWebhookController extends Controller
         }
 
         // 7. Support (/support or bottom button "💬 Support")
-        if (in_array($lower, ['/support', '/contact', '💬 support', 'support'], true)) {
+        if (in_array($lower, ['/support', '/contact'], true) || str_contains($lower, '💬 support') || $lower === 'support') {
             $wa = admin_whatsapp_number();
             $tgUser = trim((string) Setting::get('support_telegram', ''));
             $email = trim((string) Setting::get('support_email', 'contact@sellmetools.com'));

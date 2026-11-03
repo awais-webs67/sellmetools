@@ -345,6 +345,11 @@ class Product extends Model
         return $this->stock_unlimited || $this->available_stock > 0;
     }
 
+    public function displayStock(): int|string
+    {
+        return $this->stock_unlimited ? '∞' : max(0, (int) $this->available_stock);
+    }
+
     /**
      * True when the product has the Free Product tag enabled (`is_free = true`).
      */
