@@ -11,7 +11,8 @@
     $canonicalUrl = $activeCategory
         ? route('categories.show', $activeCategory)
         : route('shop');
-    $robotsDirective = ($search !== '' || $sort !== 'featured' || $inStockOnly)
+    $isDefaultSort = in_array($sort, ['alpha', 'featured'], true);
+    $robotsDirective = ($search !== '' || ! $isDefaultSort || $inStockOnly)
         ? 'noindex, follow'
         : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
 
@@ -128,7 +129,7 @@
             <div class="flex flex-col gap-3.5 lg:flex-row lg:items-center lg:justify-between">
                 {{-- Category Pills --}}
                 <nav class="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Filter by category">
-                    <a href="{{ route('shop', array_filter(['q' => $search ?: null, 'sort' => $sort !== 'featured' ? $sort : null, 'in_stock' => $inStockOnly ? 1 : null])) }}"
+                    <a href="{{ route('shop', array_filter(['q' => $search ?: null, 'sort' => ! $isDefaultSort ? $sort : null, 'in_stock' => $inStockOnly ? 1 : null])) }}"
                        @click.prevent="setCategory('', $event)"
                        @class([
                            'shrink-0 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition cursor-pointer',
@@ -138,7 +139,7 @@
                         All Categories
                     </a>
                     @foreach ($categories as $category)
-                        <a href="{{ route('shop', array_filter(['category' => $category->slug, 'q' => $search ?: null, 'sort' => $sort !== 'featured' ? $sort : null, 'in_stock' => $inStockOnly ? 1 : null])) }}"
+                        <a href="{{ route('shop', array_filter(['category' => $category->slug, 'q' => $search ?: null, 'sort' => ! $isDefaultSort ? $sort : null, 'in_stock' => $inStockOnly ? 1 : null])) }}"
                            @click.prevent="setCategory(@js($category->slug), $event)"
                            @class([
                                'shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition whitespace-nowrap cursor-pointer',
@@ -178,7 +179,8 @@
                     <div class="flex items-center gap-2">
                         <label for="shop-sort" class="sr-only">Sort products</label>
                         <select id="shop-sort" name="sort" class="input py-2 pr-8 text-xs sm:text-sm font-medium w-full sm:w-auto cursor-pointer" @change="run()">
-                            <option value="featured" @selected($sort === 'featured')>Sort: Featured</option>
+                            <option value="alpha" @selected($isDefaultSort)>Sort: Name (A to Z)</option>
+                            <option value="alpha_desc" @selected($sort === 'alpha_desc')>Sort: Name (Z to A)</option>
                             <option value="popular" @selected($sort === 'popular')>Sort: Best Selling</option>
                             <option value="price_asc" @selected($sort === 'price_asc')>Price: Low to High</option>
                             <option value="price_desc" @selected($sort === 'price_desc')>Price: High to Low</option>
@@ -193,7 +195,7 @@
                 </form>
             </div>
 
-            @if ($search !== '' || $activeCategory || $sort !== 'featured' || $inStockOnly)
+            @if ($search !== '' || $activeCategory || ! $isDefaultSort || $inStockOnly)
                 <div data-filter-summary class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5 text-xs text-muted">
                     <span>
                         Showing <strong>{{ $products->total() }}</strong> {{ \Illuminate\Support\Str::plural('result', $products->total()) }}

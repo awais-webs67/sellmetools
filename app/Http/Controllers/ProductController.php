@@ -54,14 +54,12 @@ class ProductController extends Controller
             : null;
 
         $search = trim((string) $request->query('q', ''));
-        $sort = $request->string('sort', 'featured')->toString();
+        $sort = $request->string('sort', 'alpha')->toString();
         $inStockOnly = $request->boolean('in_stock');
-        $seed = $request->integer('seed') ?: random_int(1000, 999999);
 
-        $products = $this->catalogQuery($activeCategory, $search, $sort, $inStockOnly, $seed)
+        $products = $this->catalogQuery($activeCategory, $search, $sort, $inStockOnly)
             ->paginate($request->boolean('all') ? 500 : 24)
-            ->withQueryString()
-            ->appends(['seed' => $seed]);
+            ->withQueryString();
 
         return view('store.shop', compact('categories', 'activeCategory', 'products', 'search', 'sort', 'inStockOnly'));
     }
@@ -127,6 +125,12 @@ class ProductController extends Controller
             ->orderByRaw('CASE WHEN available_stock > 0 OR stock_unlimited = 1 THEN 0 ELSE 1 END');
 
         return match ($sort) {
+            'alpha', 'featured' => $query
+                ->orderBy('name')
+                ->orderBy('id'),
+            'alpha_desc' => $query
+                ->orderByDesc('name')
+                ->orderBy('id'),
             'price_asc' => $query
                 ->orderBy('price')
                 ->orderBy('id'),
