@@ -167,6 +167,9 @@ class StoreSettings extends Page
                         Artisan::call('route:clear');
                         app(\App\Services\OrderService::class)->expireStale();
                         \App\Models\Product::query()->each(fn (\App\Models\Product $p) => Listings::refresh($p));
+                        if ($tgToken = (string) Setting::get('telegram_bot_token', '')) {
+                            app(TelegramNotifier::class)->registerWebhook($tgToken);
+                        }
                     } catch (\Throwable $e) {
                         Notification::make()
                             ->title('Migration / Cache Error')
@@ -861,7 +864,10 @@ class StoreSettings extends Page
         ]);
 
         $storeName = TelegramNotifier::e((string) ($this->data['store_name'] ?? Setting::get('store_name', 'SellMeTools')));
-        $sent = $notifier->send($token, $chatId, "✅ <b>{$storeName}</b>\nTelegram 1-Tap Approve &amp; Decline alerts + Live Synchronized Store Bot are active!\nSend <code>/start</code> or <code>/shop</code> anytime to browse live products.");
+        $testHtml = "✅ <b>{$storeName} — Supplier Store Bot Active!</b>\n\n"
+            ."• <b>Bottom Menu Buttons</b> &amp; <b>/Commands</b> are now enabled.\n"
+            ."• Tap <b>🛍️ All Products</b> below or send <code>/products</code> to view all live products with icons, prices &amp; stock!";
+        $sent = $notifier->send($token, $chatId, $testHtml, null, TelegramNotifier::bottomMenuKeyboard());
 
         if (! $sent) {
             $detected = $notifier->detectChatId($token);
@@ -869,7 +875,7 @@ class StoreSettings extends Page
                 $chatId = $detected;
                 $this->data['telegram_admin_chat_id'] = $chatId;
                 Setting::set('telegram_admin_chat_id', $chatId);
-                $sent = $notifier->send($token, $chatId, "✅ <b>{$storeName}</b>\nTelegram 1-Tap Approve &amp; Decline alerts + Live Synchronized Store Bot are active!");
+                $sent = $notifier->send($token, $chatId, $testHtml, null, TelegramNotifier::bottomMenuKeyboard());
             }
         }
 

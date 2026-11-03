@@ -396,8 +396,8 @@ class PaymentWebhookController extends Controller
     }
 
     /**
-     * Handles incoming text messages to the Live Synchronized Telegram Store Bot.
-     * Reads categories, products, prices, and orders directly from the live database.
+     * Handles incoming text messages to the Live Synchronized Supplier-Style Telegram Store Bot.
+     * Displays products directly with tool icons, live prices, stock, persistent bottom buttons, and commands.
      */
     private function handleStoreBotMessage(array $message, TelegramNotifier $telegram): void
     {
@@ -410,22 +410,109 @@ class PaymentWebhookController extends Controller
         }
 
         $lower = strtolower($text);
+        $storeName = TelegramNotifier::e((string) Setting::get('store_name', 'SellMeTools'));
 
-        // 1. /start, /shop, /products, /categories, /help -> Show Main Store Menu with Live Categories
-        if (in_array($lower, ['/start', '/shop', '/products', '/categories', '/menu', '/help', 'hi', 'hello', 'salam', 'assalam o alaikum'], true) || str_starts_with($lower, '/start ')) {
-            [$html, $keyboard] = $this->buildStoreHomeMenu();
+        // 1. /start -> Pin persistent bottom keyboard buttons AND show Direct Products List with Tool Icons
+        if (in_array($lower, ['/start', '/menu', '/help', 'hi', 'hello', 'salam', 'assalam o alaikum'], true) || str_starts_with($lower, '/start ')) {
+            $welcomeBar = "👋 <b>Welcome to {$storeName} Official Bot!</b>\n"
+                ."⚡ Direct Supplier Bot — Live Stock &amp; Instant Delivery.\n"
+                ."👇 Use the menu buttons at the bottom or tap any product below:";
+            $telegram->send($token, $chatId, $welcomeBar, null, TelegramNotifier::bottomMenuKeyboard());
+
+            [$html, $keyboard] = $this->buildProductsCatalog(1, 'all');
             $telegram->send($token, $chatId, $html, $keyboard);
 
             return;
         }
 
-        // 2. Order Tracking (e.g., SMT-XXXXXX)
+        // 2. All Products (/products, /shop, or bottom button "🛍️ All Products")
+        if (in_array($lower, ['/products', '/shop', '🛍️ all products', 'all products'], true)) {
+            [$html, $keyboard] = $this->buildProductsCatalog(1, 'all');
+            $telegram->send($token, $chatId, $html, $keyboard);
+
+            return;
+        }
+
+        // 3. In-Stock Products Only (/instock, /stock, or bottom button "🟢 In-Stock Only")
+        if (in_array($lower, ['/instock', '/stock', '🟢 in-stock only', 'in-stock only'], true)) {
+            [$html, $keyboard] = $this->buildProductsCatalog(1, 'instock');
+            $telegram->send($token, $chatId, $html, $keyboard);
+
+            return;
+        }
+
+        // 4. Search Prompt (/search or bottom button "🔍 Search Product")
+        if (in_array($lower, ['/search', '🔍 search product', 'search product'], true)) {
+            $telegram->send(
+                $token,
+                $chatId,
+                "🔍 <b>Search Any Tool or Subscription</b>\n\nType and send the tool name right now (for example: <code>ChatGPT</code>, <code>Canva</code>, <code>CapCut</code>, <code>Netflix</code>, <code>Cursor</code>, <code>Claude</code>):",
+                null,
+                TelegramNotifier::bottomMenuKeyboard()
+            );
+
+            return;
+        }
+
+        // 5. Track Order Prompt (/track or bottom button "🧾 Track Order")
+        if (in_array($lower, ['/track', '🧾 track order', 'track order'], true)) {
+            $telegram->send(
+                $token,
+                $chatId,
+                "🧾 <b>Track Your Order Status</b>\n\nSend your Order ID in this chat (for example: <code>SMT-123456</code>) to check live status, or track on our website:",
+                [[['text' => '🔍 Track Order on Website', 'url' => route('orders.track')]]]
+            );
+
+            return;
+        }
+
+        // 6. Visit Website (bottom button "🌐 Visit Website")
+        if (in_array($lower, ['/web', '/website', '🌐 visit website', 'visit website'], true)) {
+            $telegram->send(
+                $token,
+                $chatId,
+                "🌐 <b>{$storeName} Official Website</b>\nBrowse all products, pay via Binance USDT or Pakistani Wallets (Easypaisa / JazzCash), and access your instant credentials vault:",
+                [
+                    [['text' => '🛍️ Open Full Web Store', 'url' => route('shop')]],
+                    [['text' => '🔑 Customer Account & Order Vault', 'url' => route('account.orders')]],
+                    [['text' => '🧾 Track Order', 'url' => route('orders.track')]],
+                ]
+            );
+
+            return;
+        }
+
+        // 7. Support (/support or bottom button "💬 Support")
+        if (in_array($lower, ['/support', '/contact', '💬 support', 'support'], true)) {
+            $wa = admin_whatsapp_number();
+            $tgUser = trim((string) Setting::get('support_telegram', ''));
+            $email = trim((string) Setting::get('support_email', 'contact@sellmetools.com'));
+
+            $html = "💬 <b>{$storeName} Customer Support</b>\n\n"
+                ."Need help with an order, custom activation, or bulk reseller pricing? Reach us directly:\n"
+                .($wa !== '' ? "• 📱 <b>WhatsApp:</b> +{$wa}\n" : '')
+                .($tgUser !== '' ? '• ✈️ <b>Telegram:</b> '.TelegramNotifier::e($tgUser)."\n" : '')
+                .($email !== '' ? '• 📧 <b>Email:</b> '.TelegramNotifier::e($email)."\n" : '');
+
+            $kb = [];
+            if ($wa !== '') {
+                $kb[] = [['text' => '📲 Chat on WhatsApp Support', 'url' => "https://wa.me/{$wa}"]];
+            }
+            $kb[] = [['text' => '🌐 Contact Helpdesk on Website', 'url' => route('pages.show', 'contact')]];
+            $kb[] = [['text' => '🛍️ Back to All Products', 'callback_data' => 'store:list:1:all']];
+
+            $telegram->send($token, $chatId, $html, $kb);
+
+            return;
+        }
+
+        // 8. Order ID Lookup (e.g., SMT-XXXXXX)
         if (preg_match('/\b(SMT-[A-Z0-9]{4,12})\b/i', $text, $m)) {
             $orderNum = strtoupper($m[1]);
             $order = Order::with('items')->where('number', $orderNum)->first();
             if (! $order) {
                 $telegram->send($token, $chatId, "❌ No order found with ID <code>".TelegramNotifier::e($orderNum)."</code>.\nPlease double-check your Order ID.", [
-                    [['text' => '🛍️ Browse All Tools', 'callback_data' => 'store:home']],
+                    [['text' => '🛍️ View All Products', 'callback_data' => 'store:list:1:all']],
                 ]);
 
                 return;
@@ -439,206 +526,246 @@ class PaymentWebhookController extends Controller
                 ."🕒 <b>Date:</b> ".$order->created_at->format('d M Y, h:i A');
 
             $telegram->send($token, $chatId, $html, [
-                [['text' => '🔍 Track Order on Website', 'url' => route('orders.track')]],
-                [['text' => '🛍️ Browse Store Catalog', 'callback_data' => 'store:home']],
+                [['text' => '🔍 Open Order Page on Website', 'url' => route('orders.track')]],
+                [['text' => '🛍️ View All Products', 'callback_data' => 'store:list:1:all']],
             ]);
 
             return;
         }
 
-        // 3. Live Product Search by Keyword
+        // 9. Live Product Search by Keyword
         $like = '%'.addcslashes($text, '%_').'%';
         $products = Product::query()
             ->where('is_active', true)
             ->where(fn ($q) => $q->where('name', 'like', $like)->orWhere('short_description', 'like', $like))
+            ->orderByRaw('CASE WHEN stock_unlimited = 1 OR available_stock > 0 THEN 0 ELSE 1 END')
             ->orderByDesc('is_featured')
             ->orderByDesc('available_stock')
-            ->limit(10)
+            ->limit(15)
             ->get();
 
         if ($products->isEmpty()) {
-            [$html, $keyboard] = $this->buildStoreHomeMenu("🔍 No exact match for <b>".TelegramNotifier::e(Str::limit($text, 40))."</b>. Browse our live categories below:");
+            [$html, $keyboard] = $this->buildProductsCatalog(1, 'all', "🔍 No exact match for \"<b>".TelegramNotifier::e(Str::limit($text, 35))."</b>\". Showing all live products:");
             $telegram->send($token, $chatId, $html, $keyboard);
 
             return;
         }
 
-        $storeName = TelegramNotifier::e((string) Setting::get('store_name', 'SellMeTools'));
-        $html = "🔎 <b>Search Results on {$storeName}</b>\n"
-            ."Found <b>{$products->count()}</b> live tools matching \"<b>".TelegramNotifier::e(Str::limit($text, 40))."</b>\".\n"
-            ."Tap any product below to view live price, stock &amp; instant buy link:";
+        $html = "🔎 <b>Search Results ({$products->count()} found)</b>\n"
+            ."Matching \"<b>".TelegramNotifier::e(Str::limit($text, 40))."</b>\" — tap any product below:";
 
         $keyboard = [];
         foreach ($products as $prod) {
-            $priceLabel = $prod->is_free ? 'FREE' : money($prod->price).' ('.money_usd($prod->price).')';
-            $stockBadge = $prod->inStock() ? '🟢' : '🔴';
-            $keyboard[] = [[
-                'text' => "{$stockBadge} {$prod->name} — {$priceLabel}",
-                'callback_data' => 'store:prod:'.$prod->id,
-            ]];
+            $keyboard[] = [$this->formatProductButton($prod, 1, 'all')];
         }
-        $keyboard[] = [['text' => '⬅️ Back to Categories', 'callback_data' => 'store:home']];
+        $keyboard[] = [['text' => '🛍️ View All Products Catalog', 'callback_data' => 'store:list:1:all']];
 
         $telegram->send($token, $chatId, $html, $keyboard);
     }
 
     /**
-     * Handles inline button taps for the Live Synchronized Telegram Store Bot.
+     * Handles inline button taps for the Supplier-Style Telegram Store Bot.
      */
     private function handleStoreBotCallback(string $callbackId, string $chatId, int $messageId, string $data, TelegramNotifier $telegram): void
     {
+        if ($data === 'store:noop') {
+            $telegram->answerCallback($callbackId, 'Current page', false);
+
+            return;
+        }
+
         $telegram->answerCallback($callbackId, 'Loading...', false);
 
-        if ($data === 'store:home') {
-            [$html, $keyboard] = $this->buildStoreHomeMenu();
+        // store:home or store:list:{page}:{filter}
+        if ($data === 'store:home' || preg_match('/^store:list:(\d+):(all|instock)$/', $data, $m)) {
+            $page = isset($m[1]) ? max(1, (int) $m[1]) : 1;
+            $filter = $m[2] ?? 'all';
+            [$html, $keyboard] = $this->buildProductsCatalog($page, $filter);
             $telegram->editMessage($chatId, $messageId, $html, $keyboard);
 
             return;
         }
 
-        if (preg_match('/^store:cat:(\d+)$/', $data, $m)) {
-            $categoryId = (int) $m[1];
-            $category = Category::query()->where('is_active', true)->find($categoryId);
-            if (! $category) {
-                [$html, $keyboard] = $this->buildStoreHomeMenu();
-                $telegram->editMessage($chatId, $messageId, $html, $keyboard);
-
-                return;
-            }
-
-            $products = Product::query()
-                ->where('is_active', true)
-                ->where('category_id', $category->id)
-                ->orderByDesc('is_featured')
-                ->orderBy('sort')
-                ->limit(25)
-                ->get();
-
-            $html = "📂 <b>".TelegramNotifier::e($category->name)."</b>\n"
-                .($category->description ? TelegramNotifier::e(Str::limit(strip_tags($category->description), 160))."\n\n" : "\n")
-                ."Select any product below for live pricing, stock &amp; instant checkout:";
-
-            $keyboard = [];
-            foreach ($products as $prod) {
-                $priceLabel = $prod->is_free ? 'FREE' : money($prod->price).' ('.money_usd($prod->price).')';
-                $stockBadge = $prod->inStock() ? '🟢' : '🔴';
-                $keyboard[] = [[
-                    'text' => "{$stockBadge} {$prod->name} — {$priceLabel}",
-                    'callback_data' => 'store:prod:'.$prod->id,
-                ]];
-            }
-
-            $keyboard[] = [
-                ['text' => '⬅️ All Categories', 'callback_data' => 'store:home'],
-                ['text' => '🌐 View on Web', 'url' => route('categories.show', $category->slug)],
-            ];
-
-            $telegram->editMessage($chatId, $messageId, $html, $keyboard);
-
-            return;
-        }
-
-        if (preg_match('/^store:prod:(\d+)$/', $data, $m)) {
+        // store:prod:{id} or store:prod:{id}:{page}:{filter}
+        if (preg_match('/^store:prod:(\d+)(?::(\d+):(all|instock))?$/', $data, $m)) {
             $productId = (int) $m[1];
+            $backPage = isset($m[2]) ? max(1, (int) $m[2]) : 1;
+            $backFilter = $m[3] ?? 'all';
+
             $prod = Product::with('category')->where('is_active', true)->find($productId);
             if (! $prod) {
-                [$html, $keyboard] = $this->buildStoreHomeMenu();
+                [$html, $keyboard] = $this->buildProductsCatalog($backPage, $backFilter);
                 $telegram->editMessage($chatId, $messageId, $html, $keyboard);
 
                 return;
             }
 
+            $icon = $this->productIcon($prod);
             $priceText = $prod->is_free ? '🎁 FREE (0 PKR)' : money($prod->price).' (≈ '.money_usd($prod->price).' USDT)';
             $stockCount = $prod->displayStock();
-            $stockText = $prod->inStock() ? "✅ In Stock ({$stockCount} available)" : '❌ Out of Stock';
+            $stockText = $prod->inStock() ? "🟢 In Stock ({$stockCount} pcs available)" : '🔴 Out of Stock';
             $desc = trim(strip_tags((string) ($prod->short_description ?: $prod->description)));
 
-            $html = "⚡ <b>".TelegramNotifier::e($prod->name)."</b>\n"
-                .($prod->category ? "📂 <b>Category:</b> ".TelegramNotifier::e($prod->category->name)."\n" : '')
+            $html = "{$icon} <b>".TelegramNotifier::e($prod->name)."</b>\n"
+                ."━━━━━━━━━━━━━━━━━━━━\n"
                 ."💰 <b>Price:</b> {$priceText}\n"
-                ."📦 <b>Stock:</b> {$stockText}\n"
+                ."📦 <b>Live Stock:</b> {$stockText}\n"
                 .($prod->duration ? "⏳ <b>Validity:</b> ".TelegramNotifier::e($prod->duration)."\n" : '')
                 .($prod->warranty ? "🛡️ <b>Warranty:</b> ".TelegramNotifier::e($prod->warranty)."\n" : '')
-                .($desc !== '' ? "\n📝 ".TelegramNotifier::e(Str::limit($desc, 260))."\n" : '');
+                .($prod->category ? "🏷️ <b>Type:</b> ".TelegramNotifier::e($prod->category->name)."\n" : '')
+                .($desc !== '' ? "\n📝 <b>Details:</b>\n".TelegramNotifier::e(Str::limit($desc, 320))."\n" : '');
 
             $keyboard = [];
             if ($prod->inStock()) {
                 $keyboard[] = [[
-                    'text' => '🛒 Buy Now — '.$priceText,
+                    'text' => '🛒 Buy Now (Instant Delivery) — '.($prod->is_free ? 'FREE' : money($prod->price)),
                     'url' => route('checkout.create', $prod->slug),
                 ]];
             }
+
+            $wa = admin_whatsapp_number();
+            if ($wa !== '') {
+                $waText = urlencode("Assalam o Alaikum! I want to buy {$prod->name} (".money($prod->price).") from SellMeTools.");
+                $keyboard[] = [[
+                    'text' => '📲 Buy / Ask on WhatsApp',
+                    'url' => "https://wa.me/{$wa}?text={$waText}",
+                ]];
+            }
+
             $keyboard[] = [[
-                'text' => '🌐 View Full Details on Website',
+                'text' => '🌐 View on Website',
                 'url' => route('products.show', $prod->slug),
             ]];
 
-            $backData = $prod->category_id ? 'store:cat:'.$prod->category_id : 'store:home';
-            $keyboard[] = [
-                ['text' => '⬅️ Back', 'callback_data' => $backData],
-                ['text' => '🏠 Main Menu', 'callback_data' => 'store:home'],
-            ];
+            $keyboard[] = [[
+                'text' => '⬅️ Back to Products List',
+                'callback_data' => "store:list:{$backPage}:{$backFilter}",
+            ]];
 
             $telegram->editMessage($chatId, $messageId, $html, $keyboard);
         }
     }
 
     /**
+     * Builds the Supplier-Style Direct Products List with Tool Icons, Live Price, Stock & Pagination.
+     *
      * @return array{0: string, 1: array<int, array<int, array<string, string>>>}
      */
-    private function buildStoreHomeMenu(?string $customIntro = null): array
+    private function buildProductsCatalog(int $page = 1, string $filter = 'all', ?string $customIntro = null): array
     {
+        $perPage = 12;
         $storeName = TelegramNotifier::e((string) Setting::get('store_name', 'SellMeTools'));
-        $tagline = TelegramNotifier::e((string) Setting::get('tagline', 'Instant Digital Tools & Subscriptions'));
-        $totalActiveProducts = Product::query()->where('is_active', true)->count();
+        $usdtRate = number_format(Setting::usdtRate(), 0);
 
-        $categories = Category::query()
+        $query = Product::with('category')->where('is_active', true);
+
+        if ($filter === 'instock') {
+            $query->where(function ($q) {
+                $q->where('stock_unlimited', true)->orWhere('available_stock', '>', 0);
+            });
+        }
+
+        $totalProducts = (clone $query)->count();
+        $inStockCount = Product::query()
             ->where('is_active', true)
-            ->withCount(['products' => fn ($q) => $q->where('is_active', true)])
+            ->where(fn ($q) => $q->where('stock_unlimited', true)->orWhere('available_stock', '>', 0))
+            ->count();
+
+        $totalPages = max(1, (int) ceil($totalProducts / $perPage));
+        $page = min(max(1, $page), $totalPages);
+
+        $products = $query
+            ->orderByRaw('CASE WHEN stock_unlimited = 1 OR available_stock > 0 THEN 0 ELSE 1 END')
+            ->orderByDesc('is_featured')
             ->orderBy('sort')
+            ->orderBy('id')
+            ->skip(($page - 1) * $perPage)
+            ->take($perPage)
             ->get();
 
+        $modeTitle = $filter === 'instock' ? '🟢 In-Stock Products' : '🛍️ All Live Products';
+
         $html = ($customIntro ? $customIntro."\n\n" : '')
-            ."👋 <b>Welcome to {$storeName} Official Bot!</b>\n"
-            ."<i>{$tagline}</i>\n\n"
-            ."✨ <b>{$totalActiveProducts} Live Products</b> synced automatically with our website.\n"
-            ."💡 <b>How to use:</b>\n"
-            ."• Tap a <b>Category</b> below to browse products &amp; live prices\n"
-            ."• Type any tool name (e.g. <code>ChatGPT</code>, <code>Canva</code>) to search\n"
-            ."• Send your Order ID (e.g. <code>SMT-123456</code>) to track your order";
+            ."⚡ <b>{$storeName} — {$modeTitle}</b>\n"
+            ."📊 <b>Total:</b> {$totalProducts} Tools · <b>In Stock:</b> 🟢 {$inStockCount} · <b>Rate:</b> 1 USDT = Rs {$usdtRate}\n"
+            ."📄 <b>Page {$page} of {$totalPages}</b> — Tap any product below to view details &amp; buy:";
 
         $keyboard = [];
-        $row = [];
-        foreach ($categories as $cat) {
-            if ($cat->products_count <= 0) {
-                continue;
-            }
-            $icon = $cat->icon ?: '📦';
-            $row[] = [
-                'text' => "{$icon} {$cat->name} ({$cat->products_count})",
-                'callback_data' => 'store:cat:'.$cat->id,
-            ];
-            if (count($row) === 2) {
-                $keyboard[] = $row;
-                $row = [];
-            }
+        foreach ($products as $prod) {
+            $keyboard[] = [$this->formatProductButton($prod, $page, $filter)];
         }
-        if ($row !== []) {
-            $keyboard[] = $row;
+
+        // Pagination Row
+        if ($totalPages > 1) {
+            $navRow = [];
+            if ($page > 1) {
+                $navRow[] = ['text' => '⬅️ Prev', 'callback_data' => 'store:list:'.($page - 1).':'.$filter];
+            }
+            $navRow[] = ['text' => "📄 {$page}/{$totalPages}", 'callback_data' => 'store:noop'];
+            if ($page < $totalPages) {
+                $navRow[] = ['text' => 'Next ➡️', 'callback_data' => 'store:list:'.($page + 1).':'.$filter];
+            }
+            $keyboard[] = $navRow;
         }
+
+        // Filter & Live Refresh Row
+        $toggleFilterBtn = $filter === 'instock'
+            ? ['text' => '📦 Show All Products', 'callback_data' => 'store:list:1:all']
+            : ['text' => "🟢 In-Stock Only ({$inStockCount})", 'callback_data' => 'store:list:1:instock'];
 
         $keyboard[] = [
-            ['text' => '🛍️ Open Full Web Store', 'url' => route('shop')],
-            ['text' => '🔍 Track Order', 'url' => route('orders.track')],
+            $toggleFilterBtn,
+            ['text' => '🔄 Refresh Stock', 'callback_data' => "store:list:{$page}:{$filter}"],
         ];
 
-        $wa = admin_whatsapp_number();
-        if ($wa !== '') {
-            $keyboard[] = [
-                ['text' => '📲 WhatsApp Support', 'url' => "https://wa.me/{$wa}"],
-            ];
-        }
+        $keyboard[] = [
+            ['text' => '🌐 Open Website Store', 'url' => route('shop')],
+            ['text' => '🧾 Track Order', 'url' => route('orders.track')],
+        ];
 
         return [$html, $keyboard];
+    }
+
+    /**
+     * Formats a single Supplier-Style Product Inline Button with Tool Icon, Price & Stock count.
+     *
+     * @return array{text: string, callback_data: string}
+     */
+    private function formatProductButton(Product $prod, int $page = 1, string $filter = 'all'): array
+    {
+        $icon = $this->productIcon($prod);
+        $inStock = $prod->inStock();
+        $stockQty = $prod->displayStock();
+        $stockBadge = $inStock ? "🟢 {$stockQty}" : '🔴 0';
+        $priceStr = $prod->is_free ? 'FREE' : 'Rs '.number_format((float) $prod->price, 0).' ('.money_usd($prod->price).')';
+        $shortName = Str::limit(trim($prod->name), 26, '');
+
+        return [
+            'text' => "{$icon} {$shortName} • {$priceStr} [{$stockBadge}]",
+            'callback_data' => "store:prod:{$prod->id}:{$page}:{$filter}",
+        ];
+    }
+
+    /**
+     * Returns a recognizable brand/tool emoji icon for each product (like supplier bots).
+     */
+    private function productIcon(Product $prod): string
+    {
+        $n = strtolower($prod->name);
+
+        return match (true) {
+            str_contains($n, 'chatgpt') || str_contains($n, 'openai') || str_contains($n, 'gpt') => '🤖',
+            str_contains($n, 'claude') || str_contains($n, 'perplexity') || str_contains($n, 'gemini') || str_contains($n, 'midjourney') || str_contains($n, 'grok') || str_contains($n, 'deepseek') => '🧠',
+            str_contains($n, 'canva') || str_contains($n, 'adobe') || str_contains($n, 'figma') || str_contains($n, 'freepik') || str_contains($n, 'envato') || str_contains($n, 'picsart') || str_contains($n, 'leonardo') => '🎨',
+            str_contains($n, 'capcut') || str_contains($n, 'veo') || str_contains($n, 'kling') || str_contains($n, 'runway') || str_contains($n, 'heygen') || str_contains($n, 'invideo') || str_contains($n, 'filmora') || str_contains($n, 'vidiq') || str_contains($n, 'elevenlabs') || str_contains($n, 'suno') => '🎬',
+            str_contains($n, 'netflix') || str_contains($n, 'prime') || str_contains($n, 'youtube') || str_contains($n, 'spotify') || str_contains($n, 'disney') || str_contains($n, 'iptv') || str_contains($n, 'crunchyroll') => '📺',
+            str_contains($n, 'cursor') || str_contains($n, 'copilot') || str_contains($n, 'github') || str_contains($n, 'lovable') || str_contains($n, 'bolt') || str_contains($n, 'replit') || str_contains($n, 'windsurf') => '💻',
+            str_contains($n, 'vpn') || str_contains($n, 'nord') || str_contains($n, 'express') || str_contains($n, 'surfshark') || str_contains($n, 'cyberghost') || str_contains($n, 'hma') || str_contains($n, 'proxy') || str_contains($n, 'antivirus') => '🛡️',
+            str_contains($n, 'semrush') || str_contains($n, 'ahrefs') || str_contains($n, 'moz') || str_contains($n, 'ubersuggest') || str_contains($n, 'linkedin') || str_contains($n, 'sales navigator') => '📈',
+            str_contains($n, 'grammarly') || str_contains($n, 'quillbot') || str_contains($n, 'turnitin') || str_contains($n, 'scribd') || str_contains($n, 'chegg') || str_contains($n, 'coursera') || str_contains($n, 'udemy') || str_contains($n, 'duolingo') => '📚',
+            str_contains($n, 'office') || str_contains($n, 'microsoft') || str_contains($n, 'windows') || str_contains($n, 'google') || str_contains($n, 'icloud') || str_contains($n, 'aws') || str_contains($n, 'rdp') || str_contains($n, 'vps') || str_contains($n, 'cloud') => '☁️',
+            str_contains($n, 'whatsapp') || str_contains($n, 'telegram') || str_contains($n, 'discord') || str_contains($n, 'zoom') => '💬',
+            default => $prod->category?->icon ?: '⚡',
+        };
     }
 }

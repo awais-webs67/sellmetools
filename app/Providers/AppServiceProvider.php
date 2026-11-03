@@ -43,6 +43,7 @@ class AppServiceProvider extends ServiceProvider
 
         if (! $this->app->runningUnitTests() && ! $this->app->runningInConsole()) {
             try {
+                app(\App\Services\TelegramNotifier::class)->ensureBotConfigured();
                 app(\App\Services\DatabaseBackupService::class)->checkAndRunScheduledBackup();
             } catch (Throwable) {
                 // Ignore if DB not ready
