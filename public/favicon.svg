@@ -1,3 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <image width="64" height="64" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAGmElEQVR42u2aa4hUZRjHf3satm0YZVmmnRhl2jbZvBFhix2cbkRhSVcoAysIwigsoigiQiLExMooC/tQSRQRlX6IoLRiKXPkFCUhmYvIth63gyPDMpktyzC89WGek6fTuc5t15oHhh1mz3kv/+f/XN7neaEjHelIRzrSkf+tdM2WhRi5fC+wCrgK6AUs4BBwGBgHLN0sVP6TABi5/JXA68AQoLn+XQWmgTIwBvwEHASOyOc4UNHNgjojATBy+RXAR8B58pMNQNiGFDAFlIQlh4Uxo8IeSzcLp2Y1AEYu3wN8Alzj2nwUAPykKsCMA+8D23WzUKobgHQm2wNcAiwGkvJzQharPBaruah7GPi+VLSmPAAYBr4GekIA0GIAoFxrMIC1ulkYjQ1AOpNdDmwEdFmkFlMbCqgAB4AnSkVrrwuAe4G3QqivNUAyeywDuEk3C5NEHTydyerATqFn0vWs5vOu5vHpAZYDO9OZ7ArX8xcE0PhJYL3Yc73mYK9xObA66AH35lPAC0A25B33Zv0AAUgDm8SkbFngo7GTwFbdLDwHXAG8I7/RABA3RAZAKL/MZ6ONyDJgodBfAwZ8bD5pg6+bhTHgPtnA52JS9UguDgBLHTbf6Kad8/Q4wl3Sh2EA3U5wdLOgdLOwD7gFuAfYL2aifBjkJeU4AHS3IQqmJePzW9fCf9HSLEzrZuFD4DrgaUmCojrM8TgANFuUx/esI6x6ySK/f+hmYVI3C88DlwGvSdwPm/eXmQTA7eEBBiWf8FvLkPgJAoCYAB4BLgV2iH9QPkAcmSkA/OxySchzg1FMUfzDKHAn8GIA6BNxAEi0AZgFIXlFWj5RUupuYFiil9f+KpJPzMhG3Slz1cjlEw4vr3ksWAEpYL6f5mTjKeBaYC1wubzjpdSTwGQcBmgt9gFzgf6Q5xJiBkGyBngPuF427ycn/Bxlu5ygU7PTQu25EZ5fFDLuDr/w5vIrY34JlFanA2tE+xVHCAybf4EzEhi5fK+Ry68WE0ION+sE1KC1T/gVTNptAvbpcCDiHEN2JDBy+T7gDfmscTyzB9jsOga75SgxN3pWC+2/KumwFoFhWaDPyOX7ZeO3iq0/a+Tyi+0wCLwkR16v+kQ1yJG2iwHKEY6mxSurCGaWBl6RktnNjnXlgM1GLp8UEE4Bu33GqAAmMeP9UQelVAMVGS9vXAa+EyCSIY5QA273qA4p8fzrjVx+gwByh2NeJ7tOeZwZQjU9IoutV9N+Wv1ASmM/Al/GcLZex3ENeBz4AfhGTrBe85eDagmeAJSK1hiwxRE6VB0RQbne2w9sE8pWJYc/4PF8nNRaE0fZFwDmz8KC2La+FXjUxYSgRaoAx7cLuKVUtMqOHN4EVgJvipaUB3CNhuEK8K4A7ilRqsLzgRvl8OIVu7UAh3cM+AowSkWr6pPOapLyLpUawEVi0wOi2V7HoUjFZODbwLqgjlKsvkA6k43sDEtFq27tCSjdAkCfgDEIzBPKD0iI7BVHrlzKKAGvAi+HNUeiMGCAWmX4QkfU0ELMSQn1jwEjpaI1GjB+EriaWu9hjsPZOU3iGDCaoMvs70qUH0ucO71QO9s+TwwKIPPkvUPiYMejtMu6AhbWDTxErTzdV2duoMQBbQM2lIrWtGuOZaKp4ZCTqXKcI6bkZGf3Br8FRh5OpCef+fVAbNZ1BVB9g4SZhCu2hvXu/Lo724EHbV+QzmSHgY8dRdIwnxJ0zLZkvdv9fE3cKHAxcL8H5YN6AlqIg7xbzu42uza6Nh+n2aJ5pMxbJFWmGQCs4nTFtllpcTdwm7BriFq3ptHU2/leEngqncnObQYAS5q4cc1VBrMbIima03dwj9/fDAC6W3QoSrS4FJeIO3Y76wGaR7ymBSxjNgKgtVjztAIAbQbmbbu0SyNRih/NmkedkZqYKWYl2rwwNdtA0GaIGeqMpcws9wVqNgOg2rBxrZkAqNlE1XabgGqRhiotGl9rdhg83iITmZAFnsD/NkcjcpKACnAcAL7g9FWWZkkV2C21wlFOd2uaCcI+YvYz/ADYRa2a6/YHKgbl3e/sAj4FkPL4Jry7uvXKCWBT3IqQZxN06o/fK8nUnL3ULkifzz9LZ1EqyX86vleAz4C1paL129/Vi9Scg0LZYeAc6r+5rqjdAHugVLT2xH057LJ0ilp1aCW12r27o+vlfJw3tU1q1+FH3AVRGV8TkO+i1hfwqkPYFyKdBzT7b5laW2xHqWhZdKQjHelIRzoSS/4CGHQDbdH8V9wAAAAASUVORK5CYII="/>
+  <!-- Crisp White Rounded Badge Background (100% visible on both Dark & Light browser tabs) -->
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#FFFFFF" stroke="#E5E7EB" stroke-width="1.5"/>
+  <!-- Top-Left Dark Tile -->
+  <rect x="9" y="13" width="21" height="21" rx="5.5" fill="#14171A"/>
+  <!-- Bottom-Left Dark Tile -->
+  <rect x="9" y="36" width="21" height="21" rx="5.5" fill="#14171A"/>
+  <!-- Bottom-Right Dark Tile -->
+  <rect x="32" y="36" width="21" height="21" rx="5.5" fill="#14171A"/>
+  <!-- Top-Right Tilted Crimson Tile + White Cursor -->
+  <g transform="rotate(8 43 22)">
+    <rect x="31" y="10" width="24" height="24" rx="6" fill="#C81E3B"/>
+    <path d="M37.5 15.5L50.5 21.8L44.8 24.3L48.5 29.2L45.9 31.1L42.2 26.2L39.2 30.2L37.5 15.5Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linejoin="round"/>
+  </g>
 </svg>

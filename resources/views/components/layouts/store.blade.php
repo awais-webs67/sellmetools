@@ -117,10 +117,10 @@
         <meta name="msvalidate.01" content="{{ $bingVerify }}">
     @endif
 
-    <link rel="icon" href="{{ asset('favicon.svg') }}?v=6" type="image/svg+xml">
-    <link rel="icon" href="{{ asset('favicon.png') }}?v=6" type="image/png" sizes="64x64">
-    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v=6">
-    <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}?v=6">
+    <link rel="icon" href="{{ asset('favicon.png') }}?v=8" type="image/png" sizes="64x64">
+    <link rel="icon" href="{{ asset('favicon.svg') }}?v=8" type="image/svg+xml">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v=8">
+    <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}?v=8">
     <link rel="sitemap" type="application/xml" title="Sitemap" href="{{ route('sitemap') }}">
 
     {{-- Global Organization & WebSite JSON-LD Schema --}}
