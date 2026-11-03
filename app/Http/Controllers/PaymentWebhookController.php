@@ -173,7 +173,7 @@ class PaymentWebhookController extends Controller
                 }
             } else {
                 if ($payment->status === PaymentStatus::Pending) {
-                    $payments->reject($payment, 'Declined by Admin via Telegram');
+                    $payments->reject($payment, 'Please check your Transaction ID (TID) and submit a valid payment reference.');
                 }
                 $telegram->answerCallback($callbackId, "❌ Payment {$payment->transaction_id} Declined.");
                 if ($messageId > 0) {
@@ -298,7 +298,7 @@ class PaymentWebhookController extends Controller
                     $message = "✅ Order {$order->number} Marked as Delivered via WhatsApp!";
                 } elseif ($do === 'reject') {
                     if ($payment && $payment->status === PaymentStatus::Pending) {
-                        $payments->reject($payment, 'Declined by Admin via 1-Tap Control', $request->user());
+                        $payments->reject($payment, 'Please check your Transaction ID (TID) and submit a valid payment reference.', $request->user());
                         $message = "❌ Order {$order->number} payment has been Declined.";
                     } else {
                         $res = app(\App\Services\OrderService::class)->cancelAndRefund($order, OrderStatus::Cancelled, 'Cancelled by Admin via 1-Tap Control', $request->user()?->id);

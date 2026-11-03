@@ -68,13 +68,21 @@ class Order extends Model
 
         $sources = $this->items
             ->map(function (OrderItem $item) use ($withCost): string {
-                if ($item->product) {
-                    return $item->product->adminSupplierSummary($withCost);
-                }
-
                 $attempt = SupplierOrder::with('supplier')->where('order_item_id', $item->id)->latest('id')->first();
                 if ($attempt?->supplier) {
-                    return $attempt->supplier->name;
+                    $supName = $attempt->supplier->name;
+                    if (! $withCost || (float) $attempt->cost <= 0) {
+                        return $supName;
+                    }
+                    $usdCost = number_format((float) $attempt->cost, 2);
+                    $rate = (float) ($attempt->supplier->exchange_rate ?: 280);
+                    $pkrCost = number_format((float) $attempt->cost * $rate, 0);
+
+                    return "{$supName} (Cost: Rs {$pkrCost} / \${$usdCost})";
+                }
+
+                if ($item->product) {
+                    return $item->product->adminSupplierSummary($withCost);
                 }
 
                 return 'Own Stock (.TXT)';

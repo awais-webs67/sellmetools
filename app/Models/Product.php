@@ -377,16 +377,26 @@ class Product extends Model
         }
 
         if ($sources->isNotEmpty()) {
-            return $sources->map(function (SupplierProduct $sp) use ($withCost): string {
-                $supName = $sp->supplier?->name ?? 'Supplier API';
+            /** @var SupplierProduct|null $primary */
+            $primary = $sources
+                ->sortBy([
+                    fn (SupplierProduct $a, SupplierProduct $b) => (int) $b->isSellable() <=> (int) $a->isSellable(),
+                    fn (SupplierProduct $a, SupplierProduct $b) => (int) ($b->supplier?->is_active ?? false) <=> (int) ($a->supplier?->is_active ?? false),
+                    fn (SupplierProduct $a, SupplierProduct $b) => $a->costPkr() <=> $b->costPkr(),
+                    fn (SupplierProduct $a, SupplierProduct $b) => ($a->supplier->priority ?? 999) <=> ($b->supplier->priority ?? 999),
+                ])
+                ->first();
+
+            if ($primary) {
+                $supName = $primary->supplier?->name ?? 'Supplier API';
                 if (! $withCost) {
                     return $supName;
                 }
-                $pkrCost = number_format($sp->costPkr(), 0);
-                $usdCost = number_format((float) $sp->cost, 2);
+                $pkrCost = number_format($primary->costPkr(), 0);
+                $usdCost = number_format((float) $primary->cost, 2);
 
                 return "{$supName} (Cost: Rs {$pkrCost} / \${$usdCost})";
-            })->unique()->implode(' + ');
+            }
         }
 
         return match ($this->delivery_type ?: 'auto') {

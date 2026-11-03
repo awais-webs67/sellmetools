@@ -18,9 +18,6 @@
     $amountFormatted = $method && $method->currency !== 'PKR' ? $amountDue.' '.$method->currency : money($amountDue ?? $order->total);
     $isBinance = $method && in_array($method->code, ['binance', 'usdt_trc20'], true);
 
-    $quickApproveUrl = route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']);
-    $quickRejectUrl = route('webhooks.order.quick', ['order' => $order->number, 'do' => 'reject']);
-
     $waTemplate = "Assalam o Alaikum! Here are my order details on ".setting('store_name').":\n\n"
         ."🧾 *Order ID:* {$order->number}\n"
         ."📦 *Product:* {$itemsSummary}\n"
@@ -28,9 +25,8 @@
         ."💳 *Method:* ".($method?->name ?? 'Manual')."\n"
         ."🔑 *TID:* ".($order->latestPayment?->transaction_id ?? 'Pending')."\n"
         .($order->latestPayment?->sender_number || $order->phone ? "📱 *Sender:* ".($order->latestPayment?->sender_number ?: $order->phone)."\n" : '')
-        ."📧 *Email:* {$order->email}\n\n"
-        ."✅ *Admin 1-Tap Approve:*\n{$quickApproveUrl}\n\n"
-        ."❌ *Admin 1-Tap Decline:*\n{$quickRejectUrl}";
+        ."📧 *Email:* {$order->email}\n"
+        ."🔗 *Order Link:* ".$order->customerUrl();
 
     $waHref = $waNumber !== ''
         ? "https://wa.me/{$waNumber}?text=".urlencode($waTemplate)
@@ -43,24 +39,6 @@
 @endphp
 <x-layouts.store :title="'Order '.$order->number" robots="noindex, nofollow">
     <div class="container-x max-w-5xl py-6 sm:py-10" x-data="orderWatcher(@js($statusUrl), @js($s->value), @js($initialReviewTimeout))">
-        @if (auth()->check() && auth()->user()->canAccessAdminPanel())
-            <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-ink px-4 py-3 text-xs text-white shadow-md">
-                <div class="flex flex-wrap items-center gap-2">
-                    <span class="rounded bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#ff8fa3]">🔒 Admin Only</span>
-                    <span class="font-semibold text-white/80">🏭 Supplier / Source:</span>
-                    <span class="font-mono font-bold text-[#4ade80]">{{ $order->adminSupplierSummary(true) }}</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <a href="{{ $quickApproveUrl }}" class="rounded-lg bg-[#16a34a] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#15803d]">
-                        ⚡ 1-Tap Control
-                    </a>
-                    <a href="{{ route('filament.admin.resources.orders.view', ['record' => $order->number]) }}" class="rounded-lg bg-white/15 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/25">
-                        Admin Order View
-                    </a>
-                </div>
-            </div>
-        @endif
-
         {{-- Compact Header --}}
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -110,9 +88,15 @@
                 {{-- ============ 1. AWAITING PAYMENT ============ --}}
                 @if ($s === OrderStatus::PendingPayment && $method)
                     @if ($rejected)
+                        @php
+                            $customerRejectReason = $rejected->reject_reason;
+                            if ($customerRejectReason && str_contains(strtolower($customerRejectReason), 'declined by admin')) {
+                                $customerRejectReason = 'Please check your Transaction ID (TID) and submit a valid payment reference.';
+                            }
+                        @endphp
                         <div class="rounded-xl border border-danger/25 bg-danger-tint p-4 text-xs sm:text-sm text-danger" role="alert">
                             <p class="font-bold">TID ({{ $rejected->transaction_id }}) could not be verified.</p>
-                            @if ($rejected->reject_reason)<p class="mt-0.5">{{ $rejected->reject_reason }}</p>@endif
+                            @if ($customerRejectReason)<p class="mt-0.5">{{ $customerRejectReason }}</p>@endif
                         </div>
                     @endif
 
@@ -344,7 +328,7 @@
                             ."🔑 *TID:* ".($order->latestPayment?->transaction_id ?? 'Verified')."\n"
                             ."📧 *Email:* {$order->email}\n\n"
                             ."Please deliver my order.\n"
-                            ."🔗 *Admin 1-Tap Control:* {$quickApproveUrl}";
+                            ."🔗 *Order Link:* ".$order->customerUrl();
 
                         $claimWaHref = $waNumber !== ''
                             ? "https://wa.me/{$waNumber}?text=".urlencode($claimWaTemplate)

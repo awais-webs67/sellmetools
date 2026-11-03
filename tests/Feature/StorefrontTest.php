@@ -141,11 +141,11 @@ class StorefrontTest extends TestCase
         $this->assertSame(0, $order->payments()->where('status', \App\Enums\PaymentStatus::Pending)->count());
         $this->assertCount(2, $order->deliveries);
 
-        // Logged-in customer and admin can both view the order page without error
+        // Logged-in customer and admin can both view the order page cleanly without any Admin Only banner on the customer page
         $customerUser = User::factory()->create();
         $adminUser = User::factory()->create(['is_admin' => true]);
-        $this->actingAs($customerUser)->get($order->customerUrl())->assertOk();
-        $this->actingAs($adminUser)->get($order->customerUrl())->assertOk()->assertSee('Supplier / Source:');
+        $this->actingAs($customerUser)->get($order->customerUrl())->assertOk()->assertDontSee('Admin Only')->assertDontSee('Supplier / Source');
+        $this->actingAs($adminUser)->get($order->customerUrl())->assertOk()->assertDontSee('Admin Only')->assertDontSee('Supplier / Source');
     }
 
     public function test_one_tap_approve_holds_order_when_supplier_balance_is_low_and_delivers_when_admin_pastes_credentials(): void
