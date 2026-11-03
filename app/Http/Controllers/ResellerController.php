@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\OrderStatus;
 use App\Exceptions\StoreException;
 use App\Models\Category;
+use App\Models\OrderItem;
 use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\User;
@@ -36,6 +38,15 @@ class ResellerController extends Controller
                 'products' => collect(),
                 'categories' => collect(),
                 'orders' => collect(),
+                'walletTransactions' => collect(),
+                'stats' => [
+                    'total' => 0,
+                    'completed' => 0,
+                    'pending' => 0,
+                    'total_spent' => 0.0,
+                    'this_month_spent' => 0.0,
+                    'total_items' => 0,
+                ],
                 'search' => '',
                 'categorySlug' => '',
             ]);
@@ -61,8 +72,44 @@ class ResellerController extends Controller
         $orders = $reseller->orders()
             ->with(['items.deliveries', 'paymentMethod'])
             ->latest()
-            ->limit(15)
+            ->limit(20)
             ->get();
+
+        $paidOrdersQuery = fn () => $reseller->orders()->where(function ($q) {
+            $q->where('status', OrderStatus::Completed)->orWhereNotNull('paid_at');
+        });
+
+        $agg = $reseller->orders()
+            ->selectRaw('
+                COUNT(*) as total_count,
+                SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as completed_count,
+                SUM(CASE WHEN status IN (?, ?, ?, ?) THEN 1 ELSE 0 END) as pending_count,
+                COALESCE(SUM(CASE WHEN status = ? OR paid_at IS NOT NULL THEN total ELSE 0 END), 0) as total_spent,
+                COALESCE(SUM(CASE WHEN (status = ? OR paid_at IS NOT NULL) AND created_at >= ? THEN total ELSE 0 END), 0) as this_month_spent
+            ', [
+                OrderStatus::Completed->value,
+                OrderStatus::PendingPayment->value,
+                OrderStatus::PaymentReview->value,
+                OrderStatus::Processing->value,
+                OrderStatus::NeedsAttention->value,
+                OrderStatus::Completed->value,
+                OrderStatus::Completed->value,
+                now()->startOfMonth()->toDateTimeString(),
+            ])
+            ->first();
+
+        $stats = [
+            'total' => (int) ($agg->total_count ?? 0),
+            'completed' => (int) ($agg->completed_count ?? 0),
+            'pending' => (int) ($agg->pending_count ?? 0),
+            'total_spent' => (float) ($agg->total_spent ?? 0),
+            'this_month_spent' => (float) ($agg->this_month_spent ?? 0),
+            'total_items' => (int) OrderItem::query()
+                ->whereIn('order_id', $paidOrdersQuery()->select('id'))
+                ->sum('quantity'),
+        ];
+
+        $walletTransactions = $reseller->walletTransactions()->limit(10)->get();
 
         return view('store.reseller', [
             'reseller' => $reseller,
@@ -70,6 +117,8 @@ class ResellerController extends Controller
             'products' => $products,
             'categories' => $categories,
             'orders' => $orders,
+            'walletTransactions' => $walletTransactions,
+            'stats' => $stats,
             'search' => $search,
             'categorySlug' => $categorySlug,
         ]);

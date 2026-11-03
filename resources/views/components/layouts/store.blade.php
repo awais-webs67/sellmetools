@@ -232,12 +232,12 @@
         {{-- Instant Top Click Progress Bar --}}
         <div id="smt-nav-progress" class="pointer-events-none fixed top-0 left-0 z-50 h-0.5 w-0 bg-brand opacity-0 transition-all duration-200 ease-out"></div>
 
-        <div class="container-x flex h-14 sm:h-16 lg:h-[74px] items-center justify-between gap-1.5 sm:gap-3.5 xl:gap-5 min-w-0">
-            <a href="{{ route('home') }}" class="flex min-w-0 shrink items-center transition active:scale-95" aria-label="{{ $storeName }} home">
-                <img src="{{ asset('images/logo.png') }}?v=6" alt="{{ $storeName }}" width="180" height="40" fetchpriority="high" decoding="async" class="h-6 sm:h-8 lg:h-9 w-auto max-w-[126px] sm:max-w-[170px] lg:max-w-none object-contain">
+        <div class="container-x flex h-14 sm:h-16 lg:h-[74px] items-center justify-between gap-2.5 sm:gap-4 lg:gap-5 xl:gap-6 min-w-0">
+            <a href="{{ route('home') }}" class="flex shrink-0 items-center transition active:scale-95" aria-label="{{ $storeName }} home">
+                <img src="{{ asset('images/logo.png') }}?v=6" alt="{{ $storeName }}" width="180" height="40" fetchpriority="high" decoding="async" class="h-6 sm:h-7 lg:h-8 xl:h-9 w-auto shrink-0 object-contain">
             </a>
 
-            <form action="{{ route('shop') }}" method="get" class="relative hidden flex-1 min-w-[210px] lg:min-w-[260px] xl:min-w-[340px] max-w-lg md:block" role="search"
+            <form action="{{ route('shop') }}" method="get" class="relative hidden flex-1 min-w-0 max-w-md xl:max-w-lg md:block" role="search"
                   x-data="liveSearch" @click.outside="open = false">
                 <label for="site-search" class="sr-only">Search products</label>
                 <div class="relative">
@@ -251,23 +251,23 @@
             </form>
 
             <nav class="hidden items-center gap-0.5 xl:gap-1 lg:flex shrink-0" aria-label="Main">
-                <a href="{{ route('shop') }}" @class(['btn btn-ghost px-3 py-2 text-[13px] whitespace-nowrap', 'text-brand font-bold' => request()->routeIs('shop')])>Shop</a>
-                <a href="{{ route('orders.track') }}" @class(['btn btn-ghost px-3 py-2 text-[13px] whitespace-nowrap', 'text-brand font-bold' => request()->routeIs('orders.track')])>Track Order</a>
-                <a href="{{ route('pages.show', 'about') }}" @class(['btn btn-ghost px-3 py-2 text-[13px] whitespace-nowrap hidden xl:inline-flex', 'text-brand font-bold' => request()->fullUrlIs(route('pages.show', 'about'))])>About</a>
-                <a href="{{ route('pages.show', 'contact') }}" @class(['btn btn-ghost px-3 py-2 text-[13px] whitespace-nowrap hidden xl:inline-flex', 'text-brand font-bold' => request()->fullUrlIs(route('pages.show', 'contact'))])>Contact</a>
+                <a href="{{ route('shop') }}" @class(['btn btn-ghost px-2.5 xl:px-3 py-2 text-[13px] whitespace-nowrap', 'text-brand font-bold' => request()->routeIs('shop')])>Shop</a>
+                <a href="{{ route('orders.track') }}" @class(['btn btn-ghost px-2.5 xl:px-3 py-2 text-[13px] whitespace-nowrap', 'text-brand font-bold' => request()->routeIs('orders.track')])>Track Order</a>
+                <a href="{{ route('pages.show', 'about') }}" @class(['btn btn-ghost px-2.5 xl:px-3 py-2 text-[13px] whitespace-nowrap hidden xl:inline-flex', 'text-brand font-bold' => request()->fullUrlIs(route('pages.show', 'about'))])>About</a>
+                <a href="{{ route('pages.show', 'contact') }}" @class(['btn btn-ghost px-2.5 xl:px-3 py-2 text-[13px] whitespace-nowrap hidden xl:inline-flex', 'text-brand font-bold' => request()->fullUrlIs(route('pages.show', 'contact'))])>Contact</a>
                 @auth
                     @if (auth()->user()->is_reseller && filled(auth()->user()->reseller_slug))
-                        <a href="{{ route('reseller.portal', auth()->user()->reseller_slug) }}" class="btn btn-ghost px-3 py-2 text-[13px] whitespace-nowrap font-bold text-brand">★ Reseller</a>
+                        <a href="{{ route('reseller.portal', auth()->user()->reseller_slug) }}" @class(['btn btn-ghost px-2.5 xl:px-3 py-2 text-[13px] whitespace-nowrap font-bold text-brand', 'bg-brand-tint' => request()->routeIs('reseller.portal')])>★ Reseller</a>
                     @endif
-                    <a href="{{ route('account.orders') }}" class="btn btn-ghost px-3 py-2 text-[13px] whitespace-nowrap">
+                    <a href="{{ route('account.orders') }}" class="btn btn-ghost px-2.5 xl:px-3 py-2 text-[13px] whitespace-nowrap">
                         My Account
                         @if ((float) auth()->user()->wallet_balance > 0)
                             <span class="ml-1 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">{{ money(auth()->user()->wallet_balance) }}</span>
                         @endif
                     </a>
-                    <form method="post" action="{{ route('logout') }}">@csrf<button class="btn btn-ghost px-3 py-2 text-[13px] whitespace-nowrap">Logout</button></form>
+                    <form method="post" action="{{ route('logout') }}">@csrf<button class="btn btn-ghost px-2.5 xl:px-3 py-2 text-[13px] whitespace-nowrap">Logout</button></form>
                 @else
-                    <a href="{{ route('login') }}" class="btn btn-ghost px-3 py-2 text-[13px] whitespace-nowrap">Login</a>
+                    <a href="{{ route('login') }}" class="btn btn-ghost px-2.5 xl:px-3 py-2 text-[13px] whitespace-nowrap">Login</a>
                     <a href="{{ route('register') }}" class="btn btn-primary px-3.5 py-2 text-[13px] whitespace-nowrap">Create Account</a>
                 @endauth
             </nav>
