@@ -383,4 +383,28 @@ class StorefrontTest extends TestCase
 
         $this->assertTrue(Hash::check('newpassword786', $user->refresh()->password));
     }
+
+    public function test_deleting_or_disabling_supplier_detaches_sources_and_zeros_product_stock(): void
+    {
+        $supplier = $this->supplier(['balance' => 50]);
+        $sp = $this->supplierProduct($supplier, ['cost' => 1.0, 'stock' => 15]);
+        $product = $this->listing([$sp], ['fixed_price' => 500]);
+
+        $this->assertSame(15, $product->refresh()->available_stock);
+        $this->assertCount(1, $product->activeSources);
+
+        // Disabling the supplier immediately sets linked product stock to 0
+        $supplier->update(['is_active' => false]);
+        $this->assertSame(0, $product->refresh()->available_stock);
+
+        // Re-enabling restores stock to 15
+        $supplier->update(['is_active' => true]);
+        $this->assertSame(15, $product->refresh()->available_stock);
+
+        // Deleting the supplier detaches product_sources and sets product stock to 0
+        $supplier->delete();
+        $product->refresh();
+        $this->assertSame(0, $product->available_stock);
+        $this->assertCount(0, $product->sources()->get());
+    }
 }

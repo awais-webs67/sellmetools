@@ -2,13 +2,42 @@
 
 namespace App\Models;
 
+use App\Services\InventoryService;
+use App\Services\PriceCalculator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\DB;
 
 class SupplierProduct extends Model
 {
+    protected static function booted(): void
+    {
+        static::deleting(function (SupplierProduct $sp): void {
+            $affectedProductIds = DB::table('product_sources')
+                ->where('supplier_product_id', $sp->id)
+                ->pluck('product_id')
+                ->unique()
+                ->all();
+
+            DB::table('product_sources')->where('supplier_product_id', $sp->id)->delete();
+
+            if ($affectedProductIds !== []) {
+                $pricing = app(PriceCalculator::class);
+                $inventory = app(InventoryService::class);
+
+                Product::query()
+                    ->whereIn('id', $affectedProductIds)
+                    ->with(['activeSources.supplier'])
+                    ->each(function (Product $product) use ($pricing, $inventory): void {
+                        $pricing->refresh($product);
+                        $inventory->refresh($product);
+                    });
+            }
+        });
+    }
+
     protected $fillable = [
         'supplier_id', 'external_id', 'name', 'cost', 'stock', 'unlimited_stock', 'is_available',
         'warranty', 'description', 'raw', 'last_seen_at',
