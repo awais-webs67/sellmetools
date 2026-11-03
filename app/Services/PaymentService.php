@@ -281,11 +281,20 @@ class PaymentService
 
             $order = $payment->order()->lockForUpdate()->first();
 
-            if (! in_array($order->status, [OrderStatus::PaymentReview, OrderStatus::PendingPayment, OrderStatus::NeedsAttention, OrderStatus::Expired], true)) {
+            if (! in_array($order->status, [OrderStatus::PaymentReview, OrderStatus::PendingPayment, OrderStatus::Processing, OrderStatus::NeedsAttention, OrderStatus::Expired], true)) {
                 throw new StoreException("Order is {$order->status->label()} and cannot be paid.");
             }
 
-            $order->update(['status' => OrderStatus::Processing, 'paid_at' => now()]);
+            // Ensure no other payment record on the same order stays stuck in Pending status
+            $order->payments()
+                ->where('status', PaymentStatus::Pending)
+                ->update([
+                    'status' => PaymentStatus::Approved,
+                    'reviewed_by' => $admin?->id,
+                    'reviewed_at' => now(),
+                ]);
+
+            $order->update(['status' => OrderStatus::Processing, 'paid_at' => $order->paid_at ?? now()]);
 
             return $order;
         });
@@ -341,5 +350,45 @@ class PaymentService
                 ]);
             }
         });
+    }
+
+    /**
+     * Self-healing sync: ensures any Payment record whose Order was already Completed / Processing / NeedsAttention
+     * via 1-Tap or Auto-Verify is marked Approved (never left stuck in Pending in the Admin Panel).
+     */
+    public static function syncOrphanedPendingPayments(): void
+    {
+        static $synced = false;
+        if ($synced) {
+            return;
+        }
+        $synced = true;
+
+        try {
+            Payment::query()
+                ->where('status', PaymentStatus::Pending)
+                ->whereHas('order', fn ($q) => $q->whereIn('status', [
+                    OrderStatus::Completed,
+                    OrderStatus::Processing,
+                    OrderStatus::NeedsAttention,
+                ])->orWhereNotNull('paid_at'))
+                ->update([
+                    'status' => PaymentStatus::Approved,
+                    'reviewed_at' => now(),
+                ]);
+
+            Payment::query()
+                ->where('status', PaymentStatus::Pending)
+                ->whereHas('order', fn ($q) => $q->whereIn('status', [
+                    OrderStatus::Cancelled,
+                    OrderStatus::Refunded,
+                ]))
+                ->update([
+                    'status' => PaymentStatus::Rejected,
+                    'reject_reason' => 'Order cancelled/refunded',
+                    'reviewed_at' => now(),
+                ]);
+        } catch ( RuntimeException|\Throwable) {
+        }
     }
 }

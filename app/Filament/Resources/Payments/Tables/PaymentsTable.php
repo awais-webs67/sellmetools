@@ -99,8 +99,7 @@ class PaymentsTable
                         };
                     }),
                 SelectFilter::make('status')
-                    ->options(collect(PaymentStatus::cases())->mapWithKeys(fn (PaymentStatus $s) => [$s->value => ucfirst($s->value)])->all())
-                    ->default(PaymentStatus::Pending->value),
+                    ->options(collect(PaymentStatus::cases())->mapWithKeys(fn (PaymentStatus $s) => [$s->value => ucfirst($s->value)])->all()),
                 SelectFilter::make('payment_method_id')
                     ->label('Method')
                     ->relationship('paymentMethod', 'name'),

@@ -100,10 +100,15 @@ class User extends Authenticatable implements FilamentUser
         ];
     }
 
-    public function canAccessPanel(Panel $panel): bool
+    public function canAccessAdminPanel(): bool
     {
         return (bool) ($this->is_active ?? true)
             && ((bool) $this->is_admin || in_array($this->admin_role, [self::ROLE_SUPER_ADMIN, self::ROLE_SALES, self::ROLE_SEO], true));
+    }
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->canAccessAdminPanel();
     }
 
     public function isSuperAdmin(): bool

@@ -15,6 +15,8 @@ class ListPayments extends ListRecords
 
     public function getTabs(): array
     {
+        \App\Services\PaymentService::syncOrphanedPendingPayments();
+
         $counts = Payment::query()
             ->selectRaw('status, COUNT(*) as aggregate')
             ->groupBy('status')

@@ -30,6 +30,8 @@ class StatsOverview extends StatsOverviewWidget
 
     protected function getStats(): array
     {
+        \App\Services\PaymentService::syncOrphanedPendingPayments();
+
         $todayAgg = Order::query()
             ->whereIn('status', self::PAID_STATUSES)
             ->where('paid_at', '>=', now()->startOfDay())

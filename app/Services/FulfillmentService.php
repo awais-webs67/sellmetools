@@ -397,9 +397,18 @@ class FulfillmentService
 
         $complete = $items->isNotEmpty() && $items->every(fn (OrderItem $i): bool => $i->delivered_qty >= $i->quantity && $i->quantity > 0);
 
+        // Guarantee any pending payment on this order is marked Approved once fulfillment runs
+        $order->payments()
+            ->where('status', \App\Enums\PaymentStatus::Pending)
+            ->update([
+                'status' => \App\Enums\PaymentStatus::Approved,
+                'reviewed_at' => now(),
+            ]);
+
         if ($complete) {
             $order->update([
                 'status' => OrderStatus::Completed,
+                'paid_at' => $order->paid_at ?? now(),
                 'completed_at' => now(),
                 'total_cost' => $items->sum(fn ($i) => (float) $i->cost),
                 'admin_note' => null,

@@ -24,13 +24,33 @@ use Throwable;
  */
 final class PaymentActions
 {
+    private static function isPendingReview(?Payment $payment): bool
+    {
+        if (! $payment || $payment->status !== PaymentStatus::Pending) {
+            return false;
+        }
+
+        $orderStatus = $payment->order?->status;
+        if ($orderStatus && in_array($orderStatus, [
+            \App\Enums\OrderStatus::Completed,
+            \App\Enums\OrderStatus::Processing,
+            \App\Enums\OrderStatus::NeedsAttention,
+            \App\Enums\OrderStatus::Cancelled,
+            \App\Enums\OrderStatus::Refunded,
+        ], true)) {
+            return false;
+        }
+
+        return true;
+    }
+
     public static function approve(?Closure $resolve = null): Action
     {
         return Action::make('approvePayment')
             ->label('Approve')
             ->icon(Heroicon::OutlinedCheckCircle)
             ->color('success')
-            ->visible(fn (?Model $record = null, mixed $livewire = null): bool => self::resolvePayment($record, $livewire, $resolve)?->status === PaymentStatus::Pending)
+            ->visible(fn (?Model $record = null, mixed $livewire = null): bool => self::isPendingReview(self::resolvePayment($record, $livewire, $resolve)))
             ->requiresConfirmation()
             ->modalHeading('Approve Payment & Deliver Order')
             ->modalDescription(fn (?Model $record = null, mixed $livewire = null): string => self::describe(self::resolvePayment($record, $livewire, $resolve)).' Delivery starts immediately after approval.')
@@ -63,7 +83,7 @@ final class PaymentActions
             ->label('Reject')
             ->icon(Heroicon::OutlinedXCircle)
             ->color('danger')
-            ->visible(fn (?Model $record = null, mixed $livewire = null): bool => self::resolvePayment($record, $livewire, $resolve)?->status === PaymentStatus::Pending)
+            ->visible(fn (?Model $record = null, mixed $livewire = null): bool => self::isPendingReview(self::resolvePayment($record, $livewire, $resolve)))
             ->modalHeading('Reject Payment')
             ->modalDescription(fn (?Model $record = null, mixed $livewire = null): string => self::describe(self::resolvePayment($record, $livewire, $resolve)).' The customer can submit a new transaction ID.')
             ->schema([

@@ -54,6 +54,8 @@ class PaymentResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
+        \App\Services\PaymentService::syncOrphanedPendingPayments();
+
         $count = static::getModel()::query()->where('status', PaymentStatus::Pending)->count();
 
         return $count > 0 ? (string) $count : null;
