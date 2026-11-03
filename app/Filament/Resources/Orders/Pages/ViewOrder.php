@@ -138,16 +138,23 @@ class ViewOrder extends ViewRecord
                     ->placeholder("Email: user1@gmail.com\nPass: 12345\n---\nEmail: user2@gmail.com\nPass: 67890")
                     ->rows(8)
                     ->required(),
+                TextInput::make('manual_cost')
+                    ->label('Manual Cost in PKR (Optional)')
+                    ->numeric()
+                    ->default(0)
+                    ->helperText('Leave 0 if delivered from your own stock, or enter your actual cost in PKR for accurate profit calculation.'),
             ])
             ->action(function (array $data): void {
                 /** @var OrderItem $item */
                 $item = $this->record->items()->findOrFail($data['order_item_id']);
+                $manualCost = isset($data['manual_cost']) && $data['manual_cost'] !== '' ? (float) $data['manual_cost'] : 0.0;
 
                 try {
                     $order = app(FulfillmentService::class)->deliverManually(
                         $item,
                         (string) $data['lines'],
-                        (string) ($data['separator_mode'] ?? 'auto')
+                        (string) ($data['separator_mode'] ?? 'auto'),
+                        $manualCost
                     );
                 } catch (Throwable $e) {
                     report($e);
@@ -176,12 +183,19 @@ class ViewOrder extends ViewRecord
                 TextInput::make('note')
                     ->label('Optional Delivery Note (shown to customer)')
                     ->placeholder('e.g. Activated on customer email / Sent on WhatsApp'),
+                TextInput::make('manual_cost')
+                    ->label('Manual Cost in PKR (Optional)')
+                    ->numeric()
+                    ->default(0)
+                    ->helperText('Leave 0 if delivered from your own stock, or enter your actual cost in PKR.'),
             ])
             ->action(function (array $data): void {
+                $manualCost = isset($data['manual_cost']) && $data['manual_cost'] !== '' ? (float) $data['manual_cost'] : 0.0;
                 try {
                     $order = app(FulfillmentService::class)->markDeliveredViaWhatsApp(
                         $this->record,
-                        $data['note'] ?? null
+                        $data['note'] ?? null,
+                        $manualCost
                     );
                 } catch (Throwable $e) {
                     report($e);

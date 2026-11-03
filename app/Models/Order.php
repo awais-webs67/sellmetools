@@ -64,29 +64,10 @@ class Order extends Model
      */
     public function adminSupplierSummary(bool $withCost = false): string
     {
-        $this->loadMissing(['items.product.activeSources.supplier', 'items.product.sources.supplier']);
+        $this->loadMissing(['items.deliveries', 'items.product.activeSources.supplier', 'items.product.sources.supplier']);
 
         $sources = $this->items
-            ->map(function (OrderItem $item) use ($withCost): string {
-                $attempt = SupplierOrder::with('supplier')->where('order_item_id', $item->id)->latest('id')->first();
-                if ($attempt?->supplier) {
-                    $supName = $attempt->supplier->name;
-                    if (! $withCost || (float) $attempt->cost <= 0) {
-                        return $supName;
-                    }
-                    $usdCost = number_format((float) $attempt->cost, 2);
-                    $rate = (float) ($attempt->supplier->exchange_rate ?: 280);
-                    $pkrCost = number_format((float) $attempt->cost * $rate, 0);
-
-                    return "{$supName} (Cost: Rs {$pkrCost} / \${$usdCost})";
-                }
-
-                if ($item->product) {
-                    return $item->product->adminSupplierSummary($withCost);
-                }
-
-                return 'Own Stock (.TXT)';
-            })
+            ->map(fn (OrderItem $item): string => $item->adminSourceSummary($withCost))
             ->filter()
             ->unique()
             ->values();

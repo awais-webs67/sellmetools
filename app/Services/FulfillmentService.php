@@ -487,7 +487,7 @@ class FulfillmentService
      *
      * @param  string[]|string  $lines
      */
-    public function deliverManually(OrderItem $item, array|string $lines, string $separatorMode = 'auto'): Order
+    public function deliverManually(OrderItem $item, array|string $lines, string $separatorMode = 'auto', ?float $manualCost = null): Order
     {
         if (is_string($lines)) {
             $units = Product::parseStockText($lines, $separatorMode);
@@ -504,13 +504,16 @@ class FulfillmentService
             throw new StoreException('Please provide valid non-empty credentials before delivering.');
         }
 
-        DB::transaction(function () use ($item, $units) {
+        DB::transaction(function () use ($item, $units, $manualCost) {
             $item->refresh();
             foreach (array_slice($units, 0, max(1, $item->remainingQty())) as $unitContent) {
                 $item->deliveries()->create(['content' => $unitContent, 'source' => 'manual']);
                 $item->delivered_qty++;
             }
             $item->reserved_supplier_qty = max(0, $item->quantity - $item->delivered_qty - $item->stockItems()->where('status', StockStatus::Reserved)->count());
+            if ($manualCost !== null) {
+                $item->cost = round(max(0.0, $manualCost), 2);
+            }
             $item->save();
         });
 
@@ -525,11 +528,11 @@ class FulfillmentService
     /**
      * Marks an order as delivered directly via WhatsApp handover (when Admin sends the product to the customer on WhatsApp).
      */
-    public function markDeliveredViaWhatsApp(Order $order, ?string $note = null): Order
+    public function markDeliveredViaWhatsApp(Order $order, ?string $note = null, ?float $manualCost = null): Order
     {
         $text = 'Delivered to customer on WhatsApp'.(filled($note) ? ': '.trim($note) : '');
 
-        DB::transaction(function () use ($order, $text) {
+        DB::transaction(function () use ($order, $text, $manualCost) {
             foreach ($order->items()->get() as $item) {
                 while ($item->remainingQty() > 0) {
                     $item->deliveries()->create([
@@ -540,6 +543,9 @@ class FulfillmentService
                 }
                 $item->reserved_supplier_qty = 0;
                 $item->status = 'delivered';
+                if ($manualCost !== null) {
+                    $item->cost = round(max(0.0, $manualCost), 2);
+                }
                 $item->save();
             }
         });

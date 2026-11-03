@@ -127,7 +127,7 @@ class OrderInfolist
                                         ->label('🏭 Supplier / Source')
                                         ->badge()
                                         ->color('info')
-                                        ->state(fn (OrderItem $record): string => $record->product?->adminSupplierSummary(true) ?? 'Own / Manual'),
+                                        ->state(fn (OrderItem $record): string => $record->adminSourceSummary(true)),
                                     TextEntry::make('unit_price')
                                         ->label('Unit Price')
                                         ->formatStateUsing(fn ($state): string => Money::pkr($state)),

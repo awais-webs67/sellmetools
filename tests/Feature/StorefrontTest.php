@@ -207,15 +207,21 @@ class StorefrontTest extends TestCase
         $this->assertSame(OrderStatus::NeedsAttention, $order->refresh()->status);
         $this->assertCount(0, $order->deliveries);
 
-        // 2) Admin pastes custom credentials on the 1-Tap page -> Order completes immediately!
+        // 2) Admin pastes custom credentials + manual cost on the 1-Tap page -> Order completes immediately as Admin Manual!
         $this->post(route('webhooks.order.quick', ['order' => $order->number]), [
             'pin' => '7860',
             'do' => 'retry',
             'credentials' => 'manual_account@test.com:pass786',
+            'manual_cost' => '150',
         ])->assertOk()->assertSee('Order Approved &amp; Delivered!', false);
 
-        $this->assertSame(OrderStatus::Completed, $order->refresh()->status);
+        $order->refresh();
+        $this->assertSame(OrderStatus::Completed, $order->status);
         $this->assertSame('manual_account@test.com:pass786', $order->deliveries()->first()->content);
+        $this->assertSame('Admin Manual', $order->adminSupplierSummary(false));
+        $this->assertSame('Admin Manual (Cost: Rs 150)', $order->adminSupplierSummary(true));
+        $this->assertSame(150.0, (float) $order->total_cost);
+        $this->assertSame(400.0, (float) $order->profit());
     }
 
     public function test_txt_separator_extracts_exact_pcs_and_never_resells_sold_stock(): void

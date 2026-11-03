@@ -266,12 +266,19 @@ class PaymentWebhookController extends Controller
             ]);
         }
 
-        // Execute Approve, Retry, WhatsApp Handover, or Decline on POST
+        // Execute Approve, Retry, Manual Deliver, WhatsApp Handover, or Decline on POST
         if ($request->isMethod('post')) {
             try {
-                if (in_array($do, ['approve', 'retry'], true)) {
+                $manualCost = $request->filled('manual_cost') && trim((string) $request->input('manual_cost')) !== ''
+                    ? max(0.0, (float) $request->input('manual_cost'))
+                    : null;
+
+                if (in_array($do, ['approve', 'retry', 'manual_deliver'], true)) {
                     $customCredentials = trim((string) $request->input('credentials', ''));
-                    $order = $this->approveAndFulfill($order, $payment, $payments, $fulfillment, $customCredentials);
+                    if ($do === 'manual_deliver' && $customCredentials === '') {
+                        throw new \App\Exceptions\StoreException('Please paste the manual credentials before clicking Deliver Manually.');
+                    }
+                    $order = $this->approveAndFulfill($order, $payment, $payments, $fulfillment, $customCredentials, $manualCost);
                     $order->load(['items.deliveries', 'items.product', 'paymentMethod', 'latestPayment']);
                     $payment = $order->latestPayment;
 
@@ -291,7 +298,7 @@ class PaymentWebhookController extends Controller
                         ]);
                         $order->update(['paid_at' => $order->paid_at ?? now()]);
                     }
-                    $order = $fulfillment->markDeliveredViaWhatsApp($order, $customNote ?: null);
+                    $order = $fulfillment->markDeliveredViaWhatsApp($order, $customNote ?: null, $manualCost);
                     $order->load(['items.deliveries', 'items.product', 'paymentMethod', 'latestPayment']);
                     $payment = $order->latestPayment;
                     $actionResult = 'approve';
@@ -339,7 +346,8 @@ class PaymentWebhookController extends Controller
         ?Payment $payment,
         PaymentService $payments,
         FulfillmentService $fulfillment,
-        string $customCredentials = ''
+        string $customCredentials = '',
+        ?float $manualCost = null
     ): Order {
         if (! $payment) {
             $method = $order->paymentMethod;
@@ -363,6 +371,7 @@ class PaymentWebhookController extends Controller
                     $firstItem->delivered_qty++;
                 }
                 $firstItem->reserved_supplier_qty = max(0, $firstItem->quantity - $firstItem->delivered_qty);
+                $firstItem->cost = round($manualCost ?? 0.0, 2);
                 $firstItem->status = $firstItem->delivered_qty >= $firstItem->quantity ? 'delivered' : 'partial';
                 $firstItem->save();
             }
