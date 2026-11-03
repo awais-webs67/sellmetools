@@ -38,7 +38,7 @@ class SearchController extends Controller
     public static function instantCatalog(): array
     {
         try {
-            return Cache::remember('smt_search_catalog_v1', 120, function (): array {
+            return Cache::remember('smt_search_catalog_v1', 86400, function (): array {
                 $totalVisible = Product::query()->visible()->count();
 
                 $products = Product::query()
@@ -47,7 +47,7 @@ class SearchController extends Controller
                     ->orderByRaw('CASE WHEN available_stock > 0 OR stock_unlimited = 1 THEN 0 ELSE 1 END')
                     ->orderByDesc('is_featured')
                     ->orderByDesc('sold_count')
-                    ->limit(500)
+                    ->limit(150)
                     ->get(['id', 'name', 'slug', 'image', 'price', 'is_free', 'category_id', 'available_stock', 'stock_unlimited', 'short_description']);
 
                 $categories = Category::query()
@@ -56,7 +56,7 @@ class SearchController extends Controller
                     ->get(['name', 'slug']);
 
                 return [
-                    'has_more' => $totalVisible > 500,
+                    'has_more' => $totalVisible > 150,
                     'products' => $products->map(fn (Product $p) => [
                         'id' => $p->id,
                         'name' => $p->name,

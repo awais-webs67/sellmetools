@@ -148,6 +148,26 @@
 
     @fonts
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <script type="speculationrules">
+    {
+      "prefetch": [
+        {
+          "where": {
+            "and": [
+              { "href_matches": "/*" },
+              { "not": { "href_matches": "/admin*" } },
+              { "not": { "href_matches": "/checkout*" } },
+              { "not": { "href_matches": "/orders*" } },
+              { "not": { "href_matches": "/account*" } },
+              { "not": { "href_matches": "/logout*" } },
+              { "not": { "href_matches": "/api*" } }
+            ]
+          },
+          "eagerness": "conservative"
+        }
+      ]
+    }
+    </script>
     <script>window.SMT = { stockUrl: @json(route('stock', auth()->user()?->is_reseller ? ['reseller' => auth()->id()] : [])), syncUrl: @json(route('stock.sync')), searchUrl: @json(route('search.suggest')), catalog: @json(\App\Http\Controllers\SearchController::instantCatalog()), usdtRate: {{ \App\Models\Setting::usdtRate() }}, currencySymbol: @json(setting('currency_symbol', 'Rs')) };</script>
 </head>
 <body class="flex min-h-screen flex-col">

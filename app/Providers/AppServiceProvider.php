@@ -50,27 +50,7 @@ class AppServiceProvider extends ServiceProvider
 
         Paginator::defaultView('pagination::tailwind');
 
-        // Skip heavy boot hooks on static media/API/asset requests so concurrent requests never overload shared hosting.
-        if (! $this->app->runningUnitTests() && ! $this->app->runningInConsole()) {
-            $path = ltrim((string) request()->path(), '/');
-            $isAssetOrApi = str_starts_with($path, 'media/')
-                || str_starts_with($path, 'storage/')
-                || str_starts_with($path, 'api/')
-                || str_starts_with($path, 'livewire/');
-
-            if (! $isAssetOrApi) {
-                $this->autoMigrateDatabaseIfChanged();
-
-                try {
-                    app(\App\Services\TelegramNotifier::class)->ensureBotConfigured();
-                    if ((string) \App\Models\Setting::get('backup_enabled', '0') === '1') {
-                        app(\App\Services\DatabaseBackupService::class)->checkAndRunScheduledBackup();
-                    }
-                } catch (Throwable) {
-                    // Ignore if DB not ready
-                }
-            }
-        }
+        $this->autoMigrateDatabaseIfChanged();
     }
 
     /**
@@ -85,16 +65,23 @@ class AppServiceProvider extends ServiceProvider
         }
 
         try {
+            if ((string) \App\Models\Setting::get('schema_v4_ready', '') === '1') {
+                return;
+            }
+
             $files = glob(database_path('migrations/*.php')) ?: [];
             $hash = md5('v4|'.implode('|', array_map('basename', $files)));
             $stampFile = storage_path('framework/migration_hash.txt');
 
             if (is_file($stampFile) && trim((string) @file_get_contents($stampFile)) === $hash) {
+                \App\Models\Setting::set('schema_v4_ready', '1');
+
                 return;
             }
 
-            // Write stamp file IMMEDIATELY before running migrations so concurrent page refreshes never collide!
+            // Write stamp file and setting IMMEDIATELY before running migrations so concurrent page refreshes never collide!
             @file_put_contents($stampFile, $hash);
+            \App\Models\Setting::set('schema_v4_ready', '1');
 
             $this->ensureRequiredSchemaColumns();
 

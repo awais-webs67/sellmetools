@@ -44,7 +44,7 @@ class ProductController extends Controller
         $seed = $request->integer('seed') ?: random_int(1000, 999999);
 
         $products = $this->catalogQuery($activeCategory, $search, $sort, $inStockOnly, $seed)
-            ->paginate(500)
+            ->paginate($request->boolean('all') ? 500 : 24)
             ->withQueryString()
             ->appends(['seed' => $seed]);
 
@@ -71,12 +71,12 @@ class ProductController extends Controller
 
     private function activeCategories()
     {
-        return Category::query()
+        return \Illuminate\Support\Facades\Cache::remember('smt_active_categories_v1', 600, fn () => Category::query()
             ->where('is_active', true)
             ->withCount(['products' => fn ($q) => $q->visible()])
             ->orderBy('sort')
             ->orderBy('name')
-            ->get();
+            ->get());
     }
 
     private function catalogQuery(?Category $activeCategory, string $search, string $sort = 'featured', bool $inStockOnly = false, ?int $seed = null)
