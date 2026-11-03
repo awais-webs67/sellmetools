@@ -62,11 +62,11 @@ class StockController extends Controller
         }
 
         $force = $request->boolean('force');
-        if (! $force && ! Cache::add('auto_supplier_sync_tick', 1, 20)) {
+        if (! $force && ! Cache::add('auto_supplier_sync_tick', 1, 30)) {
             return response()->json(['synced' => false]);
         }
         if ($force) {
-            Cache::put('auto_supplier_sync_tick', 1, 20);
+            Cache::put('auto_supplier_sync_tick', 1, 30);
         }
 
         $runSync = function (): void {

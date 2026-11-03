@@ -73,25 +73,41 @@ Alpine.store('stock', {
     syncing: false,
     justSynced: false,
     hiddenAt: null,
+    lastActiveAt: Date.now(),
 
-    start(intervalMs = 6000) {
+    start(intervalMs = 10000) {
+        const markActive = () => {
+            const wasIdle = Date.now() - this.lastActiveAt > 90000;
+            this.lastActiveAt = Date.now();
+            if (wasIdle && !document.hidden) {
+                this.poll(false);
+            }
+        };
+        ['pointerdown', 'keydown', 'scroll', 'touchstart'].forEach((ev) =>
+            window.addEventListener(ev, markActive, { passive: true })
+        );
+
         setTimeout(() => {
             if (!document.hidden) this.poll();
-        }, 3000);
+        }, 4000);
 
         clearInterval(this.timer);
-        this.timer = setInterval(() => document.hidden || this.poll(), intervalMs);
+        this.timer = setInterval(() => {
+            if (document.hidden || Date.now() - this.lastActiveAt > 90000) return;
+            this.poll();
+        }, intervalMs);
 
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 this.hiddenAt = Date.now();
             } else {
+                this.lastActiveAt = Date.now();
                 const awayMs = this.hiddenAt ? Date.now() - this.hiddenAt : 0;
                 this.hiddenAt = null;
                 if (awayMs > 900000) {
                     this.stale = true;
                 }
-                if (awayMs > 3000) {
+                if (awayMs > 4000) {
                     this.poll(false);
                 }
             }
@@ -425,4 +441,4 @@ Alpine.data('loadMoreGrid', (initialNextUrl, initialShown, totalCount) => ({
 
 window.Alpine = Alpine;
 Alpine.start();
-Alpine.store('stock').start(6000);
+Alpine.store('stock').start(10000);

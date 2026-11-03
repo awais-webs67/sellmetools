@@ -53,14 +53,31 @@ class SupplierSyncService
 
         $now = now();
         $seen = [];
+        $existingByExtId = $supplier->products()->get()->keyBy(fn (SupplierProduct $sp) => (string) $sp->external_id);
+        $changedIds = [];
 
-        DB::transaction(function () use ($supplier, $rows, $now, &$seen) {
+        DB::transaction(function () use ($supplier, $rows, $now, &$seen, $existingByExtId, &$changedIds) {
             foreach ($rows as $row) {
-                $seen[] = $row->externalId;
+                $extId = (string) $row->externalId;
+                $seen[] = $extId;
 
-                SupplierProduct::updateOrCreate(
-                    ['supplier_id' => $supplier->id, 'external_id' => $row->externalId],
-                    [
+                /** @var SupplierProduct|null $existing */
+                $existing = $existingByExtId->get($extId);
+
+                if ($existing) {
+                    $same = (string) $existing->name === (string) $row->name
+                        && abs((float) $existing->cost - (float) $row->cost) < 0.0001
+                        && $existing->stock === $row->stock
+                        && (bool) $existing->unlimited_stock === (bool) $row->unlimitedStock
+                        && (bool) $existing->is_available === (bool) $row->available
+                        && (string) ($existing->warranty ?? '') === (string) ($row->warranty ?? '')
+                        && (string) ($existing->description ?? '') === (string) ($row->description ?? '');
+
+                    if ($same) {
+                        continue;
+                    }
+
+                    $existing->update([
                         'name' => $row->name,
                         'cost' => $row->cost,
                         'stock' => $row->stock,
@@ -70,14 +87,36 @@ class SupplierSyncService
                         'description' => $row->description,
                         'raw' => $row->raw,
                         'last_seen_at' => $now,
-                    ]
-                );
+                    ]);
+                    $changedIds[] = $existing->id;
+                } else {
+                    $created = SupplierProduct::create([
+                        'supplier_id' => $supplier->id,
+                        'external_id' => $extId,
+                        'name' => $row->name,
+                        'cost' => $row->cost,
+                        'stock' => $row->stock,
+                        'unlimited_stock' => $row->unlimitedStock,
+                        'is_available' => $row->available,
+                        'warranty' => $row->warranty,
+                        'description' => $row->description,
+                        'raw' => $row->raw,
+                        'last_seen_at' => $now,
+                    ]);
+                    $changedIds[] = $created->id;
+                }
             }
 
             // Products removed by the supplier become unavailable (kept for history).
-            $supplier->products()
-                ->whereNotIn('external_id', $seen)
-                ->update(['is_available' => false, 'stock' => 0]);
+            $disappearedIds = $existingByExtId
+                ->filter(fn (SupplierProduct $sp) => ! in_array((string) $sp->external_id, $seen, true) && ($sp->is_available || (int) $sp->stock !== 0))
+                ->pluck('id')
+                ->all();
+
+            if ($disappearedIds !== []) {
+                SupplierProduct::whereIn('id', $disappearedIds)->update(['is_available' => false, 'stock' => 0]);
+                $changedIds = array_merge($changedIds, $disappearedIds);
+            }
         });
 
         if ($balanceResult !== null) {
@@ -88,7 +127,7 @@ class SupplierSyncService
 
         $supplier->forceFill(['last_synced_at' => $now, 'last_sync_error' => null])->save();
 
-        return ['products' => count($rows)] + $this->refreshListings($supplier);
+        return ['products' => count($rows)] + $this->refreshListings($supplier, $changedIds);
     }
 
     public function syncBalance(Supplier $supplier): void
@@ -123,15 +162,27 @@ class SupplierSyncService
         $supplier->save();
     }
 
-    /** @return array{updated_listings: int, disabled: int, enabled: int} */
-    public function refreshListings(Supplier $supplier): array
+    /**
+     * @param  int[]|null  $onlySupplierProductIds  When an array is passed, only refreshes listings linked to those changed SupplierProduct IDs.
+     * @return array{updated_listings: int, disabled: int, enabled: int}
+     */
+    public function refreshListings(Supplier $supplier, ?array $onlySupplierProductIds = null): array
     {
+        $stats = ['updated_listings' => 0, 'disabled' => 0, 'enabled' => 0];
+
+        if ($onlySupplierProductIds !== null && $onlySupplierProductIds === []) {
+            return $stats;
+        }
+
         $products = Product::query()
             ->with('activeSources.supplier')
-            ->whereHas('sources', fn ($q) => $q->where('supplier_id', $supplier->id))
+            ->whereHas('sources', function ($q) use ($supplier, $onlySupplierProductIds) {
+                $q->where('supplier_id', $supplier->id);
+                if ($onlySupplierProductIds !== null) {
+                    $q->whereIn('supplier_products.id', $onlySupplierProductIds);
+                }
+            })
             ->get();
-
-        $stats = ['updated_listings' => 0, 'disabled' => 0, 'enabled' => 0];
 
         foreach ($products as $product) {
             $result = $this->pricing->refresh($product);
