@@ -15,11 +15,12 @@
     $storeName = setting('store_name', 'SellMeTools');
     $defaultSeoTitle = setting('seo_title') ?: setting('store_tagline');
     $rawTitle = trim((string) ($title ?: $defaultSeoTitle));
-    $rawTitle = str_replace(' | '.$storeName, ' — '.$storeName, $rawTitle);
+    $rawTitle = str_replace([' — '.$storeName, ' – '.$storeName, ' | '.$storeName], ' | '.$storeName, $rawTitle);
+    $rawTitle = str_replace(['—', '–'], '-', $rawTitle);
     $pageTitle = (stripos($rawTitle, (string) $storeName) !== false || mb_strlen($rawTitle) > 54)
         ? $rawTitle
-        : "{$rawTitle} — {$storeName}";
-    $metaDescription = \Illuminate\Support\Str::limit(trim((string) ($description ?: (setting('seo_description') ?: setting('store_tagline')))), 155);
+        : "{$rawTitle} | {$storeName}";
+    $metaDescription = str_replace(['—', '–'], '-', \Illuminate\Support\Str::limit(trim((string) ($description ?: (setting('seo_description') ?: setting('store_tagline')))), 155));
     $metaKeywords = $keywords ?: setting('seo_keywords');
     $canonicalUrl = $canonical ?: url()->current();
     $logoSetting = setting('store_logo');

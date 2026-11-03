@@ -100,6 +100,7 @@ class ProductController extends Controller
 
     private function catalogQuery(?Category $activeCategory, string $search, string $sort = 'featured', bool $inStockOnly = false, ?int $seed = null)
     {
+        \App\Services\ProductSeoOptimizer::syncCatalogOnce();
         Product::seedInitialReviewsOnce();
 
         $tokens = collect(preg_split('/\s+/u', $search, -1, PREG_SPLIT_NO_EMPTY))
@@ -146,8 +147,10 @@ class ProductController extends Controller
     {
         abort_unless($product->is_active, 404);
 
+        \App\Services\ProductSeoOptimizer::syncCatalogOnce();
         Product::seedInitialReviewsOnce();
         $product->ensureInitialReviewsSeeded();
+        $product->refresh();
 
         if ($request->user()?->is_reseller) {
             $request->user()->loadMissing('resellerProductPrices');

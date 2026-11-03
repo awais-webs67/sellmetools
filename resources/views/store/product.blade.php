@@ -293,7 +293,7 @@
                         </div>
 
                         <button type="submit" class="btn btn-primary btn-lg w-full text-base font-bold shadow-md" :disabled="!inStock">
-                            <span x-show="inStock">{{ $isFree ? 'Claim Free Access Now →' : 'Buy Now — Proceed to Checkout →' }}</span>
+                            <span x-show="inStock">{{ $isFree ? 'Claim Free Access Now →' : 'Buy Now - Proceed to Checkout →' }}</span>
                             <span x-show="!inStock" x-cloak>Currently Out of Stock</span>
                         </button>
                     </form>

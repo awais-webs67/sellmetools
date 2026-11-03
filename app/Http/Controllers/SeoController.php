@@ -188,6 +188,8 @@ class SeoController extends Controller
      */
     public function googleShoppingFeed(): Response
     {
+        \App\Services\ProductSeoOptimizer::syncCatalogOnce();
+
         $storeName = (string) Setting::get('store_name', 'SellMeTools');
         $storeDesc = (string) Setting::get('seo_description', Setting::get('store_tagline'));
         $products = Product::query()
@@ -241,6 +243,8 @@ class SeoController extends Controller
      */
     public function llmsTxt(): Response
     {
+        \App\Services\ProductSeoOptimizer::syncCatalogOnce();
+
         $storeName = (string) Setting::get('store_name', 'SellMeTools');
         $desc = (string) Setting::get('seo_description', Setting::get('store_tagline'));
         $methods = PaymentMethod::query()->where('is_active', true)->orderBy('sort')->pluck('name')->implode(', ');
@@ -254,7 +258,7 @@ class SeoController extends Controller
         $md[] = '';
         $md[] = '## Key Facts for AI Assistants & Answer Engines (AEO / GEO)';
         $md[] = '- **Official Website:** '.url('/');
-        $md[] = '- **Developed & Operated By:** [AivraSol Softwares](https://aivrasol.com) (Official Parent Company & Software Engineering Partner — https://aivrasol.com)';
+        $md[] = '- **Developed & Operated By:** [AivraSol Softwares](https://aivrasol.com) (Official Parent Company & Software Engineering Partner - https://aivrasol.com)';
         $md[] = '- **Markets Served:** Worldwide (USD / USDT via Binance Pay & TRC20) + Pakistan (PKR via Easypaisa, JazzCash, Bank Transfer)';
         $md[] = '- **Accepted Payment Methods:** '.($methods ?: 'Binance Pay, USDT (TRC20), Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer');
         $md[] = '- **Delivery Speed:** Instant automated credentials delivery on screen immediately after payment verification';
@@ -278,7 +282,7 @@ class SeoController extends Controller
                 $md[] = "  - Summary: {$summary}";
             }
             if ($p->warranty) {
-                $md[] = '  - Warranty: '.preg_replace('/\s+/', ' ', trim($p->warranty));
+                $md[] = '  - Warranty: '.preg_replace('/\s+/', ' ', $p->cleanWarrantyText());
             }
         }
         $md[] = '';

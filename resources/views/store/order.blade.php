@@ -350,7 +350,7 @@
                             <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
                         </span>
                         <h2 class="mt-4 text-xl sm:text-2xl font-bold text-ink">
-                            {{ $isWhatsAppHandover ? 'Order Confirmed — Receive on WhatsApp' : 'Payment Verified — Preparing Delivery' }}
+                            {{ $isWhatsAppHandover ? 'Order Confirmed - Receive on WhatsApp' : 'Payment Verified - Preparing Delivery' }}
                         </h2>
                         <p class="mt-1 text-xs sm:text-sm text-muted max-w-md mx-auto">
                             {{ $isWhatsAppHandover ? 'Click the button below to receive your product directly on WhatsApp.' : 'Your access details are being dispatched. This page updates automatically.' }}
@@ -368,110 +368,234 @@
                         @endif
                     </section>
 
-                {{-- ============ 4. COMPLETED / DELIVERED CREDENTIALS (CLEAN SAAS LICENSE CARD) ============ --}}
+                {{-- ============ 4. COMPLETED / DELIVERED CREDENTIALS (POPUP + HIGHLIGHTED VAULT CARD) ============ --}}
                 @elseif ($s === OrderStatus::Completed)
                     @php
                         $allDeliveredText = $order->items->map(function ($it) {
                             $creds = $it->deliveries->pluck('content')->implode("\n");
                             return "Product: {$it->product_name} (x{$it->quantity})\nCredentials:\n{$creds}";
                         })->implode("\n\n");
+                        $onlyRawCreds = $order->items->flatMap(fn ($it) => $it->deliveries->pluck('content'))->map(fn ($c) => trim((string) $c))->filter()->implode("\n\n");
+                        $firstAnyUrl = null;
+                        if (preg_match('/https?:\/\/[^\s"\'<>]+/i', $onlyRawCreds, $anyUrlMatch)) {
+                            $firstAnyUrl = $anyUrlMatch[0];
+                        }
                         $fullReceiptText = "=== ".setting('store_name', 'SellMeTools')." Receipt ===\n"
                             ."Order ID: {$order->number}\n"
                             ."Status: Delivered\n\n"
                             .$allDeliveredText;
                     @endphp
 
-                    <section class="card overflow-hidden border border-line bg-white">
-                        <div class="h-1.5 w-full bg-[#16a34a]"></div>
+                    <div x-data="{
+                            showDeliveryModal: true,
+                            highlightVault: true,
+                            focusCredentials() {
+                                this.showDeliveryModal = false;
+                                this.highlightVault = true;
+                                this.$nextTick(() => {
+                                    const el = document.getElementById('delivered-credentials');
+                                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                });
+                            }
+                        }"
+                        @keydown.escape.window="showDeliveryModal = false"
+                        class="space-y-4">
 
-                        <div class="border-b border-line px-5 py-4 sm:px-6 flex flex-wrap items-center justify-between gap-3">
-                            <div class="flex items-center gap-3">
-                                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700">
-                                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                        {{-- Top High-Visibility Banner so customer never misses where credentials are --}}
+                        <div class="rounded-2xl border-2 border-emerald-500 bg-gradient-to-r from-emerald-600 to-emerald-700 p-4 sm:p-5 text-white shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div class="flex items-start sm:items-center gap-3">
+                                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white ring-4 ring-white/15 animate-bounce">
+                                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
                                 </span>
                                 <div>
-                                    <h2 class="text-sm sm:text-base font-bold text-ink">Delivered Access Credentials</h2>
-                                    <p class="text-xs text-muted">Copy your login details or activation links below.</p>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="rounded-full bg-white px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-800">Delivered Instantly</span>
+                                        <span class="text-xs font-semibold text-emerald-100">Order #{{ $order->number }}</span>
+                                    </div>
+                                    <h2 class="mt-1 text-base sm:text-lg font-extrabold text-white">Your Login Credentials &amp; Access Details Are Ready Below!</h2>
+                                    <p class="text-xs text-emerald-100">Copy your account details or click your activation link in the green box below.</p>
                                 </div>
                             </div>
-                            <div x-data="copy(@js($fullReceiptText))">
-                                <button type="button" @click="copy" class="btn btn-outline py-1.5 px-3 text-xs font-semibold inline-flex items-center gap-1.5">
-                                    <svg class="h-3.5 w-3.5 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                                    <span x-text="copied ? 'Copied All' : 'Copy All'">Copy All</span>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button type="button"
+                                        @click="showDeliveryModal = true"
+                                        class="btn bg-white text-emerald-900 hover:bg-emerald-50 px-4 py-2 text-xs font-extrabold shadow-sm w-full sm:w-auto">
+                                    🔑 Open Credentials Popup
                                 </button>
                             </div>
                         </div>
 
-                        <div class="divide-y divide-line p-5 sm:p-6 space-y-5">
-                            @foreach ($order->items as $item)
-                                <div class="{{ ! $loop->first ? 'pt-5' : '' }}">
-                                    <div class="flex items-center justify-between gap-2 mb-3">
-                                        <h3 class="text-sm sm:text-base font-bold text-ink">{{ $item->product_name }} <span class="text-xs font-normal text-muted">× {{ $item->quantity }}</span></h3>
-                                        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
-                                            Delivered
-                                        </span>
-                                    </div>
+                        {{-- Highlighted Delivered Credentials Vault Card --}}
+                        <section id="delivered-credentials"
+                                 class="card overflow-hidden border-2 border-emerald-500 bg-white transition-all duration-500 scroll-mt-24"
+                                 :class="highlightVault ? 'shadow-[0_0_0_5px_rgba(16,185,129,0.18)]' : 'shadow-md'">
+                            <div class="h-2 w-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-600"></div>
 
-                                    <div class="space-y-3">
-                                        @foreach ($item->deliveries as $idx => $delivery)
-                                            @php
-                                                $rawContent = trim($delivery->content);
-                                                $parts = null;
-                                                if (! str_contains($rawContent, "\n") && preg_match('/^([^\s:|]+@[^\s:|]+)[:|](.+)$/', $rawContent, $m)) {
-                                                    $parts = ['Email / Username' => trim($m[1]), 'Password' => trim($m[2])];
-                                                }
-                                                $firstUrl = null;
-                                                if (preg_match('/https?:\/\/[^\s"\'<>]+/i', $rawContent, $urlMatch)) {
-                                                    $firstUrl = $urlMatch[0];
-                                                }
-                                            @endphp
-                                            <div class="rounded-xl border border-line bg-grey-soft/60 p-4">
-                                                <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-line">
-                                                    <span class="text-xs font-semibold text-muted">
-                                                        {{ $item->deliveries->count() > 1 ? 'Access Item #'.($idx + 1) : 'Account / License Details' }}
-                                                    </span>
-                                                    <div class="flex items-center gap-2" x-data="copy(@js($rawContent))">
-                                                        @if ($firstUrl)
-                                                            <a href="{{ $firstUrl }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 rounded-md border border-line bg-white px-2.5 py-1 text-xs font-semibold text-ink hover:bg-grey-soft">
-                                                                <span>Open Link</span>
-                                                                <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M7 7h10v10"/></svg>
-                                                            </a>
-                                                        @endif
-                                                        <button type="button" @click="copy" class="inline-flex items-center gap-1 rounded-md border border-line bg-white px-2.5 py-1 text-xs font-semibold text-ink hover:bg-grey-soft">
-                                                            <svg class="h-3 w-3 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                                                            <span x-text="copied ? 'Copied' : 'Copy'">Copy</span>
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                @if ($parts)
-                                                    <div class="mt-3 grid gap-2.5 sm:grid-cols-2">
-                                                        @foreach ($parts as $pLabel => $pVal)
-                                                            <div class="flex items-center justify-between gap-2 rounded-lg border border-line bg-white px-3.5 py-2.5" x-data="copy(@js($pVal))">
-                                                                <div class="min-w-0">
-                                                                    <p class="text-[10px] font-semibold uppercase tracking-wider text-muted">{{ $pLabel }}</p>
-                                                                    <p class="mt-0.5 font-mono text-xs sm:text-sm font-semibold text-ink break-all">{{ $pVal }}</p>
-                                                                </div>
-                                                                <button type="button" @click="copy" class="shrink-0 rounded-md border border-line bg-grey-soft px-2.5 py-1 text-[11px] font-semibold text-ink hover:bg-line/50" x-text="copied ? 'Copied' : 'Copy'">Copy</button>
-                                                            </div>
-                                                        @endforeach
-                                                    </div>
-                                                @else
-                                                    <pre class="mt-3 rounded-lg border border-line bg-white p-3.5 font-mono text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-all text-ink">{{ $rawContent }}</pre>
-                                                @endif
-                                            </div>
-                                        @endforeach
-                                    </div>
-
-                                    @if ($item->product?->warranty)
-                                        <div class="mt-3 rounded-lg border border-line bg-grey-soft/40 p-3 text-xs text-body">
-                                            <strong class="text-ink">Warranty:</strong> {{ $item->product->warranty }}
+                            <div class="border-b border-emerald-200 bg-emerald-50/70 px-5 py-4 sm:px-6 flex flex-wrap items-center justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
+                                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                                    </span>
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <h2 class="text-sm sm:text-base font-extrabold text-ink">Delivered Access Credentials Vault</h2>
+                                            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                                                <span class="h-1.5 w-1.5 rounded-full bg-white animate-ping"></span> Ready
+                                            </span>
                                         </div>
-                                    @endif
+                                        <p class="text-xs text-body font-medium">Use the Copy buttons below to copy your email, password, or redeem link.</p>
+                                    </div>
                                 </div>
-                            @endforeach
+                                <div x-data="copy(@js($onlyRawCreds !== '' ? $onlyRawCreds : $fullReceiptText))">
+                                    <button type="button" @click="copy" class="btn bg-emerald-600 text-white hover:bg-emerald-700 py-2 px-4 text-xs font-bold inline-flex items-center gap-1.5 shadow-xs">
+                                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                        <span x-text="copied ? '✓ Copied Credentials!' : 'Copy All Credentials'">Copy All Credentials</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="divide-y divide-line p-5 sm:p-6 space-y-5">
+                                @foreach ($order->items as $item)
+                                    <div class="{{ ! $loop->first ? 'pt-5' : '' }}">
+                                        <div class="flex items-center justify-between gap-2 mb-3">
+                                            <h3 class="text-sm sm:text-base font-bold text-ink">{{ $item->product_name }} <span class="text-xs font-normal text-muted">× {{ $item->quantity }}</span></h3>
+                                            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
+                                                ✓ Unlocked
+                                            </span>
+                                        </div>
+
+                                        <div class="space-y-3">
+                                            @foreach ($item->deliveries as $idx => $delivery)
+                                                @php
+                                                    $rawContent = trim($delivery->content);
+                                                    $parts = null;
+                                                    if (! str_contains($rawContent, "\n") && preg_match('/^([^\s:|]+@[^\s:|]+)[:|](.+)$/', $rawContent, $m)) {
+                                                        $parts = ['Email / Username' => trim($m[1]), 'Password / Key' => trim($m[2])];
+                                                    }
+                                                    $firstUrl = null;
+                                                    if (preg_match('/https?:\/\/[^\s"\'<>]+/i', $rawContent, $urlMatch)) {
+                                                        $firstUrl = $urlMatch[0];
+                                                    }
+                                                @endphp
+                                                <div class="rounded-xl border-2 border-emerald-500/35 bg-emerald-50/30 p-4">
+                                                    <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-emerald-500/20">
+                                                        <span class="text-xs font-bold uppercase tracking-wider text-emerald-900">
+                                                            🔑 {{ $item->deliveries->count() > 1 ? 'Your Credentials #'.($idx + 1) : 'Your Account / Activation Details' }}
+                                                        </span>
+                                                        <div class="flex items-center gap-2" x-data="copy(@js($rawContent))">
+                                                            @if ($firstUrl)
+                                                                <a href="{{ $firstUrl }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 shadow-xs">
+                                                                    <span>Open Activation Link</span>
+                                                                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M7 17L17 7M7 7h10v10"/></svg>
+                                                                </a>
+                                                            @endif
+                                                            <button type="button" @click="copy" class="inline-flex items-center gap-1 rounded-lg border border-emerald-600/30 bg-white px-3 py-1.5 text-xs font-bold text-ink hover:bg-emerald-50 shadow-2xs">
+                                                                <svg class="h-3.5 w-3.5 text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                                                <span x-text="copied ? '✓ Copied!' : 'Copy'">Copy</span>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    @if ($parts)
+                                                        <div class="mt-3 grid gap-2.5 sm:grid-cols-2">
+                                                            @foreach ($parts as $pLabel => $pVal)
+                                                                <div class="flex items-center justify-between gap-2 rounded-lg border border-emerald-500/30 bg-white px-3.5 py-2.5 shadow-2xs" x-data="copy(@js($pVal))">
+                                                                    <div class="min-w-0">
+                                                                        <p class="text-[10px] font-bold uppercase tracking-wider text-muted">{{ $pLabel }}</p>
+                                                                        <p class="mt-0.5 font-mono text-xs sm:text-sm font-bold text-ink break-all">{{ $pVal }}</p>
+                                                                    </div>
+                                                                    <button type="button" @click="copy" class="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-emerald-700" x-text="copied ? '✓ Copied' : 'Copy'">Copy</button>
+                                                                </div>
+                                                            @endforeach
+                                                        </div>
+                                                    @else
+                                                        <pre class="mt-3 rounded-lg border border-emerald-500/30 bg-white p-3.5 font-mono text-xs sm:text-sm font-bold leading-relaxed whitespace-pre-wrap break-all text-ink shadow-2xs">{{ $rawContent }}</pre>
+                                                    @endif
+                                                </div>
+                                            @endforeach
+                                        </div>
+
+                                        @if ($item->product?->warranty)
+                                            <div class="mt-3 rounded-lg border border-line bg-grey-soft/40 p-3 text-xs text-body">
+                                                <strong class="text-ink">Warranty:</strong> {{ $item->product->cleanWarrantyText() }}
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        </section>
+
+                        {{-- Auto-Opening Credentials Ready Popup Modal --}}
+                        <div x-show="showDeliveryModal"
+                             x-cloak
+                             x-transition.opacity
+                             class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
+                             role="dialog"
+                             aria-modal="true"
+                             aria-labelledby="delivery-modal-title">
+                            <div @click.outside="showDeliveryModal = false"
+                                 x-show="showDeliveryModal"
+                                 x-transition:enter="transition ease-out duration-200"
+                                 x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+                                 x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+                                 class="relative w-full max-w-lg overflow-hidden rounded-2xl border-2 border-emerald-500 bg-white shadow-2xl">
+
+                                <div class="bg-gradient-to-r from-emerald-600 to-emerald-700 px-5 py-4 text-white flex items-center justify-between gap-3">
+                                    <div class="flex items-center gap-3">
+                                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white">
+                                            <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                                        </span>
+                                        <div>
+                                            <span class="block text-[10px] font-extrabold uppercase tracking-widest text-emerald-100">Order #{{ $order->number }} Delivered</span>
+                                            <h3 id="delivery-modal-title" class="text-base sm:text-lg font-extrabold text-white">🎉 Your Credentials Are Ready!</h3>
+                                        </div>
+                                    </div>
+                                    <button type="button"
+                                            @click="showDeliveryModal = false"
+                                            class="rounded-lg bg-white/15 p-1.5 text-white hover:bg-white/25 transition"
+                                            aria-label="Close popup">
+                                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                                    </button>
+                                </div>
+
+                                <div class="p-5 sm:p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+                                    <p class="text-xs sm:text-sm text-body">
+                                        Your order for <strong class="text-ink">{{ $itemsSummary }}</strong> has been delivered. Copy your login credentials or activation link below:
+                                    </p>
+
+                                    <div class="rounded-xl border-2 border-emerald-500/40 bg-emerald-50/50 p-3.5">
+                                        <div class="flex items-center justify-between gap-2 pb-2 border-b border-emerald-500/20">
+                                            <span class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-900">🔑 Delivered Credentials</span>
+                                            <div x-data="copy(@js($onlyRawCreds !== '' ? $onlyRawCreds : $fullReceiptText))">
+                                                <button type="button"
+                                                        @click="copy"
+                                                        class="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1 text-xs font-bold text-white hover:bg-emerald-700">
+                                                    <span x-text="copied ? '✓ Copied!' : 'Copy Credentials'">Copy Credentials</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <pre class="mt-2.5 max-h-44 overflow-y-auto rounded-lg border border-emerald-500/25 bg-white p-3 font-mono text-xs sm:text-sm font-bold leading-relaxed whitespace-pre-wrap break-all text-ink">{{ $onlyRawCreds !== '' ? $onlyRawCreds : $allDeliveredText }}</pre>
+                                    </div>
+
+                                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-1">
+                                        @if ($firstAnyUrl)
+                                            <a href="{{ $firstAnyUrl }}"
+                                               target="_blank"
+                                               rel="noopener"
+                                               class="btn bg-emerald-600 text-white hover:bg-emerald-700 flex-1 py-2.5 text-xs sm:text-sm font-extrabold text-center shadow-sm">
+                                                Open Activation Link ↗
+                                            </a>
+                                        @endif
+                                        <button type="button"
+                                                @click="focusCredentials()"
+                                                class="btn btn-primary flex-1 py-2.5 text-xs sm:text-sm font-extrabold">
+                                            View Full Credentials on Page ↓
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </section>
+                    </div>
 
                 {{-- ============ 5. CLOSED / EXPIRED / REFUNDED ============ --}}
                 @else

@@ -438,14 +438,14 @@ class Product extends Model
     public function seoTitle(): string
     {
         if (filled($this->meta_title)) {
-            return (string) $this->meta_title;
+            return str_replace(['—', '–'], '-', (string) $this->meta_title);
         }
 
         if (str_contains(strtolower((string) $this->name), 'subscription')) {
-            return "Buy {$this->name} Cheap Online";
+            return str_replace(['—', '–'], '-', "Buy {$this->name} Cheap Online");
         }
 
-        return "Buy {$this->name} — Cheap Subscription";
+        return str_replace(['—', '–'], '-', "Buy {$this->name} | Cheap Subscription");
     }
 
     /**
@@ -544,6 +544,8 @@ class Product extends Model
 
             return ' ';
         }, $raw) ?? $raw;
+
+        return str_replace(["\u{2014}", "\u{2013}", "\u{2015}", '—', '–', '―'], ' - ', $raw);
     }
 
     public function cleanShortDescription(): string
@@ -752,7 +754,7 @@ class Product extends Model
                 return Str::limit("Get {$this->name} for FREE with instant online access. {$base}", 152);
             }
 
-            return Str::limit("Get {$this->name} for FREE with instant automated delivery on your order page — no payment required.", 152);
+            return Str::limit("Get {$this->name} for FREE with instant automated delivery on your order page, no payment required.", 152);
         }
 
         if ($base !== '') {
