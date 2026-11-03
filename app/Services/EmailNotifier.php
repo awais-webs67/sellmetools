@@ -80,9 +80,15 @@ class EmailNotifier
             default => $port === 465 ? 'smtps' : 'smtp',
         };
 
-        $fromAddress = $get('mail_from_address') ?: $username;
-        if (! filter_var($fromAddress, FILTER_VALIDATE_EMAIL)) {
-            $fromAddress = filter_var($username, FILTER_VALIDATE_EMAIL) ? $username : 'no-reply@'.(parse_url(config('app.url'), PHP_URL_HOST) ?: 'localhost');
+        // Always prefer the authenticated SMTP mailbox ($username) as From address when it is a valid email,
+        // so SPF, DKIM, and DMARC alignment are 100% strict and never trigger bounces or spam flags.
+        if (filter_var($username, FILTER_VALIDATE_EMAIL)) {
+            $fromAddress = $username;
+        } else {
+            $fromAddress = $get('mail_from_address');
+            if (! filter_var($fromAddress, FILTER_VALIDATE_EMAIL)) {
+                $fromAddress = 'no-reply@'.(parse_url(config('app.url'), PHP_URL_HOST) ?: 'sellmetools.com');
+            }
         }
         $fromName = $get('mail_from_name') ?: (string) Setting::get('store_name', 'SellMeTools');
 
@@ -95,7 +101,7 @@ class EmailNotifier
                 'username' => $username,
                 'password' => $password,
                 'timeout' => 15,
-                'local_domain' => parse_url((string) config('app.url'), PHP_URL_HOST) ?: null,
+                'local_domain' => parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'sellmetools.com',
             ],
             'mail.from.address' => $fromAddress,
             'mail.from.name' => $fromName,
@@ -150,14 +156,17 @@ class EmailNotifier
             $deliveredItems = $order->items->filter(fn ($item) => $item->deliveries->isNotEmpty());
             $storeName = (string) Setting::get('store_name', 'SellMeTools');
 
-            Mail::mailer(self::MAILER)->send('emails.order-delivered', [
+            Mail::mailer(self::MAILER)->send([
+                'html' => 'emails.order-delivered',
+                'text' => 'emails.order-delivered-text',
+            ], [
                 'order' => $order,
                 'deliveredItems' => $deliveredItems,
                 'storeName' => $storeName,
                 'orderUrl' => $order->customerUrl(),
             ], function ($message) use ($order, $storeName) {
-                $message->to($order->email)
-                    ->subject("Your order {$order->number} is delivered - {$storeName}");
+                $message->to($order->email, $order->customer_name ?: null)
+                    ->subject("Order #{$order->number} Delivered - {$storeName}");
                 $this->applyReplyTo($message);
             });
 
@@ -185,13 +194,16 @@ class EmailNotifier
             $storeName = (string) Setting::get('store_name', 'SellMeTools');
             $resetUrl = route('password.reset', ['token' => $token, 'email' => $user->email]);
 
-            Mail::mailer(self::MAILER)->send('emails.password-reset', [
+            Mail::mailer(self::MAILER)->send([
+                'html' => 'emails.password-reset',
+                'text' => 'emails.password-reset-text',
+            ], [
                 'user' => $user,
                 'resetUrl' => $resetUrl,
                 'storeName' => $storeName,
             ], function ($message) use ($user, $storeName) {
-                $message->to($user->email)
-                    ->subject("Reset your {$storeName} password");
+                $message->to($user->email, $user->name ?: null)
+                    ->subject("Password reset request - {$storeName}");
                 $this->applyReplyTo($message);
             });
 
@@ -279,16 +291,19 @@ class EmailNotifier
     }
 
     /**
-     * Send a customer inquiry from the Contact Us form to the store's support inbox via SMTP.
+     * Send a customer inquiry from the Contact Us form to the store's verified SMTP inbox,
+     * AND send an automatic confirmation reply to the customer's email address.
      *
      * @param  array{name: string, email: string, phone?: ?string, order_number?: ?string, subject: string, message: string}  $data
      */
     public function sendContactMessage(array $data): bool
     {
+        // Always prioritize mail_username (the verified, authenticated SMTP mailbox) so the server
+        // never bounces with "Undelivered Mail Returned to Sender" due to a non-existent alias!
         $recipient = collect([
-            Setting::get('support_email'),
-            Setting::get('mail_from_address'),
             Setting::get('mail_username'),
+            Setting::get('mail_from_address'),
+            Setting::get('support_email'),
         ])->map(fn ($v) => trim((string) $v))
             ->first(fn ($v) => $v !== '' && filter_var($v, FILTER_VALIDATE_EMAIL));
 
@@ -298,36 +313,78 @@ class EmailNotifier
             return false;
         }
 
-        try {
-            $storeName = (string) Setting::get('store_name', 'SellMeTools');
+        $storeName = (string) Setting::get('store_name', 'SellMeTools');
+        $sentToAdmin = false;
 
-            Mail::mailer(self::MAILER)->send('emails.contact-message', [
+        try {
+            // 1. Send Contact Inquiry to Admin's verified inbox (with Reply-To set to customer's email)
+            Mail::mailer(self::MAILER)->send([
+                'html' => 'emails.contact-message',
+                'text' => 'emails.contact-message-text',
+            ], [
                 'inquiry' => $data,
                 'storeName' => $storeName,
             ], function ($message) use ($recipient, $data, $storeName) {
-                $subjectLine = "[{$storeName} Contact] {$data['subject']} - {$data['name']}";
-                $message->to($recipient)->subject($subjectLine);
+                $subjectLine = "New Contact Message: {$data['subject']} ({$data['name']}) - {$storeName}";
+                $message->to($recipient, $storeName.' Support')->subject($subjectLine);
+                $this->applySenderAlignment($message);
                 if (filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
                     $message->replyTo($data['email'], $data['name']);
                 }
             });
-
-            return true;
+            $sentToAdmin = true;
         } catch (\Throwable $e) {
-            Log::warning('Failed to send contact form email: '.$e->getMessage(), [
+            Log::warning('Failed to send contact form email to admin: '.$e->getMessage(), [
                 'email' => $data['email'] ?? null,
                 'subject' => $data['subject'] ?? null,
             ]);
+        }
 
-            return false;
+        // 2. Send Auto-Reply Confirmation ("Thank you for contacting us") to the Customer
+        if (! empty($data['email']) && filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+            try {
+                Mail::mailer(self::MAILER)->send([
+                    'html' => 'emails.contact-autoreply',
+                    'text' => 'emails.contact-autoreply-text',
+                ], [
+                    'inquiry' => $data,
+                    'storeName' => $storeName,
+                ], function ($message) use ($data, $storeName) {
+                    $message->to($data['email'], $data['name'] ?? null)
+                        ->subject("We received your message - {$storeName} Support");
+                    $this->applyReplyTo($message);
+                });
+            } catch (\Throwable $e) {
+                Log::warning('Failed to send contact auto-reply to customer: '.$e->getMessage(), [
+                    'email' => $data['email'],
+                ]);
+            }
+        }
+
+        return $sentToAdmin;
+    }
+
+    private function applySenderAlignment($message): void
+    {
+        $fromAddress = (string) config('mail.from.address', '');
+        $fromName = (string) config('mail.from.name', 'SellMeTools');
+        if ($fromAddress !== '' && filter_var($fromAddress, FILTER_VALIDATE_EMAIL)) {
+            $message->from($fromAddress, $fromName);
+            $message->sender($fromAddress, $fromName);
+            $message->returnPath($fromAddress);
         }
     }
 
     private function applyReplyTo($message): void
     {
-        $support = trim((string) Setting::get('support_email', ''));
-        if ($support !== '' && filter_var($support, FILTER_VALIDATE_EMAIL)) {
-            $message->replyTo($support);
+        $this->applySenderAlignment($message);
+
+        // Use the verified SMTP From address for Reply-To so replies never bounce
+        // and Gmail/Outlook never penalize a From vs Reply-To mismatch.
+        $verifiedFrom = trim((string) config('mail.from.address', ''));
+        $fromName = (string) config('mail.from.name', 'SellMeTools');
+        if ($verifiedFrom !== '' && filter_var($verifiedFrom, FILTER_VALIDATE_EMAIL)) {
+            $message->replyTo($verifiedFrom, $fromName);
         }
     }
 

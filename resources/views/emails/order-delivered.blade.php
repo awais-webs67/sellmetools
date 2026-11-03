@@ -1,75 +1,56 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Confirmed &amp; Delivered</title>
+    <title>Order {{ $order->number }} Delivered - {{ $storeName }}</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #F8F9FB; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #14171A; line-height: 1.6;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #F8F9FB; padding: 30px 15px;">
+<body style="margin:0;padding:0;background-color:#F4F6F8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111827;line-height:1.6;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#F4F6F8;padding:28px 14px;">
         <tr>
             <td align="center">
-                <table role="presentation" width="100%" style="max-width: 600px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.06); border: 1px solid #E6E8EB;" cellspacing="0" cellpadding="0">
-                    {{-- Header Banner --}}
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:580px;background-color:#FFFFFF;border-radius:12px;border:1px solid #E5E7EB;overflow:hidden;">
                     <tr>
-                        <td style="background-color: #1F070E; background: linear-gradient(135deg, #2B0912 0%, #120408 100%); padding: 35px 30px; text-align: center; color: #FFFFFF;">
-                            <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; color: #FFFFFF;">
-                                {{ $storeName }}
-                            </h1>
-                            <div style="display: inline-block; background-color: #15803d; color: #FFFFFF; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; margin-top: 12px; letter-spacing: 0.5px;">
-                                ✓ Payment Confirmed &amp; Delivered
-                            </div>
-                            <h2 style="margin: 15px 0 5px; font-size: 20px; font-weight: 700; color: #FFFFFF;">
-                                Your Credentials Are Ready!
-                            </h2>
-                            <p style="margin: 0; font-size: 13px; color: rgba(255,255,255,0.75);">
-                                Order #{{ $order->number }} · {{ $order->created_at->format('d M Y, h:i A') }}
-                            </p>
+                        <td style="padding:24px 28px;border-bottom:1px solid #E5E7EB;background-color:#111827;color:#FFFFFF;">
+                            <p style="margin:0;font-size:12px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:#34D399;">Order Delivered</p>
+                            <h1 style="margin:6px 0 0;font-size:20px;font-weight:700;color:#FFFFFF;">{{ $storeName }} · Order #{{ $order->number }}</h1>
                         </td>
                     </tr>
-
-                    {{-- Main Content --}}
                     <tr>
-                        <td style="padding: 30px 25px;">
-                            <p style="margin: 0 0 18px; font-size: 14px; color: #525860;">
-                                Assalam o Alaikum! Your payment has been verified and your subscription credentials have been issued below.
+                        <td style="padding:28px;">
+                            <p style="margin:0 0 16px;font-size:15px;color:#111827;">
+                                Hello {{ $order->customer_name ?: 'Valued Customer' }},
+                            </p>
+                            <p style="margin:0 0 20px;font-size:14px;color:#374151;">
+                                Thank you for your order at <strong>{{ $storeName }}</strong>. Your payment has been verified and your access details for Order <strong>#{{ $order->number }}</strong> ({{ $order->created_at->format('d M Y, h:i A') }}) are ready below.
                             </p>
 
-                            {{-- Credentials Boxes --}}
                             @foreach ($deliveredItems as $item)
-                                <div style="margin-bottom: 20px; border: 1px solid #E6E8EB; border-radius: 12px; overflow: hidden;">
-                                    <div style="background-color: #F8F9FB; padding: 12px 16px; border-bottom: 1px solid #E6E8EB; font-weight: 700; font-size: 14px; color: #14171A;">
-                                        📦 {{ $item->product_name }} (x{{ $item->quantity }})
-                                    </div>
-                                    <div style="background-color: #120408; padding: 16px; color: #4ade80; font-family: Courier, monospace; font-size: 13px; word-break: break-all; white-space: pre-wrap; line-height: 1.5;">
-@foreach ($item->deliveries as $idx => $del)
-{{ trim($del->content) }}@if (! $loop->last)
+                                <div style="margin-bottom:18px;border:1px solid #D1D5DB;border-radius:10px;background-color:#F9FAFB;padding:16px;">
+                                    <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#111827;">
+                                        {{ $item->product_name }} (Qty: {{ $item->quantity }})
+                                    </p>
+                                    <div style="background-color:#FFFFFF;border:1px solid #E5E7EB;border-radius:8px;padding:12px 14px;font-family:Consolas,Monaco,'Courier New',monospace;font-size:13px;color:#111827;white-space:pre-wrap;word-break:break-word;line-height:1.5;">@foreach ($item->deliveries as $del){{ trim($del->content) }}@if (! $loop->last)
 
 ---
-@endif
-@endforeach
-                                    </div>
+@endif @endforeach</div>
                                 </div>
                             @endforeach
 
-                            {{-- Action Button --}}
-                            <div style="text-align: center; margin: 30px 0 20px;">
-                                <a href="{{ $orderUrl }}" style="display: inline-block; background-color: #9B1B30; color: #FFFFFF; font-weight: 700; font-size: 14px; padding: 14px 28px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 10px rgba(155,27,48,0.25);">
-                                    View Live Order Page &amp; Receipt →
+                            <div style="margin:26px 0;text-align:center;">
+                                <a href="{{ $orderUrl }}" style="display:inline-block;background-color:#111827;color:#FFFFFF;font-weight:600;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none;">
+                                    Open Order Page &amp; Receipt
                                 </a>
                             </div>
 
-                            <p style="margin: 20px 0 0; font-size: 12px; color: #6E7681; text-align: center;">
-                                Keep this email safe. Your credentials are also permanently saved in your Customer Panel.
+                            <p style="margin:0;font-size:13px;color:#4B5563;">
+                                You can also view your order history and delivered items anytime by signing in to your account at <a href="{{ url('/') }}" style="color:#111827;text-decoration:underline;">{{ url('/') }}</a>. If you have any questions, simply reply to this email.
                             </p>
                         </td>
                     </tr>
-
-                    {{-- Footer --}}
                     <tr>
-                        <td style="background-color: #F8F9FB; padding: 20px; text-align: center; font-size: 11px; color: #6E7681; border-top: 1px solid #E6E8EB;">
-                            <p style="margin: 0 0 5px;">&copy; {{ date('Y') }} {{ $storeName }}. A Project by AivraSol Softwares.</p>
-                            <p style="margin: 0;">For warranty or questions, reply to this email or contact support on WhatsApp.</p>
+                        <td style="background-color:#F9FAFB;padding:18px 28px;border-top:1px solid #E5E7EB;font-size:12px;color:#6B7280;text-align:center;">
+                            <p style="margin:0;">&copy; {{ date('Y') }} {{ $storeName }} ({{ parse_url(config('app.url'), PHP_URL_HOST) ?: 'sellmetools.com' }}). All rights reserved.</p>
                         </td>
                     </tr>
                 </table>
@@ -78,4 +59,3 @@
     </table>
 </body>
 </html>
-
