@@ -183,19 +183,22 @@
                                 </div>
 
                                 <div>
+                                    @php
+                                        $defaultSourceCost = round((float) $order->items->sum(fn ($i) => ((float) ($i->product?->cost_price ?? 0)) * $i->quantity), 2);
+                                    @endphp
                                     <label for="manual_cost" class="label text-xs font-semibold text-muted">
-                                        Manual Cost in PKR (for Profit Calculation)
+                                        Source Cost in PKR (If Any - Optional)
                                     </label>
                                     <input id="manual_cost"
                                            name="manual_cost"
                                            type="number"
                                            step="0.01"
                                            min="0"
-                                           value="{{ old('manual_cost', '0') }}"
+                                           value="{{ old('manual_cost', $defaultSourceCost > 0 ? $defaultSourceCost : '0') }}"
                                            class="input font-mono text-xs py-2 bg-white"
                                            placeholder="0 (Leave 0 for own free stock)">
                                     <p class="mt-1 text-[10px] text-muted">
-                                        When delivered manually, order source becomes <strong>Admin Manual</strong> (not Supplier) and uses this cost.
+                                        Enter your source/buying cost in PKR (if any) so order profit is calculated accurately.
                                     </p>
                                 </div>
 

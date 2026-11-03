@@ -114,8 +114,7 @@ class ProductForm
                             ->default(PricingMode::Fixed->value)
                             ->required()
                             ->live()
-                            ->visible(fn (Get $get): bool => ! (bool) $get('is_free'))
-                            ->columnSpan(['default' => 1, 'sm' => 2]),
+                            ->visible(fn (Get $get): bool => ! (bool) $get('is_free')),
                         TextInput::make('fixed_price')
                             ->label('Fixed Selling Price (PKR)')
                             ->placeholder('550')
@@ -133,6 +132,14 @@ class ProductForm
                             ->default(0)
                             ->live(debounce: 250)
                             ->visible(fn (Get $get): bool => ! (bool) $get('is_free') && self::mode($get) !== PricingMode::Fixed),
+                        TextInput::make('cost_price')
+                            ->label('Source Cost (PKR - If Any)')
+                            ->placeholder('0 (or auto from supplier)')
+                            ->rule('numeric')
+                            ->rule('min:0')
+                            ->live(debounce: 250)
+                            ->visible(fn (Get $get): bool => ! (bool) $get('is_free'))
+                            ->helperText('Optional: Enter your buying/source cost in PKR for Fixed Price products (auto-updated if a supplier is attached).'),
                         TextInput::make('compare_at_price')
                             ->label('Old Price / Discount Strike (PKR)')
                             ->placeholder('800')
@@ -141,9 +148,9 @@ class ProductForm
                         Grid::make(['default' => 2, 'sm' => 4])
                             ->columnSpanFull()
                             ->schema([
-                                TextEntry::make('cost_price')
-                                    ->label('Supplier Cost')
-                                    ->state(fn (?Product $record): string => self::formatSupplierCost($record)),
+                                TextEntry::make('supplier_cost_preview')
+                                    ->label('Source / Supplier Cost')
+                                    ->state(fn (?Product $record, Get $get): string => self::formatSupplierCost($record, $get)),
                                 TextEntry::make('price')
                                     ->label('Final Selling Price')
                                     ->weight('bold')
@@ -152,7 +159,7 @@ class ProductForm
                                 TextEntry::make('profit')
                                     ->label('Your Profit')
                                     ->state(function (?Product $record, Get $get): string {
-                                        $cost = self::liveCost($record);
+                                        $cost = self::liveCost($record, $get);
                                         if ($cost === null) {
                                             return '-';
                                         }
@@ -300,8 +307,15 @@ class ProductForm
         return $mode instanceof PricingMode ? $mode : (PricingMode::tryFrom((string) $mode) ?? PricingMode::Fixed);
     }
 
-    protected static function liveCost(?Product $record): ?float
+    protected static function liveCost(?Product $record, ?Get $get = null): ?float
     {
+        if ($get !== null) {
+            $typedCost = $get('cost_price');
+            if ($typedCost !== null && $typedCost !== '' && is_numeric($typedCost)) {
+                return round((float) $typedCost, 2);
+            }
+        }
+
         if (! $record) {
             return null;
         }
@@ -315,9 +329,9 @@ class ProductForm
         return $cheapest !== null ? round($cheapest, 2) : null;
     }
 
-    protected static function formatSupplierCost(?Product $record): string
+    protected static function formatSupplierCost(?Product $record, ?Get $get = null): string
     {
-        $costPkr = self::liveCost($record);
+        $costPkr = self::liveCost($record, $get);
         if ($costPkr === null) {
             return '-';
         }
@@ -353,7 +367,7 @@ class ProductForm
         }
 
         return Listings::previewPrice(
-            self::liveCost($record),
+            self::liveCost($record, $get),
             self::mode($get),
             $get('fixed_price'),
             $get('markup_value'),

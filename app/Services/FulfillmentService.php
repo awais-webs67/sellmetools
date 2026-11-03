@@ -169,6 +169,9 @@ class FulfillmentService
                     }
                     $item->delivered_qty += $need;
                     $item->reserved_supplier_qty = 0;
+                    if ((float) $item->cost <= 0 && $item->product?->cost_price !== null) {
+                        $item->cost = round((float) $item->product->cost_price * $item->delivered_qty, 2);
+                    }
                     $item->save();
                 }
 
@@ -224,6 +227,9 @@ class FulfillmentService
             }
 
             $item->delivered_qty += $deliveredCount;
+            if ($deliveredCount > 0 && (float) $item->cost <= 0 && $item->product?->cost_price !== null) {
+                $item->cost = round((float) $item->product->cost_price * $item->delivered_qty, 2);
+            }
             $item->save();
         });
     }
@@ -505,7 +511,7 @@ class FulfillmentService
         }
 
         DB::transaction(function () use ($item, $units, $manualCost) {
-            $item->refresh();
+            $item->refresh()->loadMissing('product');
             foreach (array_slice($units, 0, max(1, $item->remainingQty())) as $unitContent) {
                 $item->deliveries()->create(['content' => $unitContent, 'source' => 'manual']);
                 $item->delivered_qty++;
@@ -513,6 +519,8 @@ class FulfillmentService
             $item->reserved_supplier_qty = max(0, $item->quantity - $item->delivered_qty - $item->stockItems()->where('status', StockStatus::Reserved)->count());
             if ($manualCost !== null) {
                 $item->cost = round(max(0.0, $manualCost), 2);
+            } elseif ((float) $item->cost <= 0 && $item->product?->cost_price !== null) {
+                $item->cost = round((float) $item->product->cost_price * $item->quantity, 2);
             }
             $item->save();
         });
@@ -533,7 +541,7 @@ class FulfillmentService
         $text = 'Delivered to customer on WhatsApp'.(filled($note) ? ': '.trim($note) : '');
 
         DB::transaction(function () use ($order, $text, $manualCost) {
-            foreach ($order->items()->get() as $item) {
+            foreach ($order->items()->with('product')->get() as $item) {
                 while ($item->remainingQty() > 0) {
                     $item->deliveries()->create([
                         'content' => $text,
@@ -545,6 +553,8 @@ class FulfillmentService
                 $item->status = 'delivered';
                 if ($manualCost !== null) {
                     $item->cost = round(max(0.0, $manualCost), 2);
+                } elseif ((float) $item->cost <= 0 && $item->product?->cost_price !== null) {
+                    $item->cost = round((float) $item->product->cost_price * $item->quantity, 2);
                 }
                 $item->save();
             }

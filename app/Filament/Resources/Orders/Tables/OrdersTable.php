@@ -200,6 +200,17 @@ class OrdersTable
                     ->placeholder("Email: user@gmail.com\nPass: 12345")
                     ->rows(6)
                     ->required(),
+                TextInput::make('manual_cost')
+                    ->label('Source Cost in PKR (If Any - Optional)')
+                    ->numeric()
+                    ->minValue(0)
+                    ->default(function () use ($record): float {
+                        $firstItem = $record->items->first(fn (OrderItem $i): bool => $i->remainingQty() > 0) ?? $record->items->first();
+                        $unitCost = (float) ($firstItem?->product?->cost_price ?? 0);
+
+                        return round($unitCost * max(1, (int) ($firstItem?->quantity ?? 1)), 2);
+                    })
+                    ->helperText('Enter your source/buying cost in PKR (if any) for accurate profit calculation, or leave 0.'),
             ])
             ->action(function (Order $record, array $data): void {
                 /** @var OrderItem|null $item */
@@ -210,11 +221,14 @@ class OrdersTable
                     return;
                 }
 
+                $manualCost = isset($data['manual_cost']) && $data['manual_cost'] !== '' ? (float) $data['manual_cost'] : null;
+
                 try {
                     app(FulfillmentService::class)->deliverManually(
                         $item,
                         (string) $data['lines'],
-                        (string) ($data['separator_mode'] ?? 'auto')
+                        (string) ($data['separator_mode'] ?? 'auto'),
+                        $manualCost
                     );
                     Notification::make()->title("Order {$record->number} delivered!")->success()->send();
                 } catch (Throwable $e) {
@@ -231,14 +245,24 @@ class OrdersTable
             ->color('success')
             ->visible(fn (Order $record): bool => in_array($record->status, [OrderStatus::Processing, OrderStatus::NeedsAttention], true))
             ->requiresConfirmation()
-            ->schema([
+            ->schema(fn (Order $record): array => [
                 TextInput::make('note')
                     ->label('Optional Delivery Note')
                     ->placeholder('e.g. Sent credentials on WhatsApp'),
+                TextInput::make('manual_cost')
+                    ->label('Source Cost in PKR (If Any - Optional)')
+                    ->numeric()
+                    ->minValue(0)
+                    ->default(function () use ($record): float {
+                        return round((float) $record->items->sum(fn (OrderItem $i) => ((float) ($i->product?->cost_price ?? 0)) * $i->quantity), 2);
+                    })
+                    ->helperText('Enter your source/buying cost in PKR (if any) for accurate profit calculation, or leave 0.'),
             ])
             ->action(function (Order $record, array $data): void {
+                $manualCost = isset($data['manual_cost']) && $data['manual_cost'] !== '' ? (float) $data['manual_cost'] : null;
+
                 try {
-                    app(FulfillmentService::class)->markDeliveredViaWhatsApp($record, $data['note'] ?? null);
+                    app(FulfillmentService::class)->markDeliveredViaWhatsApp($record, $data['note'] ?? null, $manualCost);
                     Notification::make()->title("Order {$record->number} marked delivered via WhatsApp")->success()->send();
                 } catch (Throwable $e) {
                     Notification::make()->title('Failed')->body($e->getMessage())->danger()->send();

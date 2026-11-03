@@ -83,7 +83,8 @@ class PriceCalculator
      */
     public function refresh(Product $product): array
     {
-        $cost = $this->cheapestCost($product);
+        $supplierCost = $this->cheapestCost($product);
+        $cost = $supplierCost ?? ($product->cost_price !== null ? round((float) $product->cost_price, 2) : null);
         $price = $this->sellingPrice($product, $cost);
 
         $product->cost_price = $cost;
@@ -92,7 +93,7 @@ class PriceCalculator
         $result = ['changed' => $product->isDirty(['price', 'cost_price']), 'disabled' => false, 'enabled' => false];
 
         $hasOwnStock = $product->ownAvailableCount() > 0;
-        $losing = $cost !== null && $price < $cost && ! $hasOwnStock;
+        $losing = $supplierCost !== null && $price < $supplierCost && ! $hasOwnStock;
 
         if ($losing && $product->is_active) {
             $product->is_active = false;

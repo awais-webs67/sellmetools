@@ -139,15 +139,22 @@ class ViewOrder extends ViewRecord
                     ->rows(8)
                     ->required(),
                 TextInput::make('manual_cost')
-                    ->label('Manual Cost in PKR (Optional)')
+                    ->label('Source Cost in PKR (If Any - Optional)')
                     ->numeric()
-                    ->default(0)
-                    ->helperText('Leave 0 if delivered from your own stock, or enter your actual cost in PKR for accurate profit calculation.'),
+                    ->minValue(0)
+                    ->default(function (): float {
+                        $firstItem = $this->record->items()->with('product')->get()->first(fn (OrderItem $i): bool => $i->remainingQty() > 0)
+                            ?? $this->record->items()->with('product')->first();
+                        $unitCost = (float) ($firstItem?->product?->cost_price ?? 0);
+
+                        return round($unitCost * max(1, (int) ($firstItem?->quantity ?? 1)), 2);
+                    })
+                    ->helperText('Enter your source/buying cost in PKR (if any) for accurate profit calculation, or leave 0.'),
             ])
             ->action(function (array $data): void {
                 /** @var OrderItem $item */
                 $item = $this->record->items()->findOrFail($data['order_item_id']);
-                $manualCost = isset($data['manual_cost']) && $data['manual_cost'] !== '' ? (float) $data['manual_cost'] : 0.0;
+                $manualCost = isset($data['manual_cost']) && $data['manual_cost'] !== '' ? (float) $data['manual_cost'] : null;
 
                 try {
                     $order = app(FulfillmentService::class)->deliverManually(
@@ -184,13 +191,16 @@ class ViewOrder extends ViewRecord
                     ->label('Optional Delivery Note (shown to customer)')
                     ->placeholder('e.g. Activated on customer email / Sent on WhatsApp'),
                 TextInput::make('manual_cost')
-                    ->label('Manual Cost in PKR (Optional)')
+                    ->label('Source Cost in PKR (If Any - Optional)')
                     ->numeric()
-                    ->default(0)
-                    ->helperText('Leave 0 if delivered from your own stock, or enter your actual cost in PKR.'),
+                    ->minValue(0)
+                    ->default(function (): float {
+                        return round((float) $this->record->items()->with('product')->get()->sum(fn (OrderItem $i) => ((float) ($i->product?->cost_price ?? 0)) * $i->quantity), 2);
+                    })
+                    ->helperText('Enter your source/buying cost in PKR (if any) for accurate profit calculation, or leave 0.'),
             ])
             ->action(function (array $data): void {
-                $manualCost = isset($data['manual_cost']) && $data['manual_cost'] !== '' ? (float) $data['manual_cost'] : 0.0;
+                $manualCost = isset($data['manual_cost']) && $data['manual_cost'] !== '' ? (float) $data['manual_cost'] : null;
                 try {
                     $order = app(FulfillmentService::class)->markDeliveredViaWhatsApp(
                         $this->record,
