@@ -124,22 +124,26 @@
 
     {{-- ================= CATALOG FILTER & GRID ================= --}}
     <section id="products" class="container-x py-8 sm:py-12">
-        <div class="card p-3.5 sm:p-4">
+        <div class="card p-3.5 sm:p-4" x-data="liveFilter('#shop-results')" @click.outside="open = false">
             <div class="flex flex-col gap-3.5 lg:flex-row lg:items-center lg:justify-between">
                 {{-- Category Pills --}}
                 <nav class="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Filter by category">
                     <a href="{{ route('shop', array_filter(['q' => $search ?: null, 'sort' => $sort !== 'featured' ? $sort : null, 'in_stock' => $inStockOnly ? 1 : null])) }}"
+                       @pointerenter.once="prefetch($el.href)"
+                       @click.prevent="setCategory('', $event)"
                        @class([
-                           'shrink-0 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition',
+                           'shrink-0 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition cursor-pointer',
                            'border-brand bg-brand text-white' => ! $activeCategory,
                            'border-line-strong bg-white text-ink hover:border-brand hover:text-brand' => $activeCategory,
                        ])>
                         All Categories
                     </a>
                     @foreach ($categories as $category)
-                        <a href="{{ route('categories.show', $category) }}"
+                        <a href="{{ route('shop', array_filter(['category' => $category->slug, 'q' => $search ?: null, 'sort' => $sort !== 'featured' ? $sort : null, 'in_stock' => $inStockOnly ? 1 : null])) }}"
+                           @pointerenter.once="prefetch($el.href)"
+                           @click.prevent="setCategory(@js($category->slug), $event)"
                            @class([
-                               'shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition whitespace-nowrap',
+                               'shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition whitespace-nowrap cursor-pointer',
                                'border-brand bg-brand text-white' => $activeCategory?->is($category),
                                'border-line-strong bg-white text-ink hover:border-brand hover:text-brand' => ! $activeCategory?->is($category),
                            ])>
@@ -160,7 +164,7 @@
 
                 {{-- Search + Sort Form --}}
                 <form action="{{ route('shop') }}" method="get" class="flex flex-col gap-2.5 sm:flex-row sm:items-center lg:shrink-0" role="search"
-                      x-data="liveFilter('#shop-results')" @click.outside="open = false" @submit.prevent="open = false; run()">
+                      @submit.prevent="open = false; run()">
                     @if ($activeCategory)
                         <input type="hidden" name="category" value="{{ $activeCategory->slug }}">
                     @endif
@@ -175,7 +179,7 @@
 
                     <div class="flex items-center gap-2">
                         <label for="shop-sort" class="sr-only">Sort products</label>
-                        <select id="shop-sort" name="sort" class="input py-2 pr-8 text-xs sm:text-sm font-medium w-full sm:w-auto" onchange="this.form.submit()">
+                        <select id="shop-sort" name="sort" class="input py-2 pr-8 text-xs sm:text-sm font-medium w-full sm:w-auto cursor-pointer" @change="run()">
                             <option value="featured" @selected($sort === 'featured')>Sort: Featured</option>
                             <option value="popular" @selected($sort === 'popular')>Sort: Best Selling</option>
                             <option value="price_asc" @selected($sort === 'price_asc')>Price: Low to High</option>
@@ -184,7 +188,7 @@
                         </select>
 
                         <label class="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-line-strong bg-white px-3 py-2 text-xs font-semibold text-ink hover:border-brand">
-                            <input type="checkbox" name="in_stock" value="1" @checked($inStockOnly) onchange="this.form.submit()" class="h-3.5 w-3.5 rounded border-line-strong text-brand focus:ring-brand">
+                            <input type="checkbox" name="in_stock" value="1" @checked($inStockOnly) @change="run()" class="h-3.5 w-3.5 rounded border-line-strong text-brand focus:ring-brand">
                             <span>In Stock</span>
                         </label>
                     </div>
@@ -192,7 +196,7 @@
             </div>
 
             @if ($search !== '' || $activeCategory || $sort !== 'featured' || $inStockOnly)
-                <div class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5 text-xs text-muted">
+                <div data-filter-summary class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5 text-xs text-muted">
                     <span>
                         Showing <strong>{{ $products->total() }}</strong> {{ \Illuminate\Support\Str::plural('result', $products->total()) }}
                         @if ($activeCategory) in <strong>{{ $activeCategory->name }}</strong> @endif

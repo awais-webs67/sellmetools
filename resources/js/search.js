@@ -5,6 +5,7 @@
  * starting from the 1st character, with automatic server fallback when needed.
  */
 const suggestCache = new Map();
+const pageHtmlCache = new Map();
 let catalogPromise = null;
 
 function ensureCatalogLoaded() {
@@ -128,8 +129,11 @@ function createSearchBehavior(targetSelector = null) {
         form: null,
 
         init() {
-            this.form = this.$el.tagName === 'FORM' ? this.$el : this.$el.closest('form');
-            const input = this.$el.querySelector('input[name="q"]');
+            this.form =
+                this.$el.tagName === 'FORM'
+                    ? this.$el
+                    : this.$el.querySelector('form') || this.$el.closest('form');
+            const input = (this.form || this.$el).querySelector('input[name="q"]');
             this.q = input?.value ?? '';
         },
 
@@ -253,20 +257,128 @@ function createSearchBehavior(targetSelector = null) {
             });
         },
 
+        highlightPill(clickedEl) {
+            const nav = clickedEl?.closest('nav');
+            if (!nav) return;
+            nav.querySelectorAll('a').forEach((a) => {
+                const isTarget = a === clickedEl;
+                a.classList.toggle('border-brand', isTarget);
+                a.classList.toggle('bg-brand', isTarget);
+                a.classList.toggle('text-white', isTarget);
+                a.classList.toggle('border-line-strong', !isTarget);
+                a.classList.toggle('bg-white', !isTarget);
+                a.classList.toggle('text-ink', !isTarget);
+                a.classList.toggle('hover:border-brand', !isTarget);
+                a.classList.toggle('hover:text-brand', !isTarget);
+                const badge = a.querySelector('span.rounded-full');
+                if (badge) {
+                    badge.classList.toggle('bg-white/20', isTarget);
+                    badge.classList.toggle('text-white', isTarget);
+                    badge.classList.toggle('bg-grey-soft', !isTarget);
+                    badge.classList.toggle('text-muted', !isTarget);
+                }
+            });
+        },
+
+        prefetch(rawUrl) {
+            if (!rawUrl) return;
+            const url = String(rawUrl).split('#')[0];
+            const cached = pageHtmlCache.get(url);
+            if (cached && Date.now() - cached.ts < 60000) return;
+
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then((res) => (res.ok ? res.text() : null))
+                .then((html) => {
+                    if (html) pageHtmlCache.set(url, { html, ts: Date.now() });
+                })
+                .catch(() => {});
+        },
+
+        setCategory(slug, event = null) {
+            if (event?.currentTarget) {
+                this.highlightPill(event.currentTarget);
+            }
+            if (this.form) {
+                let catInput = this.form.querySelector('input[name="category"]');
+                if (slug) {
+                    if (!catInput) {
+                        catInput = document.createElement('input');
+                        catInput.type = 'hidden';
+                        catInput.name = 'category';
+                        this.form.prepend(catInput);
+                    }
+                    catInput.value = slug;
+                } else if (catInput) {
+                    catInput.remove();
+                }
+            }
+            this.open = false;
+            this.run();
+        },
+
+        switchUrl(rawUrl, event = null) {
+            if (event?.currentTarget) {
+                this.highlightPill(event.currentTarget);
+            }
+            const cleanBase = String(rawUrl).split('#')[0];
+            if (this.form) {
+                this.form.action = cleanBase;
+            }
+            this.open = false;
+            this.runUrl(cleanBase);
+        },
+
+        applyHtmlSwap(html, url) {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const fresh = doc.querySelector(targetSelector);
+            const current = document.querySelector(targetSelector);
+            if (fresh && current) {
+                current.replaceWith(fresh);
+            }
+            const freshMeta = doc.querySelector('[data-filter-summary]');
+            const currentMeta = document.querySelector('[data-filter-summary]');
+            if (freshMeta && currentMeta) {
+                currentMeta.replaceWith(freshMeta);
+            } else if (!freshMeta && currentMeta) {
+                currentMeta.remove();
+            }
+            window.history.replaceState(null, '', url);
+        },
+
         async run() {
             if (!this.form || !targetSelector) return;
             const params = new URLSearchParams();
             for (const [k, v] of new FormData(this.form)) {
                 const value = String(v).trim();
-                if (value !== '' && value !== 'all') params.set(k, value);
+                if (value !== '' && value !== 'all' && !(k === 'sort' && value === 'featured')) {
+                    params.set(k, value);
+                }
             }
             const query = params.toString();
             const base = this.form.action.split('#')[0];
             const url = base + (query ? `?${query}` : '');
 
+            await this.runUrl(url);
+        },
+
+        async runUrl(url) {
+            if (!targetSelector) return;
+
             this.filterController?.abort();
+
+            const cached = pageHtmlCache.get(url);
+            if (cached && Date.now() - cached.ts < 60000) {
+                this.loading = false;
+                this.applyHtmlSwap(cached.html, url);
+                return;
+            }
+
             const controller = (this.filterController = new AbortController());
             this.loading = true;
+            const currentEl = document.querySelector(targetSelector);
+            if (currentEl) {
+                currentEl.classList.add('opacity-55', 'pointer-events-none', 'transition-opacity', 'duration-150');
+            }
 
             try {
                 const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, signal: controller.signal });
@@ -274,15 +386,19 @@ function createSearchBehavior(targetSelector = null) {
                     window.location.href = url;
                     return;
                 }
-                const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
-                const fresh = doc.querySelector(targetSelector);
-                const current = document.querySelector(targetSelector);
-                if (fresh && current) current.replaceWith(fresh);
-                window.history.replaceState(null, '', url);
+                const html = await res.text();
+                pageHtmlCache.set(url, { html, ts: Date.now() });
+                this.applyHtmlSwap(html, url);
             } catch (e) {
                 if (e.name !== 'AbortError') window.location.href = url;
             } finally {
-                if (this.filterController === controller) this.loading = false;
+                if (this.filterController === controller) {
+                    this.loading = false;
+                    const el = document.querySelector(targetSelector);
+                    if (el) {
+                        el.classList.remove('opacity-55', 'pointer-events-none');
+                    }
+                }
             }
         },
 

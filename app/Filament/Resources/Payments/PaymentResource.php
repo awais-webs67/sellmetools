@@ -56,7 +56,11 @@ class PaymentResource extends Resource
     {
         \App\Services\PaymentService::syncOrphanedPendingPayments();
 
-        $count = static::getModel()::query()->where('status', PaymentStatus::Pending)->count();
+        $fetch = fn (): int => (int) static::getModel()::query()->where('status', PaymentStatus::Pending)->count();
+
+        $count = app()->runningUnitTests()
+            ? $fetch()
+            : (int) \Illuminate\Support\Facades\Cache::remember('smt_admin_nav_payments', 8, $fetch);
 
         return $count > 0 ? (string) $count : null;
     }

@@ -355,6 +355,7 @@ class PaymentService
     /**
      * Self-healing sync: ensures any Payment record whose Order was already Completed / Processing / NeedsAttention
      * via 1-Tap or Auto-Verify is marked Approved (never left stuck in Pending in the Admin Panel).
+     * Throttled to run at most once every 60 seconds so Admin Panel navigation & tab switching stay instant.
      */
     public static function syncOrphanedPendingPayments(): void
     {
@@ -363,6 +364,10 @@ class PaymentService
             return;
         }
         $synced = true;
+
+        if (! \Illuminate\Support\Facades\Cache::add('smt_sync_orphaned_payments_lock', 1, 60)) {
+            return;
+        }
 
         try {
             // Clean up any orphaned child records if orders were manually deleted in phpMyAdmin
@@ -400,7 +405,7 @@ class PaymentService
                     'reject_reason' => 'Order cancelled/refunded',
                     'reviewed_at' => now(),
                 ]);
-        } catch ( RuntimeException|\Throwable) {
+        } catch (RuntimeException|\Throwable) {
         }
     }
 }

@@ -60,9 +60,13 @@ class SupplierOrderResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $failed = SupplierOrder::query()
+        $fetch = fn (): int => (int) SupplierOrder::query()
             ->whereIn('status', [SupplierOrderStatus::Failed, SupplierOrderStatus::Unknown])
             ->count();
+
+        $failed = app()->runningUnitTests()
+            ? $fetch()
+            : (int) \Illuminate\Support\Facades\Cache::remember('smt_admin_nav_vendor_orders', 12, $fetch);
 
         return $failed > 0 ? (string) $failed : null;
     }

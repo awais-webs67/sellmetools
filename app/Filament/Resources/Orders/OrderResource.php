@@ -68,15 +68,21 @@ class OrderResource extends Resource
             return self::$navBadgeCache;
         }
 
-        $row = static::getModel()::query()
-            ->whereIn('status', [OrderStatus::PaymentReview, OrderStatus::NeedsAttention])
-            ->selectRaw('COUNT(*) as total, SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as attention', [OrderStatus::NeedsAttention->value])
-            ->first();
+        $fetch = function (): array {
+            $row = static::getModel()::query()
+                ->whereIn('status', [OrderStatus::PaymentReview, OrderStatus::NeedsAttention])
+                ->selectRaw('COUNT(*) as total, SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as attention', [OrderStatus::NeedsAttention->value])
+                ->first();
 
-        return self::$navBadgeCache = [
-            'total' => (int) ($row->total ?? 0),
-            'attention' => (int) ($row->attention ?? 0),
-        ];
+            return [
+                'total' => (int) ($row->total ?? 0),
+                'attention' => (int) ($row->attention ?? 0),
+            ];
+        };
+
+        return self::$navBadgeCache = app()->runningUnitTests()
+            ? $fetch()
+            : \Illuminate\Support\Facades\Cache::remember('smt_admin_nav_orders', 8, $fetch);
     }
 
     public static function getNavigationBadge(): ?string

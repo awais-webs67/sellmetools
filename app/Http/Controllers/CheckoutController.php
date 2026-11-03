@@ -26,11 +26,11 @@ class CheckoutController extends Controller
         $user = $request->user();
         $unitPrice = $product->priceFor($user);
         $quantity = max(1, min((int) $request->query('qty', 1), $product->max_per_order));
-        $methods = PaymentMethod::query()
+        $methods = \Illuminate\Support\Facades\Cache::remember('smt_checkout_methods_v1', 120, fn () => PaymentMethod::query()
             ->where('is_active', true)
             ->whereNotIn('code', ['wallet', 'free'])
             ->orderBy('sort')
-            ->get();
+            ->get());
 
         return view('store.checkout', compact('product', 'quantity', 'methods', 'unitPrice'));
     }

@@ -55,7 +55,7 @@ class StockController extends Controller
 
     public static function deferBackgroundSync(): void
     {
-        if (app()->runningUnitTests() || ! Cache::add('auto_supplier_sync_tick', 1, 45)) {
+        if (app()->runningUnitTests() || ! Cache::add('auto_supplier_sync_tick', 1, 180)) {
             return;
         }
 
@@ -66,6 +66,12 @@ class StockController extends Controller
 
     protected static function executeSync(): void
     {
+        if (function_exists('fastcgi_finish_request')) {
+            @fastcgi_finish_request();
+        } elseif (function_exists('litespeed_finish_request')) {
+            @litespeed_finish_request();
+        }
+
         $lock = Cache::lock('auto_supplier_sync_running', 25);
         if (! $lock->get()) {
             return;

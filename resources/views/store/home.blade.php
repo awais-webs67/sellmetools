@@ -253,17 +253,23 @@
         </div>
 
         {{-- Filter bar --}}
-        <div class="card mt-4 p-3 sm:p-3.5">
+        <div class="card mt-4 p-3 sm:p-3.5" x-data="liveFilter('#catalog-results')" @click.outside="open = false">
             <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <nav class="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Categories">
-                    <a href="{{ route('home') }}#products" @class([
-                        'shrink-0 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition',
+                    <a href="{{ route('home') }}#products"
+                       @pointerenter.once="prefetch($el.href)"
+                       @click.prevent="switchUrl($el.href, $event)"
+                       @class([
+                        'shrink-0 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition cursor-pointer',
                         'border-brand bg-brand text-white' => ! $activeCategory,
                         'border-line-strong bg-white text-ink hover:border-brand hover:text-brand' => $activeCategory,
                     ])>All</a>
                     @foreach ($categories as $category)
-                        <a href="{{ route('categories.show', $category) }}#products" @class([
-                            'shrink-0 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition whitespace-nowrap',
+                        <a href="{{ route('categories.show', $category) }}#products"
+                           @pointerenter.once="prefetch($el.href)"
+                           @click.prevent="switchUrl($el.href, $event)"
+                           @class([
+                            'shrink-0 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition whitespace-nowrap cursor-pointer',
                             'border-brand bg-brand text-white' => $activeCategory?->is($category),
                             'border-line-strong bg-white text-ink hover:border-brand hover:text-brand' => ! $activeCategory?->is($category),
                         ])>{{ $category->name }}</a>
@@ -271,7 +277,7 @@
                 </nav>
 
                 <form action="{{ $activeCategory ? route('categories.show', $activeCategory) : route('home') }}#products" method="get" class="relative w-full md:w-80 md:shrink-0" role="search"
-                      x-data="liveFilter('#catalog-results')" @click.outside="open = false" @submit.prevent="open = false; run()">
+                      @submit.prevent="open = false; run()">
                     <label for="catalog-search" class="sr-only">Search products</label>
                     <div class="relative">
                         <svg class="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>

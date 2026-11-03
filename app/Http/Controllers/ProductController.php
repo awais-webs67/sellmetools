@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\Review;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class ProductController extends Controller
@@ -19,8 +20,6 @@ class ProductController extends Controller
 
     public function index(Request $request): View
     {
-        StockController::deferBackgroundSync();
-
         if ($request->user()?->is_reseller) {
             $request->user()->loadMissing('resellerProductPrices');
         }
@@ -44,8 +43,6 @@ class ProductController extends Controller
 
     public function shop(Request $request): View
     {
-        StockController::deferBackgroundSync();
-
         if ($request->user()?->is_reseller) {
             $request->user()->loadMissing('resellerProductPrices');
         }
@@ -93,12 +90,12 @@ class ProductController extends Controller
 
     private function activeCategories()
     {
-        return Category::query()
+        return Cache::remember('smt_active_categories_v2', 120, fn () => Category::query()
             ->where('is_active', true)
             ->withCount(['products' => fn ($q) => $q->visible()])
             ->orderBy('sort')
             ->orderBy('name')
-            ->get();
+            ->get());
     }
 
     private function catalogQuery(?Category $activeCategory, string $search, string $sort = 'featured', bool $inStockOnly = false, ?int $seed = null)

@@ -36,7 +36,10 @@ class SupplierProductsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with('supplier')->withCount('listings'))
+            ->modifyQueryUsing(fn (Builder $query) => $query->select([
+                'id', 'supplier_id', 'external_id', 'name', 'cost', 'stock',
+                'unlimited_stock', 'is_available', 'warranty', 'description', 'last_seen_at',
+            ])->with('supplier')->withCount('listings'))
             ->defaultSort('name')
             ->columns([
                 TextColumn::make('supplier.name')

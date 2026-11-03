@@ -15,11 +15,15 @@ class ListOrders extends ListRecords
 
     public function getTabs(): array
     {
-        $counts = Order::query()
+        $fetchCounts = fn (): array => Order::query()
             ->selectRaw('status, COUNT(*) as aggregate')
             ->groupBy('status')
             ->pluck('aggregate', 'status')
             ->all();
+
+        $counts = app()->runningUnitTests()
+            ? $fetchCounts()
+            : \Illuminate\Support\Facades\Cache::remember('smt_admin_tab_counts_orders', 5, $fetchCounts);
 
         $countFor = function (array $statuses) use ($counts): int {
             $sum = 0;

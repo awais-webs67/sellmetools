@@ -17,11 +17,15 @@ class ListPayments extends ListRecords
     {
         \App\Services\PaymentService::syncOrphanedPendingPayments();
 
-        $counts = Payment::query()
+        $fetchCounts = fn (): array => Payment::query()
             ->selectRaw('status, COUNT(*) as aggregate')
             ->groupBy('status')
             ->pluck('aggregate', 'status')
             ->all();
+
+        $counts = app()->runningUnitTests()
+            ? $fetchCounts()
+            : \Illuminate\Support\Facades\Cache::remember('smt_admin_tab_counts_payments', 5, $fetchCounts);
 
         $pending = (int) ($counts[PaymentStatus::Pending->value] ?? 0);
         $approved = (int) ($counts[PaymentStatus::Approved->value] ?? 0);
