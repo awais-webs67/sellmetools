@@ -37,6 +37,9 @@
         : 'https://api.whatsapp.com/send?text='.urlencode($waTemplate);
 
     $initialReviewTimeout = $s === OrderStatus::PaymentReview && (bool) $order->expires_at?->isPast();
+    $customerInputLabel = $order->requiredCustomerInputLabel();
+    $receiptUrl = route('orders.receipt', ['order' => $order->number, 'token' => $token]);
+    $pdfReceiptUrl = route('orders.receipt', ['order' => $order->number, 'token' => $token, 'download' => 'pdf']);
 @endphp
 <x-layouts.store :title="'Order '.$order->number" robots="noindex, nofollow">
     <div class="container-x max-w-5xl py-6 sm:py-10" x-data="orderWatcher(@js($statusUrl), @js($s->value), @js($initialReviewTimeout))">
@@ -221,6 +224,22 @@
                                         <input id="screenshot" name="screenshot" type="file" accept="image/*" class="input py-1.5 text-xs file:mr-2.5 file:rounded file:border-0 file:bg-ink file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-white">
                                         @error('screenshot')<p class="field-error text-xs">{{ $message }}</p>@enderror
                                     </div>
+
+                                    @if ($customerInputLabel)
+                                        <div class="sm:col-span-2 rounded-xl border border-amber-500/40 bg-amber-50 p-3.5">
+                                            <label for="customer_input" class="label text-xs font-bold text-ink">
+                                                📝 {{ $customerInputLabel }} <span class="text-danger">*</span>
+                                            </label>
+                                            <textarea id="customer_input"
+                                                      name="customer_input"
+                                                      rows="2"
+                                                      required
+                                                      class="input mt-1 text-xs sm:text-sm"
+                                                      placeholder="Enter your activation details here (e.g., Email / Username / Account ID)...">{{ old('customer_input', $order->customer_input) }}</textarea>
+                                            <p class="mt-1 text-[11px] text-muted">Admin will use these details to activate and deliver your subscription.</p>
+                                            @error('customer_input')<p class="field-error text-xs">{{ $message }}</p>@enderror
+                                        </div>
+                                    @endif
                                 </div>
 
                                 <div x-show="submitting" x-cloak class="rounded-xl border border-line bg-grey-soft p-3">
@@ -437,6 +456,45 @@
                     </section>
                 @endif
 
+                @if ($customerInputLabel && in_array($s, [OrderStatus::PaymentReview, OrderStatus::Processing, OrderStatus::NeedsAttention, OrderStatus::Completed], true))
+                    <section class="card border-2 {{ filled($order->customer_input) ? 'border-success/30' : 'border-amber-500' }} p-5 sm:p-6">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="flex items-center gap-2">
+                                <span class="flex h-8 w-8 items-center justify-center rounded-lg {{ filled($order->customer_input) ? 'bg-success text-white' : 'bg-amber-500 text-black' }} text-sm font-bold">
+                                    {{ filled($order->customer_input) ? '✓' : '📝' }}
+                                </span>
+                                <div>
+                                    <h3 class="text-sm sm:text-base font-bold text-ink">{{ $customerInputLabel }}</h3>
+                                    <p class="text-xs text-muted">
+                                        {{ filled($order->customer_input) ? 'Submitted to Admin for custom activation.' : 'Required so Admin can activate and deliver your subscription.' }}
+                                    </p>
+                                </div>
+                            </div>
+                            @if (filled($order->customer_input))
+                                <span class="badge badge-success text-[11px]">Sent to Admin</span>
+                            @else
+                                <span class="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">Action Required</span>
+                            @endif
+                        </div>
+
+                        <form method="post" action="{{ route('orders.customer-input', $order) }}" class="mt-3.5 space-y-3">
+                            @csrf
+                            <input type="hidden" name="token" value="{{ $token }}">
+                            <textarea name="customer_input"
+                                      rows="2"
+                                      required
+                                      class="input text-xs sm:text-sm font-mono"
+                                      placeholder="Enter the required details here (e.g., your Email / Account Info)...">{{ old('customer_input', $order->customer_input) }}</textarea>
+                            @error('customer_input')<p class="field-error text-xs">{{ $message }}</p>@enderror
+                            <div class="flex justify-end">
+                                <button type="submit" class="btn btn-primary px-5 py-2 text-xs font-bold">
+                                    {{ filled($order->customer_input) ? 'Update Activation Details →' : 'Submit Details for Activation →' }}
+                                </button>
+                            </div>
+                        </form>
+                    </section>
+                @endif
+
                 @if ($s === OrderStatus::PendingPayment)
                     <form method="post" action="{{ route('orders.cancel', $order) }}" onsubmit="return confirm('Cancel this order?')">
                         @csrf
@@ -474,6 +532,14 @@
                     </dl>
 
                     <div class="mt-4 border-t border-line pt-4 space-y-2">
+                        <div class="grid grid-cols-2 gap-2">
+                            <a href="{{ $receiptUrl }}" target="_blank" class="btn btn-outline py-2 text-xs font-bold text-center">
+                                🧾 View Receipt
+                            </a>
+                            <a href="{{ $pdfReceiptUrl }}" class="btn btn-primary py-2 text-xs font-bold text-center">
+                                📥 PDF Receipt
+                            </a>
+                        </div>
                         @if ($s !== OrderStatus::Completed && $waNumber !== '')
                             <a href="{{ $waHref }}"
                                target="_blank"

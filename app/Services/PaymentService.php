@@ -217,6 +217,7 @@ class PaymentService
             "💵 <b>Amount:</b> <b>{$payment->currency} {$payment->amount}</b> (Rs {$order->total})\n".
             '🔑 <b>TID:</b> <code>'.T::e($payment->transaction_id).'</code>'.
             ($payment->sender_number ? "\n📱 <b>Sender:</b> ".T::e($payment->sender_number) : '').
+            (filled($order->customer_input) ? "\n📝 <b>Activation Data:</b> <code>".T::e($order->customer_input).'</code>' : '').
             "\n👤 <b>Customer:</b> ".T::e($order->email).($order->phone ? ' (+'.T::e($order->phone).')' : '').
             "\n⏳ <i>Customer is waiting at 85%: Tap below to Approve or Decline:</i>",
             [

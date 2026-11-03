@@ -24,7 +24,7 @@ class Product extends Model
     protected $fillable = [
         'category_id', 'name', 'slug', 'short_description', 'description', 'warranty', 'image',
         'meta_title', 'meta_description', 'meta_keywords',
-        'pricing_mode', 'delivery_type', 'fixed_price', 'markup_value', 'compare_at_price', 'price', 'cost_price',
+        'pricing_mode', 'delivery_type', 'customer_input_label', 'fixed_price', 'markup_value', 'compare_at_price', 'price', 'cost_price',
         'available_stock', 'stock_limit', 'stock_unlimited',
         'is_active', 'is_featured', 'is_free', 'disabled_reason', 'max_per_order', 'sort', 'sold_count',
     ];
@@ -215,6 +215,16 @@ class Product extends Model
             if (! Schema::hasColumn('products', 'delivery_type')) {
                 Schema::table('products', function (Blueprint $table): void {
                     $table->string('delivery_type', 40)->default('auto')->after('pricing_mode');
+                });
+            }
+            if (! Schema::hasColumn('products', 'customer_input_label')) {
+                Schema::table('products', function (Blueprint $table): void {
+                    $table->string('customer_input_label', 500)->nullable()->after('delivery_type');
+                });
+            }
+            if (Schema::hasTable('orders') && ! Schema::hasColumn('orders', 'customer_input')) {
+                Schema::table('orders', function (Blueprint $table): void {
+                    $table->text('customer_input')->nullable()->after('admin_note');
                 });
             }
         } catch (\Throwable $e) {

@@ -185,7 +185,7 @@ class TelegramNotifier
         }
     }
 
-    public function editMessage(string $chatId, int $messageId, string $html): void
+    public function editMessage(string $chatId, int $messageId, string $html, ?array $inlineKeyboard = null): void
     {
         $token = self::cleanToken((string) Setting::get('telegram_bot_token'));
         if ($token === '') {
@@ -193,13 +193,19 @@ class TelegramNotifier
         }
 
         try {
-            Http::timeout(6)->post("https://api.telegram.org/bot{$token}/editMessageText", [
+            $payload = [
                 'chat_id' => $chatId,
                 'message_id' => $messageId,
                 'text' => $html,
                 'parse_mode' => 'HTML',
                 'disable_web_page_preview' => true,
-            ]);
+            ];
+
+            if ($inlineKeyboard !== null) {
+                $payload['reply_markup'] = ['inline_keyboard' => $inlineKeyboard];
+            }
+
+            Http::timeout(6)->post("https://api.telegram.org/bot{$token}/editMessageText", $payload);
         } catch (Throwable) {
         }
     }

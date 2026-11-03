@@ -30,6 +30,7 @@ class Setting extends Model
         'whatsapp_admin_webhook_url' => '',
         'telegram_bot_token' => '',
         'telegram_admin_chat_id' => '',
+        'telegram_store_bot_enabled' => '1',
         'support_whatsapp' => '',
         'support_telegram' => '',
         'support_email' => '',
@@ -60,6 +61,10 @@ class Setting extends Model
         'mail_encryption' => 'ssl',
         'mail_from_address' => '',
         'mail_from_name' => 'SellMeTools',
+        'backup_enabled' => '0',
+        'backup_frequency' => 'weekly',
+        'backup_email' => '',
+        'backup_last_sent_at' => '',
     ];
 
     public static function values(): array

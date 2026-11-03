@@ -40,6 +40,14 @@ class AppServiceProvider extends ServiceProvider
         Paginator::defaultView('pagination::tailwind');
 
         $this->autoMigrateDatabaseIfChanged();
+
+        if (! $this->app->runningUnitTests() && ! $this->app->runningInConsole()) {
+            try {
+                app(\App\Services\DatabaseBackupService::class)->checkAndRunScheduledBackup();
+            } catch (Throwable) {
+                // Ignore if DB not ready
+            }
+        }
     }
 
     /**
@@ -117,6 +125,18 @@ class AppServiceProvider extends ServiceProvider
         if (! Schema::hasColumn('products', 'stock_limit')) {
             Schema::table('products', function (Blueprint $table): void {
                 $table->unsignedInteger('stock_limit')->nullable()->after('available_stock');
+            });
+        }
+
+        if (! Schema::hasColumn('products', 'customer_input_label')) {
+            Schema::table('products', function (Blueprint $table): void {
+                $table->string('customer_input_label', 160)->nullable()->after('delivery_type');
+            });
+        }
+
+        if (Schema::hasTable('orders') && ! Schema::hasColumn('orders', 'customer_input')) {
+            Schema::table('orders', function (Blueprint $table): void {
+                $table->text('customer_input')->nullable()->after('notes');
             });
         }
     }

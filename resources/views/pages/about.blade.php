@@ -22,7 +22,7 @@
 
     <h2>Who We Are</h2>
     <p>
-        <strong>{{ $store }}</strong> (a digital commerce project by <strong>AivraSol Softwares</strong>) is a dedicated Pakistani marketplace for premium AI tools, creative software, productivity suites, streaming memberships and cloud accounts. We started {{ $store }} to solve one of the most frustrating challenges faced by professionals and students across Pakistan: paying for international USD subscriptions when local bank cards decline cross-border recurring charges or add heavy withholding and foreign exchange taxes.
+        <strong>{{ $store }}</strong> (a digital commerce project by <a href="https://aivrasol.com" target="_blank" rel="noopener"><strong>AivraSol Softwares</strong></a>) is a dedicated Pakistani marketplace for premium AI tools, creative software, productivity suites, streaming memberships and cloud accounts. We started {{ $store }} to solve one of the most frustrating challenges faced by professionals and students across Pakistan: paying for international USD subscriptions when local bank cards decline cross-border recurring charges or add heavy withholding and foreign exchange taxes.
     </p>
 
     <h2>What You Can Buy on {{ $store }}</h2>

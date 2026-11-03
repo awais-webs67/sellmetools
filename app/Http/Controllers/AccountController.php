@@ -68,10 +68,19 @@ class AccountController extends Controller
         // Group the current page by calendar day for a scannable timeline.
         $groupedOrders = $orders->getCollection()->groupBy(fn ($order) => $order->created_at->toDateString());
 
+        $paidOrdersQuery = fn () => $user->orders()->where(function ($q) {
+            $q->where('status', OrderStatus::Completed)->orWhereNotNull('paid_at');
+        });
+
         $stats = [
             'total' => $user->orders()->count(),
             'completed' => $user->orders()->where('status', OrderStatus::Completed)->count(),
-            'pending' => $user->orders()->whereIn('status', [OrderStatus::PendingPayment, OrderStatus::PaymentReview, OrderStatus::Processing])->count(),
+            'pending' => $user->orders()->whereIn('status', [OrderStatus::PendingPayment, OrderStatus::PaymentReview, OrderStatus::Processing, OrderStatus::NeedsAttention])->count(),
+            'total_spent' => (float) $paidOrdersQuery()->sum('total'),
+            'this_month_spent' => (float) $paidOrdersQuery()->where('created_at', '>=', now()->startOfMonth())->sum('total'),
+            'total_items' => (int) \App\Models\OrderItem::query()
+                ->whereIn('order_id', $paidOrdersQuery()->select('id'))
+                ->sum('quantity'),
         ];
 
         $walletTransactions = $user->walletTransactions()->limit(10)->get();

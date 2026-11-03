@@ -8,9 +8,12 @@ use App\Models\Order;
 use App\Models\PaymentMethod;
 use App\Services\OrderService;
 use App\Services\PaymentService;
+use App\Services\ReceiptPdfGenerator;
+use App\Services\TelegramNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\View\View;
 
 class OrderController extends Controller
@@ -61,8 +64,13 @@ class OrderController extends Controller
         $data = $request->validate([
             'transaction_id' => ['required', 'string', 'min:3', 'max:120'],
             'sender_number' => [$order->paymentMethod?->requires_sender_number ? 'required' : 'nullable', 'string', 'max:64'],
+            'customer_input' => ['nullable', 'string', 'max:2000'],
             'screenshot' => ['nullable', 'image', 'max:8192'],
         ]);
+
+        if (! empty($data['customer_input'])) {
+            $order->update(['customer_input' => trim((string) $data['customer_input'])]);
+        }
 
         try {
             $payments->submit($order, $data['transaction_id'], $data['sender_number'] ?? null, $request->file('screenshot'));
@@ -71,6 +79,58 @@ class OrderController extends Controller
         }
 
         return redirect()->to($order->customerUrl())->with('success', 'Payment submitted! We are verifying it, your order will be delivered automatically.');
+    }
+
+    public function submitCustomerInput(Request $request, Order $order, TelegramNotifier $telegram): RedirectResponse
+    {
+        $this->authorizeAccess($request, $order);
+
+        $data = $request->validate([
+            'customer_input' => ['required', 'string', 'min:2', 'max:2000'],
+        ]);
+
+        $order->update([
+            'customer_input' => trim((string) $data['customer_input']),
+        ]);
+
+        $label = $order->requiredCustomerInputLabel() ?? 'Customer Activation Details';
+        $items = $order->items()->get()->map(fn ($i) => $i->product_name.' x'.$i->quantity)->implode(', ');
+        $quickUrl = route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']);
+
+        $telegram->notifyAdmin(
+            "📝 <b>CUSTOMER ACTIVATION DETAILS SUBMITTED</b>\n\n"
+            ."🧾 <b>Order:</b> <code>{$order->number}</code>\n"
+            ."📦 <b>Product:</b> ".e($items)."\n"
+            ."📧 <b>Customer Email:</b> ".e($order->email)."\n"
+            ."🏷️ <b>{$label}:</b>\n<code>".e($order->customer_input)."</code>\n\n"
+            ."👉 <a href=\"{$quickUrl}\">Open Order & Deliver Now</a>"
+        );
+
+        return redirect()->to($order->customerUrl())->with('success', 'Your activation details have been saved and sent to the admin! Your custom delivery will be completed shortly.');
+    }
+
+    public function receipt(Request $request, Order $order, ReceiptPdfGenerator $pdf): View|Response
+    {
+        $this->authorizeAccess($request, $order);
+
+        $order->load(['items.deliveries', 'paymentMethod', 'latestPayment']);
+
+        if ($request->query('download') === 'pdf') {
+            $bytes = $pdf->generate($order);
+            $filename = 'Receipt-'.$order->number.'.pdf';
+
+            return response($bytes, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+                'Content-Length' => (string) strlen($bytes),
+                'Cache-Control' => 'private, no-store, max-age=0',
+            ]);
+        }
+
+        return view('store.receipt', [
+            'order' => $order,
+            'token' => $order->access_token,
+        ]);
     }
 
     public function payWithWallet(Request $request, Order $order, PaymentService $payments): RedirectResponse

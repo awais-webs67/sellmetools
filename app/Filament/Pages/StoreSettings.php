@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Filament\Support\GalleryPicker;
 use App\Filament\Support\Listings;
 use App\Models\Setting;
+use App\Services\DatabaseBackupService;
 use App\Services\EmailNotifier;
 use App\Services\TelegramNotifier;
 use BackedEnum;
@@ -20,15 +21,18 @@ use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\EmbeddedSchema;
 use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use UnitEnum;
 
 /**
- * Key/value store settings backed by the `settings` table.
- * Each section has its own independent Save button so the admin can save any section
+ * Pro-level Tabbed Store Settings backed by the `settings` table.
+ * Each tab has its own independent Save button so the admin can save any section
  * separately without filling unrelated optional fields.
  *
  * @property-read Schema $form
@@ -44,12 +48,13 @@ class StoreSettings extends Page
         'sms_webhook_secret', 'admin_quick_pin',
         'greenapi_instance_id', 'greenapi_api_token', 'ntfy_topic',
         'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
-        'telegram_bot_token', 'telegram_admin_chat_id',
+        'telegram_bot_token', 'telegram_admin_chat_id', 'telegram_store_bot_enabled',
         'support_whatsapp', 'support_telegram', 'support_email',
         'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id',
         'mail_enabled', 'mail_send_order_delivered',
         'mail_host', 'mail_port', 'mail_username', 'mail_password',
         'mail_encryption', 'mail_from_address', 'mail_from_name',
+        'backup_enabled', 'backup_frequency', 'backup_email',
     ];
 
     /** Keys that the SEO & Content Specialist role is allowed to save. */
@@ -86,19 +91,23 @@ class StoreSettings extends Page
     public ?array $data = [];
 
     /** Boolean toggles, stored as '1' / '0' strings. */
-    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered'];
+    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered', 'telegram_store_bot_enabled', 'backup_enabled'];
 
     public function mount(): void
     {
         $values = array_intersect_key(Setting::values(), array_flip(self::KEYS));
 
         foreach (self::TOGGLE_KEYS as $key) {
-            $values[$key] = (string) ($values[$key] ?? '1') === '1';
+            $default = $key === 'backup_enabled' ? '0' : '1';
+            $values[$key] = (string) ($values[$key] ?? $default) === '1';
         }
 
         // Never send the stored SMTP password back to the browser.
         $values['mail_password'] = '';
         $values['test_mail_recipient'] = $values['support_email'] ?: (auth()->user()?->email ?? 'contact@sellmetools.com');
+        if (empty($values['backup_email'])) {
+            $values['backup_email'] = $values['support_email'] ?: (auth()->user()?->email ?? '');
+        }
 
         $this->form->fill($values);
     }
@@ -132,8 +141,13 @@ class StoreSettings extends Page
         }
 
         return [
+            Action::make('downloadBackupHeader')
+                ->label('📥 Download SQL Backup')
+                ->icon(Heroicon::OutlinedArrowDownTray)
+                ->color('gray')
+                ->action(fn (): StreamedResponse => $this->downloadDatabaseBackup()),
             Action::make('syncServerUpdate')
-                ->label('🔄 Update Site, Migrate DB & Clear Cache (No Terminal Needed)')
+                ->label('🔄 Update Site, Migrate DB & Clear Cache')
                 ->icon(Heroicon::OutlinedArrowPath)
                 ->color('primary')
                 ->action(function (): void {
@@ -178,413 +192,477 @@ class StoreSettings extends Page
             ->statePath('data')
             ->columns(1)
             ->components([
-                Section::make('Telegram Admin Bot Alerts (With 1-Tap Approve & Decline Buttons)')
-                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
-                    ->icon(Heroicon::OutlinedBellAlert)
-                    ->description('Step 1: Paste your Bot Token from @BotFather. Step 2: Open your bot in Telegram and press START. Step 3: Click "Auto-Detect Chat ID, Save & Send Test" below!')
-                    ->columns(['default' => 1, 'sm' => 2])
-                    ->schema([
-                        TextInput::make('telegram_bot_token')
-                            ->label('Telegram Bot Token')
-                            ->placeholder('123456789:AAH...')
-                            ->autocomplete(false),
-                        TextInput::make('telegram_admin_chat_id')
-                            ->label('Admin Numeric Chat ID (Leave blank to Auto-Detect!)')
-                            ->placeholder('e.g. 582910384 (or click Auto-Detect below)'),
-                        Actions::make([
-                            Action::make('saveTelegramSection')
-                                ->label('Save Telegram Bot Only')
-                                ->icon(Heroicon::OutlinedCheck)
-                                ->color('gray')
-                                ->action(fn () => $this->saveKeys(['telegram_bot_token', 'telegram_admin_chat_id'], 'Telegram Bot settings saved')),
-                            Action::make('testTelegram')
-                                ->label('Auto-Detect Chat ID, Save & Send Test Message')
-                                ->icon(Heroicon::OutlinedPaperAirplane)
-                                ->color('primary')
-                                ->action(fn () => $this->sendTelegramTest()),
-                        ])->columnSpanFull(),
-                    ]),
+                Tabs::make('StoreSettingsTabs')
+                    ->persistTabInQueryString()
+                    ->tabs([
+                        // ==========================================
+                        // TAB 1: GENERAL & BRANDING
+                        // ==========================================
+                        Tab::make('General & Branding')
+                            ->icon(Heroicon::OutlinedBuildingStorefront)
+                            ->visible(fn (): bool => (bool) (auth()->user()?->isSuperAdmin() || auth()->user()?->isSeoStaff()))
+                            ->schema([
+                                Section::make('Store Identity, Theme & Logo')
+                                    ->description('Configure your brand name, storefront theme color, logo, and announcement bar.')
+                                    ->columns(['default' => 1, 'sm' => 2])
+                                    ->schema([
+                                        TextInput::make('store_name')
+                                            ->label('Store Name')
+                                            ->maxLength(100),
+                                        Select::make('store_theme')
+                                            ->label('Website Color Theme')
+                                            ->options([
+                                                'black' => '⚫ Pure Black & White (#000000)',
+                                                'crimson' => '🔴 Original Wine Red (#9B1B30)',
+                                            ])
+                                            ->default('black')
+                                            ->native(false)
+                                            ->required(),
+                                        TextInput::make('currency_symbol')
+                                            ->label('Currency Symbol')
+                                            ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
+                                            ->maxLength(10),
+                                        TextInput::make('store_tagline')
+                                            ->label('Short Tagline (Footer & Default Store Description)')
+                                            ->maxLength(255)
+                                            ->columnSpanFull(),
+                                        GalleryPicker::make('store_logo', 'Custom Store Logo (Optional)', 'gallery'),
+                                        Textarea::make('announcement')
+                                            ->label('Top Announcement Bar (Optional)')
+                                            ->helperText('Shown at the very top of the website. Leave empty to hide.')
+                                            ->rows(2)
+                                            ->columnSpanFull(),
+                                        Actions::make([
+                                            Action::make('saveStoreSection')
+                                                ->label('Save Branding & Theme')
+                                                ->icon(Heroicon::OutlinedCheck)
+                                                ->color('primary')
+                                                ->action(fn () => $this->saveKeys(['store_name', 'store_theme', 'currency_symbol', 'store_tagline', 'store_logo', 'announcement'], 'Branding & theme saved')),
+                                        ])->columnSpanFull(),
+                                    ]),
 
-                Section::make('1-Tap WhatsApp & Free Instant Mobile Push (No CallMeBot Limits!)')
-                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
-                    ->icon(Heroicon::OutlinedCheckBadge)
-                    ->description('Set your Admin WhatsApp Number in exact format (923XXXXXXXXX) so customer WhatsApp verification buttons always open your direct chat.')
-                    ->columns(['default' => 1, 'sm' => 2])
-                    ->schema([
-                        TextInput::make('support_whatsapp')
-                            ->label('Admin WhatsApp Number (Exact Format: 923XXXXXXXXX)')
-                            ->placeholder('923001234567')
-                            ->helperText('Enter 03001234567 or 923001234567, auto-converted to 923001234567. Customer WhatsApp buttons go directly to this number!'),
-                        TextInput::make('admin_quick_pin')
-                            ->label('Admin 1-Tap WhatsApp PIN')
-                            ->placeholder('7860')
-                            ->maxLength(20)
-                            ->helperText('Default: 7860. Protects 1-tap WhatsApp links on your phone.'),
-                        TextInput::make('ntfy_topic')
-                            ->label('ntfy.sh Free Mobile Push Topic (Zero Signup!)')
-                            ->placeholder('e.g. sellmetools_awais_orders_786')
-                            ->helperText('Install free "ntfy" app on Android/iOS -> Subscribe to this exact topic -> Get instant phone alerts with 1-Tap Approve/Decline buttons!'),
-                        TextInput::make('greenapi_instance_id')
-                            ->label('Green-API Free WhatsApp Instance ID (green-api.com)')
-                            ->placeholder('e.g. 7103948576')
-                            ->helperText('100% Free Forever Developer Plan at green-api.com (no slot limits!). Sends auto WhatsApp to Admin & Customer.'),
-                        TextInput::make('greenapi_api_token')
-                            ->label('Green-API Token (apiTokenInstance)')
-                            ->autocomplete(false)
-                            ->placeholder('Paste apiTokenInstance from green-api.com'),
-                        Actions::make([
-                            Action::make('saveWhatsappSection')
-                                ->label('Save WhatsApp & Push Settings')
-                                ->icon(Heroicon::OutlinedCheck)
-                                ->color('primary')
-                                ->action(fn () => $this->saveKeys([
-                                    'support_whatsapp', 'admin_quick_pin', 'ntfy_topic', 'greenapi_instance_id', 'greenapi_api_token',
-                                    'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
-                                ], 'WhatsApp & Push settings saved')),
-                            Action::make('testNtfyPush')
-                                ->label('Save & Send Test ntfy Notification')
-                                ->icon(Heroicon::OutlinedBellAlert)
-                                ->color('gray')
-                                ->action(fn () => $this->sendNtfyTest()),
-                        ])->columnSpanFull(),
-                    ]),
+                                Section::make('Public Support Contacts')
+                                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
+                                    ->description('Displayed in the website footer, Contact page, and customer receipts.')
+                                    ->columns(['default' => 1, 'sm' => 3])
+                                    ->schema([
+                                        TextInput::make('support_whatsapp')
+                                            ->label('WhatsApp Number')
+                                            ->placeholder('923001234567'),
+                                        TextInput::make('support_telegram')
+                                            ->label('Telegram Username')
+                                            ->placeholder('@sellmetools'),
+                                        TextInput::make('support_email')
+                                            ->label('Support Email')
+                                            ->placeholder('contact@sellmetools.com'),
+                                        Actions::make([
+                                            Action::make('saveSupportSection')
+                                                ->label('Save Support Contacts')
+                                                ->icon(Heroicon::OutlinedCheck)
+                                                ->color('primary')
+                                                ->action(fn () => $this->saveKeys(['support_whatsapp', 'support_telegram', 'support_email'], 'Support contacts saved')),
+                                        ])->columnSpanFull(),
+                                    ]),
+                            ]),
 
-                Section::make('Pricing & Dollar Rate')
-                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
-                    ->icon(Heroicon::OutlinedCurrencyDollar)
-                    ->description('Set the USDT → PKR conversion rate. Saving automatically recalculates prices for all supplier products.')
-                    ->columns(['default' => 1, 'sm' => 3])
-                    ->schema([
-                        TextInput::make('usdt_rate')
-                            ->label('1 USDT in PKR (Dollar Rate)')
-                            ->placeholder('295')
-                            ->rule('numeric')
-                            ->rule('min:1')
-                            ->helperText('Example: 295'),
-                        TextInput::make('price_rounding')
-                            ->label('Round Selling Price To (PKR)')
-                            ->placeholder('10')
-                            ->rule('numeric')
-                            ->rule('min:0')
-                            ->helperText('0 = exact price, 10 = round to nearest 10'),
-                        TextInput::make('order_expiry_minutes')
-                            ->label('Order Payment Time (Minutes)')
-                            ->placeholder('15')
-                            ->rule('integer')
-                            ->rule('min:1')
-                            ->helperText('Minutes stock stays reserved'),
-                        Actions::make([
-                            Action::make('savePricingSection')
-                                ->label('Save Pricing & Recalculate Products')
-                                ->icon(Heroicon::OutlinedCheck)
-                                ->color('primary')
-                                ->action(fn () => $this->saveKeys(['usdt_rate', 'price_rounding', 'order_expiry_minutes'], 'Pricing settings saved')),
-                        ])->columnSpanFull(),
-                    ]),
+                        // ==========================================
+                        // TAB 2: SITE CONTENT & COPY
+                        // ==========================================
+                        Tab::make('Site Content & Copy')
+                            ->icon(Heroicon::OutlinedDocumentText)
+                            ->visible(fn (): bool => (bool) (auth()->user()?->isSuperAdmin() || auth()->user()?->isSeoStaff()))
+                            ->schema([
+                                Section::make('Homepage & Shop Site Content (Hero, Headings & Rich SEO Copy)')
+                                    ->description('Edit the main headings, intro text, and rich SEO guide content shown on the Homepage and /shop catalog page.')
+                                    ->columns(['default' => 1, 'sm' => 2])
+                                    ->schema([
+                                        TextInput::make('home_hero_badge')
+                                            ->label('Homepage Hero Top Badge')
+                                            ->placeholder('Global Digital Marketplace · Instant Worldwide Delivery')
+                                            ->maxLength(160),
+                                        TextInput::make('home_hero_title')
+                                            ->label('Homepage Main H1 Heading')
+                                            ->placeholder('Buy AI Tools & Digital Subscriptions Online')
+                                            ->maxLength(180),
+                                        Textarea::make('home_hero_subtitle')
+                                            ->label('Homepage Hero Intro Paragraph (Optional — Leave blank for default)')
+                                            ->placeholder('Welcome to SellMeTools — buy genuine AI tools, cheap subscriptions, premium software and cloud accounts online...')
+                                            ->rows(2)
+                                            ->maxLength(600)
+                                            ->columnSpanFull(),
+                                        TextInput::make('home_about_heading')
+                                            ->label('Homepage About Section Heading (H2)')
+                                            ->placeholder('Pakistan’s Trusted Marketplace for AI Tools & Subscriptions')
+                                            ->maxLength(180),
+                                        TextInput::make('home_guide_heading')
+                                            ->label('Homepage Buying Guide Heading (H2)')
+                                            ->placeholder('Buy AI Tools & Digital Subscriptions Online — USDT & Local PKR Prices')
+                                            ->maxLength(180),
+                                        RichEditor::make('home_seo_content')
+                                            ->label('Homepage Custom SEO Article / Buying Guide Content (Optional)')
+                                            ->toolbarButtons([
+                                                'bold', 'italic', 'underline', 'strike',
+                                                'h2', 'h3', 'bulletList', 'orderedList',
+                                                'blockquote', 'link', 'undo', 'redo',
+                                            ])
+                                            ->helperText('Write rich SEO content, keyword guides (e.g. ChatGPT Plus cheap subscription, Canva Pro, etc.), or internal links to display in the Homepage Buying Guide section.')
+                                            ->columnSpanFull(),
+                                        TextInput::make('shop_seo_title')
+                                            ->label('Full Shop Page (/shop) SEO Title')
+                                            ->placeholder('Shop AI Tools & Cheap Subscriptions Online')
+                                            ->maxLength(255)
+                                            ->columnSpanFull(),
+                                        Textarea::make('shop_seo_description')
+                                            ->label('Full Shop Page (/shop) Meta Description')
+                                            ->rows(2)
+                                            ->maxLength(500)
+                                            ->columnSpanFull(),
+                                        Actions::make([
+                                            Action::make('saveSiteContentSection')
+                                                ->label('Save Homepage & Shop Site Content')
+                                                ->icon(Heroicon::OutlinedCheck)
+                                                ->color('primary')
+                                                ->action(fn () => $this->saveKeys([
+                                                    'home_hero_badge', 'home_hero_title', 'home_hero_subtitle',
+                                                    'home_about_heading', 'home_guide_heading', 'home_seo_content',
+                                                    'shop_seo_title', 'shop_seo_description',
+                                                ], 'Homepage & Shop site content saved')),
+                                        ])->columnSpanFull(),
+                                    ]),
+                            ]),
 
-                Section::make('Store Details, Theme & Logo')
-                    ->visible(fn (): bool => (bool) (auth()->user()?->isSuperAdmin() || auth()->user()?->isSeoStaff()))
-                    ->icon(Heroicon::OutlinedBuildingStorefront)
-                    ->columns(['default' => 1, 'sm' => 2])
-                    ->schema([
-                        TextInput::make('store_name')
-                            ->label('Store Name')
-                            ->maxLength(100),
-                        Select::make('store_theme')
-                            ->label('Website Color Theme')
-                            ->options([
-                                'black' => '⚫ Pure Black & White (#000000)',
-                                'crimson' => '🔴 Original Wine Red (#9B1B30)',
-                            ])
-                            ->default('black')
-                            ->native(false)
-                            ->required()
-                            ->helperText('Switch the entire storefront between Pure Black (#000000) and the Original Wine Red (#9B1B30) theme.'),
-                        TextInput::make('currency_symbol')
-                            ->label('Currency Symbol')
+                        // ==========================================
+                        // TAB 3: SEO, GOOGLE & BING
+                        // ==========================================
+                        Tab::make('SEO, Google & Bing')
+                            ->icon(Heroicon::OutlinedMagnifyingGlassCircle)
+                            ->visible(fn (): bool => (bool) (auth()->user()?->isSuperAdmin() || auth()->user()?->isSeoStaff()))
+                            ->schema([
+                                Section::make('SEO, Google Search & Bing / IndexNow (Copilot & ChatGPT Indexing)')
+                                    ->description('Optimize your store for Google, Bing, Microsoft Copilot & ChatGPT Search. Live XML Sitemap: '.url('/sitemap.xml').' | AI Index: '.url('/llms.txt'))
+                                    ->columns(['default' => 1, 'sm' => 2])
+                                    ->schema([
+                                        TextInput::make('seo_title')
+                                            ->label('Homepage SEO Title')
+                                            ->placeholder('Buy AI Tools & Cheap Digital Subscriptions Online')
+                                            ->maxLength(255)
+                                            ->columnSpanFull(),
+                                        Textarea::make('seo_description')
+                                            ->label('Homepage Meta Description')
+                                            ->rows(2)
+                                            ->maxLength(500)
+                                            ->columnSpanFull(),
+                                        Textarea::make('seo_keywords')
+                                            ->label('Target SEO Keywords (Comma separated)')
+                                            ->rows(2)
+                                            ->maxLength(500)
+                                            ->columnSpanFull(),
+                                        TextInput::make('google_site_verification')
+                                            ->label('Google Search Console Verification Code (Optional)')
+                                            ->placeholder('Paste token or meta tag'),
+                                        TextInput::make('bing_site_verification')
+                                            ->label('Bing Webmaster Verification Code (msvalidate.01 — Optional)')
+                                            ->placeholder('Paste token or <meta name="msvalidate.01" ...>'),
+                                        TextInput::make('indexnow_key')
+                                            ->label('IndexNow API Key (Instant Bing / Copilot / ChatGPT Indexing)')
+                                            ->placeholder('a7f9c2e4b8d106359a2c4e6f8b0d2e4a')
+                                            ->helperText('Automatically served at '.url('/'.Setting::get('indexnow_key', 'a7f9c2e4b8d106359a2c4e6f8b0d2e4a').'.txt')),
+                                        TextInput::make('google_analytics_id')
+                                            ->label('Google Analytics 4 ID (Optional)')
+                                            ->placeholder('G-XXXXXXXXXX'),
+                                        Actions::make([
+                                            Action::make('saveSeoSection')
+                                                ->label('Save SEO Settings')
+                                                ->icon(Heroicon::OutlinedCheck)
+                                                ->color('primary')
+                                                ->action(fn () => $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id'], 'SEO settings saved')),
+                                            Action::make('pingIndexNow')
+                                                ->label('⚡ Submit All Site URLs to Bing & ChatGPT (IndexNow)')
+                                                ->icon(Heroicon::OutlinedPaperAirplane)
+                                                ->color('gray')
+                                                ->action(function (): void {
+                                                    $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id'], 'SEO settings saved');
+                                                    $res = \App\Http\Controllers\SeoController::submitAllToIndexNow();
+                                                    if ($res['success']) {
+                                                        Notification::make()
+                                                            ->title('🚀 IndexNow Batch Submitted!')
+                                                            ->body($res['message'])
+                                                            ->success()
+                                                            ->send();
+                                                    } else {
+                                                        Notification::make()
+                                                            ->title('IndexNow Notice')
+                                                            ->body($res['message'])
+                                                            ->warning()
+                                                            ->persistent()
+                                                            ->send();
+                                                    }
+                                                }),
+                                        ])->columnSpanFull(),
+                                    ]),
+                            ]),
+
+                        // ==========================================
+                        // TAB 4: PRICING & DOLLAR RATE
+                        // ==========================================
+                        Tab::make('Pricing & Dollar Rate')
+                            ->icon(Heroicon::OutlinedCurrencyDollar)
                             ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
-                            ->maxLength(10),
-                        TextInput::make('store_tagline')
-                            ->label('Short Tagline (Footer & Default Store Description)')
-                            ->maxLength(255)
-                            ->columnSpanFull(),
-                        GalleryPicker::make('store_logo', 'Custom Store Logo (Optional)', 'gallery'),
-                        Textarea::make('announcement')
-                            ->label('Top Announcement Bar (Optional)')
-                            ->helperText('Shown at the very top of the website. Leave empty to hide.')
-                            ->rows(2)
-                            ->columnSpanFull(),
-                        Actions::make([
-                            Action::make('saveStoreSection')
-                                ->label('Save Store Details & Theme')
-                                ->icon(Heroicon::OutlinedCheck)
-                                ->color('primary')
-                                ->action(fn () => $this->saveKeys(['store_name', 'store_theme', 'currency_symbol', 'store_tagline', 'store_logo', 'announcement'], 'Store details & theme saved')),
-                        ])->columnSpanFull(),
-                    ]),
+                            ->schema([
+                                Section::make('USDT Conversion & Automatic Re-Pricing')
+                                    ->description('Set the USDT → PKR conversion rate. Saving automatically recalculates prices for all supplier products.')
+                                    ->columns(['default' => 1, 'sm' => 3])
+                                    ->schema([
+                                        TextInput::make('usdt_rate')
+                                            ->label('1 USDT in PKR (Dollar Rate)')
+                                            ->placeholder('295')
+                                            ->rule('numeric')
+                                            ->rule('min:1')
+                                            ->helperText('Example: 295'),
+                                        TextInput::make('price_rounding')
+                                            ->label('Round Selling Price To (PKR)')
+                                            ->placeholder('10')
+                                            ->rule('numeric')
+                                            ->rule('min:0')
+                                            ->helperText('0 = exact price, 10 = round to nearest 10'),
+                                        TextInput::make('order_expiry_minutes')
+                                            ->label('Order Payment Time (Minutes)')
+                                            ->placeholder('15')
+                                            ->rule('integer')
+                                            ->rule('min:1')
+                                            ->helperText('Minutes stock stays reserved'),
+                                        Actions::make([
+                                            Action::make('savePricingSection')
+                                                ->label('Save Pricing & Recalculate Products')
+                                                ->icon(Heroicon::OutlinedCheck)
+                                                ->color('primary')
+                                                ->action(fn () => $this->saveKeys(['usdt_rate', 'price_rounding', 'order_expiry_minutes'], 'Pricing settings saved')),
+                                        ])->columnSpanFull(),
+                                    ]),
+                            ]),
 
-                Section::make('Homepage & Shop Site Content (Hero, Headings & Rich SEO Copy)')
-                    ->visible(fn (): bool => (bool) (auth()->user()?->isSuperAdmin() || auth()->user()?->isSeoStaff()))
-                    ->icon(Heroicon::OutlinedDocumentText)
-                    ->description('Edit the main headings, intro text, and rich SEO guide content shown on the Homepage and /shop catalog page.')
-                    ->columns(['default' => 1, 'sm' => 2])
-                    ->schema([
-                        TextInput::make('home_hero_badge')
-                            ->label('Homepage Hero Top Badge')
-                            ->placeholder('Global Digital Marketplace · Instant Worldwide Delivery')
-                            ->maxLength(160),
-                        TextInput::make('home_hero_title')
-                            ->label('Homepage Main H1 Heading')
-                            ->placeholder('Buy AI Tools & Digital Subscriptions Online')
-                            ->maxLength(180),
-                        Textarea::make('home_hero_subtitle')
-                            ->label('Homepage Hero Intro Paragraph (Optional — Leave blank for default)')
-                            ->placeholder('Welcome to SellMeTools — buy genuine AI tools, cheap subscriptions, premium software and cloud accounts online...')
-                            ->rows(2)
-                            ->maxLength(600)
-                            ->columnSpanFull(),
-                        TextInput::make('home_about_heading')
-                            ->label('Homepage About Section Heading (H2)')
-                            ->placeholder('Pakistan’s Trusted Marketplace for AI Tools & Subscriptions')
-                            ->maxLength(180),
-                        TextInput::make('home_guide_heading')
-                            ->label('Homepage Buying Guide Heading (H2)')
-                            ->placeholder('Buy AI Tools & Digital Subscriptions Online — USDT & Local PKR Prices')
-                            ->maxLength(180),
-                        RichEditor::make('home_seo_content')
-                            ->label('Homepage Custom SEO Article / Buying Guide Content (Optional)')
-                            ->toolbarButtons([
-                                'bold',
-                                'italic',
-                                'underline',
-                                'strike',
-                                'h2',
-                                'h3',
-                                'bulletList',
-                                'orderedList',
-                                'blockquote',
-                                'link',
-                                'undo',
-                                'redo',
-                            ])
-                            ->helperText('Write rich SEO content, keyword guides (e.g. ChatGPT Plus cheap subscription, Canva Pro, etc.), or internal links to display in the Homepage Buying Guide section.')
-                            ->columnSpanFull(),
-                        TextInput::make('shop_seo_title')
-                            ->label('Full Shop Page (/shop) SEO Title')
-                            ->placeholder('Shop All AI Tools & Digital Subscriptions — Cheap Prices & Instant Delivery')
-                            ->maxLength(255)
-                            ->columnSpanFull(),
-                        Textarea::make('shop_seo_description')
-                            ->label('Full Shop Page (/shop) Meta Description')
-                            ->rows(2)
-                            ->maxLength(500)
-                            ->columnSpanFull(),
-                        Actions::make([
-                            Action::make('saveSiteContentSection')
-                                ->label('Save Homepage & Shop Site Content')
-                                ->icon(Heroicon::OutlinedCheck)
-                                ->color('primary')
-                                ->action(fn () => $this->saveKeys([
-                                    'home_hero_badge', 'home_hero_title', 'home_hero_subtitle',
-                                    'home_about_heading', 'home_guide_heading', 'home_seo_content',
-                                    'shop_seo_title', 'shop_seo_description',
-                                ], 'Homepage & Shop site content saved')),
-                        ])->columnSpanFull(),
-                    ]),
+                        // ==========================================
+                        // TAB 5: TELEGRAM BOT & MOBILE ALERTS
+                        // ==========================================
+                        Tab::make('Telegram Store Bot & Alerts')
+                            ->icon(Heroicon::OutlinedBellAlert)
+                            ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
+                            ->schema([
+                                Section::make('Telegram Live Store Bot & Admin 1-Tap Alerts')
+                                    ->description('Connect your @BotFather token once: Admin gets 1-Tap Approve/Decline buttons in Telegram, AND customers who message your bot can browse all live Categories & Products synced automatically from your website!')
+                                    ->columns(['default' => 1, 'sm' => 2])
+                                    ->schema([
+                                        TextInput::make('telegram_bot_token')
+                                            ->label('Telegram Bot Token (from @BotFather)')
+                                            ->placeholder('123456789:AAH...')
+                                            ->autocomplete(false),
+                                        TextInput::make('telegram_admin_chat_id')
+                                            ->label('Admin Numeric Chat ID (Leave blank to Auto-Detect!)')
+                                            ->placeholder('e.g. 582910384 (or click Auto-Detect below)'),
+                                        Toggle::make('telegram_store_bot_enabled')
+                                            ->label('🤖 Enable Live Synchronized Customer Store Bot in Telegram')
+                                            ->default(true)
+                                            ->helperText('When ON, anyone who sends /start, /shop, or searches a tool name in your Telegram Bot sees your live Categories, Products, PKR/USDT prices, stock, and 1-tap Buy Now links — 100% auto-synced with your website!')
+                                            ->columnSpanFull(),
+                                        Actions::make([
+                                            Action::make('saveTelegramSection')
+                                                ->label('Save Telegram Bot Settings')
+                                                ->icon(Heroicon::OutlinedCheck)
+                                                ->color('gray')
+                                                ->action(fn () => $this->saveKeys(['telegram_bot_token', 'telegram_admin_chat_id', 'telegram_store_bot_enabled'], 'Telegram Bot settings saved')),
+                                            Action::make('testTelegram')
+                                                ->label('Auto-Detect Chat ID, Register Bot & Send Test')
+                                                ->icon(Heroicon::OutlinedPaperAirplane)
+                                                ->color('primary')
+                                                ->action(fn () => $this->sendTelegramTest()),
+                                        ])->columnSpanFull(),
+                                    ]),
 
-                Section::make('Support Contacts (WhatsApp / Telegram / Email)')
-                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
-                    ->icon(Heroicon::OutlinedLifebuoy)
-                    ->columns(['default' => 1, 'sm' => 3])
-                    ->schema([
-                        TextInput::make('support_whatsapp')
-                            ->label('WhatsApp Number')
-                            ->placeholder('923001234567'),
-                        TextInput::make('support_telegram')
-                            ->label('Telegram Username')
-                            ->placeholder('@sellmetools'),
-                        TextInput::make('support_email')
-                            ->label('Support Email'),
-                        Actions::make([
-                            Action::make('saveSupportSection')
-                                ->label('Save Support Contacts')
-                                ->icon(Heroicon::OutlinedCheck)
-                                ->color('primary')
-                                ->action(fn () => $this->saveKeys(['support_whatsapp', 'support_telegram', 'support_email'], 'Support contacts saved')),
-                        ])->columnSpanFull(),
-                    ]),
+                                Section::make('1-Tap WhatsApp, ntfy Mobile Push & SMS Webhook')
+                                    ->description('Instant phone notifications and 1-Tap approval PIN security.')
+                                    ->columns(['default' => 1, 'sm' => 2])
+                                    ->schema([
+                                        TextInput::make('support_whatsapp')
+                                            ->label('Admin WhatsApp Number (Exact Format: 923XXXXXXXXX)')
+                                            ->placeholder('923001234567'),
+                                        TextInput::make('admin_quick_pin')
+                                            ->label('Admin 1-Tap WhatsApp PIN')
+                                            ->placeholder('7860')
+                                            ->maxLength(20)
+                                            ->helperText('Protects 1-tap WhatsApp/Telegram manual delivery links.'),
+                                        TextInput::make('ntfy_topic')
+                                            ->label('ntfy.sh Free Mobile Push Topic (Optional)')
+                                            ->placeholder('e.g. sellmetools_awais_orders_786'),
+                                        TextInput::make('sms_webhook_secret')
+                                            ->label('SMS Webhook Secret Key (Optional)')
+                                            ->placeholder('smt_auto_pay_secret_2026'),
+                                        TextInput::make('greenapi_instance_id')
+                                            ->label('Green-API Instance ID (Optional)')
+                                            ->placeholder('e.g. 7103948576'),
+                                        TextInput::make('greenapi_api_token')
+                                            ->label('Green-API Token (Optional)')
+                                            ->autocomplete(false),
+                                        Actions::make([
+                                            Action::make('saveWhatsappSection')
+                                                ->label('Save Mobile & WhatsApp Settings')
+                                                ->icon(Heroicon::OutlinedCheck)
+                                                ->color('primary')
+                                                ->action(fn () => $this->saveKeys([
+                                                    'support_whatsapp', 'admin_quick_pin', 'ntfy_topic', 'sms_webhook_secret',
+                                                    'greenapi_instance_id', 'greenapi_api_token',
+                                                    'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
+                                                ], 'Mobile & WhatsApp settings saved')),
+                                            Action::make('testNtfyPush')
+                                                ->label('Test ntfy Push')
+                                                ->icon(Heroicon::OutlinedBellAlert)
+                                                ->color('gray')
+                                                ->action(fn () => $this->sendNtfyTest()),
+                                        ])->columnSpanFull(),
+                                    ]),
+                            ]),
 
-                Section::make('Auto-SMS Payment Gateway (Optional: Leave Blank if Not Using)')
-                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
-                    ->icon(Heroicon::OutlinedBolt)
-                    ->description('Optional: Forward payment SMS from your phone to '.url('/api/webhooks/payment-sms').' to auto-approve matching TIDs.')
-                    ->columns(['default' => 1, 'sm' => 2])
-                    ->schema([
-                        TextInput::make('sms_webhook_secret')
-                            ->label('SMS Webhook Secret Key (Optional)')
-                            ->placeholder('smt_auto_pay_secret_2026')
-                            ->helperText('Optional. Leave as default or empty if you do not use an SMS Forwarder app.'),
-                        Actions::make([
-                            Action::make('saveSmsSection')
-                                ->label('Save SMS Webhook Key')
-                                ->icon(Heroicon::OutlinedCheck)
-                                ->color('gray')
-                                ->action(fn () => $this->saveKeys(['sms_webhook_secret'], 'SMS webhook settings saved')),
-                        ])->columnSpanFull(),
-                    ]),
+                        // ==========================================
+                        // TAB 6: EMAIL & AUTO DATABASE BACKUPS
+                        // ==========================================
+                        Tab::make('Email & Auto Backups')
+                            ->icon(Heroicon::OutlinedEnvelope)
+                            ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
+                            ->schema([
+                                Section::make('Automated Database Email Backups (Weekly / Monthly / Daily)')
+                                    ->description('Automatically email a complete SQL database backup (Products, Orders, Customers, Stock & Settings) to your admin email on schedule — or send/download one immediately.')
+                                    ->columns(['default' => 1, 'sm' => 3])
+                                    ->schema([
+                                        Toggle::make('backup_enabled')
+                                            ->label('📦 Enable Automated Email Backups')
+                                            ->default(false)
+                                            ->helperText(fn () => Setting::get('backup_last_sent_at')
+                                                ? 'Last backup sent: '.Setting::get('backup_last_sent_at')
+                                                : 'No scheduled backup sent yet.')
+                                            ->columnSpanFull(),
+                                        Select::make('backup_frequency')
+                                            ->label('Backup Schedule')
+                                            ->options([
+                                                'weekly' => '📅 Every Week (Recommended)',
+                                                'monthly' => '🗓️ Every Month',
+                                                'daily' => '⚡ Every Day',
+                                            ])
+                                            ->default('weekly')
+                                            ->native(false),
+                                        TextInput::make('backup_email')
+                                            ->label('Backup Destination Email Address')
+                                            ->email()
+                                            ->placeholder('your-backup-email@gmail.com')
+                                            ->helperText('The SQL database backup file will be emailed as an attachment to this address.')
+                                            ->columnSpan(['default' => 1, 'sm' => 2]),
+                                        Actions::make([
+                                            Action::make('saveBackupSection')
+                                                ->label('Save Backup Schedule')
+                                                ->icon(Heroicon::OutlinedCheck)
+                                                ->color('primary')
+                                                ->action(fn () => $this->saveKeys(['backup_enabled', 'backup_frequency', 'backup_email'], 'Automated backup settings saved')),
+                                            Action::make('sendBackupEmailNow')
+                                                ->label('📧 Send Backup to Email Now')
+                                                ->icon(Heroicon::OutlinedPaperAirplane)
+                                                ->color('success')
+                                                ->action(function (): void {
+                                                    $this->saveKeys(['backup_enabled', 'backup_frequency', 'backup_email'], 'Backup settings saved');
+                                                    $overrides = is_array($this->data) ? $this->data : [];
+                                                    $recipient = trim((string) ($overrides['backup_email'] ?? ''));
+                                                    $res = app(DatabaseBackupService::class)->sendBackupEmail($recipient, $overrides);
+                                                    if ($res['success']) {
+                                                        Notification::make()->title('✅ Database Backup Emailed!')->body($res['message'])->success()->send();
+                                                    } else {
+                                                        Notification::make()->title('Backup Email Failed')->body($res['message'])->danger()->persistent()->send();
+                                                    }
+                                                }),
+                                            Action::make('downloadSqlBackupNow')
+                                                ->label('📥 Download SQL Backup File')
+                                                ->icon(Heroicon::OutlinedArrowDownTray)
+                                                ->color('gray')
+                                                ->action(fn (): StreamedResponse => $this->downloadDatabaseBackup()),
+                                        ])->columnSpanFull(),
+                                    ]),
 
-                Section::make('SEO, Google Search & Bing / IndexNow (Copilot & ChatGPT Indexing)')
-                    ->icon(Heroicon::OutlinedMagnifyingGlassCircle)
-                    ->description('Optimize your store for Google, Bing, Microsoft Copilot & ChatGPT Search. Live XML Sitemap: '.url('/sitemap.xml').' | AI Index: '.url('/llms.txt').' | IndexNow Key: '.url('/'.Setting::get('indexnow_key', 'a7f9c2e4b8d106359a2c4e6f8b0d2e4a').'.txt'))
-                    ->columns(['default' => 1, 'sm' => 2])
-                    ->schema([
-                        TextInput::make('seo_title')
-                            ->label('Homepage SEO Title')
-                            ->placeholder('Buy AI Tools & Cheap Digital Subscriptions Online')
-                            ->maxLength(255)
-                            ->columnSpanFull(),
-                        Textarea::make('seo_description')
-                            ->label('Homepage Meta Description')
-                            ->rows(2)
-                            ->maxLength(500)
-                            ->columnSpanFull(),
-                        Textarea::make('seo_keywords')
-                            ->label('Target SEO Keywords (Comma separated)')
-                            ->rows(2)
-                            ->maxLength(500)
-                            ->columnSpanFull(),
-                        TextInput::make('google_site_verification')
-                            ->label('Google Search Console Verification Code (Optional)')
-                            ->placeholder('Paste token or meta tag'),
-                        TextInput::make('bing_site_verification')
-                            ->label('Bing Webmaster Verification Code (msvalidate.01 — Optional)')
-                            ->placeholder('Paste token or <meta name="msvalidate.01" ...>'),
-                        TextInput::make('indexnow_key')
-                            ->label('IndexNow API Key (Instant Bing / Copilot / ChatGPT Indexing)')
-                            ->placeholder('a7f9c2e4b8d106359a2c4e6f8b0d2e4a')
-                            ->helperText('Automatically served at '.url('/'.Setting::get('indexnow_key', 'a7f9c2e4b8d106359a2c4e6f8b0d2e4a').'.txt').' — zero signup required!'),
-                        TextInput::make('google_analytics_id')
-                            ->label('Google Analytics 4 ID (Optional)')
-                            ->placeholder('G-XXXXXXXXXX'),
-                        Actions::make([
-                            Action::make('saveSeoSection')
-                                ->label('Save SEO Settings')
-                                ->icon(Heroicon::OutlinedCheck)
-                                ->color('primary')
-                                ->action(fn () => $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id'], 'SEO settings saved')),
-                            Action::make('pingIndexNow')
-                                ->label('⚡ Submit All Site URLs to Bing & ChatGPT (IndexNow)')
-                                ->icon(Heroicon::OutlinedPaperAirplane)
-                                ->color('gray')
-                                ->action(function (): void {
-                                    $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id'], 'SEO settings saved');
-                                    $res = \App\Http\Controllers\SeoController::submitAllToIndexNow();
-                                    if ($res['success']) {
-                                        Notification::make()
-                                            ->title('🚀 IndexNow Batch Submitted!')
-                                            ->body($res['message'])
-                                            ->success()
-                                            ->send();
-                                    } else {
-                                        Notification::make()
-                                            ->title('IndexNow Notice')
-                                            ->body($res['message'])
-                                            ->warning()
-                                            ->persistent()
-                                            ->send();
-                                    }
-                                }),
-                        ])->columnSpanFull(),
-                    ]),
+                                Section::make('Email & SMTP Configuration (Order Delivery, Password Reset & Backups)')
+                                    ->description('Configure SMTP to email delivered credentials to customers, send password reset links, and deliver automated database backups.')
+                                    ->columns(['default' => 1, 'sm' => 2])
+                                    ->schema([
+                                        Toggle::make('mail_enabled')
+                                            ->label('Enable Email Notifications via SMTP')
+                                            ->default(true),
+                                        Toggle::make('mail_send_order_delivered')
+                                            ->label('Auto-Email Delivered Credentials to Customers')
+                                            ->default(true),
+                                        TextInput::make('mail_host')
+                                            ->label('SMTP Host')
+                                            ->placeholder('smtp.hostinger.com'),
+                                        TextInput::make('mail_port')
+                                            ->label('SMTP Port')
+                                            ->numeric()
+                                            ->placeholder('465 or 587')
+                                            ->default('465'),
+                                        Select::make('mail_encryption')
+                                            ->label('Encryption')
+                                            ->options([
+                                                'ssl' => 'SSL (Port 465)',
+                                                'tls' => 'TLS / STARTTLS (Port 587)',
+                                                'none' => 'None (Port 25 / 2525)',
+                                            ])
+                                            ->default('ssl'),
+                                        TextInput::make('mail_username')
+                                            ->label('SMTP Username / Email')
+                                            ->placeholder('contact@sellmetools.com')
+                                            ->autocomplete(false)
+                                            ->extraInputAttributes(['autocomplete' => 'off', 'data-lpignore' => 'true']),
+                                        TextInput::make('mail_password')
+                                            ->label('SMTP Password / App Password')
+                                            ->autocomplete(false)
+                                            ->extraInputAttributes(['autocomplete' => 'off', 'data-lpignore' => 'true'])
+                                            ->placeholder(fn () => filled(EmailNotifier::decryptPassword((string) Setting::get('mail_password'))) ? '✓ Saved securely — paste new password here to change' : 'Enter SMTP password'),
+                                        TextInput::make('mail_from_address')
+                                            ->label('From Email Address (Optional)')
+                                            ->email()
+                                            ->placeholder('Leave empty to use SMTP Username'),
+                                        TextInput::make('mail_from_name')
+                                            ->label('From Display Name')
+                                            ->placeholder('SellMeTools'),
+                                        TextInput::make('test_mail_recipient')
+                                            ->label('Send Test Email To')
+                                            ->placeholder('your-email@gmail.com')
+                                            ->autocomplete(false),
+                                        Actions::make([
+                                            Action::make('saveMailSection')
+                                                ->label('Save Email & SMTP Settings')
+                                                ->icon(Heroicon::OutlinedCheck)
+                                                ->color('primary')
+                                                ->action(fn () => $this->saveKeys([
+                                                    'mail_enabled', 'mail_send_order_delivered', 'mail_host', 'mail_port',
+                                                    'mail_encryption', 'mail_username', 'mail_password', 'mail_from_address', 'mail_from_name',
+                                                ], 'Email & SMTP settings saved')),
+                                            Action::make('testSmtpEmail')
+                                                ->label('Save & Send Test Email Now')
+                                                ->icon(Heroicon::OutlinedPaperAirplane)
+                                                ->color('gray')
+                                                ->action(function (): void {
+                                                    $overrides = is_array($this->data) ? $this->data : [];
+                                                    $recipient = trim((string) ($overrides['test_mail_recipient'] ?? ''))
+                                                        ?: (Setting::get('support_email') ?: (auth()->user()?->email ?: trim((string) ($overrides['mail_username'] ?? ''))));
 
-                Section::make('Email & SMTP Settings (Order Delivery & Password Reset)')
-                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
-                    ->icon(Heroicon::OutlinedEnvelope)
-                    ->description('Configure SMTP to automatically email delivered credentials to customers and send password reset links.')
-                    ->columns(['default' => 1, 'sm' => 2])
-                    ->schema([
-                        Toggle::make('mail_enabled')
-                            ->label('Enable Email Notifications via SMTP')
-                            ->default(true)
-                            ->helperText('Turns on all outgoing emails from this store.'),
-                        Toggle::make('mail_send_order_delivered')
-                            ->label('Auto-Email Delivered Credentials to Customers')
-                            ->default(true)
-                            ->helperText('When enabled, customers receive their credentials in their inbox as soon as an order is verified.'),
-                        TextInput::make('mail_host')
-                            ->label('SMTP Host')
-                            ->placeholder('smtp.hostinger.com')
-                            ->helperText('Hostinger: smtp.hostinger.com · Gmail: smtp.gmail.com · Titan: smtp.titan.email · cPanel: mail.yourdomain.com'),
-                        TextInput::make('mail_port')
-                            ->label('SMTP Port')
-                            ->numeric()
-                            ->placeholder('465 or 587')
-                            ->default('465')
-                            ->helperText('465 → choose SSL. 587 → choose TLS.'),
-                        Select::make('mail_encryption')
-                            ->label('Encryption')
-                            ->options([
-                                'ssl' => 'SSL (Port 465)',
-                                'tls' => 'TLS / STARTTLS (Port 587)',
-                                'none' => 'None (Port 25 / 2525)',
-                            ])
-                            ->default('ssl'),
-                        TextInput::make('mail_username')
-                            ->label('SMTP Username / Email (Must match your exact mailbox)')
-                            ->placeholder('contact@sellmetools.com')
-                            ->autocomplete(false)
-                            ->extraInputAttributes(['autocomplete' => 'off', 'data-lpignore' => 'true', 'data-1p-ignore' => 'true', 'data-form-type' => 'other'])
-                            ->helperText('Enter your exact mailbox address (e.g. contact@sellmetools.com).'),
-                        TextInput::make('mail_password')
-                            ->label('SMTP Password / App Password')
-                            ->autocomplete(false)
-                            ->extraInputAttributes(['autocomplete' => 'off', 'data-lpignore' => 'true', 'data-1p-ignore' => 'true', 'data-form-type' => 'other'])
-                            ->placeholder(fn () => filled(EmailNotifier::decryptPassword((string) Setting::get('mail_password'))) ? '✓ Saved securely — paste new password here to change' : 'Enter SMTP password (e.g. g55p-zgcn-ne10-ctpt)')
-                            ->helperText('Stored encrypted in database. Paste your mailbox password or App Password here.'),
-                        TextInput::make('mail_from_address')
-                            ->label('From Email Address (Optional)')
-                            ->email()
-                            ->placeholder('Leave empty to use SMTP Username (contact@sellmetools.com)')
-                            ->helperText('Leave empty or keep identical to SMTP Username (contact@sellmetools.com).'),
-                        TextInput::make('mail_from_name')
-                            ->label('From Display Name')
-                            ->placeholder('SellMeTools'),
-                        TextInput::make('test_mail_recipient')
-                            ->label('Send Test Email To (for Testing)')
-                            ->placeholder('your-email@gmail.com')
-                            ->autocomplete(false)
-                            ->columnSpanFull(),
-                        Actions::make([
-                            Action::make('saveMailSection')
-                                ->label('Save Email & SMTP Settings')
-                                ->icon(Heroicon::OutlinedCheck)
-                                ->color('primary')
-                                ->action(fn () => $this->saveKeys([
-                                    'mail_enabled', 'mail_send_order_delivered', 'mail_host', 'mail_port',
-                                    'mail_encryption', 'mail_username', 'mail_password', 'mail_from_address', 'mail_from_name',
-                                ], 'Email & SMTP settings saved')),
-                            Action::make('testSmtpEmail')
-                                ->label('Save & Send Test Email Now')
-                                ->icon(Heroicon::OutlinedPaperAirplane)
-                                ->color('gray')
-                                ->action(function (): void {
-                                    $overrides = is_array($this->data) ? $this->data : [];
-                                    $recipient = trim((string) ($overrides['test_mail_recipient'] ?? ''))
-                                        ?: (Setting::get('support_email') ?: (auth()->user()?->email ?: trim((string) ($overrides['mail_username'] ?? ''))));
+                                                    $this->saveKeys([
+                                                        'mail_enabled', 'mail_send_order_delivered', 'mail_host', 'mail_port',
+                                                        'mail_encryption', 'mail_username', 'mail_password', 'mail_from_address', 'mail_from_name',
+                                                    ], 'SMTP settings saved');
 
-                                    $this->saveKeys([
-                                        'mail_enabled', 'mail_send_order_delivered', 'mail_host', 'mail_port',
-                                        'mail_encryption', 'mail_username', 'mail_password', 'mail_from_address', 'mail_from_name',
-                                    ], 'SMTP settings saved');
-
-                                    $res = app(EmailNotifier::class)->sendTest($recipient, $overrides);
-                                    if ($res['success']) {
-                                        Notification::make()->title('Email Sent')->body($res['message'])->success()->send();
-                                    } else {
-                                        Notification::make()->title('SMTP Test Failed')->body($res['message'])->danger()->persistent()->send();
-                                    }
-                                }),
-                        ])->columnSpanFull(),
+                                                    $res = app(EmailNotifier::class)->sendTest($recipient, $overrides);
+                                                    if ($res['success']) {
+                                                        Notification::make()->title('Email Sent')->body($res['message'])->success()->send();
+                                                    } else {
+                                                        Notification::make()->title('SMTP Test Failed')->body($res['message'])->danger()->persistent()->send();
+                                                    }
+                                                }),
+                                        ])->columnSpanFull(),
+                                    ]),
+                            ]),
                     ]),
             ]);
     }
@@ -603,6 +681,21 @@ class StoreSettings extends Page
                             ->keyBindings(['mod+s']),
                     ]),
                 ]),
+        ]);
+    }
+
+    /**
+     * Stream an on-demand SQL database dump directly to the admin's browser.
+     */
+    public function downloadDatabaseBackup(): StreamedResponse
+    {
+        $sql = app(DatabaseBackupService::class)->generateSqlDump();
+        $filename = 'sellmetools-backup-'.now()->format('Y-m-d_His').'.sql';
+
+        return response()->streamDownload(function () use ($sql): void {
+            echo $sql;
+        }, $filename, [
+            'Content-Type' => 'application/sql; charset=UTF-8',
         ]);
     }
 
@@ -644,7 +737,7 @@ class StoreSettings extends Page
                 $val = format_whatsapp($val);
                 $this->data['support_whatsapp'] = $val;
             }
-            if ($val === '' && isset(Setting::DEFAULTS[$key]) && in_array($key, ['store_name', 'currency_symbol', 'usdt_rate', 'price_rounding', 'order_expiry_minutes', 'sms_webhook_secret', 'admin_quick_pin'], true)) {
+            if ($val === '' && isset(Setting::DEFAULTS[$key]) && in_array($key, ['store_name', 'currency_symbol', 'usdt_rate', 'price_rounding', 'order_expiry_minutes', 'sms_webhook_secret', 'admin_quick_pin', 'backup_frequency'], true)) {
                 $val = Setting::DEFAULTS[$key];
                 $this->data[$key] = $val;
             }
@@ -764,27 +857,27 @@ class StoreSettings extends Page
         Setting::setMany([
             'telegram_bot_token' => $token,
             'telegram_admin_chat_id' => $chatId,
+            'telegram_store_bot_enabled' => ! empty($this->data['telegram_store_bot_enabled']) ? '1' : '0',
         ]);
 
         $storeName = TelegramNotifier::e((string) ($this->data['store_name'] ?? Setting::get('store_name', 'SellMeTools')));
-        $sent = $notifier->send($token, $chatId, "✅ <b>{$storeName}</b>\nTelegram 1-Tap Approve &amp; Decline alerts are active!");
+        $sent = $notifier->send($token, $chatId, "✅ <b>{$storeName}</b>\nTelegram 1-Tap Approve &amp; Decline alerts + Live Synchronized Store Bot are active!\nSend <code>/start</code> or <code>/shop</code> anytime to browse live products.");
 
         if (! $sent) {
-            // One more attempt: if the user entered the wrong chat ID, try auto-detecting from getUpdates
             $detected = $notifier->detectChatId($token);
             if ($detected !== null && $detected !== $chatId) {
                 $chatId = $detected;
                 $this->data['telegram_admin_chat_id'] = $chatId;
                 Setting::set('telegram_admin_chat_id', $chatId);
-                $sent = $notifier->send($token, $chatId, "✅ <b>{$storeName}</b>\nTelegram 1-Tap Approve &amp; Decline alerts are active!");
+                $sent = $notifier->send($token, $chatId, "✅ <b>{$storeName}</b>\nTelegram 1-Tap Approve &amp; Decline alerts + Live Synchronized Store Bot are active!");
             }
         }
 
         if ($sent) {
             $notifier->registerWebhook($token);
             Notification::make()
-                ->title('Telegram Connected & Saved!')
-                ->body("Test message sent to Chat ID {$chatId} and 1-Tap webhook registered.")
+                ->title('Telegram Bot Connected & Live!')
+                ->body("Test message sent to Chat ID {$chatId} and Live Store Bot webhook registered.")
                 ->success()
                 ->send();
 

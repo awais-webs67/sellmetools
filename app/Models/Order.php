@@ -15,7 +15,7 @@ class Order extends Model
     protected $fillable = [
         'number', 'access_token', 'user_id', 'customer_name', 'email', 'phone', 'payment_method_id',
         'status', 'total', 'total_cost', 'currency', 'usdt_rate', 'expires_at', 'paid_at', 'completed_at',
-        'ip', 'admin_note',
+        'ip', 'admin_note', 'customer_input',
     ];
 
     protected $hidden = ['access_token'];
@@ -36,9 +36,26 @@ class Order extends Model
     protected static function booted(): void
     {
         static::creating(function (Order $order) {
+            Product::ensureFreeAndStockColumnsExist();
             $order->number ??= static::generateNumber();
             $order->access_token ??= Str::random(48);
         });
+    }
+
+    /**
+     * Returns the custom activation prompt configured on any product in this order, or null if none.
+     */
+    public function requiredCustomerInputLabel(): ?string
+    {
+        $this->loadMissing('items.product');
+        foreach ($this->items as $item) {
+            $label = trim((string) ($item->product?->customer_input_label ?? ''));
+            if ($label !== '') {
+                return $label;
+            }
+        }
+
+        return null;
     }
 
     public static function generateNumber(): string

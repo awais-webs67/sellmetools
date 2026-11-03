@@ -89,9 +89,16 @@ class FulfillmentService
         }
 
         $deliveryType = $item->product->delivery_type ?: 'auto';
+        $requiresCustomerData = filled($item->product->customer_input_label);
 
-        if ($deliveryType === 'manual_admin') {
-            return ['Payment confirmed, awaiting Admin manual credential delivery.'];
+        if ($deliveryType === 'manual_admin' || ($requiresCustomerData && $item->remainingQty() > 0 && $item->product->activeSources()->count() === 0)) {
+            $submittedData = trim((string) ($order->customer_input ?? ''));
+
+            return [
+                $submittedData !== ''
+                    ? "Payment confirmed · Customer Activation Data: {$submittedData} (Awaiting Admin custom delivery)"
+                    : 'Payment confirmed · Awaiting customer activation data & Admin custom delivery.',
+            ];
         }
 
         if ($deliveryType === 'whatsapp_handover') {

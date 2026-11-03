@@ -55,6 +55,9 @@ class OrdersTable
                     ->state(fn (Order $record): string => $record->items
                         ->map(fn (OrderItem $item): string => "{$item->quantity}× {$item->product_name}")
                         ->implode(', '))
+                    ->description(fn (Order $record): ?string => filled($record->customer_input)
+                        ? '📝 Customer Data: '.mb_strimwidth((string) $record->customer_input, 0, 55, '…')
+                        : null)
                     ->limit(48)
                     ->wrap(),
                 TextColumn::make('total')
@@ -160,6 +163,9 @@ class OrdersTable
             ->size('xs')
             ->visible(fn (Order $record): bool => in_array($record->status, [OrderStatus::Processing, OrderStatus::NeedsAttention], true))
             ->modalHeading(fn (Order $record): string => "Deliver Credentials for {$record->number}")
+            ->modalDescription(fn (Order $record): ?string => filled($record->customer_input)
+                ? "📝 Customer Activation Data: {$record->customer_input}"
+                : null)
             ->modalWidth('2xl')
             ->schema(fn (Order $record): array => [
                 Select::make('order_item_id')

@@ -73,6 +73,13 @@ class OrderInfolist
                         TextEntry::make('usdt_rate')
                             ->label('USDT Rate')
                             ->placeholder('-'),
+                        TextEntry::make('customer_input')
+                            ->label('📝 Customer Submitted Activation Data')
+                            ->copyable()
+                            ->weight('bold')
+                            ->color('primary')
+                            ->visible(fn (Order $record): bool => filled($record->customer_input))
+                            ->columnSpanFull(),
                         TextEntry::make('admin_note')
                             ->label('Admin Note / Status Log')
                             ->placeholder('-')

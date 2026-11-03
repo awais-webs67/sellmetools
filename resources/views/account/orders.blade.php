@@ -30,34 +30,46 @@
             </div>
         </div>
 
-        {{-- Wallet & Order Stats Grid --}}
-        <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {{-- Wallet & Complete Purchasing Stats Grid --}}
+        <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <div class="card border-2 border-brand/25 bg-ink p-4 sm:p-5 text-white">
                 <div class="flex items-center justify-between">
-                    <span class="text-[11px] font-bold tracking-wider text-[#ff8fa3] uppercase">Account Wallet Balance</span>
+                    <span class="text-[11px] font-bold tracking-wider text-[#ff8fa3] uppercase">Wallet Balance</span>
                     <span class="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white">Instant Pay</span>
                 </div>
-                <p class="display mt-2 text-3xl sm:text-4xl text-white">{{ money($user->wallet_balance) }}</p>
+                <p class="display mt-2 text-2xl sm:text-3xl text-white">{{ money($user->wallet_balance) }}</p>
                 @if ($waAdmin !== '')
                     <a href="https://wa.me/{{ $waAdmin }}?text={{ urlencode('Assalam o Alaikum! I want to top-up my SellMeTools Wallet Balance for account: '.$user->email) }}"
                        target="_blank"
                        rel="noopener"
-                       class="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-[#4ade80] hover:underline">
-                        ➕ Request Wallet Top-Up on WhatsApp →
+                       class="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-[#4ade80] hover:underline">
+                        ➕ Top-Up Wallet →
                     </a>
                 @endif
             </div>
 
             <div class="card p-4 sm:p-5">
+                <span class="text-xs font-semibold uppercase tracking-wider text-muted">Total Spent</span>
+                <p class="display mt-2 text-2xl sm:text-3xl text-ink">{{ money($stats['total_spent'] ?? 0) }}</p>
+                <p class="mt-1 text-[11px] text-muted">
+                    ≈ {{ money_usd($stats['total_spent'] ?? 0) }} · This month: <strong class="text-ink">{{ money($stats['this_month_spent'] ?? 0) }}</strong>
+                </p>
+            </div>
+
+            <div class="card p-4 sm:p-5">
                 <span class="text-xs font-semibold uppercase tracking-wider text-muted">Total Orders</span>
-                <p class="display mt-2 text-3xl sm:text-4xl text-ink">{{ number_format($stats['total']) }}</p>
-                <p class="mt-1 text-xs text-muted">All-time purchases</p>
+                <p class="display mt-2 text-2xl sm:text-3xl text-ink">{{ number_format($stats['total']) }}</p>
+                <p class="mt-1 text-[11px] text-muted">
+                    <strong class="text-ink">{{ number_format($stats['total_items'] ?? 0) }}</strong> tools &amp; licenses purchased
+                </p>
             </div>
 
             <div class="card p-4 sm:p-5">
                 <span class="text-xs font-semibold uppercase tracking-wider text-success">Delivered &amp; Active</span>
-                <p class="display mt-2 text-3xl sm:text-4xl text-ink">{{ number_format($stats['completed']) }}</p>
-                <p class="mt-1 text-xs text-muted">Instant credentials vault</p>
+                <p class="display mt-2 text-2xl sm:text-3xl text-ink">{{ number_format($stats['completed']) }}</p>
+                <p class="mt-1 text-[11px] text-muted">
+                    {{ number_format($stats['pending']) }} in progress · Instant vault
+                </p>
             </div>
 
             <div class="card p-4 sm:p-5" x-data="{ editingProfile: false }">
@@ -187,8 +199,17 @@
                                             @endif
                                         </div>
 
-                                        <div class="flex flex-wrap items-center gap-2.5">
-                                            <span class="display text-2xl text-ink">{{ money($order->total) }}</span>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <span class="display text-2xl text-ink mr-1">{{ money($order->total) }}</span>
+                                            <a href="{{ route('orders.receipt', ['order' => $order->number, 'token' => $order->access_token]) }}"
+                                               target="_blank"
+                                               class="btn btn-outline px-3 py-1.5 text-xs font-semibold">
+                                                🧾 View Receipt
+                                            </a>
+                                            <a href="{{ route('orders.receipt', ['order' => $order->number, 'token' => $order->access_token, 'download' => 'pdf']) }}"
+                                               class="btn btn-outline px-3 py-1.5 text-xs font-semibold">
+                                                📥 PDF
+                                            </a>
                                             @if ($order->status === OrderStatus::PendingPayment)
                                                 <a href="{{ $order->customerUrl() }}" class="btn btn-primary px-3.5 py-1.5 text-xs">Pay Now →</a>
                                                 <form method="post" action="{{ route('orders.cancel', $order) }}" onsubmit="return confirm('Cancel this unpaid order?')">
@@ -197,7 +218,7 @@
                                                     <button type="submit" class="btn btn-outline px-3 py-1.5 text-xs text-danger hover:border-danger">Cancel</button>
                                                 </form>
                                             @else
-                                                <a href="{{ $order->customerUrl() }}" class="btn btn-outline px-3.5 py-1.5 text-xs">View Receipt →</a>
+                                                <a href="{{ $order->customerUrl() }}" class="btn btn-primary px-3.5 py-1.5 text-xs">Order Vault →</a>
                                             @endif
                                         </div>
                                     </div>

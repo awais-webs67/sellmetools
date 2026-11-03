@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
+use App\Models\Category;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
@@ -17,6 +18,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -77,11 +79,22 @@ class PaymentWebhookController extends Controller
     }
 
     /**
-     * Handles Telegram Bot inline callback_query buttons (`approve:{id}` / `reject:{id}`)
-     * right inside the Telegram chat without opening a browser!
+     * Handles:
+     * 1) Admin 1-Tap inline callback_query buttons (`approve:{id}` / `reject:{id}`)
+     * 2) Live Synchronized Telegram Store Bot (`store:*` callbacks, `/start`, `/shop`, search queries, and Order ID tracking)
      */
     public function telegram(Request $request, PaymentService $payments, TelegramNotifier $telegram, FulfillmentService $fulfillment): JsonResponse
     {
+        $botEnabled = (string) Setting::get('telegram_store_bot_enabled', '1') === '1';
+
+        // Handle customer text messages (/start, /shop, product search, or Order ID lookup)
+        $message = $request->input('message');
+        if (is_array($message) && $botEnabled) {
+            $this->handleStoreBotMessage($message, $telegram);
+
+            return response()->json(['ok' => true]);
+        }
+
         $callback = $request->input('callback_query');
         if (! is_array($callback)) {
             return response()->json(['ok' => true]);
@@ -91,6 +104,14 @@ class PaymentWebhookController extends Controller
         $data = (string) ($callback['data'] ?? '');
         $chatId = (string) ($callback['message']['chat']['id'] ?? '');
         $messageId = (int) ($callback['message']['message_id'] ?? 0);
+
+        // Handle customer Store Bot navigation callbacks (store:home, store:cat:{id}, store:prod:{id})
+        if (str_starts_with($data, 'store:') && $botEnabled) {
+            $this->handleStoreBotCallback($callbackId, $chatId, $messageId, $data, $telegram);
+
+            return response()->json(['ok' => true]);
+        }
+
         $adminChatId = trim((string) Setting::get('telegram_admin_chat_id', ''));
 
         if ($adminChatId === '' || $chatId !== $adminChatId) {
@@ -372,5 +393,252 @@ class PaymentWebhookController extends Controller
         $pin = trim((string) Setting::get('admin_quick_pin', '7860'));
 
         return hash_hmac('sha256', 'smt_quick_pin:'.$pin, (string) config('app.key'));
+    }
+
+    /**
+     * Handles incoming text messages to the Live Synchronized Telegram Store Bot.
+     * Reads categories, products, prices, and orders directly from the live database.
+     */
+    private function handleStoreBotMessage(array $message, TelegramNotifier $telegram): void
+    {
+        $token = TelegramNotifier::cleanToken((string) Setting::get('telegram_bot_token', ''));
+        $chatId = (string) ($message['chat']['id'] ?? '');
+        $text = trim((string) ($message['text'] ?? ''));
+
+        if ($token === '' || $chatId === '' || $text === '') {
+            return;
+        }
+
+        $lower = strtolower($text);
+
+        // 1. /start, /shop, /products, /categories, /help -> Show Main Store Menu with Live Categories
+        if (in_array($lower, ['/start', '/shop', '/products', '/categories', '/menu', '/help', 'hi', 'hello', 'salam', 'assalam o alaikum'], true) || str_starts_with($lower, '/start ')) {
+            [$html, $keyboard] = $this->buildStoreHomeMenu();
+            $telegram->send($token, $chatId, $html, $keyboard);
+
+            return;
+        }
+
+        // 2. Order Tracking (e.g., SMT-XXXXXX)
+        if (preg_match('/\b(SMT-[A-Z0-9]{4,12})\b/i', $text, $m)) {
+            $orderNum = strtoupper($m[1]);
+            $order = Order::with('items')->where('number', $orderNum)->first();
+            if (! $order) {
+                $telegram->send($token, $chatId, "❌ No order found with ID <code>".TelegramNotifier::e($orderNum)."</code>.\nPlease double-check your Order ID.", [
+                    [['text' => '🛍️ Browse All Tools', 'callback_data' => 'store:home']],
+                ]);
+
+                return;
+            }
+
+            $items = $order->items->map(fn ($i) => '• '.TelegramNotifier::e($i->product_name).' × '.$i->quantity)->implode("\n");
+            $html = "🧾 <b>Order Status: {$order->number}</b>\n\n"
+                ."📌 <b>Status:</b> ".TelegramNotifier::e($order->status->label())."\n"
+                ."📦 <b>Items:</b>\n{$items}\n"
+                ."💰 <b>Total:</b> ".money($order->total).' ('.money_usd($order->total).")\n"
+                ."🕒 <b>Date:</b> ".$order->created_at->format('d M Y, h:i A');
+
+            $telegram->send($token, $chatId, $html, [
+                [['text' => '🔍 Track Order on Website', 'url' => route('orders.track')]],
+                [['text' => '🛍️ Browse Store Catalog', 'callback_data' => 'store:home']],
+            ]);
+
+            return;
+        }
+
+        // 3. Live Product Search by Keyword
+        $like = '%'.addcslashes($text, '%_').'%';
+        $products = Product::query()
+            ->where('is_active', true)
+            ->where(fn ($q) => $q->where('name', 'like', $like)->orWhere('short_description', 'like', $like))
+            ->orderByDesc('is_featured')
+            ->orderByDesc('available_stock')
+            ->limit(10)
+            ->get();
+
+        if ($products->isEmpty()) {
+            [$html, $keyboard] = $this->buildStoreHomeMenu("🔍 No exact match for <b>".TelegramNotifier::e(Str::limit($text, 40))."</b>. Browse our live categories below:");
+            $telegram->send($token, $chatId, $html, $keyboard);
+
+            return;
+        }
+
+        $storeName = TelegramNotifier::e((string) Setting::get('store_name', 'SellMeTools'));
+        $html = "🔎 <b>Search Results on {$storeName}</b>\n"
+            ."Found <b>{$products->count()}</b> live tools matching \"<b>".TelegramNotifier::e(Str::limit($text, 40))."</b>\".\n"
+            ."Tap any product below to view live price, stock &amp; instant buy link:";
+
+        $keyboard = [];
+        foreach ($products as $prod) {
+            $priceLabel = $prod->is_free ? 'FREE' : money($prod->price).' ('.money_usd($prod->price).')';
+            $stockBadge = $prod->inStock() ? '🟢' : '🔴';
+            $keyboard[] = [[
+                'text' => "{$stockBadge} {$prod->name} — {$priceLabel}",
+                'callback_data' => 'store:prod:'.$prod->id,
+            ]];
+        }
+        $keyboard[] = [['text' => '⬅️ Back to Categories', 'callback_data' => 'store:home']];
+
+        $telegram->send($token, $chatId, $html, $keyboard);
+    }
+
+    /**
+     * Handles inline button taps for the Live Synchronized Telegram Store Bot.
+     */
+    private function handleStoreBotCallback(string $callbackId, string $chatId, int $messageId, string $data, TelegramNotifier $telegram): void
+    {
+        $telegram->answerCallback($callbackId, 'Loading...', false);
+
+        if ($data === 'store:home') {
+            [$html, $keyboard] = $this->buildStoreHomeMenu();
+            $telegram->editMessage($chatId, $messageId, $html, $keyboard);
+
+            return;
+        }
+
+        if (preg_match('/^store:cat:(\d+)$/', $data, $m)) {
+            $categoryId = (int) $m[1];
+            $category = Category::query()->where('is_active', true)->find($categoryId);
+            if (! $category) {
+                [$html, $keyboard] = $this->buildStoreHomeMenu();
+                $telegram->editMessage($chatId, $messageId, $html, $keyboard);
+
+                return;
+            }
+
+            $products = Product::query()
+                ->where('is_active', true)
+                ->where('category_id', $category->id)
+                ->orderByDesc('is_featured')
+                ->orderBy('sort')
+                ->limit(25)
+                ->get();
+
+            $html = "📂 <b>".TelegramNotifier::e($category->name)."</b>\n"
+                .($category->description ? TelegramNotifier::e(Str::limit(strip_tags($category->description), 160))."\n\n" : "\n")
+                ."Select any product below for live pricing, stock &amp; instant checkout:";
+
+            $keyboard = [];
+            foreach ($products as $prod) {
+                $priceLabel = $prod->is_free ? 'FREE' : money($prod->price).' ('.money_usd($prod->price).')';
+                $stockBadge = $prod->inStock() ? '🟢' : '🔴';
+                $keyboard[] = [[
+                    'text' => "{$stockBadge} {$prod->name} — {$priceLabel}",
+                    'callback_data' => 'store:prod:'.$prod->id,
+                ]];
+            }
+
+            $keyboard[] = [
+                ['text' => '⬅️ All Categories', 'callback_data' => 'store:home'],
+                ['text' => '🌐 View on Web', 'url' => route('categories.show', $category->slug)],
+            ];
+
+            $telegram->editMessage($chatId, $messageId, $html, $keyboard);
+
+            return;
+        }
+
+        if (preg_match('/^store:prod:(\d+)$/', $data, $m)) {
+            $productId = (int) $m[1];
+            $prod = Product::with('category')->where('is_active', true)->find($productId);
+            if (! $prod) {
+                [$html, $keyboard] = $this->buildStoreHomeMenu();
+                $telegram->editMessage($chatId, $messageId, $html, $keyboard);
+
+                return;
+            }
+
+            $priceText = $prod->is_free ? '🎁 FREE (0 PKR)' : money($prod->price).' (≈ '.money_usd($prod->price).' USDT)';
+            $stockCount = $prod->displayStock();
+            $stockText = $prod->inStock() ? "✅ In Stock ({$stockCount} available)" : '❌ Out of Stock';
+            $desc = trim(strip_tags((string) ($prod->short_description ?: $prod->description)));
+
+            $html = "⚡ <b>".TelegramNotifier::e($prod->name)."</b>\n"
+                .($prod->category ? "📂 <b>Category:</b> ".TelegramNotifier::e($prod->category->name)."\n" : '')
+                ."💰 <b>Price:</b> {$priceText}\n"
+                ."📦 <b>Stock:</b> {$stockText}\n"
+                .($prod->duration ? "⏳ <b>Validity:</b> ".TelegramNotifier::e($prod->duration)."\n" : '')
+                .($prod->warranty ? "🛡️ <b>Warranty:</b> ".TelegramNotifier::e($prod->warranty)."\n" : '')
+                .($desc !== '' ? "\n📝 ".TelegramNotifier::e(Str::limit($desc, 260))."\n" : '');
+
+            $keyboard = [];
+            if ($prod->inStock()) {
+                $keyboard[] = [[
+                    'text' => '🛒 Buy Now — '.$priceText,
+                    'url' => route('checkout.create', $prod->slug),
+                ]];
+            }
+            $keyboard[] = [[
+                'text' => '🌐 View Full Details on Website',
+                'url' => route('products.show', $prod->slug),
+            ]];
+
+            $backData = $prod->category_id ? 'store:cat:'.$prod->category_id : 'store:home';
+            $keyboard[] = [
+                ['text' => '⬅️ Back', 'callback_data' => $backData],
+                ['text' => '🏠 Main Menu', 'callback_data' => 'store:home'],
+            ];
+
+            $telegram->editMessage($chatId, $messageId, $html, $keyboard);
+        }
+    }
+
+    /**
+     * @return array{0: string, 1: array<int, array<int, array<string, string>>>}
+     */
+    private function buildStoreHomeMenu(?string $customIntro = null): array
+    {
+        $storeName = TelegramNotifier::e((string) Setting::get('store_name', 'SellMeTools'));
+        $tagline = TelegramNotifier::e((string) Setting::get('tagline', 'Instant Digital Tools & Subscriptions'));
+        $totalActiveProducts = Product::query()->where('is_active', true)->count();
+
+        $categories = Category::query()
+            ->where('is_active', true)
+            ->withCount(['products' => fn ($q) => $q->where('is_active', true)])
+            ->orderBy('sort')
+            ->get();
+
+        $html = ($customIntro ? $customIntro."\n\n" : '')
+            ."👋 <b>Welcome to {$storeName} Official Bot!</b>\n"
+            ."<i>{$tagline}</i>\n\n"
+            ."✨ <b>{$totalActiveProducts} Live Products</b> synced automatically with our website.\n"
+            ."💡 <b>How to use:</b>\n"
+            ."• Tap a <b>Category</b> below to browse products &amp; live prices\n"
+            ."• Type any tool name (e.g. <code>ChatGPT</code>, <code>Canva</code>) to search\n"
+            ."• Send your Order ID (e.g. <code>SMT-123456</code>) to track your order";
+
+        $keyboard = [];
+        $row = [];
+        foreach ($categories as $cat) {
+            if ($cat->products_count <= 0) {
+                continue;
+            }
+            $icon = $cat->icon ?: '📦';
+            $row[] = [
+                'text' => "{$icon} {$cat->name} ({$cat->products_count})",
+                'callback_data' => 'store:cat:'.$cat->id,
+            ];
+            if (count($row) === 2) {
+                $keyboard[] = $row;
+                $row = [];
+            }
+        }
+        if ($row !== []) {
+            $keyboard[] = $row;
+        }
+
+        $keyboard[] = [
+            ['text' => '🛍️ Open Full Web Store', 'url' => route('shop')],
+            ['text' => '🔍 Track Order', 'url' => route('orders.track')],
+        ];
+
+        $wa = admin_whatsapp_number();
+        if ($wa !== '') {
+            $keyboard[] = [
+                ['text' => '📲 WhatsApp Support', 'url' => "https://wa.me/{$wa}"],
+            ];
+        }
+
+        return [$html, $keyboard];
     }
 }

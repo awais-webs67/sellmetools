@@ -87,6 +87,15 @@
                             <span class="text-muted truncate">{{ $order->email }}</span>
                             <span class="font-mono text-ink shrink-0">{{ $order->phone ?: $payment?->sender_number }}</span>
                         </div>
+                        @if (filled($order->customer_input))
+                            <div class="col-span-2 rounded-lg bg-ink p-2.5 text-white border-t border-line mt-1" x-data="copy(@js((string) $order->customer_input))">
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-[#ff8fa3]">📝 Customer Activation Data</span>
+                                    <button type="button" @click="copy" class="rounded bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-white/25" x-text="copied ? '✓ Copied' : 'Copy'">Copy</button>
+                                </div>
+                                <p class="mt-1 font-mono text-xs font-bold text-[#4ade80] break-all whitespace-pre-wrap">{{ $order->customer_input }}</p>
+                            </div>
+                        @endif
                     </div>
 
                     {{-- 1-Tap Action Controls --}}

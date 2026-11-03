@@ -11,9 +11,10 @@
     $storeName = setting('store_name', 'SellMeTools');
     $defaultSeoTitle = setting('seo_title') ?: setting('store_tagline');
     $rawTitle = trim((string) ($title ?: $defaultSeoTitle));
-    $pageTitle = (stripos($rawTitle, (string) $storeName) !== false || mb_strlen($rawTitle) > 52)
+    $rawTitle = str_replace(' | '.$storeName, ' — '.$storeName, $rawTitle);
+    $pageTitle = (stripos($rawTitle, (string) $storeName) !== false || mb_strlen($rawTitle) > 54)
         ? $rawTitle
-        : "{$rawTitle} | {$storeName}";
+        : "{$rawTitle} — {$storeName}";
     $metaDescription = \Illuminate\Support\Str::limit(trim((string) ($description ?: (setting('seo_description') ?: setting('store_tagline')))), 155);
     $metaKeywords = $keywords ?: setting('seo_keywords');
     $canonicalUrl = $canonical ?: url()->current();
@@ -46,6 +47,12 @@
         'founder' => [
             '@type' => 'Organization',
             'name' => 'AivraSol Softwares',
+            'url' => 'https://aivrasol.com',
+        ],
+        'parentOrganization' => [
+            '@type' => 'Organization',
+            'name' => 'AivraSol Softwares',
+            'url' => 'https://aivrasol.com',
         ],
         'contactPoint' => array_filter([
             '@type' => 'ContactPoint',
@@ -62,6 +69,7 @@
         '@id' => url('/').'#website',
         'url' => url('/'),
         'name' => $storeName,
+        'alternateName' => ['SellMeTools.com', 'Sell Me Tools', 'AivraSol SellMeTools'],
         'description' => $metaDescription,
         'publisher' => ['@id' => url('/').'#organization'],
         'potentialAction' => [
@@ -412,7 +420,7 @@
         <div class="border-t border-white/10">
             <div class="container-x flex flex-col gap-2 py-5 text-xs sm:flex-row sm:items-center sm:justify-between">
                 <p>&copy; {{ date('Y') }} {{ $storeName }}. All rights reserved.</p>
-                <p class="text-white/60">A Project by <span class="font-semibold text-white/90">AivraSol Softwares</span></p>
+                <p class="text-white/60">A Project by <a href="https://aivrasol.com" target="_blank" rel="noopener" class="font-semibold text-white/95 hover:text-white underline decoration-white/40 underline-offset-2 transition">AivraSol Softwares</a></p>
                 <p>All trademarks belong to their respective owners.</p>
             </div>
         </div>

@@ -193,6 +193,13 @@ class ProductForm
                             ->visible(fn (Get $get): bool => in_array((string) ($get('delivery_type') ?: 'auto'), ['instant_link', 'manual_admin', 'whatsapp_handover'], true))
                             ->helperText('Leave blank for Unlimited Stock (∞), OR enter a number (e.g. 20 or 100) to limit how many orders/claims are allowed before it automatically goes Out of Stock.'),
 
+                        TextInput::make('customer_input_label')
+                            ->label('📝 Ask Customer for Activation Data After Payment (Optional — For Custom / Account Activation Products)')
+                            ->placeholder('e.g. Enter your Canva / ChatGPT Email Address (or Account Login) where we should activate your subscription')
+                            ->maxLength(500)
+                            ->columnSpanFull()
+                            ->helperText('Leave blank for normal instant-delivery products. If you write a prompt here, the customer will see a text box on their Order Page to submit their Email / Account Details to you for custom activation & manual delivery!'),
+
                         Select::make('quick_stock_separator')
                             ->label('Quick .TXT Stock Separator Mode')
                             ->options([

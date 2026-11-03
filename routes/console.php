@@ -31,3 +31,14 @@ Artisan::command('orders:expire', function (OrderService $orders) {
 // One cron entry on the server runs everything:  * * * * * php /path/artisan schedule:run
 Schedule::command('orders:expire')->everyMinute()->withoutOverlapping();
 Schedule::command('suppliers:sync')->everyTenSeconds()->withoutOverlapping(1)->runInBackground();
+
+Artisan::command('backup:email {email? : Optional override email}', function (\App\Services\DatabaseBackupService $backups) {
+    $res = $backups->sendBackupEmail($this->argument('email'));
+    if ($res['success']) {
+        $this->info($res['message']);
+    } else {
+        $this->error($res['message']);
+    }
+})->purpose('Generate and email a full SQL database backup to the configured admin email');
+
+Schedule::call(fn () => app(\App\Services\DatabaseBackupService::class)->checkAndRunScheduledBackup())->hourly();

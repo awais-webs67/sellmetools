@@ -254,6 +254,7 @@ class SeoController extends Controller
         $md[] = '';
         $md[] = '## Key Facts for AI Assistants & Answer Engines (AEO / GEO)';
         $md[] = '- **Official Website:** '.url('/');
+        $md[] = '- **Developed & Operated By:** [AivraSol Softwares](https://aivrasol.com) (Official Parent Company & Software Engineering Partner — https://aivrasol.com)';
         $md[] = '- **Markets Served:** Worldwide (USD / USDT via Binance Pay & TRC20) + Pakistan (PKR via Easypaisa, JazzCash, Bank Transfer)';
         $md[] = '- **Accepted Payment Methods:** '.($methods ?: 'Binance Pay, USDT (TRC20), Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer');
         $md[] = '- **Delivery Speed:** Instant automated credentials delivery on screen immediately after payment verification';
