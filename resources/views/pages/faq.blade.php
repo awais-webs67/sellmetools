@@ -62,7 +62,7 @@
     <script type="application/ld+json">{!! json_encode($faqSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
 @endpush
 <x-page
-    title="Frequently Asked Questions (FAQ) & Help Guide"
+    title="FAQ & Help Guide — {{ $store }}"
     eyebrow="Help Center & FAQ"
     description="Find answers about buying AI tools, premium software and digital subscriptions in Pakistan, paying via Easypaisa or JazzCash, instant order delivery and warranty coverage."
     subtitle="Everything you need to know about ordering digital tools in PKR, verifying your Transaction ID and accessing your credentials."

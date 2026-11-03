@@ -134,6 +134,7 @@
     <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v=8">
     <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}?v=8">
     <link rel="sitemap" type="application/xml" title="Sitemap" href="{{ route('sitemap') }}">
+    <link rel="alternate" type="text/plain" title="LLMs.txt" href="{{ route('llms') }}">
 
     {{-- Global Organization & WebSite JSON-LD Schema --}}
     <script type="application/ld+json">{!! json_encode($orgSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>

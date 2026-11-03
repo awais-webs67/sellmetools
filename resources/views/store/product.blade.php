@@ -52,7 +52,7 @@
                 ],
                 'shippingDestination' => [
                     '@type' => 'DefinedRegion',
-                    'addressCountry' => 'PK',
+                    'addressCountry' => ['PK', 'US', 'GB', 'AE', 'CA', 'SA', 'AU'],
                 ],
                 'deliveryTime' => [
                     '@type' => 'ShippingDeliveryTime',
@@ -72,7 +72,7 @@
             ],
             'hasMerchantReturnPolicy' => [
                 '@type' => 'MerchantReturnPolicy',
-                'applicableCountry' => 'PK',
+                'applicableCountry' => ['PK', 'US', 'GB', 'AE', 'CA', 'SA', 'AU'],
                 'returnPolicyCategory' => 'https://schema.org/MerchantReturnFiniteReturnWindow',
                 'merchantReturnDays' => 7,
                 'returnMethod' => 'https://schema.org/ReturnByMail',

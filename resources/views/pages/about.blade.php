@@ -2,7 +2,7 @@
     $store = (string) setting('store_name', 'SellMeTools');
 @endphp
 <x-page
-    title="About {{ $store }}: AI Tools & Digital Subscriptions in Pakistan"
+    title="About {{ $store }} — AI Tools & Digital Subscriptions"
     eyebrow="About Our Store"
     description="Learn how {{ $store }} delivers genuine AI tools, creative software, cloud accounts and digital subscriptions in Pakistan at local PKR prices via Easypaisa, JazzCash, NayaPay and Binance."
     subtitle="Built for Pakistani freelancers, students, creators and software teams who want instant, verified access to global digital tools in local rupees."

@@ -324,6 +324,12 @@ class SeoController extends Controller
             'Allow: /',
             'User-agent: Google-Extended',
             'Allow: /',
+            'User-agent: Applebot-Extended',
+            'Allow: /',
+            'User-agent: Meta-ExternalAgent',
+            'Allow: /',
+            'User-agent: Amazonbot',
+            'Allow: /',
             '',
             'Sitemap: '.url('/sitemap.xml'),
         ];

@@ -504,11 +504,42 @@ class Product extends Model
     }
 
     /**
-     * Returns a clean, human-readable summary sentence (converting ALL-CAPS supplier notes into readable text).
+     * Returns a clean, human-readable summary sentence (converting ALL-CAPS or Mathematical Unicode supplier notes into readable text).
      */
     public function cleanSummaryText(): string
     {
         $raw = (string) ($this->short_description ?: $this->description);
+        if (class_exists(\Normalizer::class)) {
+            $normalized = \Normalizer::normalize($raw, \Normalizer::FORM_KC);
+            if (is_string($normalized)) {
+                $raw = $normalized;
+            }
+        }
+        // Fallback mathematical bold/italic/sans-serif Unicode normalization (U+1D400..U+1D7FF) if intl extension is unavailable
+        $raw = preg_replace_callback('/[\x{1D400}-\x{1D7FF}]/u', function (array $m): string {
+            $cp = mb_ord($m[0], 'UTF-8');
+            // Bold/Italic/Sans/Mono digits (U+1D7CE..U+1D7FF, 5 sets of 10 digits)
+            if ($cp >= 0x1D7CE && $cp <= 0x1D7FF) {
+                return chr(ord('0') + (($cp - 0x1D7CE) % 10));
+            }
+            // Mathematical Sans-Serif Bold Capital (U+1D5D4..U+1D5ED) & Small (U+1D5EE..U+1D607)
+            if ($cp >= 0x1D5D4 && $cp <= 0x1D5ED) {
+                return chr(ord('A') + ($cp - 0x1D5D4));
+            }
+            if ($cp >= 0x1D5EE && $cp <= 0x1D607) {
+                return chr(ord('a') + ($cp - 0x1D5EE));
+            }
+            // Mathematical Bold Capital (U+1D400..U+1D419) & Small (U+1D41A..U+1D433)
+            if ($cp >= 0x1D400 && $cp <= 0x1D419) {
+                return chr(ord('A') + ($cp - 0x1D400));
+            }
+            if ($cp >= 0x1D41A && $cp <= 0x1D433) {
+                return chr(ord('a') + ($cp - 0x1D41A));
+            }
+
+            return ' ';
+        }, $raw) ?? $raw;
+
         // Strip non-ASCII emoji clusters cleanly while keeping a space separator so words never stick together
         $raw = preg_replace('/[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}\x{FE00}-\x{FE0F}]+/u', ' ', $raw) ?? $raw;
         $raw = trim(preg_replace('/\s+/', ' ', strip_tags($raw)));
