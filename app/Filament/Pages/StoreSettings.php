@@ -41,7 +41,7 @@ class StoreSettings extends Page
 {
     /** Keys managed by this page (all live in Setting::DEFAULTS). */
     protected const KEYS = [
-        'store_name', 'store_tagline', 'store_logo', 'store_theme', 'announcement', 'currency_symbol',
+        'store_name', 'store_tagline', 'store_logo', 'store_theme', 'shop_default_sort', 'home_default_sort', 'announcement', 'currency_symbol',
         'home_hero_badge', 'home_hero_title', 'home_hero_subtitle', 'home_about_heading', 'home_guide_heading', 'home_seo_content',
         'shop_seo_title', 'shop_seo_description',
         'usdt_rate', 'price_rounding', 'order_expiry_minutes',
@@ -59,7 +59,7 @@ class StoreSettings extends Page
 
     /** Keys that the SEO & Content Specialist role is allowed to save. */
     protected const SEO_STAFF_KEYS = [
-        'store_name', 'store_tagline', 'store_logo', 'store_theme', 'announcement',
+        'store_name', 'store_tagline', 'store_logo', 'store_theme', 'shop_default_sort', 'home_default_sort', 'announcement',
         'home_hero_badge', 'home_hero_title', 'home_hero_subtitle', 'home_about_heading', 'home_guide_heading', 'home_seo_content',
         'shop_seo_title', 'shop_seo_description',
         'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id',
@@ -221,6 +221,31 @@ class StoreSettings extends Page
                                             ->default('black')
                                             ->native(false)
                                             ->required(),
+                                        Select::make('shop_default_sort')
+                                            ->label('Shop Page (/shop) Default Product Order')
+                                            ->options([
+                                                'alpha' => '🔤 Alphabetical Order (A to Z)',
+                                                'random' => '🎲 Random Order (Changes on Refresh)',
+                                                'popular' => '🔥 Best Selling First',
+                                                'price_asc' => '💰 Price: Low to High',
+                                                'newest' => '🆕 Newest Products First',
+                                            ])
+                                            ->default('alpha')
+                                            ->native(false)
+                                            ->required()
+                                            ->helperText('Choose whether products on /shop load in Alphabetical (A-Z) or Random order by default.'),
+                                        Select::make('home_default_sort')
+                                            ->label('Homepage (/) Default Product Order')
+                                            ->options([
+                                                'random' => '🎲 Random Order (Changes on Refresh)',
+                                                'alpha' => '🔤 Alphabetical Order (A to Z)',
+                                                'popular' => '🔥 Best Selling First',
+                                                'newest' => '🆕 Newest Products First',
+                                            ])
+                                            ->default('random')
+                                            ->native(false)
+                                            ->required()
+                                            ->helperText('Choose whether products on the Homepage load in Random or Alphabetical (A-Z) order.'),
                                         TextInput::make('currency_symbol')
                                             ->label('Currency Symbol')
                                             ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
@@ -237,10 +262,10 @@ class StoreSettings extends Page
                                             ->columnSpanFull(),
                                         Actions::make([
                                             Action::make('saveStoreSection')
-                                                ->label('Save Branding & Theme')
+                                                ->label('Save Branding, Theme & Product Order')
                                                 ->icon(Heroicon::OutlinedCheck)
                                                 ->color('primary')
-                                                ->action(fn () => $this->saveKeys(['store_name', 'store_theme', 'currency_symbol', 'store_tagline', 'store_logo', 'announcement'], 'Branding & theme saved')),
+                                                ->action(fn () => $this->saveKeys(['store_name', 'store_theme', 'shop_default_sort', 'home_default_sort', 'currency_symbol', 'store_tagline', 'store_logo', 'announcement'], 'Branding, theme & product sorting saved')),
                                         ])->columnSpanFull(),
                                     ]),
 

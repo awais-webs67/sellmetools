@@ -11,7 +11,8 @@
     $canonicalUrl = $activeCategory
         ? route('categories.show', $activeCategory)
         : route('shop');
-    $isDefaultSort = in_array($sort, ['alpha', 'featured'], true);
+    $defaultShopSort = (string) setting('shop_default_sort', 'alpha');
+    $isDefaultSort = in_array($sort, [$defaultShopSort, 'featured'], true);
     $robotsDirective = ($search !== '' || ! $isDefaultSort || $inStockOnly)
         ? 'noindex, follow'
         : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
@@ -179,8 +180,9 @@
                     <div class="flex items-center gap-2">
                         <label for="shop-sort" class="sr-only">Sort products</label>
                         <select id="shop-sort" name="sort" class="input py-2 pr-8 text-xs sm:text-sm font-medium w-full sm:w-auto cursor-pointer" @change="run()">
-                            <option value="alpha" @selected($isDefaultSort)>Sort: Name (A to Z)</option>
+                            <option value="alpha" @selected($sort === 'alpha')>Sort: Name (A to Z)</option>
                             <option value="alpha_desc" @selected($sort === 'alpha_desc')>Sort: Name (Z to A)</option>
+                            <option value="random" @selected($sort === 'random')>Sort: Random Order</option>
                             <option value="popular" @selected($sort === 'popular')>Sort: Best Selling</option>
                             <option value="price_asc" @selected($sort === 'price_asc')>Price: Low to High</option>
                             <option value="price_desc" @selected($sort === 'price_desc')>Price: High to Low</option>

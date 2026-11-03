@@ -20,6 +20,8 @@ class Setting extends Model
         'store_tagline' => 'Buy genuine AI tools & digital subscriptions online with instant worldwide delivery.',
         'store_logo' => '',
         'store_theme' => 'black',
+        'shop_default_sort' => 'alpha',
+        'home_default_sort' => 'random',
         'usdt_rate' => '295',
         'price_rounding' => '10',
         'order_expiry_minutes' => '15',
