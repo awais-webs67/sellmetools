@@ -74,10 +74,10 @@ Alpine.store('stock', {
     justSynced: false,
     hiddenAt: null,
 
-    start(intervalMs = 60000) {
+    start(intervalMs = 6000) {
         setTimeout(() => {
             if (!document.hidden) this.poll();
-        }, 20000);
+        }, 3000);
 
         clearInterval(this.timer);
         this.timer = setInterval(() => document.hidden || this.poll(), intervalMs);
@@ -91,7 +91,7 @@ Alpine.store('stock', {
                 if (awayMs > 900000) {
                     this.stale = true;
                 }
-                if (awayMs > 15000) {
+                if (awayMs > 3000) {
                     this.poll(false);
                 }
             }
@@ -102,7 +102,7 @@ Alpine.store('stock', {
         this.syncing = true;
         try {
             if (window.SMT?.syncUrl) {
-                await fetch(window.SMT.syncUrl, { method: 'POST', keepalive: true }).catch(() => {});
+                await fetch(`${window.SMT.syncUrl}?force=1`, { method: 'POST', keepalive: true }).catch(() => {});
             }
             await this.poll(false);
             this.stale = false;
@@ -117,7 +117,7 @@ Alpine.store('stock', {
         const ids = [...new Set([...document.querySelectorAll('[data-stock-id]')].map((el) => el.dataset.stockId))];
 
         if (forceSupplierSync && window.SMT?.syncUrl) {
-            fetch(window.SMT.syncUrl, { method: 'POST', keepalive: true }).catch(() => {});
+            fetch(`${window.SMT.syncUrl}?force=1`, { method: 'POST', keepalive: true }).catch(() => {});
         }
 
         if (!ids.length) return;
@@ -142,9 +142,13 @@ Alpine.store('stock', {
                     }
                 }
                 if (payload.need_sync && window.SMT?.syncUrl) {
-                    setTimeout(() => {
-                        fetch(window.SMT.syncUrl, { method: 'POST', keepalive: true }).catch(() => {});
-                    }, 2000);
+                    fetch(window.SMT.syncUrl, { method: 'POST', keepalive: true })
+                        .then(() => {
+                            setTimeout(() => {
+                                if (!document.hidden) this.poll(false);
+                            }, 2500);
+                        })
+                        .catch(() => {});
                 }
             }
         } catch (_) {
@@ -421,4 +425,4 @@ Alpine.data('loadMoreGrid', (initialNextUrl, initialShown, totalCount) => ({
 
 window.Alpine = Alpine;
 Alpine.start();
-Alpine.store('stock').start(60000);
+Alpine.store('stock').start(6000);

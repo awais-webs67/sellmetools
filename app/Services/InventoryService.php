@@ -37,7 +37,7 @@ class InventoryService
 
         $own = $product->stockItems()->where('status', StockStatus::Available)->count();
 
-        $product->load('activeSources.supplier');
+        $product->loadMissing('activeSources.supplier');
         $supplierUnits = 0;
         $isNonConsumingMode = in_array($product->delivery_type, ['manual_admin', 'whatsapp_handover', 'instant_link'], true);
         $hasCustomLimit = $isNonConsumingMode && $product->stock_limit !== null;
@@ -83,10 +83,14 @@ class InventoryService
     {
         $stock = $this->calculate($product);
 
-        $product->forceFill([
+        $product->fill([
             'available_stock' => $stock['qty'],
             'stock_unlimited' => $stock['unlimited'],
-        ])->saveQuietly();
+        ]);
+
+        if ($product->isDirty(['available_stock', 'stock_unlimited'])) {
+            $product->saveQuietly();
+        }
     }
 
     public function refreshMany(iterable $products): void

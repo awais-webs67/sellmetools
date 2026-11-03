@@ -127,6 +127,7 @@ class SupplierSyncService
     public function refreshListings(Supplier $supplier): array
     {
         $products = Product::query()
+            ->with('activeSources.supplier')
             ->whereHas('sources', fn ($q) => $q->where('supplier_id', $supplier->id))
             ->get();
 
@@ -152,6 +153,10 @@ class SupplierSyncService
                 $stats['enabled']++;
                 $this->telegram->notifyAdmin("✅ <b>Product re-enabled</b>\n".T::e($product->name).', supplier price is profitable again.');
             }
+        }
+
+        if ($stats['updated_listings'] > 0 || $stats['disabled'] > 0 || $stats['enabled'] > 0) {
+            \Illuminate\Support\Facades\Cache::forget('smt_search_catalog_v1');
         }
 
         return $stats;

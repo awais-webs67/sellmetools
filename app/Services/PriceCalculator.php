@@ -104,7 +104,9 @@ class PriceCalculator
             $result['enabled'] = true;
         }
 
-        $product->saveQuietly();
+        if ($product->isDirty(['price', 'cost_price', 'is_active', 'disabled_reason'])) {
+            $product->saveQuietly();
+        }
 
         return $result;
     }
