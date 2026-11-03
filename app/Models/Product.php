@@ -556,6 +556,13 @@ class Product extends Model
         return trim(static::normalizeUnicodeText((string) $this->description));
     }
 
+    public function cleanWarrantyText(): string
+    {
+        $clean = static::normalizeUnicodeText((string) $this->warranty);
+
+        return trim(str_replace(["\u{200B}", "\u{200C}", "\u{200D}", "\u{FEFF}"], '', $clean));
+    }
+
     /**
      * Returns a clean, human-readable summary sentence (converting ALL-CAPS or Mathematical Unicode supplier notes into readable text).
      */

@@ -161,7 +161,7 @@
         ],
         [
             'q' => "How is {$product->name} delivered and what warranty is included?",
-            'a' => ($product->warranty ? "Warranty terms: {$product->warranty}. " : '')."Your login credentials, invite link, or activation details are delivered directly on your private order page and saved in your customer account dashboard, backed by 24/7 WhatsApp support.",
+            'a' => ($product->warranty ? 'Warranty terms: '.preg_replace('/\s+/', ' ', $product->cleanWarrantyText()).'. ' : '')."Your login credentials, invite link, or activation details are delivered directly on your private order page and saved in your customer account dashboard, backed by 24/7 WhatsApp support.",
         ],
     ];
 
@@ -303,7 +303,7 @@
                             <p class="text-xs font-bold uppercase tracking-wider text-brand-text flex items-center gap-1.5">
                                 <span>🛡️</span> Warranty &amp; Guarantee Terms
                             </p>
-                            <p class="mt-1.5 text-xs leading-5 whitespace-pre-line text-slate break-words">{{ $product->warranty }}</p>
+                            <p class="mt-1.5 text-xs leading-5 whitespace-pre-line text-slate break-words">{{ $product->cleanWarrantyText() }}</p>
                         </div>
                     @endif
 
