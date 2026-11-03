@@ -64,10 +64,21 @@ class Order extends Model
      */
     public function adminSupplierSummary(bool $withCost = false): string
     {
-        $this->loadMissing('items.product.activeSources.supplier');
+        $this->loadMissing(['items.product.activeSources.supplier', 'items.product.sources.supplier']);
 
         $sources = $this->items
-            ->map(fn (OrderItem $item): string => $item->product ? $item->product->adminSupplierSummary($withCost) : 'Own / Manual')
+            ->map(function (OrderItem $item) use ($withCost): string {
+                if ($item->product) {
+                    return $item->product->adminSupplierSummary($withCost);
+                }
+
+                $attempt = SupplierOrder::with('supplier')->where('order_item_id', $item->id)->latest('id')->first();
+                if ($attempt?->supplier) {
+                    return $attempt->supplier->name;
+                }
+
+                return 'Own Stock (.TXT)';
+            })
             ->filter()
             ->unique()
             ->values();

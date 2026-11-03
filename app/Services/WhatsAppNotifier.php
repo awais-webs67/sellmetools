@@ -33,6 +33,7 @@ class WhatsAppNotifier
         $webhookUrl = trim((string) Setting::get('whatsapp_admin_webhook_url', ''));
 
         $items = $order->items->map(fn ($i) => "{$i->product_name} × {$i->quantity}")->implode(', ');
+        $supplierSummary = $order->adminSupplierSummary(true);
         $methodName = $order->paymentMethod?->name ?? 'Manual Wallet';
         $quickOrderUrl = route('webhooks.order.quick', ['order' => $order->number]);
 
@@ -40,6 +41,7 @@ class WhatsAppNotifier
             ."━━━━━━━━━━━━━━━━━━\n"
             ."🧾 *Order ID:* `{$order->number}`\n"
             ."📦 *Product:* {$items}\n"
+            ."🏭 *Supplier:* {$supplierSummary}\n"
             ."💵 *Amount:* *{$payment->currency} {$payment->amount}* (Rs {$order->total})\n"
             ."💳 *Method:* {$methodName}\n"
             ."🔑 *TID:* `{$payment->transaction_id}`\n"
@@ -63,7 +65,7 @@ class WhatsAppNotifier
                         'Actions' => "view, ⚡ Open 1-Tap Approve / Decline, {$quickOrderUrl}, clear=true",
                     ])
                     ->withBody(
-                        "📦 {$items}\n💳 {$methodName} | 🔑 TID: {$payment->transaction_id}\n👤 {$order->email}".($payment->sender_number ? " ({$payment->sender_number})" : ''),
+                        "📦 {$items}\n🏭 Supplier: {$supplierSummary}\n💳 {$methodName} | 🔑 TID: {$payment->transaction_id}\n👤 {$order->email}".($payment->sender_number ? " ({$payment->sender_number})" : ''),
                         'text/plain'
                     )
                     ->post('https://ntfy.sh/'.urlencode($ntfyTopic));
@@ -113,6 +115,7 @@ class WhatsAppNotifier
         $ntfyTopic = trim((string) Setting::get('ntfy_topic', ''));
 
         $items = $order->items->map(fn ($i) => "{$i->product_name} × {$i->quantity}")->implode(', ');
+        $supplierSummary = $order->adminSupplierSummary(true);
         $creds = $order->items->flatMap(fn ($item) => $item->deliveries->pluck('content'))->implode("\n");
         $methodName = $order->paymentMethod?->name ?? 'Online';
         $profit = round((float) $order->total - (float) $order->total_cost, 2);
@@ -125,7 +128,7 @@ class WhatsAppNotifier
                         'Tags' => 'white_check_mark,tada',
                     ])
                     ->withBody(
-                        "📦 {$items}\n💳 {$methodName} | 💰 Profit: Rs {$profit}\n👤 Customer: {$order->email}",
+                        "📦 {$items}\n🏭 Supplier: {$supplierSummary}\n💳 {$methodName} | 💰 Profit: Rs {$profit}\n👤 Customer: {$order->email}",
                         'text/plain'
                     )
                     ->post('https://ntfy.sh/'.urlencode($ntfyTopic));
@@ -142,6 +145,7 @@ class WhatsAppNotifier
                 ."━━━━━━━━━━━━━━━━━━\n"
                 ."🧾 *Order:* `{$order->number}`\n"
                 ."📦 *Product:* {$items}\n"
+                ."🏭 *Supplier:* {$supplierSummary}\n"
                 ."💳 *Method:* {$methodName}\n"
                 ."💵 *Sale:* Rs {$order->total} | *Profit:* Rs {$profit}\n"
                 ."👤 *Customer:* {$order->email}";
@@ -173,6 +177,7 @@ class WhatsAppNotifier
         $ntfyTopic = trim((string) Setting::get('ntfy_topic', ''));
 
         $items = $order->items->map(fn ($i) => "{$i->product_name} × {$i->quantity}")->implode(', ');
+        $supplierSummary = $order->adminSupplierSummary(true);
         $reason = implode(' | ', array_unique($problems)) ?: 'Supplier balance is low';
         $quickOrderUrl = route('webhooks.order.quick', ['order' => $order->number]);
 
@@ -187,7 +192,7 @@ class WhatsAppNotifier
                         'Actions' => "view, ⚡ Deliver Manually Now, {$quickOrderUrl}, clear=true",
                     ])
                     ->withBody(
-                        "Payment is VERIFIED (Rs {$order->total}), but Supplier Funds are low!\n📦 {$items}\n⚠️ {$reason}\nCustomer sees 'Order On Hold: Admin is checking'.",
+                        "Payment is VERIFIED (Rs {$order->total}), but Supplier Funds are low!\n📦 {$items}\n🏭 Supplier: {$supplierSummary}\n⚠️ {$reason}\nCustomer sees 'Order On Hold: Admin is checking'.",
                         'text/plain'
                     )
                     ->post('https://ntfy.sh/'.urlencode($ntfyTopic));
@@ -201,6 +206,7 @@ class WhatsAppNotifier
                 ."✅ *Payment Status:* VERIFIED (Rs {$order->total})\n"
                 ."🧾 *Order ID:* `{$order->number}`\n"
                 ."📦 *Product:* {$items}\n"
+                ."🏭 *Supplier:* {$supplierSummary}\n"
                 ."⚠️ *Issue:* {$reason}\n"
                 ."👤 *Customer:* {$order->email}\n"
                 ."━━━━━━━━━━━━━━━━━━\n"

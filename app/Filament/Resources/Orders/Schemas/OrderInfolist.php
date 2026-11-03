@@ -39,6 +39,11 @@ class OrderInfolist
                             ->badge()
                             ->formatStateUsing(fn (OrderStatus $state): string => $state->label())
                             ->color(fn (OrderStatus $state): string => $state->color()),
+                        TextEntry::make('supplier_summary')
+                            ->label('🏭 Supplier / Source')
+                            ->badge()
+                            ->color('info')
+                            ->state(fn (Order $record): string => $record->adminSupplierSummary(true)),
                         TextEntry::make('paymentMethod.name')
                             ->label('Payment Method')
                             ->placeholder('-'),

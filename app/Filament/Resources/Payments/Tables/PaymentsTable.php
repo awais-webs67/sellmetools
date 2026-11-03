@@ -20,7 +20,7 @@ class PaymentsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['order', 'paymentMethod', 'reviewer']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['order.items.product.activeSources.supplier', 'order.items.product.sources.supplier', 'paymentMethod', 'reviewer']))
             ->defaultSort('created_at', 'desc')
             ->paginated([10, 25, 50, 100])
             ->defaultPaginationPageOption(25)
@@ -34,6 +34,11 @@ class PaymentsTable
                         ? OrderResource::getUrl('view', ['record' => $record->order])
                         : null)
                     ->description(fn (Payment $record): ?string => $record->order?->email),
+                TextColumn::make('supplier_badge')
+                    ->label('🏭 Supplier')
+                    ->badge()
+                    ->color('info')
+                    ->state(fn (Payment $record): string => $record->order?->adminSupplierSummary(false) ?? '-'),
                 TextColumn::make('paymentMethod.name')
                     ->label('Gateway')
                     ->placeholder('-'),

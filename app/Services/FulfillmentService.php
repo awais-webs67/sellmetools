@@ -490,6 +490,7 @@ class FulfillmentService
                     "✅ <b>Payment Status:</b> CONFIRMED (Rs {$order->total})\n".
                     "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
                     $items->map(fn ($i) => '📦 '.T::e($i->product_name)." ({$i->delivered_qty}/{$i->quantity} delivered)")->implode("\n")."\n".
+                    '🏭 <b>Supplier:</b> '.T::e($order->adminSupplierSummary(true))."\n".
                     '⚠️ <b>Reason:</b> '.T::e($reasonText)."\n".
                     '👤 <b>Customer:</b> '.T::e($order->email).($order->phone ? ' (+'.T::e($order->phone).')' : '')."\n".
                     "🔗 <a href=\"{$adminOrderUrl}\">Open Order in Admin Panel</a> · <a href=\"{$quickControlUrl}\">1-Tap Manual Deliver</a>"

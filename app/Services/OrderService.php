@@ -94,7 +94,35 @@ class OrderService
             return $order;
         });
 
-        return $order->load('items', 'paymentMethod');
+        $order->load(['items.product.activeSources.supplier', 'items.product.sources.supplier', 'paymentMethod']);
+
+        if (! app()->runningUnitTests() && ! $product->is_free && (float) $order->total > 0 && ! in_array($method->code, ['wallet', 'free'], true)) {
+            $quickUrl = route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']);
+            $adminUrl = url('/admin/orders');
+            $supplierInfo = $order->adminSupplierSummary(true);
+            $itemsLine = $order->items->map(fn ($i) => '📦 '.TelegramNotifier::e($i->product_name)." × {$i->quantity}")->implode("\n");
+
+            defer(function () use ($order, $method, $itemsLine, $supplierInfo, $quickUrl, $adminUrl): void {
+                app(TelegramNotifier::class)->notifyAdmin(
+                    "🛒🆕 <b>NEW ORDER PLACED (Awaiting Payment)</b>\n".
+                    "━━━━━━━━━━━━━━━━━━\n".
+                    "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
+                    $itemsLine."\n".
+                    '🏭 <b>Supplier:</b> '.TelegramNotifier::e($supplierInfo)."\n".
+                    '💳 <b>Gateway:</b> '.TelegramNotifier::e($method->name)."\n".
+                    "💵 <b>Total:</b> <b>Rs {$order->total}</b>\n".
+                    '👤 <b>Customer:</b> '.TelegramNotifier::e($order->email).($order->phone ? ' (+'.TelegramNotifier::e($order->phone).')' : ''),
+                    [
+                        [
+                            ['text' => '⚡ Open 1-Tap Order Control', 'url' => $quickUrl],
+                            ['text' => '🔎 Admin Panel', 'url' => $adminUrl],
+                        ],
+                    ]
+                );
+            });
+        }
+
+        return $order;
     }
 
     /** Releases reservations of an unpaid order (or cancels & auto-refunds if paid). */

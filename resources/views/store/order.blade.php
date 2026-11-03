@@ -43,6 +43,24 @@
 @endphp
 <x-layouts.store :title="'Order '.$order->number" robots="noindex, nofollow">
     <div class="container-x max-w-5xl py-6 sm:py-10" x-data="orderWatcher(@js($statusUrl), @js($s->value), @js($initialReviewTimeout))">
+        @if (auth()->check() && auth()->user()->canAccessAdminPanel())
+            <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-ink px-4 py-3 text-xs text-white shadow-md">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="rounded bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#ff8fa3]">🔒 Admin Only</span>
+                    <span class="font-semibold text-white/80">🏭 Supplier / Source:</span>
+                    <span class="font-mono font-bold text-[#4ade80]">{{ $order->adminSupplierSummary(true) }}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a href="{{ $quickApproveUrl }}" class="rounded-lg bg-[#16a34a] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#15803d]">
+                        ⚡ 1-Tap Control
+                    </a>
+                    <a href="{{ route('filament.admin.resources.orders.view', ['record' => $order->number]) }}" class="rounded-lg bg-white/15 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/25">
+                        Admin Order View
+                    </a>
+                </div>
+            </div>
+        @endif
+
         {{-- Compact Header --}}
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>

@@ -356,18 +356,27 @@ class Product extends Model
      */
     public function adminSupplierSummary(bool $withCost = false): string
     {
-        $this->loadMissing('activeSources.supplier');
+        $this->loadMissing(['activeSources.supplier', 'sources.supplier']);
 
-        if ($this->activeSources->isNotEmpty()) {
-            return $this->activeSources->map(function (SupplierProduct $sp) use ($withCost): string {
-                $supName = $sp->supplier?->name ?? 'Supplier';
+        $sources = $this->activeSources->isNotEmpty() ? $this->activeSources : $this->sources;
+
+        if ($sources->isEmpty() && filled($this->name)) {
+            $matchedSp = SupplierProduct::with('supplier')->where('name', $this->name)->first();
+            if ($matchedSp) {
+                $sources = collect([$matchedSp]);
+            }
+        }
+
+        if ($sources->isNotEmpty()) {
+            return $sources->map(function (SupplierProduct $sp) use ($withCost): string {
+                $supName = $sp->supplier?->name ?? 'Supplier API';
                 if (! $withCost) {
                     return $supName;
                 }
                 $pkrCost = number_format($sp->costPkr(), 0);
                 $usdCost = number_format((float) $sp->cost, 2);
 
-                return "{$supName} (Rs {$pkrCost} / \${$usdCost})";
+                return "{$supName} (Cost: Rs {$pkrCost} / \${$usdCost})";
             })->unique()->implode(' + ');
         }
 

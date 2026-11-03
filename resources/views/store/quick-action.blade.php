@@ -31,13 +31,18 @@
                     'bg-danger' => ! $isAlreadyCompleted && ($isRejected || $actionResult === 'reject'),
                     'bg-ink' => $isAlreadyCompleted || $isNeedsAttention || $actionResult === 'needs_attention' || (! $isCompleted && ! $isRejected && ! in_array($actionResult, ['approve', 'reject'], true)),
                 ])>
-                    <div class="flex items-center justify-between gap-2">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
                         <span class="rounded-md bg-white/15 px-2.5 py-0.5 font-mono text-xs font-bold text-white">
                             #{{ $order->number }}
                         </span>
                         <span class="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-bold text-white">
                             {{ $order->status->label() }}
                         </span>
+                    </div>
+
+                    <div class="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-2.5 py-1 text-xs font-bold text-white">
+                        <span>🏭 Supplier:</span>
+                        <span class="font-mono text-[#4ade80]">{{ $order->adminSupplierSummary(true) }}</span>
                     </div>
 
                     <h1 class="display mt-2.5 text-2xl sm:text-3xl text-white">

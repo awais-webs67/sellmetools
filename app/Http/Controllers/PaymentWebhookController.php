@@ -164,6 +164,9 @@ class PaymentWebhookController extends Controller
         }
 
         $order = $payment->order;
+        $supplierLine = $order ? '🏭 <b>Supplier:</b> '.TelegramNotifier::e($order->adminSupplierSummary(true))."\n" : '';
+        $itemsLine = $order ? $order->items->map(fn ($i) => '📦 '.TelegramNotifier::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n" : '';
+
         if ($order && $order->status === OrderStatus::Completed) {
             $telegram->answerCallback($callbackId, "⚠️ Order {$order->number} is ALREADY Confirmed & Delivered!");
             if ($messageId > 0) {
@@ -172,6 +175,8 @@ class PaymentWebhookController extends Controller
                     $messageId,
                     "⚠️ <b>ALREADY CONFIRMED &amp; DELIVERED</b>\n".
                     "Order: <b>{$order->number}</b>\n".
+                    $itemsLine.
+                    $supplierLine.
                     'TID: <code>'.TelegramNotifier::e($payment->transaction_id)."</code>\n".
                     'Status: <b>Completed</b>'
                 );
@@ -192,6 +197,8 @@ class PaymentWebhookController extends Controller
                             $messageId,
                             "✅ <b>APPROVED &amp; DELIVERED</b>\n".
                             "Order: <b>{$order->number}</b>\n".
+                            $itemsLine.
+                            $supplierLine.
                             'TID: <code>'.TelegramNotifier::e($payment->transaction_id)."</code>\n".
                             "Status: <b>{$order->status->label()}</b>"
                         );
@@ -207,6 +214,8 @@ class PaymentWebhookController extends Controller
                             $messageId,
                             "✅ <b>PAYMENT APPROVED: ⚠️ DELIVERY ON HOLD</b>\n".
                             "Order: <b>{$order->number}</b>\n".
+                            $itemsLine.
+                            $supplierLine.
                             'TID: <code>'.TelegramNotifier::e($payment->transaction_id)."</code>\n".
                             '⚠️ <b>Reason:</b> '.TelegramNotifier::e($reason)."\n".
                             "🔗 <a href=\"{$adminUrl}\">Open in Admin Panel</a> · <a href=\"{$quickUrl}\">1-Tap Manual Deliver</a>"
@@ -224,6 +233,8 @@ class PaymentWebhookController extends Controller
                         $messageId,
                         "❌ <b>PAYMENT DECLINED</b>\n".
                         "Order: <b>{$payment->order->number}</b>\n".
+                        $itemsLine.
+                        $supplierLine.
                         'TID: <code>'.TelegramNotifier::e($payment->transaction_id).'</code>'
                     );
                 }

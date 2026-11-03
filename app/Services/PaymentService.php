@@ -122,12 +122,13 @@ class PaymentService
             $order->update(['status' => OrderStatus::Processing, 'paid_at' => now()]);
         });
 
-        $order->refresh()->load(['items', 'paymentMethod']);
+        $order->refresh()->load(['items.product.activeSources.supplier', 'paymentMethod']);
         $this->telegram->notifyAdmin(
             "🎁✨ <b>FREE PRODUCT CLAIMED!</b>\n".
             "━━━━━━━━━━━━━━━━━━\n".
             "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
             $order->items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
+            '🏭 <b>Supplier:</b> '.T::e($order->adminSupplierSummary(true))."\n".
             "💵 <b>Price:</b> <b>FREE (PKR 0)</b>\n".
             '👤 <b>Customer:</b> '.T::e($order->email).($order->phone ? ' (+'.T::e($order->phone).')' : '')
         );
@@ -265,7 +266,7 @@ class PaymentService
             return $order;
         });
 
-        $order->load(['items', 'paymentMethod']);
+        $order->load(['items.product.activeSources.supplier', 'paymentMethod']);
         $isAuto = $order->paymentMethod?->isAuto() ?? false;
 
         $notifyApproval = function () use ($order, $payment, $isAuto): void {
@@ -274,6 +275,7 @@ class PaymentService
                 "━━━━━━━━━━━━━━━━━━\n".
                 "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
                 $order->items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
+                '🏭 <b>Supplier:</b> '.T::e($order->adminSupplierSummary(true))."\n".
                 '💳 <b>Gateway:</b> '.T::e($order->paymentMethod?->name ?? 'Online')."\n".
                 "💵 <b>Paid:</b> <b>{$payment->currency} {$payment->amount}</b> (Rs {$order->total})\n".
                 '🔑 <b>TID:</b> <code>'.T::e($payment->transaction_id)."</code>\n".

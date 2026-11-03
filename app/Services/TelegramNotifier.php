@@ -61,6 +61,20 @@ class TelegramNotifier
     }
 
     /**
+     * Returns the canonical HTTPS webhook URL, replacing any temporary *.hostingersite.com preview domain
+     * with the official https://sellmetools.com domain.
+     */
+    public function canonicalWebhookUrl(): string
+    {
+        $rawUrl = url('/api/webhooks/telegram');
+        if (str_contains($rawUrl, 'hostingersite.com')) {
+            return 'https://sellmetools.com/api/webhooks/telegram';
+        }
+
+        return $rawUrl;
+    }
+
+    /**
      * Ensures the webhook, slash commands menu, and menu button are registered with Telegram.
      */
     public function ensureBotConfigured(): void
@@ -74,7 +88,8 @@ class TelegramNotifier
             return;
         }
 
-        $cacheKey = 'tg_bot_v3_configured:'.md5($token.'|'.url('/api/webhooks/telegram'));
+        $webhookUrl = $this->canonicalWebhookUrl();
+        $cacheKey = 'tg_bot_v4_configured:'.md5($token.'|'.$webhookUrl);
         if (! Cache::has($cacheKey)) {
             if ($this->registerWebhook($token)) {
                 Cache::put($cacheKey, true, now()->addHours(12));
@@ -205,7 +220,7 @@ class TelegramNotifier
         // Always register bot commands and the Menu button with Telegram
         $this->registerBotCommands($token);
 
-        $webhookUrl = url('/api/webhooks/telegram');
+        $webhookUrl = $this->canonicalWebhookUrl();
         if (! Str::startsWith($webhookUrl, 'https://')) {
             return false;
         }

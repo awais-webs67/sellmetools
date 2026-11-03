@@ -31,7 +31,7 @@ class LatestOrders extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->query(fn () => Order::query()->with(['items', 'paymentMethod', 'latestPayment'])->latest()->limit(12))
+            ->query(fn () => Order::query()->with(['items.product.activeSources.supplier', 'items.product.sources.supplier', 'paymentMethod', 'latestPayment'])->latest()->limit(12))
             ->paginated(false)
             ->emptyStateHeading('No orders yet')
             ->recordUrl(fn (Order $record): string => OrderResource::getUrl('view', ['record' => $record]))
@@ -50,6 +50,11 @@ class LatestOrders extends TableWidget
                         ->map(fn (OrderItem $item): string => "{$item->quantity}× {$item->product_name}")
                         ->implode(', '))
                     ->limit(40),
+                TextColumn::make('supplier_badge')
+                    ->label('🏭 Supplier')
+                    ->badge()
+                    ->color('info')
+                    ->state(fn (Order $record): string => $record->adminSupplierSummary(false)),
                 TextColumn::make('total')
                     ->weight('bold')
                     ->formatStateUsing(fn ($state): string => Money::pkr($state)),

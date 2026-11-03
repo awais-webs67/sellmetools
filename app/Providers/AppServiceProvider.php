@@ -37,6 +37,17 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
 
+        // Never leak Hostinger's temporary preview domain (e.g. aliceblue-*.hostingersite.com)
+        // in generated links, receipts, or Telegram Bot webhook URLs.
+        $configuredAppUrl = (string) config('app.url', '');
+        $requestHost = (! $this->app->runningInConsole() && request()) ? (string) request()->getHost() : '';
+        if (str_contains($configuredAppUrl, 'hostingersite.com') || str_contains($requestHost, 'hostingersite.com')) {
+            $canonicalUrl = 'https://sellmetools.com';
+            config(['app.url' => $canonicalUrl]);
+            URL::forceRootUrl($canonicalUrl);
+            URL::forceScheme('https');
+        }
+
         Paginator::defaultView('pagination::tailwind');
 
         $this->autoMigrateDatabaseIfChanged();
