@@ -34,16 +34,16 @@ class Category extends Model
     public function seoTitle(): string
     {
         if (filled($this->meta_title)) {
-            return (string) $this->meta_title;
+            return str_replace(['—', '–'], '-', (string) $this->meta_title);
         }
 
-        return "{$this->name} Subscriptions — Buy Online";
+        return "{$this->name} Subscriptions | Buy Online";
     }
 
     public function seoDescription(): string
     {
         if (filled($this->meta_description)) {
-            return (string) $this->meta_description;
+            return str_replace(['—', '–'], '-', (string) $this->meta_description);
         }
 
         return "Buy genuine {$this->name} subscriptions online with instant delivery. Pay worldwide via Binance USDT or locally with PKR wallets (Easypaisa, JazzCash).";

@@ -452,7 +452,7 @@
                 <div class="grid gap-10 lg:grid-cols-[1.15fr_1fr] lg:items-start">
                     <div>
                         <span class="eyebrow">Global &amp; Local Buying Guide</span>
-                        <h2 id="guide-heading" class="display mt-1 text-3xl sm:text-5xl text-ink">{{ setting('home_guide_heading', 'Buy AI Tools & Digital Subscriptions Online — USDT & Local PKR Prices') }}</h2>
+                        <h2 id="guide-heading" class="display mt-1 text-3xl sm:text-5xl text-ink">{{ str_replace(['—', '–'], '-', (string) setting('home_guide_heading', 'Buy AI Tools & Digital Subscriptions Online - USDT & Local PKR Prices')) }}</h2>
                         <div class="prose-store mt-4 space-y-4 text-sm sm:text-base leading-relaxed text-body">
                             @php
                                 $customHomeSeoContent = trim((string) setting('home_seo_content', ''));
