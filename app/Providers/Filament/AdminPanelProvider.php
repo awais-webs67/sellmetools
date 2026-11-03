@@ -67,30 +67,82 @@ class AdminPanelProvider extends PanelProvider
                        SellMeTools Executive Admin UI/UX Design System (Filament 5)
                        ========================================================================== */
 
-                    /* 1. Live Store Header Button */
+                    /* 1. Executive Dark Sidebar & Sleek Topbar */
+                    .fi-sidebar {
+                        background: linear-gradient(180deg, #0b0f19 0%, #0f172a 100%) !important;
+                        border-right: 1px solid rgba(51, 65, 85, 0.45) !important;
+                    }
+                    .fi-sidebar-header {
+                        background: rgba(15, 23, 42, 0.65) !important;
+                        border-bottom: 1px solid rgba(51, 65, 85, 0.45) !important;
+                    }
+                    .fi-sidebar-header img {
+                        filter: brightness(0) invert(1) !important;
+                    }
+                    .fi-sidebar-group-label {
+                        color: #94a3b8 !important;
+                        font-size: 0.7rem !important;
+                        font-weight: 700 !important;
+                        text-transform: uppercase !important;
+                        letter-spacing: 0.08em !important;
+                    }
+                    .fi-sidebar-item-btn {
+                        border-radius: 0.6rem !important;
+                        padding-top: 0.55rem !important;
+                        padding-bottom: 0.55rem !important;
+                        transition: all 0.15s ease !important;
+                    }
+                    .fi-sidebar-item:not(.fi-active) .fi-sidebar-item-label {
+                        color: #cbd5e1 !important;
+                        font-weight: 500 !important;
+                    }
+                    .fi-sidebar-item:not(.fi-active) .fi-sidebar-item-icon {
+                        color: #64748b !important;
+                    }
+                    .fi-sidebar-item:not(.fi-active) .fi-sidebar-item-btn:hover {
+                        background: rgba(255, 255, 255, 0.06) !important;
+                    }
+                    .fi-sidebar-item.fi-active .fi-sidebar-item-btn {
+                        background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%) !important;
+                        box-shadow: 0 4px 12px -2px rgba(79, 70, 229, 0.45) !important;
+                    }
+                    .fi-sidebar-item.fi-active .fi-sidebar-item-label,
+                    .fi-sidebar-item.fi-active .fi-sidebar-item-icon {
+                        color: #ffffff !important;
+                        font-weight: 700 !important;
+                    }
+                    .fi-topbar {
+                        backdrop-filter: blur(12px) !important;
+                        border-bottom: 1px solid rgba(226, 232, 240, 0.85) !important;
+                    }
+                    .dark .fi-topbar {
+                        border-bottom-color: rgba(51, 65, 85, 0.65) !important;
+                    }
+
+                    /* 1b. Live Store Header Button */
                     .fi-live-store-btn {
                         display: inline-flex;
                         align-items: center;
                         gap: 0.4rem;
-                        padding: 0.4rem 0.8rem;
-                        border-radius: 0.5rem;
+                        padding: 0.42rem 0.85rem;
+                        border-radius: 0.55rem;
                         font-size: 0.78rem;
-                        font-weight: 600;
-                        border: 1px solid rgba(148, 163, 184, 0.35);
-                        background: rgba(248, 250, 252, 0.8);
-                        color: #0f172a;
+                        font-weight: 700;
+                        border: 1px solid rgba(79, 70, 229, 0.25);
+                        background: rgba(238, 242, 255, 0.85);
+                        color: #3730a3;
                         text-decoration: none;
                         white-space: nowrap;
                         transition: all 0.15s ease;
                     }
                     .fi-live-store-btn:hover {
-                        background: #f1f5f9;
-                        border-color: rgba(100, 116, 139, 0.5);
+                        background: #e0e7ff;
+                        border-color: rgba(79, 70, 229, 0.45);
                     }
                     .dark .fi-live-store-btn {
-                        background: rgba(30, 41, 59, 0.7);
-                        color: #f8fafc;
-                        border-color: rgba(148, 163, 184, 0.25);
+                        background: rgba(49, 46, 129, 0.4);
+                        color: #e0e7ff;
+                        border-color: rgba(99, 102, 241, 0.35);
                     }
 
                     /* 2. Modern Responsive Admin Login Page (.fi-simple-layout) */

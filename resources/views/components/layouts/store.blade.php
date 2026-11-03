@@ -223,40 +223,43 @@
     </div>
 
     <header x-data="{ open: false }" class="sticky top-0 z-40 border-b border-line bg-white/95 shadow-[0_1px_2px_rgba(0,0,0,.06)] backdrop-blur">
-        <div class="container-x flex h-16 items-center justify-between gap-6 lg:h-[76px]">
-            <a href="{{ route('home') }}" class="flex items-center transition active:scale-95" aria-label="{{ $storeName }} home">
-                <img src="{{ asset('images/logo.png') }}?v=6" alt="{{ $storeName }}" width="180" height="40" fetchpriority="high" decoding="async" class="h-8 sm:h-9 lg:h-10 w-auto object-contain">
+        <div class="container-x flex h-16 items-center justify-between gap-2.5 sm:gap-3.5 xl:gap-5 lg:h-[74px]">
+            <a href="{{ route('home') }}" class="flex shrink-0 items-center transition active:scale-95" aria-label="{{ $storeName }} home">
+                <img src="{{ asset('images/logo.png') }}?v=6" alt="{{ $storeName }}" width="180" height="40" fetchpriority="high" decoding="async" class="h-7 sm:h-8 lg:h-9 w-auto object-contain">
             </a>
 
-            <form action="{{ route('shop') }}" method="get" class="relative hidden max-w-md flex-1 md:block" role="search"
+            <form action="{{ route('shop') }}" method="get" class="relative hidden flex-1 min-w-[210px] lg:min-w-[260px] xl:min-w-[340px] max-w-lg md:block" role="search"
                   x-data="liveSearch" @click.outside="open = false">
                 <label for="site-search" class="sr-only">Search products</label>
                 <div class="relative">
-                    <svg class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                    <input id="site-search" type="search" name="q" value="{{ request('q') }}" placeholder="Search digital tools, software &amp; subscriptions..." class="input pl-9" x-bind="field">
+                    <svg class="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                    <input id="site-search" type="search" name="q" value="{{ request('q') }}" placeholder="Search AI tools &amp; subscriptions..." class="input w-full rounded-xl bg-grey-soft/75 py-2 pl-10 pr-8 text-sm focus:bg-white" x-bind="field">
+                    <button type="button" x-show="q.length > 0" x-cloak @click="q = ''; reset(); $el.previousElementSibling.focus()" class="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-full p-1 text-muted hover:bg-grey hover:text-ink cursor-pointer" aria-label="Clear search">
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                    </button>
                 </div>
                 <x-search-suggest />
             </form>
 
-            <nav class="hidden items-center gap-1 lg:flex" aria-label="Main">
-                <a href="{{ route('shop') }}" @class(['btn btn-ghost', 'text-brand font-bold' => request()->routeIs('shop')])>Shop</a>
-                <a href="{{ route('orders.track') }}" @class(['btn btn-ghost', 'text-brand font-bold' => request()->routeIs('orders.track')])>Track order</a>
-                <a href="{{ route('pages.show', 'about') }}" @class(['btn btn-ghost', 'text-brand font-bold' => request()->fullUrlIs(route('pages.show', 'about'))])>About</a>
-                <a href="{{ route('pages.show', 'contact') }}" @class(['btn btn-ghost', 'text-brand font-bold' => request()->fullUrlIs(route('pages.show', 'contact'))])>Contact</a>
+            <nav class="hidden items-center gap-0.5 xl:gap-1 lg:flex shrink-0" aria-label="Main">
+                <a href="{{ route('shop') }}" @class(['btn btn-ghost px-3 py-2 text-[13px] whitespace-nowrap', 'text-brand font-bold' => request()->routeIs('shop')])>Shop</a>
+                <a href="{{ route('orders.track') }}" @class(['btn btn-ghost px-3 py-2 text-[13px] whitespace-nowrap', 'text-brand font-bold' => request()->routeIs('orders.track')])>Track Order</a>
+                <a href="{{ route('pages.show', 'about') }}" @class(['btn btn-ghost px-3 py-2 text-[13px] whitespace-nowrap hidden xl:inline-flex', 'text-brand font-bold' => request()->fullUrlIs(route('pages.show', 'about'))])>About</a>
+                <a href="{{ route('pages.show', 'contact') }}" @class(['btn btn-ghost px-3 py-2 text-[13px] whitespace-nowrap hidden xl:inline-flex', 'text-brand font-bold' => request()->fullUrlIs(route('pages.show', 'contact'))])>Contact</a>
                 @auth
                     @if (auth()->user()->is_reseller && filled(auth()->user()->reseller_slug))
-                        <a href="{{ route('reseller.portal', auth()->user()->reseller_slug) }}" class="btn btn-ghost font-bold text-brand">★ Reseller Portal</a>
+                        <a href="{{ route('reseller.portal', auth()->user()->reseller_slug) }}" class="btn btn-ghost px-3 py-2 text-[13px] whitespace-nowrap font-bold text-brand">★ Reseller</a>
                     @endif
-                    <a href="{{ route('account.orders') }}" class="btn btn-ghost">
+                    <a href="{{ route('account.orders') }}" class="btn btn-ghost px-3 py-2 text-[13px] whitespace-nowrap">
                         My Account
                         @if ((float) auth()->user()->wallet_balance > 0)
                             <span class="ml-1 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">{{ money(auth()->user()->wallet_balance) }}</span>
                         @endif
                     </a>
-                    <form method="post" action="{{ route('logout') }}">@csrf<button class="btn btn-ghost">Logout</button></form>
+                    <form method="post" action="{{ route('logout') }}">@csrf<button class="btn btn-ghost px-3 py-2 text-[13px] whitespace-nowrap">Logout</button></form>
                 @else
-                    <a href="{{ route('login') }}" class="btn btn-ghost">Login</a>
-                    <a href="{{ route('register') }}" class="btn btn-primary">Create account</a>
+                    <a href="{{ route('login') }}" class="btn btn-ghost px-3 py-2 text-[13px] whitespace-nowrap">Login</a>
+                    <a href="{{ route('register') }}" class="btn btn-primary px-3.5 py-2 text-[13px] whitespace-nowrap">Create Account</a>
                 @endauth
             </nav>
 
@@ -295,6 +298,21 @@
                     <svg x-show="open" x-cloak class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
                 </button>
             </div>
+        </div>
+
+        {{-- Responsive Mobile Search Bar Row (Visible on screens < md) --}}
+        <div class="border-t border-line/70 bg-white px-4 py-2 md:hidden">
+            <form action="{{ route('shop') }}" method="get" class="relative" role="search" x-data="liveSearch" @click.outside="open = false">
+                <label for="mobile-header-search" class="sr-only">Search products</label>
+                <div class="relative">
+                    <svg class="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                    <input id="mobile-header-search" type="search" name="q" value="{{ request('q') }}" placeholder="Search AI tools, software &amp; subscriptions..." class="input w-full rounded-xl bg-grey-soft/80 py-2 pl-10 pr-8 text-sm focus:bg-white" x-bind="field">
+                    <button type="button" x-show="q.length > 0" x-cloak @click="q = ''; reset(); $el.previousElementSibling.focus()" class="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-full p-1 text-muted hover:bg-grey hover:text-ink cursor-pointer" aria-label="Clear search">
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                    </button>
+                </div>
+                <x-search-suggest />
+            </form>
         </div>
 
         {{-- Simple Clean Mobile Menu --}}

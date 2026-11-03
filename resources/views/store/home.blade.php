@@ -270,15 +270,15 @@
                     @endforeach
                 </nav>
 
-                <form action="{{ $activeCategory ? route('categories.show', $activeCategory) : route('home') }}#products" method="get" class="relative w-full md:w-72 md:shrink-0" role="search"
+                <form action="{{ $activeCategory ? route('categories.show', $activeCategory) : route('home') }}#products" method="get" class="relative w-full md:w-80 md:shrink-0" role="search"
                       x-data="liveFilter('#catalog-results')" @click.outside="open = false" @submit.prevent="open = false; run()">
                     <label for="catalog-search" class="sr-only">Search products</label>
                     <div class="relative">
                         <svg class="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                        <input id="catalog-search" type="search" name="q" value="{{ $search }}" placeholder="Filter products as you type" autocomplete="off" class="input py-2 pl-10 pr-9 text-sm" x-bind="field">
+                        <input id="catalog-search" type="search" name="q" value="{{ $search }}" placeholder="Filter products as you type..." autocomplete="off" class="input py-2 pl-10 pr-9 text-sm" x-bind="field">
                         <span x-show="loading" x-cloak class="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-line border-t-brand" aria-hidden="true"></span>
                     </div>
-                    <x-search-suggest />
+                    <x-search-suggest align="right" />
                 </form>
             </div>
         </div>
