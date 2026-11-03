@@ -36,7 +36,7 @@ class OrderController extends Controller
     {
         $this->authorizeAccess($request, $order);
 
-        $order->load(['items.deliveries', 'paymentMethod', 'latestPayment']);
+        $order->load(['items.deliveries', 'items.product', 'paymentMethod', 'latestPayment']);
 
         return view('store.order', [
             'order' => $order,
@@ -93,18 +93,26 @@ class OrderController extends Controller
             'customer_input' => trim((string) $data['customer_input']),
         ]);
 
-        $label = $order->requiredCustomerInputLabel() ?? 'Customer Activation Details';
-        $items = $order->items()->get()->map(fn ($i) => $i->product_name.' x'.$i->quantity)->implode(', ');
-        $quickUrl = route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']);
+        $notifyInput = function () use ($order, $telegram): void {
+            $label = $order->requiredCustomerInputLabel() ?? 'Customer Activation Details';
+            $items = $order->items()->get()->map(fn ($i) => $i->product_name.' x'.$i->quantity)->implode(', ');
+            $quickUrl = route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']);
 
-        $telegram->notifyAdmin(
-            "📝 <b>CUSTOMER ACTIVATION DETAILS SUBMITTED</b>\n\n"
-            ."🧾 <b>Order:</b> <code>{$order->number}</code>\n"
-            ."📦 <b>Product:</b> ".e($items)."\n"
-            ."📧 <b>Customer Email:</b> ".e($order->email)."\n"
-            ."🏷️ <b>{$label}:</b>\n<code>".e($order->customer_input)."</code>\n\n"
-            ."👉 <a href=\"{$quickUrl}\">Open Order & Deliver Now</a>"
-        );
+            $telegram->notifyAdmin(
+                "📝 <b>CUSTOMER ACTIVATION DETAILS SUBMITTED</b>\n\n"
+                ."🧾 <b>Order:</b> <code>{$order->number}</code>\n"
+                .'📦 <b>Product:</b> '.e($items)."\n"
+                .'📧 <b>Customer Email:</b> '.e($order->email)."\n"
+                ."🏷️ <b>{$label}:</b>\n<code>".e($order->customer_input)."</code>\n\n"
+                ."👉 <a href=\"{$quickUrl}\">Open Order & Deliver Now</a>"
+            );
+        };
+
+        if (app()->runningUnitTests()) {
+            $notifyInput();
+        } else {
+            defer($notifyInput);
+        }
 
         return redirect()->to($order->customerUrl())->with('success', 'Your activation details have been saved and sent to the admin! Your custom delivery will be completed shortly.');
     }

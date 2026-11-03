@@ -5,6 +5,55 @@
  * starting from the 1st character, with automatic server fallback when needed.
  */
 const suggestCache = new Map();
+let catalogPromise = null;
+
+function ensureCatalogLoaded() {
+    if (window.SMT?.catalog && Array.isArray(window.SMT.catalog.products)) {
+        return Promise.resolve(window.SMT.catalog);
+    }
+
+    try {
+        const cached = sessionStorage.getItem('smt_catalog_cache_v1');
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && parsed.ts && Date.now() - parsed.ts < 300000 && parsed.data) {
+                window.SMT = window.SMT || {};
+                window.SMT.catalog = parsed.data;
+                return Promise.resolve(parsed.data);
+            }
+        }
+    } catch (_) {}
+
+    if (catalogPromise) {
+        return catalogPromise;
+    }
+
+    if (!window.SMT?.searchUrl) {
+        return Promise.resolve(null);
+    }
+
+    const url = new URL(window.SMT.searchUrl, window.location.origin);
+    url.searchParams.set('catalog', '1');
+
+    catalogPromise = fetch(url, { headers: { Accept: 'application/json' } })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+            if (data && Array.isArray(data.products)) {
+                window.SMT.catalog = data;
+                try {
+                    sessionStorage.setItem('smt_catalog_cache_v1', JSON.stringify({ ts: Date.now(), data }));
+                } catch (_) {}
+                return data;
+            }
+            return null;
+        })
+        .catch(() => null)
+        .finally(() => {
+            catalogPromise = null;
+        });
+
+    return catalogPromise;
+}
 
 const escapeHtml = (s) =>
     String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -103,6 +152,7 @@ function createSearchBehavior(targetSelector = null) {
                 }
             },
             '@focus'() {
+                ensureCatalogLoaded();
                 if (this.q.trim().length >= 1) {
                     if (!this.searched) this.queue();
                     this.open = true;

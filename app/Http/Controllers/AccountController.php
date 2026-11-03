@@ -72,12 +72,31 @@ class AccountController extends Controller
             $q->where('status', OrderStatus::Completed)->orWhereNotNull('paid_at');
         });
 
+        $agg = $user->orders()
+            ->selectRaw('
+                COUNT(*) as total_count,
+                SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as completed_count,
+                SUM(CASE WHEN status IN (?, ?, ?, ?) THEN 1 ELSE 0 END) as pending_count,
+                COALESCE(SUM(CASE WHEN status = ? OR paid_at IS NOT NULL THEN total ELSE 0 END), 0) as total_spent,
+                COALESCE(SUM(CASE WHEN (status = ? OR paid_at IS NOT NULL) AND created_at >= ? THEN total ELSE 0 END), 0) as this_month_spent
+            ', [
+                OrderStatus::Completed->value,
+                OrderStatus::PendingPayment->value,
+                OrderStatus::PaymentReview->value,
+                OrderStatus::Processing->value,
+                OrderStatus::NeedsAttention->value,
+                OrderStatus::Completed->value,
+                OrderStatus::Completed->value,
+                now()->startOfMonth()->toDateTimeString(),
+            ])
+            ->first();
+
         $stats = [
-            'total' => $user->orders()->count(),
-            'completed' => $user->orders()->where('status', OrderStatus::Completed)->count(),
-            'pending' => $user->orders()->whereIn('status', [OrderStatus::PendingPayment, OrderStatus::PaymentReview, OrderStatus::Processing, OrderStatus::NeedsAttention])->count(),
-            'total_spent' => (float) $paidOrdersQuery()->sum('total'),
-            'this_month_spent' => (float) $paidOrdersQuery()->where('created_at', '>=', now()->startOfMonth())->sum('total'),
+            'total' => (int) ($agg->total_count ?? 0),
+            'completed' => (int) ($agg->completed_count ?? 0),
+            'pending' => (int) ($agg->pending_count ?? 0),
+            'total_spent' => (float) ($agg->total_spent ?? 0),
+            'this_month_spent' => (float) ($agg->this_month_spent ?? 0),
             'total_items' => (int) \App\Models\OrderItem::query()
                 ->whereIn('order_id', $paidOrdersQuery()->select('id'))
                 ->sum('quantity'),

@@ -64,8 +64,15 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
+        $readyFlag = storage_path('framework/schema_v5_ready.flag');
+        if (is_file($readyFlag)) {
+            return;
+        }
+
         try {
             if ((string) \App\Models\Setting::get('schema_v5_ready', '') === '1') {
+                @file_put_contents($readyFlag, '1');
+
                 return;
             }
 
@@ -77,12 +84,14 @@ class AppServiceProvider extends ServiceProvider
 
             if (is_file($stampFile) && trim((string) @file_get_contents($stampFile)) === $hash) {
                 \App\Models\Setting::set('schema_v5_ready', '1');
+                @file_put_contents($readyFlag, '1');
 
                 return;
             }
 
             // Write stamp file and setting IMMEDIATELY before running migrations so concurrent page refreshes never collide!
             @file_put_contents($stampFile, $hash);
+            @file_put_contents($readyFlag, '1');
             \App\Models\Setting::set('schema_v5_ready', '1');
 
             $this->ensureRequiredSchemaColumns();

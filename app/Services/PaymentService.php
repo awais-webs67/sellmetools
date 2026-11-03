@@ -79,15 +79,23 @@ class PaymentService
         });
 
         $order->refresh()->load(['items.product.activeSources.supplier', 'paymentMethod']);
-        $this->telegram->notifyAdmin(
-            "👛✨ <b>INSTANT WALLET PAYMENT CONFIRMED!</b>\n".
-            "━━━━━━━━━━━━━━━━━━\n".
-            "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
-            $order->items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
-            '🏭 <b>Supplier:</b> '.T::e($order->adminSupplierSummary(true))."\n".
-            "💵 <b>Paid:</b> <b>PKR {$payment->amount}</b> (Wallet Balance)\n".
-            '👤 <b>Customer:</b> '.T::e($user->email).($user->is_reseller ? ' 🌟 <b>[VIP RESELLER]</b>' : '')
-        );
+        $notifyWallet = function () use ($order, $payment, $user): void {
+            $this->telegram->notifyAdmin(
+                "👛✨ <b>INSTANT WALLET PAYMENT CONFIRMED!</b>\n".
+                "━━━━━━━━━━━━━━━━━━\n".
+                "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
+                $order->items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
+                '🏭 <b>Supplier:</b> '.T::e($order->adminSupplierSummary(true))."\n".
+                "💵 <b>Paid:</b> <b>PKR {$payment->amount}</b> (Wallet Balance)\n".
+                '👤 <b>Customer:</b> '.T::e($user->email).($user->is_reseller ? ' 🌟 <b>[VIP RESELLER]</b>' : '')
+            );
+        };
+
+        if (app()->runningUnitTests()) {
+            $notifyWallet();
+        } else {
+            defer($notifyWallet);
+        }
 
         return $this->fulfillment->fulfill($order);
     }
@@ -123,15 +131,23 @@ class PaymentService
         });
 
         $order->refresh()->load(['items.product.activeSources.supplier', 'paymentMethod']);
-        $this->telegram->notifyAdmin(
-            "🎁✨ <b>FREE PRODUCT CLAIMED!</b>\n".
-            "━━━━━━━━━━━━━━━━━━\n".
-            "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
-            $order->items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
-            '🏭 <b>Supplier:</b> '.T::e($order->adminSupplierSummary(true))."\n".
-            "💵 <b>Price:</b> <b>FREE (PKR 0)</b>\n".
-            '👤 <b>Customer:</b> '.T::e($order->email).($order->phone ? ' (+'.T::e($order->phone).')' : '')
-        );
+        $notifyFree = function () use ($order): void {
+            $this->telegram->notifyAdmin(
+                "🎁✨ <b>FREE PRODUCT CLAIMED!</b>\n".
+                "━━━━━━━━━━━━━━━━━━\n".
+                "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
+                $order->items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
+                '🏭 <b>Supplier:</b> '.T::e($order->adminSupplierSummary(true))."\n".
+                "💵 <b>Price:</b> <b>FREE (PKR 0)</b>\n".
+                '👤 <b>Customer:</b> '.T::e($order->email).($order->phone ? ' (+'.T::e($order->phone).')' : '')
+            );
+        };
+
+        if (app()->runningUnitTests()) {
+            $notifyFree();
+        } else {
+            defer($notifyFree);
+        }
 
         return $this->fulfillment->fulfill($order);
     }
@@ -210,28 +226,36 @@ class PaymentService
         ]);
 
         // Manual Mode (85%): Notify Admin on Telegram (with In-Chat 1-Tap buttons) + ntfy App + WhatsApp
-        $this->telegram->notifyAdmin(
-            "🔔💰 <b>NEW PAYMENT TO VERIFY (85% Hold)</b>\n".
-            "━━━━━━━━━━━━━━━━━━\n".
-            "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
-            $order->items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
-            '🏭 <b>Supplier:</b> '.T::e($order->adminSupplierSummary(true))."\n".
-            '💳 <b>Method:</b> '.T::e($order->paymentMethod?->name)."\n".
-            "💵 <b>Amount:</b> <b>{$payment->currency} {$payment->amount}</b> (Rs {$order->total})\n".
-            '🔑 <b>TID:</b> <code>'.T::e($payment->transaction_id).'</code>'.
-            ($payment->sender_number ? "\n📱 <b>Sender:</b> ".T::e($payment->sender_number) : '').
-            (filled($order->customer_input) ? "\n📝 <b>Activation Data:</b> <code>".T::e($order->customer_input).'</code>' : '').
-            "\n👤 <b>Customer:</b> ".T::e($order->email).($order->phone ? ' (+'.T::e($order->phone).')' : '').
-            "\n⏳ <i>Customer is waiting at 85%: Tap below to Approve or Decline:</i>",
-            [
+        $notifySubmitted = function () use ($order, $payment, $approveUrl, $rejectUrl): void {
+            $this->telegram->notifyAdmin(
+                "🔔💰 <b>NEW PAYMENT TO VERIFY (85% Hold)</b>\n".
+                "━━━━━━━━━━━━━━━━━━\n".
+                "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
+                $order->items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
+                '🏭 <b>Supplier:</b> '.T::e($order->adminSupplierSummary(true))."\n".
+                '💳 <b>Method:</b> '.T::e($order->paymentMethod?->name)."\n".
+                "💵 <b>Amount:</b> <b>{$payment->currency} {$payment->amount}</b> (Rs {$order->total})\n".
+                '🔑 <b>TID:</b> <code>'.T::e($payment->transaction_id).'</code>'.
+                ($payment->sender_number ? "\n📱 <b>Sender:</b> ".T::e($payment->sender_number) : '').
+                (filled($order->customer_input) ? "\n📝 <b>Activation Data:</b> <code>".T::e($order->customer_input).'</code>' : '').
+                "\n👤 <b>Customer:</b> ".T::e($order->email).($order->phone ? ' (+'.T::e($order->phone).')' : '').
+                "\n⏳ <i>Customer is waiting at 85%: Tap below to Approve or Decline:</i>",
                 [
-                    ['text' => '✅ Approve & Deliver', 'callback_data' => "approve:{$payment->id}"],
-                    ['text' => '❌ Decline Payment', 'callback_data' => "reject:{$payment->id}"],
-                ],
-            ]
-        );
+                    [
+                        ['text' => '✅ Approve & Deliver', 'callback_data' => "approve:{$payment->id}"],
+                        ['text' => '❌ Decline Payment', 'callback_data' => "reject:{$payment->id}"],
+                    ],
+                ]
+            );
 
-        app(WhatsAppNotifier::class)->notifyAdminPayment($order, $payment, $approveUrl, $rejectUrl);
+            app(WhatsAppNotifier::class)->notifyAdminPayment($order, $payment, $approveUrl, $rejectUrl);
+        };
+
+        if (app()->runningUnitTests()) {
+            $notifySubmitted();
+        } else {
+            defer($notifySubmitted);
+        }
 
         return $payment;
     }

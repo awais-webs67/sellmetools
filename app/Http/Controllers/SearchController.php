@@ -19,6 +19,10 @@ class SearchController extends Controller
 
     public function __invoke(Request $request): JsonResponse
     {
+        if ($request->boolean('catalog')) {
+            return response()->json(self::instantCatalog())->header('Cache-Control', 'public, max-age=120');
+        }
+
         $term = Str::of((string) $request->query('q', ''))->squish()->limit(60, '')->lower()->toString();
 
         if (mb_strlen($term) < 1) {
@@ -48,7 +52,7 @@ class SearchController extends Controller
                     ->orderByDesc('is_featured')
                     ->orderByDesc('sold_count')
                     ->limit(150)
-                    ->get(['id', 'name', 'slug', 'image', 'price', 'is_free', 'category_id', 'available_stock', 'stock_unlimited', 'short_description']);
+                    ->get(['id', 'name', 'slug', 'image', 'price', 'is_free', 'category_id', 'available_stock', 'stock_unlimited']);
 
                 $categories = Category::query()
                     ->where('is_active', true)

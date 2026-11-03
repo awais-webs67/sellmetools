@@ -89,7 +89,12 @@ class OrderService
                 'reserved_supplier_qty' => 0,
             ]);
 
-            $this->inventory->refresh($locked);
+            if ($locked->available_stock !== $stock['qty'] || $locked->stock_unlimited !== $stock['unlimited']) {
+                $locked->forceFill([
+                    'available_stock' => $stock['qty'],
+                    'stock_unlimited' => $stock['unlimited'],
+                ])->saveQuietly();
+            }
 
             return $order;
         });

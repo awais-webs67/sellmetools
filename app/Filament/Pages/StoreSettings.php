@@ -726,7 +726,11 @@ class StoreSettings extends Page
 
                 continue; // empty = keep the currently saved password
             }
-            $val = isset($raw[$key]) ? trim((string) $raw[$key]) : null;
+            $rawVal = $raw[$key] ?? null;
+            if (is_array($rawVal)) {
+                $rawVal = reset($rawVal) ?: '';
+            }
+            $val = $rawVal !== null ? trim((string) $rawVal) : null;
             if ($key === 'telegram_bot_token' && $val !== null && $val !== '') {
                 $val = TelegramNotifier::cleanToken($val);
                 $this->data['telegram_bot_token'] = $val;

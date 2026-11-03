@@ -201,6 +201,10 @@ class Product extends Model
         }
         $checked = true;
 
+        if (! app()->runningUnitTests() && is_file(storage_path('framework/schema_v5_ready.flag'))) {
+            return;
+        }
+
         try {
             if (! Schema::hasColumn('products', 'is_free')) {
                 Schema::table('products', function (Blueprint $table): void {
@@ -356,12 +360,17 @@ class Product extends Model
      */
     public function adminSupplierSummary(bool $withCost = false): string
     {
+        static $matchedByName = [];
+
         $this->loadMissing(['activeSources.supplier', 'sources.supplier']);
 
         $sources = $this->activeSources->isNotEmpty() ? $this->activeSources : $this->sources;
 
         if ($sources->isEmpty() && filled($this->name)) {
-            $matchedSp = SupplierProduct::with('supplier')->where('name', $this->name)->first();
+            if (! array_key_exists($this->name, $matchedByName)) {
+                $matchedByName[$this->name] = SupplierProduct::with('supplier')->where('name', $this->name)->first();
+            }
+            $matchedSp = $matchedByName[$this->name];
             if ($matchedSp) {
                 $sources = collect([$matchedSp]);
             }

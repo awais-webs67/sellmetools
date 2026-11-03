@@ -90,12 +90,13 @@ class PricingTest extends TestCase
             'short_description' => 'YOU WILL RECEIVE A CAPCUT PRO TEAM PLAN 1 MONTH READY-MADE ACCOUNT.',
         ]);
 
-        // Out-of-stock supplier product has 0 price and is NOT marked as free unless is_free is true
-        $this->assertSame(0.0, (float) $product->price);
+        // Out-of-stock supplier product retains its computed selling price (Rs 550) and is NOT marked as free unless is_free is true
+        $this->assertSame(550.0, (float) $product->price);
         $this->assertFalse($product->isFree());
         $this->assertSame('CapCut', $product->brandName());
         $this->assertStringNotContainsString('YOU WILL RECEIVE', $product->seoDescription());
         $this->assertStringContainsString('You will receive a capcut pro team plan', $product->seoDescription());
+        $product->forceFill(['price' => 0])->saveQuietly();
         $this->assertStringNotContainsString('Rs 0', $product->fresh()->seoDescription());
 
         $this->get(route('llms'))

@@ -32,6 +32,10 @@ class AccountAndSearchTest extends TestCase
 
         $this->getJson(route('search.suggest', ['q' => 'c']))
             ->assertOk()
+            ->assertJsonCount(2, 'products');
+
+        $this->getJson(route('search.suggest', ['q' => '']))
+            ->assertOk()
             ->assertJsonCount(0, 'products');
     }
 

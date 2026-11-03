@@ -11,8 +11,18 @@ use Illuminate\View\View;
 
 class ProductController extends Controller
 {
+    private const CARD_COLUMNS = [
+        'id', 'category_id', 'name', 'slug', 'short_description', 'image',
+        'price', 'compare_at_price', 'available_stock', 'stock_unlimited',
+        'is_active', 'is_featured', 'is_free', 'sold_count',
+    ];
+
     public function index(Request $request): View
     {
+        if ($request->user()?->is_reseller) {
+            $request->user()->loadMissing('resellerProductPrices');
+        }
+
         $categories = $this->activeCategories();
 
         $activeCategory = $request->filled('category')
@@ -32,6 +42,10 @@ class ProductController extends Controller
 
     public function shop(Request $request): View
     {
+        if ($request->user()?->is_reseller) {
+            $request->user()->loadMissing('resellerProductPrices');
+        }
+
         $categories = $this->activeCategories();
 
         $activeCategory = $request->filled('category')
@@ -54,6 +68,10 @@ class ProductController extends Controller
     public function category(Request $request, Category $category): View
     {
         abort_unless($category->is_active, 404);
+
+        if ($request->user()?->is_reseller) {
+            $request->user()->loadMissing('resellerProductPrices');
+        }
 
         $categories = $this->activeCategories();
 
@@ -87,8 +105,9 @@ class ProductController extends Controller
             ->values();
 
         $query = Product::query()
+            ->select(self::CARD_COLUMNS)
             ->visible()
-            ->with('category')
+            ->with('category:id,name,slug')
             ->withCount('approvedReviews')
             ->withAvg('approvedReviews', 'rating')
             ->when($activeCategory, fn ($q) => $q->where('category_id', $activeCategory->id))
@@ -120,15 +139,21 @@ class ProductController extends Controller
         };
     }
 
-    public function show(Product $product): View
+    public function show(Request $request, Product $product): View
     {
         abort_unless($product->is_active, 404);
+
+        if ($request->user()?->is_reseller) {
+            $request->user()->loadMissing('resellerProductPrices');
+        }
 
         $product->load(['category', 'approvedReviews'])->loadCount('approvedReviews')->loadAvg('approvedReviews', 'rating');
 
         $related = Product::query()
+            ->select(self::CARD_COLUMNS)
             ->visible()
             ->whereKeyNot($product->id)
+            ->with('category:id,name,slug')
             ->withCount('approvedReviews')
             ->withAvg('approvedReviews', 'rating')
             ->when($product->category_id, fn ($q) => $q->where('category_id', $product->category_id))

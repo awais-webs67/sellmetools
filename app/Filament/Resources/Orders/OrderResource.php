@@ -60,18 +60,35 @@ class OrderResource extends Resource
         return ['number', 'email', 'phone'];
     }
 
+    protected static ?array $navBadgeCache = null;
+
+    protected static function navBadgeData(): array
+    {
+        if (self::$navBadgeCache !== null) {
+            return self::$navBadgeCache;
+        }
+
+        $row = static::getModel()::query()
+            ->whereIn('status', [OrderStatus::PaymentReview, OrderStatus::NeedsAttention])
+            ->selectRaw('COUNT(*) as total, SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as attention', [OrderStatus::NeedsAttention->value])
+            ->first();
+
+        return self::$navBadgeCache = [
+            'total' => (int) ($row->total ?? 0),
+            'attention' => (int) ($row->attention ?? 0),
+        ];
+    }
+
     public static function getNavigationBadge(): ?string
     {
-        $count = static::getModel()::query()
-            ->whereIn('status', [OrderStatus::PaymentReview, OrderStatus::NeedsAttention])
-            ->count();
+        $total = self::navBadgeData()['total'];
 
-        return $count > 0 ? (string) $count : null;
+        return $total > 0 ? (string) $total : null;
     }
 
     public static function getNavigationBadgeColor(): ?string
     {
-        return static::getModel()::query()->where('status', OrderStatus::NeedsAttention)->exists() ? 'danger' : 'warning';
+        return self::navBadgeData()['attention'] > 0 ? 'danger' : 'warning';
     }
 
     public static function getNavigationBadgeTooltip(): ?string

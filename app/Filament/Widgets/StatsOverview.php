@@ -30,16 +30,19 @@ class StatsOverview extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        $today = Order::query()
+        $todayAgg = Order::query()
             ->whereIn('status', self::PAID_STATUSES)
-            ->where('paid_at', '>=', now()->startOfDay());
+            ->where('paid_at', '>=', now()->startOfDay())
+            ->selectRaw('
+                COUNT(*) as orders_count,
+                COALESCE(SUM(total), 0) as sales_sum,
+                COALESCE(SUM(CASE WHEN total_cost IS NOT NULL THEN total - total_cost ELSE 0 END), 0) as profit_sum
+            ')
+            ->first();
 
-        $sales = (float) (clone $today)->sum('total');
-        $orders = (clone $today)->count();
-        $profit = (float) (clone $today)
-            ->whereNotNull('total_cost')
-            ->selectRaw('COALESCE(SUM(total - total_cost), 0) as profit')
-            ->value('profit');
+        $sales = (float) ($todayAgg->sales_sum ?? 0);
+        $orders = (int) ($todayAgg->orders_count ?? 0);
+        $profit = (float) ($todayAgg->profit_sum ?? 0);
 
         $pendingPayments = Payment::query()->where('status', PaymentStatus::Pending)->count();
         $attention = Order::query()->where('status', OrderStatus::NeedsAttention)->count();

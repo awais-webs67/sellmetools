@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Serves public uploaded images directly from storage/app/public without needing
@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class MediaController extends Controller
 {
-    public function __invoke(string $path): StreamedResponse
+    public function __invoke(string $path): BinaryFileResponse
     {
         $path = ltrim(str_replace(['..', '\\'], ['', '/'], $path), '/');
         $disk = Storage::disk('public');
@@ -25,7 +25,7 @@ class MediaController extends Controller
             }
         }
 
-        return $disk->response($path, null, [
+        return response()->file($disk->path($path), [
             'Cache-Control' => 'public, max-age=31536000, immutable',
         ]);
     }
