@@ -80,7 +80,7 @@
         </h3>
 
         <div class="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted">
-            <span class="truncate">{{ $product->short_description ?: ($product->category?->name ? $product->category->name.' · Instant Delivery' : 'Instant Delivery · PKR Checkout') }}</span>
+            <span class="truncate">{{ $product->cleanShortDescription() ?: ($product->category?->name ? $product->category->name.' · Instant Delivery' : 'Instant Delivery · PKR Checkout') }}</span>
             @if ($reviewCount > 0 && $rating)
                 <span class="shrink-0 font-semibold text-ink">
                     <span class="text-[#f59e0b]">★</span> {{ number_format((float) $rating, 1) }}

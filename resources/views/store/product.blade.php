@@ -245,7 +245,7 @@
 
                     <h1 class="mt-3 text-2xl sm:text-3xl font-bold text-ink leading-tight break-words">{{ $product->name }}</h1>
                     @if ($product->short_description)
-                        <p class="mt-2 text-xs sm:text-sm text-body leading-relaxed">{{ $product->short_description }}</p>
+                        <p class="mt-2 text-xs sm:text-sm text-body leading-relaxed">{{ $product->cleanShortDescription() }}</p>
                     @endif
 
                     {{-- Live Price & Stock Status Bar --}}
@@ -328,7 +328,7 @@
                     <h2 class="display text-2xl sm:text-3xl">Product Overview &amp; Delivery Guide</h2>
                     @if ($product->description)
                         @php
-                            $rawDesc = (string) $product->description;
+                            $rawDesc = $product->cleanDescriptionText();
                             $hasHtmlTags = $rawDesc !== strip_tags($rawDesc);
                         @endphp
                         <div class="prose-store mt-3 text-xs sm:text-sm break-words leading-relaxed text-body">
