@@ -75,6 +75,10 @@
                             <span class="text-muted">Product</span>
                             <span class="font-bold text-ink text-right">{{ $itemsSummary }}</span>
                         </div>
+                        <div class="col-span-2 flex items-center justify-between border-b border-line pb-2.5">
+                            <span class="text-muted">🏭 Supplier / Source</span>
+                            <span class="rounded bg-ink px-2 py-0.5 font-mono text-[11px] font-bold text-white text-right">{{ $order->adminSupplierSummary(true) }}</span>
+                        </div>
                         <div>
                             <span class="block text-[10px] uppercase text-muted">Amount</span>
                             <span class="display text-xl text-ink">{{ money($order->total) }}</span>

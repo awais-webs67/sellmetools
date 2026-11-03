@@ -351,6 +351,35 @@ class Product extends Model
     }
 
     /**
+     * Admin-only helper: returns which Supplier (or Own Stock / Manual mode) fulfills this product.
+     * Never called on customer-facing views.
+     */
+    public function adminSupplierSummary(bool $withCost = false): string
+    {
+        $this->loadMissing('activeSources.supplier');
+
+        if ($this->activeSources->isNotEmpty()) {
+            return $this->activeSources->map(function (SupplierProduct $sp) use ($withCost): string {
+                $supName = $sp->supplier?->name ?? 'Supplier';
+                if (! $withCost) {
+                    return $supName;
+                }
+                $pkrCost = number_format($sp->costPkr(), 0);
+                $usdCost = number_format((float) $sp->cost, 2);
+
+                return "{$supName} (Rs {$pkrCost} / \${$usdCost})";
+            })->unique()->implode(' + ');
+        }
+
+        return match ($this->delivery_type ?: 'auto') {
+            'manual_admin' => 'Admin Manual Delivery',
+            'whatsapp_handover' => 'WhatsApp Handover',
+            'instant_link' => 'Instant Link Vault',
+            default => 'Own Stock (.TXT)',
+        };
+    }
+
+    /**
      * True when the product has the Free Product tag enabled (`is_free = true`).
      */
     public function isFree(?User $user = null): bool

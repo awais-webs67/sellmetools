@@ -113,11 +113,16 @@ class OrderInfolist
                         RepeatableEntry::make('items')
                             ->hiddenLabel()
                             ->schema([
-                                Grid::make(['default' => 2, 'sm' => 5])->schema([
+                                Grid::make(['default' => 2, 'sm' => 6])->schema([
                                     TextEntry::make('product_name')
                                         ->label('Product')
                                         ->weight('bold')
                                         ->columnSpan(['default' => 2, 'sm' => 2]),
+                                    TextEntry::make('supplier_source')
+                                        ->label('🏭 Supplier / Source')
+                                        ->badge()
+                                        ->color('info')
+                                        ->state(fn (OrderItem $record): string => $record->product?->adminSupplierSummary(true) ?? 'Own / Manual'),
                                     TextEntry::make('unit_price')
                                         ->label('Unit Price')
                                         ->formatStateUsing(fn ($state): string => Money::pkr($state)),

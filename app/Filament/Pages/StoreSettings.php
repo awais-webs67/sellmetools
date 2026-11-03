@@ -141,6 +141,33 @@ class StoreSettings extends Page
         }
 
         return [
+            Action::make('toggleTelegramBotShop')
+                ->label(fn (): string => (string) Setting::get('telegram_store_bot_enabled', '1') === '1'
+                    ? '🟢 Bot Shop: ON (Click to Turn OFF)'
+                    : '🔴 Bot Shop: OFF (Click to Turn ON)')
+                ->color(fn (): string => (string) Setting::get('telegram_store_bot_enabled', '1') === '1' ? 'success' : 'gray')
+                ->action(function (): void {
+                    $currentlyOn = (string) Setting::get('telegram_store_bot_enabled', '1') === '1';
+                    $newState = $currentlyOn ? '0' : '1';
+                    Setting::set('telegram_store_bot_enabled', $newState);
+                    if (is_array($this->data)) {
+                        $this->data['telegram_store_bot_enabled'] = $newState === '1';
+                    }
+
+                    if ($newState === '1') {
+                        Notification::make()
+                            ->title('🟢 Telegram Bot Shop Turned ON!')
+                            ->body('Customers can now browse products and buy directly inside your Telegram Bot.')
+                            ->success()
+                            ->send();
+                    } else {
+                        Notification::make()
+                            ->title('🔴 Telegram Bot Shop Turned OFF!')
+                            ->body('Customer Bot Shop is paused. Admin order notifications & 1-Tap Approve/Decline buttons in Telegram will continue working normally!')
+                            ->warning()
+                            ->send();
+                    }
+                }),
             Action::make('downloadBackupHeader')
                 ->label('📥 Download SQL Backup')
                 ->icon(Heroicon::OutlinedArrowDownTray)

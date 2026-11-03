@@ -58,6 +58,23 @@ class Order extends Model
         return null;
     }
 
+    /**
+     * Admin-only helper: summarizes the supplier/source for all items in this order.
+     * Never called on customer-facing views.
+     */
+    public function adminSupplierSummary(bool $withCost = false): string
+    {
+        $this->loadMissing('items.product.activeSources.supplier');
+
+        $sources = $this->items
+            ->map(fn (OrderItem $item): string => $item->product ? $item->product->adminSupplierSummary($withCost) : 'Own / Manual')
+            ->filter()
+            ->unique()
+            ->values();
+
+        return $sources->isNotEmpty() ? $sources->implode(', ') : 'Own Stock (.TXT)';
+    }
+
     public static function generateNumber(): string
     {
         do {

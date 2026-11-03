@@ -32,7 +32,7 @@ class OrdersTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['items', 'paymentMethod', 'latestPayment']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['items.product.activeSources.supplier', 'paymentMethod', 'latestPayment']))
             ->defaultSort('created_at', 'desc')
             ->paginated([10, 25, 50, 100])
             ->defaultPaginationPageOption(25)
@@ -51,13 +51,18 @@ class OrdersTable
                     ->copyable()
                     ->description(fn (Order $record): ?string => trim(($record->customer_name ? $record->customer_name.' · ' : '').($record->phone ?? ''), ' ·') ?: null),
                 TextColumn::make('items_summary')
-                    ->label('Products')
+                    ->label('Products & Supplier')
                     ->state(fn (Order $record): string => $record->items
                         ->map(fn (OrderItem $item): string => "{$item->quantity}× {$item->product_name}")
                         ->implode(', '))
-                    ->description(fn (Order $record): ?string => filled($record->customer_input)
-                        ? '📝 Customer Data: '.mb_strimwidth((string) $record->customer_input, 0, 55, '…')
-                        : null)
+                    ->description(function (Order $record): ?string {
+                        $parts = ['🏭 '.$record->adminSupplierSummary(false)];
+                        if (filled($record->customer_input)) {
+                            $parts[] = '📝 '.mb_strimwidth((string) $record->customer_input, 0, 45, '…');
+                        }
+
+                        return implode(' · ', $parts);
+                    })
                     ->limit(48)
                     ->wrap(),
                 TextColumn::make('total')

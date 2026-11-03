@@ -4,19 +4,23 @@ namespace App\Http\Controllers;
 
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
+use App\Exceptions\StoreException;
 use App\Models\Category;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\Setting;
 use App\Services\AutoPaymentVerifier;
 use App\Services\FulfillmentService;
+use App\Services\OrderService;
 use App\Services\PaymentService;
 use App\Services\TelegramNotifier;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Str;
 use Throwable;
@@ -87,11 +91,25 @@ class PaymentWebhookController extends Controller
     {
         $botEnabled = (string) Setting::get('telegram_store_bot_enabled', '1') === '1';
 
-        // Handle customer text messages (/start, /shop, product search, or Order ID lookup)
+        // Handle customer text messages (/start, /shop, product search, TID submission, or Order ID lookup)
         $message = $request->input('message');
-        if (is_array($message) && $botEnabled) {
+        if (is_array($message)) {
             try {
-                $this->handleStoreBotMessage($message, $telegram);
+                if ($botEnabled) {
+                    $this->handleStoreBotMessage($message, $telegram, $payments);
+                } else {
+                    $token = TelegramNotifier::cleanToken((string) Setting::get('telegram_bot_token', ''));
+                    $chatId = (string) ($message['chat']['id'] ?? '');
+                    $adminChatId = trim((string) Setting::get('telegram_admin_chat_id', ''));
+                    if ($token !== '' && $chatId !== '' && $chatId !== $adminChatId) {
+                        $telegram->send(
+                            $token,
+                            $chatId,
+                            "⏸️ <b>Telegram Bot Shop is Currently Paused</b>\nYou can browse all tools and order with instant delivery on our official website:",
+                            [[['text' => '🛍️ Open Official Store', 'url' => route('shop')]]]
+                        );
+                    }
+                }
             } catch (Throwable $e) {
                 report($e);
             }
@@ -109,10 +127,14 @@ class PaymentWebhookController extends Controller
         $chatId = (string) ($callback['message']['chat']['id'] ?? '');
         $messageId = (int) ($callback['message']['message_id'] ?? 0);
 
-        // Handle customer Store Bot navigation callbacks (store:home, store:list:*, store:prod:*)
-        if (str_starts_with($data, 'store:') && $botEnabled) {
+        // Handle customer Store Bot navigation & buying callbacks (store:*)
+        if (str_starts_with($data, 'store:')) {
             try {
-                $this->handleStoreBotCallback($callbackId, $chatId, $messageId, $data, $telegram);
+                if ($botEnabled) {
+                    $this->handleStoreBotCallback($callback, $callbackId, $chatId, $messageId, $data, $telegram, $payments);
+                } else {
+                    $telegram->answerCallback($callbackId, 'Telegram Bot Shop is currently paused. Please order on our website.', true);
+                }
             } catch (Throwable $e) {
                 report($e);
             }
@@ -405,9 +427,9 @@ class PaymentWebhookController extends Controller
 
     /**
      * Handles incoming text messages to the Live Synchronized Supplier-Style Telegram Store Bot.
-     * Displays products directly with tool icons, live prices, stock, persistent bottom buttons, and commands.
+     * Supports browsing products, direct in-bot TID payment submission, searching, and order tracking.
      */
-    private function handleStoreBotMessage(array $message, TelegramNotifier $telegram): void
+    private function handleStoreBotMessage(array $message, TelegramNotifier $telegram, PaymentService $payments): void
     {
         $token = TelegramNotifier::cleanToken((string) Setting::get('telegram_bot_token', ''));
         $chatId = (string) ($message['chat']['id'] ?? '');
@@ -423,7 +445,7 @@ class PaymentWebhookController extends Controller
         // 1. /start -> Pin persistent bottom keyboard buttons AND show Direct Products List with Tool Icons
         if (in_array($lower, ['/start', '/menu', '/help', 'hi', 'hello', 'salam', 'assalam o alaikum'], true) || str_starts_with($lower, '/start ')) {
             $welcomeBar = "👋 <b>Welcome to {$storeName} Official Bot!</b>\n"
-                ."⚡ Direct Supplier Bot — Live Stock &amp; Instant Delivery.\n"
+                ."⚡ Direct Supplier Bot — Buy right inside Telegram with Binance, Easypaisa, or JazzCash!\n"
                 ."👇 Use the menu buttons at the bottom or tap any product below:";
             $telegram->send($token, $chatId, $welcomeBar, null, TelegramNotifier::bottomMenuKeyboard());
 
@@ -451,6 +473,7 @@ class PaymentWebhookController extends Controller
 
         // 4. Search Prompt (/search or bottom button "🔍 Search Product")
         if ($lower === '/search' || str_contains($lower, 'search product')) {
+            Cache::forget("tg_pending_order:{$chatId}");
             $telegram->send(
                 $token,
                 $chatId,
@@ -476,12 +499,16 @@ class PaymentWebhookController extends Controller
 
         // 6. Visit Website (bottom button "🌐 Visit Website")
         if (in_array($lower, ['/web', '/website'], true) || str_contains($lower, 'visit website')) {
+            $shopUrl = route('shop');
+            $isHttps = Str::startsWith($shopUrl, 'https://');
             $telegram->send(
                 $token,
                 $chatId,
-                "🌐 <b>{$storeName} Official Website</b>\nBrowse all products, pay via Binance USDT or Pakistani Wallets (Easypaisa / JazzCash), and access your instant credentials vault:",
+                "🌐 <b>{$storeName} Official Store &amp; Mini App</b>\nOpen our store directly inside Telegram as a Mini App or in your browser:",
                 [
-                    [['text' => '🛍️ Open Full Web Store', 'url' => route('shop')]],
+                    [$isHttps
+                        ? ['text' => '📱 Open Store Mini App (In-Telegram)', 'web_app' => ['url' => $shopUrl]]
+                        : ['text' => '🛍️ Open Full Web Store', 'url' => $shopUrl]],
                     [['text' => '🔑 Customer Account & Order Vault', 'url' => route('account.orders')]],
                     [['text' => '🧾 Track Order', 'url' => route('orders.track')]],
                 ]
@@ -514,7 +541,69 @@ class PaymentWebhookController extends Controller
             return;
         }
 
-        // 8. Order ID Lookup (e.g., SMT-XXXXXX)
+        // 8. Check if Customer is submitting a Transaction ID (TID) for a pending In-Bot Order!
+        $pendingOrderId = Cache::get("tg_pending_order:{$chatId}");
+        if ($pendingOrderId) {
+            $pendingOrder = Order::with(['items.product', 'paymentMethod'])->find($pendingOrderId);
+            if ($pendingOrder && $pendingOrder->status === OrderStatus::PendingPayment && ! $pendingOrder->isExpired()) {
+                $normalizedTid = PaymentService::normalizeTid($text);
+                // If input looks like a Transaction ID (alphanumeric >= 5 chars or digits) and not a short product search word
+                if (strlen($normalizedTid) >= 5 && preg_match('/\d/', $normalizedTid) && ! preg_match('/^SMT-[A-Z0-9]+$/i', $text)) {
+                    try {
+                        // Save optional activation info if customer wrote "TID | email@gmail.com"
+                        if (str_contains($text, '|') || str_contains($text, ' ')) {
+                            if (preg_match('/([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/', $text, $emMatch)) {
+                                $pendingOrder->update(['customer_input' => $emMatch[1], 'email' => $emMatch[1]]);
+                                $tidOnly = trim(str_replace($emMatch[1], '', $text), " |,-:\t\n\r");
+                                if (strlen(PaymentService::normalizeTid($tidOnly)) >= 4) {
+                                    $text = $tidOnly;
+                                }
+                            }
+                        }
+
+                        $payment = $payments->submit($pendingOrder, $text, 'Telegram:'.$chatId);
+                        Cache::forget("tg_pending_order:{$chatId}");
+
+                        $pendingOrder->refresh()->load('items.deliveries');
+                        if ($pendingOrder->status === OrderStatus::Completed) {
+                            return; // FulfillmentService already sent the delivered credentials to Telegram!
+                        }
+
+                        $telegram->send(
+                            $token,
+                            $chatId,
+                            "✅ <b>Payment Submitted Successfully!</b>\n"
+                            ."━━━━━━━━━━━━━━━━━━\n"
+                            ."🧾 <b>Order ID:</b> <code>{$pendingOrder->number}</code>\n"
+                            ."🔑 <b>TID:</b> <code>".TelegramNotifier::e($payment->transaction_id)."</code>\n"
+                            ."⏳ <b>Status:</b> Admin is verifying your payment.\n\n"
+                            ."🚀 <i>As soon as your payment is verified, your login credentials will be sent right here in this Telegram chat automatically!</i>",
+                            [
+                                [['text' => '🧾 View Live Order Page', 'url' => $pendingOrder->customerUrl()]],
+                                [['text' => '🛍️ Browse More Products', 'callback_data' => 'store:list:1:all']],
+                            ]
+                        );
+
+                        return;
+                    } catch (StoreException $e) {
+                        $telegram->send(
+                            $token,
+                            $chatId,
+                            "⚠️ <b>Could Not Submit TID for Order {$pendingOrder->number}:</b>\n".TelegramNotifier::e($e->getMessage())."\n\nPlease send your valid Transaction ID (TID) again, or tap Cancel below:",
+                            [
+                                [['text' => '❌ Cancel In-Bot Payment', 'callback_data' => "store:cancel:{$pendingOrder->id}"]],
+                            ]
+                        );
+
+                        return;
+                    }
+                }
+            } else {
+                Cache::forget("tg_pending_order:{$chatId}");
+            }
+        }
+
+        // 9. Order ID Lookup (e.g., SMT-XXXXXX)
         if (preg_match('/\b(SMT-[A-Z0-9]{4,12})\b/i', $text, $m)) {
             $orderNum = strtoupper($m[1]);
             $order = Order::with('items')->where('number', $orderNum)->first();
@@ -541,7 +630,7 @@ class PaymentWebhookController extends Controller
             return;
         }
 
-        // 9. Live Product Search by Keyword
+        // 10. Live Product Search by Keyword
         $like = '%'.addcslashes($text, '%_').'%';
         $products = Product::query()
             ->where('is_active', true)
@@ -572,9 +661,9 @@ class PaymentWebhookController extends Controller
     }
 
     /**
-     * Handles inline button taps for the Supplier-Style Telegram Store Bot.
+     * Handles inline button taps for the Supplier-Style Telegram Store Bot (including Direct In-Bot Buying!).
      */
-    private function handleStoreBotCallback(string $callbackId, string $chatId, int $messageId, string $data, TelegramNotifier $telegram): void
+    private function handleStoreBotCallback(array $callback, string $callbackId, string $chatId, int $messageId, string $data, TelegramNotifier $telegram, PaymentService $payments): void
     {
         if ($data === 'store:noop') {
             $telegram->answerCallback($callbackId, 'Current page', false);
@@ -584,12 +673,144 @@ class PaymentWebhookController extends Controller
 
         $telegram->answerCallback($callbackId, 'Loading...', false);
 
+        // Cancel pending in-bot order
+        if (preg_match('/^store:cancel:(\d+)$/', $data, $m)) {
+            Cache::forget("tg_pending_order:{$chatId}");
+            $order = Order::find((int) $m[1]);
+            if ($order && $order->status === OrderStatus::PendingPayment) {
+                app(OrderService::class)->release($order, OrderStatus::Cancelled);
+            }
+            [$html, $keyboard] = $this->buildProductsCatalog(1, 'all', '✅ Order cancelled. Browse all products below:');
+            $telegram->editMessage($chatId, $messageId, $html, $keyboard);
+
+            return;
+        }
+
         // store:home or store:list:{page}:{filter}
         if ($data === 'store:home' || preg_match('/^store:list:(\d+):(all|instock)$/', $data, $m)) {
             $page = isset($m[1]) ? max(1, (int) $m[1]) : 1;
             $filter = $m[2] ?? 'all';
             [$html, $keyboard] = $this->buildProductsCatalog($page, $filter);
             $telegram->editMessage($chatId, $messageId, $html, $keyboard);
+
+            return;
+        }
+
+        // STEP 1 OF IN-BOT BUYING: Choose Payment Method inside Telegram (store:buy:{prodId}:{page}:{filter})
+        if (preg_match('/^store:buy:(\d+)(?::(\d+):(all|instock))?$/', $data, $m)) {
+            $productId = (int) $m[1];
+            $backPage = isset($m[2]) ? max(1, (int) $m[2]) : 1;
+            $backFilter = $m[3] ?? 'all';
+
+            $prod = Product::with('category')->where('is_active', true)->find($productId);
+            if (! $prod || ! $prod->inStock()) {
+                [$html, $keyboard] = $this->buildProductsCatalog($backPage, $backFilter, '⚠️ Sorry, that product is currently out of stock.');
+                $telegram->editMessage($chatId, $messageId, $html, $keyboard);
+
+                return;
+            }
+
+            $methods = PaymentMethod::query()->where('is_active', true)->orderBy('sort')->get();
+            $icon = $this->productIcon($prod);
+            $priceText = $prod->is_free ? '🎁 FREE (0 PKR)' : money($prod->price).' (≈ '.money_usd($prod->price).' USDT)';
+
+            $html = "🛒 <b>Buy Directly in Bot: {$icon} ".TelegramNotifier::e($prod->name)."</b>\n"
+                ."━━━━━━━━━━━━━━━━━━━━\n"
+                ."💰 <b>Price:</b> {$priceText}\n\n"
+                ."👇 <b>Select your Payment Method below</b> to get payment account details right here in Telegram:";
+
+            $keyboard = [];
+            foreach ($methods as $method) {
+                $currTag = $method->currency === 'USDT' ? '₮ USDT' : '🇵🇰 PKR';
+                $keyboard[] = [[
+                    'text' => "💳 {$method->name} ({$currTag})",
+                    'callback_data' => "store:pay:{$prod->id}:{$method->id}",
+                ]];
+            }
+
+            $checkoutUrl = route('checkout.create', $prod->slug);
+            if (Str::startsWith($checkoutUrl, 'https://')) {
+                $keyboard[] = [[
+                    'text' => '📱 Or Open Checkout Mini App',
+                    'web_app' => ['url' => $checkoutUrl],
+                ]];
+            }
+
+            $keyboard[] = [[
+                'text' => '⬅️ Back to Product',
+                'callback_data' => "store:prod:{$prod->id}:{$backPage}:{$backFilter}",
+            ]];
+
+            $telegram->editMessage($chatId, $messageId, $html, $keyboard);
+
+            return;
+        }
+
+        // STEP 2 OF IN-BOT BUYING: Create Order & Show Binance / Wallet Account Details (store:pay:{prodId}:{methodId})
+        if (preg_match('/^store:pay:(\d+):(\d+)$/', $data, $m)) {
+            $productId = (int) $m[1];
+            $methodId = (int) $m[2];
+
+            $prod = Product::where('is_active', true)->find($productId);
+            $method = PaymentMethod::where('is_active', true)->find($methodId);
+
+            if (! $prod || ! $method || ! $prod->inStock()) {
+                [$html, $keyboard] = $this->buildProductsCatalog(1, 'all', '⚠️ Product or payment method unavailable.');
+                $telegram->editMessage($chatId, $messageId, $html, $keyboard);
+
+                return;
+            }
+
+            $fromUser = $callback['from'] ?? [];
+            $customerName = trim(($fromUser['first_name'] ?? 'Telegram').' '.($fromUser['last_name'] ?? 'Customer'));
+            $customerUsername = ! empty($fromUser['username']) ? '@'.$fromUser['username'] : $chatId;
+            $customerEmail = "tg_{$chatId}@telegram.sellmetools.com";
+
+            try {
+                $order = app(OrderService::class)->create($prod, 1, [
+                    'name' => "{$customerName} ({$customerUsername})",
+                    'email' => $customerEmail,
+                    'phone' => null,
+                ], $method);
+
+                Cache::put("tg_order_chat:{$order->id}", $chatId, now()->addDays(30));
+
+                if ($prod->is_free || (float) $order->total <= 0) {
+                    $payments->completeFreeOrder($order);
+
+                    return;
+                }
+
+                Cache::put("tg_pending_order:{$chatId}", $order->id, now()->addHours(2));
+
+                $amountDue = $method->amountFor($order);
+                $amountFormatted = $method->currency !== 'PKR' ? "{$amountDue} {$method->currency}" : money($amountDue);
+                $accLabel = $method->code === 'binance' ? 'Binance Pay ID' : ($method->code === 'usdt_trc20' ? 'USDT (TRC20) Address' : "{$method->name} Account");
+                $activationPrompt = $prod->customer_input_label;
+
+                $html = "🧾 <b>Order Created: <code>{$order->number}</code></b>\n"
+                    ."━━━━━━━━━━━━━━━━━━━━\n"
+                    ."📦 <b>Product:</b> ".TelegramNotifier::e($prod->name)."\n"
+                    ."💳 <b>Gateway:</b> ".TelegramNotifier::e($method->name)."\n\n"
+                    ."1️⃣ <b>STEP 1 — Send Exact Payment:</b>\n"
+                    ."💰 <b>Amount to Send:</b> <code>{$amountDue}</code> (<b>{$amountFormatted}</b>)\n"
+                    .($method->account_number ? "🏦 <b>{$accLabel} (Tap to Copy):</b>\n<code>".TelegramNotifier::e($method->account_number)."</code>\n" : '')
+                    .($method->account_title ? '👤 <b>Account Title:</b> '.TelegramNotifier::e($method->account_title)."\n" : '')
+                    .($method->instructions ? 'ℹ️ <i>'.TelegramNotifier::e($method->instructions)."</i>\n" : '')
+                    ."\n2️⃣ <b>STEP 2 — Send Your Transaction ID (TID):</b>\n"
+                    ."👉 <b>Just type and send your Transaction ID (TID / Binance Order ID) right here in this chat!</b>\n"
+                    .($activationPrompt ? "📝 <i>Note: Also include your email for activation (e.g. <code>849201948 your@email.com</code>)</i>\n" : '')
+                    ."\n⚡ <i>Once verified, your credentials will be delivered right here in this chat automatically!</i>";
+
+                $keyboard = [
+                    [['text' => '🌐 Or Upload Screenshot on Order Page', 'url' => $order->customerUrl()]],
+                    [['text' => '❌ Cancel Order', 'callback_data' => "store:cancel:{$order->id}"]],
+                ];
+
+                $telegram->editMessage($chatId, $messageId, $html, $keyboard);
+            } catch (Throwable $e) {
+                $telegram->answerCallback($callbackId, 'Error: '.$e->getMessage(), true);
+            }
 
             return;
         }
@@ -626,9 +847,22 @@ class PaymentWebhookController extends Controller
             $keyboard = [];
             if ($prod->inStock()) {
                 $keyboard[] = [[
-                    'text' => '🛒 Buy Now (Instant Delivery) — '.($prod->is_free ? 'FREE' : money($prod->price)),
-                    'url' => route('checkout.create', $prod->slug),
+                    'text' => '⚡ Buy Here in Bot (Binance / PKR) — '.($prod->is_free ? 'FREE' : money($prod->price)),
+                    'callback_data' => "store:buy:{$prod->id}:{$backPage}:{$backFilter}",
                 ]];
+
+                $checkoutUrl = route('checkout.create', $prod->slug);
+                if (Str::startsWith($checkoutUrl, 'https://')) {
+                    $keyboard[] = [[
+                        'text' => '📱 Open Checkout Mini App (In-Telegram)',
+                        'web_app' => ['url' => $checkoutUrl],
+                    ]];
+                } else {
+                    $keyboard[] = [[
+                        'text' => '🛒 Buy on Website Checkout',
+                        'url' => $checkoutUrl,
+                    ]];
+                }
             }
 
             $wa = admin_whatsapp_number();
@@ -639,11 +873,6 @@ class PaymentWebhookController extends Controller
                     'url' => "https://wa.me/{$wa}?text={$waText}",
                 ]];
             }
-
-            $keyboard[] = [[
-                'text' => '🌐 View on Website',
-                'url' => route('products.show', $prod->slug),
-            ]];
 
             $keyboard[] = [[
                 'text' => '⬅️ Back to Products List',
@@ -726,8 +955,11 @@ class PaymentWebhookController extends Controller
             ['text' => '🔄 Refresh Stock', 'callback_data' => "store:list:{$page}:{$filter}"],
         ];
 
+        $shopUrl = route('shop');
         $keyboard[] = [
-            ['text' => '🌐 Open Website Store', 'url' => route('shop')],
+            Str::startsWith($shopUrl, 'https://')
+                ? ['text' => '📱 Open Store Mini App', 'web_app' => ['url' => $shopUrl]]
+                : ['text' => '🌐 Open Website Store', 'url' => $shopUrl],
             ['text' => '🧾 Track Order', 'url' => route('orders.track')],
         ];
 

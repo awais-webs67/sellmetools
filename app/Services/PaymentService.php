@@ -78,12 +78,13 @@ class PaymentService
             return $payment;
         });
 
-        $order->refresh()->load(['items', 'paymentMethod']);
+        $order->refresh()->load(['items.product.activeSources.supplier', 'paymentMethod']);
         $this->telegram->notifyAdmin(
             "👛✨ <b>INSTANT WALLET PAYMENT CONFIRMED!</b>\n".
             "━━━━━━━━━━━━━━━━━━\n".
             "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
             $order->items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
+            '🏭 <b>Supplier:</b> '.T::e($order->adminSupplierSummary(true))."\n".
             "💵 <b>Paid:</b> <b>PKR {$payment->amount}</b> (Wallet Balance)\n".
             '👤 <b>Customer:</b> '.T::e($user->email).($user->is_reseller ? ' 🌟 <b>[VIP RESELLER]</b>' : '')
         );
@@ -213,6 +214,7 @@ class PaymentService
             "━━━━━━━━━━━━━━━━━━\n".
             "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
             $order->items->map(fn ($i) => '📦 '.T::e($i->product_name)." × {$i->quantity}")->implode("\n")."\n".
+            '🏭 <b>Supplier:</b> '.T::e($order->adminSupplierSummary(true))."\n".
             '💳 <b>Method:</b> '.T::e($order->paymentMethod?->name)."\n".
             "💵 <b>Amount:</b> <b>{$payment->currency} {$payment->amount}</b> (Rs {$order->total})\n".
             '🔑 <b>TID:</b> <code>'.T::e($payment->transaction_id).'</code>'.
