@@ -155,6 +155,11 @@ class SupplierSyncService
                 "Balance: <b>{$balance} {$supplier->currency}</b>\n".
                 'Please top up to keep auto-delivery running.'
             );
+            app(WhatsAppNotifier::class)->notifyAdminLowSupplierBalance(
+                (string) $supplier->name,
+                $balance,
+                (string) $supplier->currency
+            );
         } elseif (! $low) {
             $supplier->balance_alerted_at = null;
         }

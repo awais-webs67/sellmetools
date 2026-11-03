@@ -81,6 +81,7 @@ class InventoryService
     /** Updates the denormalised stock snapshot used by the storefront / live polling. */
     public function refresh(Product $product): void
     {
+        $wasInStock = $product->inStock();
         $stock = $this->calculate($product);
 
         $product->fill([
@@ -91,6 +92,46 @@ class InventoryService
         if ($product->isDirty(['available_stock', 'stock_unlimited'])) {
             $product->saveQuietly();
         }
+
+        $nowInStock = $product->inStock();
+        $alertKey = "out_of_stock_alerted:{$product->id}";
+
+        if ($nowInStock) {
+            \Illuminate\Support\Facades\Cache::forget($alertKey);
+        } elseif ($wasInStock && ! $nowInStock && $product->is_active && ! app()->runningUnitTests()) {
+            if (! \Illuminate\Support\Facades\Cache::has($alertKey)) {
+                \Illuminate\Support\Facades\Cache::put($alertKey, true, now()->addDays(7));
+                $this->dispatchOutOfStockAlert($product);
+            }
+        }
+    }
+
+    protected function dispatchOutOfStockAlert(Product $product): void
+    {
+        $sendAlert = function () use ($product): void {
+            try {
+                $supplierSummary = $product->adminSupplierSummary(true);
+                $priceText = money($product->price);
+                $adminProductsUrl = url('/admin/products');
+
+                app(TelegramNotifier::class)->notifyAdmin(
+                    "🚨📦 <b>OUT OF STOCK ALERT!</b>\n".
+                    "━━━━━━━━━━━━━━━━━━\n".
+                    '📦 <b>Product:</b> '.TelegramNotifier::e($product->name)."\n".
+                    '🏭 <b>Supplier / Source:</b> '.TelegramNotifier::e($supplierSummary)."\n".
+                    "📉 <b>Current Stock:</b> <b>0 (Sold Out)</b>\n".
+                    '💰 <b>Price:</b> '.TelegramNotifier::e($priceText)."\n".
+                    "━━━━━━━━━━━━━━━━━━\n".
+                    "⚠️ Please restock .TXT vault or check supplier stock in <a href=\"{$adminProductsUrl}\">Admin Panel</a>."
+                );
+
+                app(WhatsAppNotifier::class)->notifyAdminOutOfStock($product, $supplierSummary);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        };
+
+        defer($sendAlert);
     }
 
     public function refreshMany(iterable $products): void

@@ -417,23 +417,37 @@
                 </div>
 
                 @if ($product->approvedReviews->isNotEmpty())
-                    <div class="mt-4 divide-y divide-line">
-                        @foreach ($product->approvedReviews->take(8) as $rev)
-                            <div class="py-3.5 first:pt-0">
-                                <div class="flex items-center justify-between gap-2">
-                                    <div class="flex items-center gap-2">
-                                        <div class="flex h-7 w-7 items-center justify-center rounded-full bg-brand-tint text-xs font-bold text-brand uppercase">
-                                            {{ mb_substr($rev->customer_name, 0, 1) }}
+                    <div x-data="{ showAllReviews: false }">
+                        <div class="mt-4 divide-y divide-line">
+                            @foreach ($product->approvedReviews->take(50) as $revIndex => $rev)
+                                <div class="py-3.5 first:pt-0" @if ($revIndex >= 8) x-show="showAllReviews" x-cloak @endif>
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="flex items-center gap-2">
+                                            <div class="flex h-7 w-7 items-center justify-center rounded-full bg-brand-tint text-xs font-bold text-brand uppercase">
+                                                {{ mb_substr($rev->customer_name, 0, 1) }}
+                                            </div>
+                                            <p class="text-xs sm:text-sm font-semibold text-ink">{{ $rev->customer_name }}</p>
+                                            <span class="rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">Verified Buyer</span>
                                         </div>
-                                        <p class="text-xs sm:text-sm font-semibold text-ink">{{ $rev->customer_name }}</p>
+                                        <span class="text-xs text-amber-500">{{ str_repeat('★', $rev->rating) }}{{ str_repeat('☆', 5 - $rev->rating) }}</span>
                                     </div>
-                                    <span class="text-xs text-amber-500">{{ str_repeat('★', $rev->rating) }}{{ str_repeat('☆', 5 - $rev->rating) }}</span>
+                                    @if ($rev->comment)
+                                        <p class="mt-2 text-xs sm:text-sm text-body break-words pl-9">{{ $rev->comment }}</p>
+                                    @endif
                                 </div>
-                                @if ($rev->comment)
-                                    <p class="mt-2 text-xs sm:text-sm text-body break-words pl-9">{{ $rev->comment }}</p>
-                                @endif
+                            @endforeach
+                        </div>
+
+                        @if ($product->approvedReviews->count() > 8)
+                            <div class="mt-4 pt-2 text-center">
+                                <button type="button"
+                                        @click="showAllReviews = !showAllReviews"
+                                        class="btn btn-outline w-full sm:w-auto px-5 py-2 text-xs font-bold">
+                                    <span x-show="!showAllReviews">Show All {{ $reviewsCount }} Verified Reviews ↓</span>
+                                    <span x-show="showAllReviews" x-cloak>Show Less Reviews ↑</span>
+                                </button>
                             </div>
-                        @endforeach
+                        @endif
                     </div>
                 @else
                     <div class="mt-6 rounded-xl bg-grey-soft p-6 text-center text-xs sm:text-sm text-muted">

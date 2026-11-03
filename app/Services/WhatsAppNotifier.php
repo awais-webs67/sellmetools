@@ -217,6 +217,127 @@ class WhatsAppNotifier
         }
     }
 
+    /**
+     * 4. Product / Supplier Stock Depleted (0 Stock Alert to Admin on WhatsApp & ntfy)
+     */
+    public function notifyAdminOutOfStock(\App\Models\Product $product, ?string $supplierSummary = null): void
+    {
+        $adminPhone = admin_whatsapp_number();
+        $greenId = trim((string) Setting::get('greenapi_instance_id', ''));
+        $greenToken = trim((string) Setting::get('greenapi_api_token', ''));
+        $ntfyTopic = trim((string) Setting::get('ntfy_topic', ''));
+        $callMeBotKey = trim((string) Setting::get('whatsapp_callmebot_apikey', ''));
+        $webhookUrl = trim((string) Setting::get('whatsapp_admin_webhook_url', ''));
+
+        $supplierSummary = $supplierSummary ?: $product->adminSupplierSummary(true);
+        $adminProductsUrl = url('/admin/products');
+        $priceText = money($product->price);
+
+        $message = "🚨📦 *OUT OF STOCK ALERT!*\n"
+            ."━━━━━━━━━━━━━━━━━━\n"
+            ."📦 *Product:* {$product->name}\n"
+            ."🏭 *Supplier / Source:* {$supplierSummary}\n"
+            ."📉 *Current Stock:* 0 (Sold Out)\n"
+            ."💰 *Price:* {$priceText}\n"
+            ."━━━━━━━━━━━━━━━━━━\n"
+            ."⚠️ Please restock .TXT vault or check supplier stock in Admin Panel:\n{$adminProductsUrl}";
+
+        if ($greenId !== '' && $greenToken !== '' && $adminPhone !== '') {
+            $this->sendGreenApi($greenId, $greenToken, $adminPhone, $message);
+        }
+
+        if ($ntfyTopic !== '') {
+            try {
+                Http::timeout(5)
+                    ->withHeaders([
+                        'Title' => "🚨 Out of Stock: {$product->name}",
+                        'Priority' => 'high',
+                        'Tags' => 'package,warning',
+                        'Click' => $adminProductsUrl,
+                    ])
+                    ->withBody(
+                        "📦 {$product->name} is now SOLD OUT (0 Stock)!\n🏭 Supplier: {$supplierSummary}\n💰 Price: {$priceText}",
+                        'text/plain'
+                    )
+                    ->post('https://ntfy.sh/'.urlencode($ntfyTopic));
+            } catch (Throwable) {
+            }
+        }
+
+        if ($callMeBotKey !== '' && $adminPhone !== '') {
+            try {
+                Http::timeout(5)->get('https://api.callmebot.com/whatsapp.php', [
+                    'phone' => $adminPhone,
+                    'text' => $message,
+                    'apikey' => $callMeBotKey,
+                ]);
+            } catch (Throwable) {
+            }
+        }
+
+        if ($webhookUrl !== '') {
+            try {
+                Http::timeout(5)->post($webhookUrl, [
+                    'phone' => $adminPhone,
+                    'event' => 'out_of_stock',
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'supplier' => $supplierSummary,
+                    'message' => $message,
+                ]);
+            } catch (Throwable) {
+            }
+        }
+    }
+
+    /**
+     * 5. Supplier Balance Low Alert to Admin on WhatsApp & ntfy
+     */
+    public function notifyAdminLowSupplierBalance(string $supplierName, float $balance, string $currency): void
+    {
+        $adminPhone = admin_whatsapp_number();
+        $greenId = trim((string) Setting::get('greenapi_instance_id', ''));
+        $greenToken = trim((string) Setting::get('greenapi_api_token', ''));
+        $ntfyTopic = trim((string) Setting::get('ntfy_topic', ''));
+        $callMeBotKey = trim((string) Setting::get('whatsapp_callmebot_apikey', ''));
+
+        $message = "⚠️💳 *LOW SUPPLIER BALANCE ALERT*\n"
+            ."━━━━━━━━━━━━━━━━━━\n"
+            ."🏭 *Supplier:* {$supplierName}\n"
+            ."💰 *Remaining Balance:* {$balance} {$currency}\n"
+            ."━━━━━━━━━━━━━━━━━━\n"
+            .'Please top up your supplier balance to keep auto-delivery running smoothly.';
+
+        if ($greenId !== '' && $greenToken !== '' && $adminPhone !== '') {
+            $this->sendGreenApi($greenId, $greenToken, $adminPhone, $message);
+        }
+
+        if ($ntfyTopic !== '') {
+            try {
+                Http::timeout(5)
+                    ->withHeaders([
+                        'Title' => "⚠️ Low Supplier Balance: {$supplierName} ({$balance} {$currency})",
+                        'Priority' => 'high',
+                        'Tags' => 'warning,credit_card',
+                    ])
+                    ->withBody($message, 'text/plain')
+                    ->post('https://ntfy.sh/'.urlencode($ntfyTopic));
+            } catch (Throwable) {
+            }
+        }
+
+        if ($callMeBotKey !== '' && $adminPhone !== '') {
+            try {
+                Http::timeout(5)->get('https://api.callmebot.com/whatsapp.php', [
+                    'phone' => $adminPhone,
+                    'text' => $message,
+                    'apikey' => $callMeBotKey,
+                ]);
+            } catch (Throwable) {
+            }
+        }
+    }
+
     public function sendGreenApi(string $instanceId, string $apiToken, string $phoneDigits, string $message): bool
     {
         try {

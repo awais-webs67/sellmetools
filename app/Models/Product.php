@@ -620,16 +620,17 @@ class Product extends Model
     }
 
     /**
-     * Ensures this product has at least 2 approved reviews so Google Rich Snippet stars (`AggregateRating` + `Review`)
+     * Ensures this product has 25+ to 40+ approved reviews so Google Rich Snippet stars (`AggregateRating` + `Review`)
      * and storefront ratings are active.
      */
     public function ensureInitialReviewsSeeded(): void
     {
         try {
-            if (! Schema::hasTable('reviews') || $this->reviews()->exists()) {
+            if (! Schema::hasTable('reviews') || $this->reviews()->count() >= 25) {
                 return;
             }
 
+            $this->reviews()->whereNull('order_id')->whereNull('user_id')->delete();
             Review::insert(static::buildInitialReviewRowsFor($this->id, (string) $this->name));
         } catch (\Throwable $e) {
             report($e);
@@ -637,7 +638,8 @@ class Product extends Model
     }
 
     /**
-     * One-time idempotent batch seed of verified initial reviews for any active product that currently has 0 reviews.
+     * One-time idempotent batch seed of 26 to 42 verified reviews per product (mostly Pakistani names,
+     * some Indian names, and a few Australian names, unique per product).
      */
     public static function seedInitialReviewsOnce(): void
     {
@@ -645,7 +647,7 @@ class Product extends Model
             return;
         }
 
-        $flagFile = storage_path('framework/reviews_v1_seeded.flag');
+        $flagFile = storage_path('framework/reviews_v2_seeded.flag');
         if (is_file($flagFile)) {
             return;
         }
@@ -657,24 +659,38 @@ class Product extends Model
                 return;
             }
 
-            $productsWithoutReviews = static::query()
+            $allProducts = static::withTrashed()
                 ->select(['id', 'name'])
-                ->where('is_active', true)
-                ->whereDoesntHave('reviews')
+                ->withCount('reviews')
                 ->get();
 
-            if ($productsWithoutReviews->isEmpty()) {
+            if ($allProducts->isEmpty()) {
                 return;
             }
 
+            $productIdsToSeed = $allProducts
+                ->filter(fn (Product $p) => (int) $p->reviews_count < 25)
+                ->pluck('id')
+                ->all();
+
+            if ($productIdsToSeed === []) {
+                return;
+            }
+
+            Review::query()
+                ->whereIn('product_id', $productIdsToSeed)
+                ->whereNull('order_id')
+                ->whereNull('user_id')
+                ->delete();
+
             $rows = [];
-            foreach ($productsWithoutReviews as $prod) {
+            foreach ($allProducts->whereIn('id', $productIdsToSeed) as $prod) {
                 foreach (static::buildInitialReviewRowsFor((int) $prod->id, (string) $prod->name) as $row) {
                     $rows[] = $row;
                 }
             }
 
-            foreach (array_chunk($rows, 100) as $chunk) {
+            foreach (array_chunk($rows, 200) as $chunk) {
                 Review::insert($chunk);
             }
         } catch (\Throwable $e) {
@@ -683,82 +699,154 @@ class Product extends Model
     }
 
     /**
+     * Builds 26 to 42 unique, realistic reviews for a product (~73% Pakistani, ~18% Indian, ~9% Australian names).
+     *
      * @return array<int, array<string, mixed>>
      */
     protected static function buildInitialReviewRowsFor(int $productId, string $productName): array
     {
-        $names = [
-            'Usman Tariq', 'Hamza Siddiqui', 'Zainab Ali', 'Bilal Ahmed',
-            'Ahsan Raza', 'Saad Mahmood', 'Fatima Noor', 'Daniyal Khan',
-            'Omer Farooq', 'Ayesha Malik', 'Hassan Javed', 'Kamran Sheikh',
-            'Talha Nadeem', 'Mahnoor Shah', 'Salman Qureshi', 'Haris Mehmood',
+        $pkFirst = [
+            'Usman', 'Hamza', 'Zainab', 'Bilal', 'Ahsan', 'Saad', 'Fatima', 'Daniyal',
+            'Omer', 'Ayesha', 'Hassan', 'Kamran', 'Talha', 'Mahnoor', 'Salman', 'Haris',
+            'Zohaib', 'Waqas', 'Hira', 'Shahzaib', 'Fahad', 'Adeel', 'Sana', 'Mubashir',
+            'Arslan', 'Noman', 'Kashif', 'Maryam', 'Taimoor', 'Awais', 'Shoaib', 'Yasir',
+            'Nida', 'Junaid', 'Huzaifa', 'Ammar', 'Ubaid', 'Rizwan', 'Faisal', 'Zeeshan',
+            'Iqra', 'Areeba', 'Komal', 'Rabia', 'Sufyan', 'Furqan', 'Moiz', 'Waleed',
+            'Shehryar', 'Umair', 'Asad', 'Babar', 'Haider', 'Sikandar', 'Subhan', 'Rehan',
+            'Abdullah', 'Atif', 'Imran', 'Sohail', 'Irfan', 'Tahir', 'Naved', 'Khurram',
+        ];
+        $pkLast = [
+            'Tariq', 'Siddiqui', 'Ali', 'Ahmed', 'Raza', 'Mahmood', 'Noor', 'Khan',
+            'Farooq', 'Malik', 'Javed', 'Sheikh', 'Nadeem', 'Shah', 'Qureshi', 'Mehmood',
+            'Butt', 'Chaudhry', 'Baig', 'Mirza', 'Abbasi', 'Gillani', 'Lodhi', 'Iqbal',
+            'Bajwa', 'Afridi', 'Khattak', 'Pasha', 'Hashmi', 'Gondal', 'Leghari', 'Niaz',
+            'Kazmi', 'Durrani', 'Warraich', 'Cheema', 'Randhawa', 'Ansari', 'Syed', 'Bukhari',
+            'Chishti', 'Mughal', 'Rajput', 'Awan', 'Satti', 'Kiani', 'Jadoon', 'Marwat',
+            'Bangash', 'Mengal', 'Jamali', 'Soomro', 'Kakar',
         ];
 
-        $templatesA = [
+        $inFirst = [
+            'Rohan', 'Priya', 'Arjun', 'Ananya', 'Vikram', 'Neha', 'Karan', 'Siddharth',
+            'Pooja', 'Rahul', 'Aakash', 'Divya', 'Aditya', 'Sneha', 'Varun', 'Kritika',
+            'Nikhil', 'Shreya', 'Gaurav', 'Tanvi', 'Harsh', 'Meera', 'Pranav', 'Riya',
+            'Abhishek', 'Ishita', 'Manish', 'Kavya', 'Vivek', 'Nandini', 'Deepak', 'Swati',
+        ];
+        $inLast = [
+            'Sharma', 'Patel', 'Verma', 'Nair', 'Singh', 'Gupta', 'Malhotra', 'Joshi',
+            'Iyer', 'Deshmukh', 'Mehta', 'Reddy', 'Rao', 'Kulkarni', 'Chatterjee', 'Bhatia',
+            'Kapoor', 'Agarwal', 'Banerjee', 'Tiwari', 'Pandey', 'Sinha', 'Chawla', 'Chopra',
+            'Ahuja', 'Pillai', 'Menon', 'Hegde', 'Saxena',
+        ];
+
+        $auFirst = [
+            'Liam', 'Chloe', 'Lachlan', 'Jack', 'Olivia', 'Ethan', 'Cooper', 'Zoe',
+            'Noah', 'Charlotte', 'Lucas', 'Mia', 'Mason', 'Ruby', 'Hunter', 'Sienna',
+            'Harrison', 'Matilda',
+        ];
+        $auLast = [
+            'Mitchell', 'Thompson', 'Anderson', 'Campbell', 'Kelly', 'Williams', 'Robinson',
+            'Wilson', 'Taylor', 'Martin', 'Walker', 'Roberts', 'Turner', 'Stewart',
+            'Edwards', 'Collins', 'Morris', 'Murphy', 'Cook',
+        ];
+
+        $pkTemplates = [
             "Got my {$productName} credentials right after Easypaisa verification. Working smoothly without any issue!",
             "Instant delivery on the order tracking page and genuine {$productName} access. Best price in Pakistan.",
             "Super fast activation for {$productName}. Paid via JazzCash and received the details within minutes.",
             "100% legit {$productName} subscription. Smooth checkout and very responsive WhatsApp support team.",
+            "Bohat zabardast service hai, Easypaisa se payment ki aur foran {$productName} ke credentials mil gaye. Highly recommended!",
+            "Great value for money. Using {$productName} daily for my freelance work and everything works as promised.",
+            "Paid via NayaPay and my {$productName} account unlocked on the order page right away. Best digital store in PK!",
+            "Second time buying {$productName} from SellMeTools. Zero downtime and genuine subscription access.",
+            "SadaPay se checkout kiya tha, 2 minute ke andar {$productName} deliver ho gaya. Full five stars!",
+            "Very affordable price compared to official dollar rates. My {$productName} plan activated cleanly on the first try.",
+            "Honestly the most reliable website in Pakistan for digital tools. {$productName} is working flawlessly.",
+            "Clean dashboard delivery and clear instructions included with {$productName}. Will definitely renew next month.",
+            "Raast bank transfer ke baad TID lagaya aur foran {$productName} unlock ho gaya. Super smooth experience!",
+            "Been using {$productName} for over a week now without a single issue. Genuine access and fast support.",
+            "Price bhi munasib hai aur delivery bhi instant hai. {$productName} bilkul original chal raha hai.",
+            "Bought {$productName} for my university project. Activated in under 3 minutes via JazzCash. Thank you!",
+            "Everything works exactly as described on the product page. {$productName} credentials popped up right after verification.",
+            "Trusted seller! I was hesitant at first, but {$productName} delivered instantly and works 100% fine.",
+            "Best platform for Pakistani freelancers. Saved so much money on {$productName} and got instant delivery.",
+            "Customer support on WhatsApp guided me politely and my {$productName} subscription is running great.",
+            "Order page par popup mein hi {$productName} ka login mil gaya, copy kiya aur seedha chal gaya. Amazing UI!",
+            "No credit card hassle, simple Easypaisa checkout and instant {$productName} access. Love this store!",
+            "Third purchase on SellMeTools this month. {$productName} works like a charm on my laptop and phone.",
+            "Fastest delivery I have seen for {$productName}. Credentials are saved in my account history too.",
         ];
 
-        $templatesB = [
-            "Great value for money. Using {$productName} daily and everything works as promised with full warranty.",
-            "Paid with Binance USDT and got instant access to {$productName} in my account vault. Highly recommended!",
-            "Reliable service as always on SellMeTools. My {$productName} plan activated cleanly on the first try.",
-            "Very affordable price compared to official rates and delivery was super quick via NayaPay.",
+        $globalTemplates = [
+            "Paid with Binance Pay USDT and received my {$productName} access details almost immediately. Great service!",
+            "Smooth USDT checkout and instant automated delivery on the order page. {$productName} works as advertised.",
+            "Very competitive pricing on {$productName}. Activated without any trouble and support is super helpful.",
+            "Genuine {$productName} subscription at a fraction of the retail price. Instant crypto checkout worked seamlessly.",
+            "Quick delivery and clear activation guide. My {$productName} plan has been running smoothly since day one.",
+            "Awesome digital store! Paid via Binance USDT and got the {$productName} credentials in my order vault right away.",
+            "Reliable and transparent. The {$productName} subscription activated on the first attempt with zero issues.",
+            "Great experience ordering {$productName}. Instant credential popup made it very easy to copy and log in.",
         ];
 
-        $templatesC = [
-            "Second time renewing {$productName} from here. Zero downtime and genuine subscription access.",
-            "Clean dashboard delivery and helpful instructions included with {$productName}. Five stars!",
-        ];
-
-        $nCount = count($names);
-        $name1 = $names[($productId * 3) % $nCount];
-        $name2 = $names[($productId * 3 + 5) % $nCount];
-        $name3 = $names[($productId * 3 + 11) % $nCount];
-
-        $comment1 = $templatesA[$productId % count($templatesA)];
-        $comment2 = $templatesB[($productId + 1) % count($templatesB)];
-        $comment3 = $templatesC[$productId % count($templatesC)];
-
+        // Between 26 and 42 reviews per product (deterministic per productId)
+        $targetCount = 26 + (($productId * 7) % 17);
+        $usedNames = [];
+        $rows = [];
         $now = now();
-        $rows = [
-            [
-                'product_id' => $productId,
-                'order_id' => null,
-                'user_id' => null,
-                'customer_name' => $name1,
-                'rating' => 5,
-                'comment' => $comment1,
-                'is_approved' => true,
-                'created_at' => $now->copy()->subDays(($productId % 14) + 5),
-                'updated_at' => $now->copy()->subDays(($productId % 14) + 5),
-            ],
-            [
-                'product_id' => $productId,
-                'order_id' => null,
-                'user_id' => null,
-                'customer_name' => $name2,
-                'rating' => 5,
-                'comment' => $comment2,
-                'is_approved' => true,
-                'created_at' => $now->copy()->subDays(($productId % 5) + 1),
-                'updated_at' => $now->copy()->subDays(($productId % 5) + 1),
-            ],
-        ];
 
-        if ($productId % 2 === 0) {
+        $pkFCount = count($pkFirst);
+        $pkLCount = count($pkLast);
+        $inFCount = count($inFirst);
+        $inLCount = count($inLast);
+        $auFCount = count($auFirst);
+        $auLCount = count($auLast);
+        $pkTCount = count($pkTemplates);
+        $glTCount = count($globalTemplates);
+
+        for ($i = 0; $i < $targetCount; $i++) {
+            $mod = ($i + ($productId % 3)) % 11;
+            $isGlobal = in_array($mod, [5, 8, 10], true);
+
+            $attempt = 0;
+            do {
+                $seedA = $productId * 37 + $i * 13 + $attempt * 7;
+                $seedB = $productId * 59 + $i * 19 + $attempt * 11;
+
+                if ($mod === 10) {
+                    // Australian (~9%)
+                    $name = $auFirst[$seedA % $auFCount].' '.$auLast[$seedB % $auLCount];
+                } elseif ($mod === 5 || $mod === 8) {
+                    // Indian (~18%)
+                    $name = $inFirst[$seedA % $inFCount].' '.$inLast[$seedB % $inLCount];
+                } else {
+                    // Pakistani (~73%)
+                    $name = $pkFirst[$seedA % $pkFCount].' '.$pkLast[$seedB % $pkLCount];
+                }
+                $attempt++;
+            } while (isset($usedNames[$name]) && $attempt < 30);
+
+            $usedNames[$name] = true;
+
+            if ($isGlobal) {
+                $comment = $globalTemplates[($productId * 5 + $i * 3) % $glTCount];
+            } else {
+                $comment = $pkTemplates[($productId * 11 + $i * 7) % $pkTCount];
+            }
+
+            // ~86% 5-star, ~14% 4-star -> realistic 4.8 - 4.9 average rating
+            $rating = (($productId + $i * 3) % 7 === 4) ? 4 : 5;
+            $daysAgo = (($productId * 3 + $i * 2) % 45) + 1;
+            $ts = $now->copy()->subDays($daysAgo)->subHours(($productId + $i) % 23);
+
             $rows[] = [
                 'product_id' => $productId,
                 'order_id' => null,
                 'user_id' => null,
-                'customer_name' => $name3,
-                'rating' => ($productId % 4 === 0) ? 4 : 5,
-                'comment' => $comment3,
+                'customer_name' => $name,
+                'rating' => $rating,
+                'comment' => $comment,
                 'is_approved' => true,
-                'created_at' => $now->copy()->subDays(($productId % 9) + 2),
-                'updated_at' => $now->copy()->subDays(($productId % 9) + 2),
+                'created_at' => $ts,
+                'updated_at' => $ts,
             ];
         }
 
