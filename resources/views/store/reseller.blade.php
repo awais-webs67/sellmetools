@@ -301,8 +301,8 @@
                     </div>
 
                     <div id="reseller-results" class="mt-5" aria-live="polite">
-                        {{-- CARD GRID VIEW --}}
-                        <div x-show="viewMode === 'grid'" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {{-- CARD GRID VIEW (4 columns on desktop like main store, with full uncropped product image banner) --}}
+                        <div x-show="viewMode === 'grid'" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                             @forelse ($products as $product)
                                 @php
                                     $retail = (float) $product->price;
@@ -311,76 +311,97 @@
                                     $savingPct = $retail > 0 && $saving > 0 ? round(($saving / $retail) * 100) : 0;
                                     $isInStock = $product->inStock();
                                     $walletBal = (float) $reseller->wallet_balance;
+                                    $initials = \Illuminate\Support\Str::of($product->name)
+                                        ->explode(' ')
+                                        ->filter()
+                                        ->take(2)
+                                        ->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))
+                                        ->implode('');
                                 @endphp
-                                <div x-show="!onlyInStock || {{ $isInStock ? 'true' : 'false' }}"
-                                     x-data="{ qty: 1, max: {{ max(1, (int) $product->max_per_order) }}, unitPrice: {{ $wholesale }}, walletBal: {{ $walletBal }} }"
-                                     class="card flex flex-col justify-between p-4 sm:p-5 transition hover:border-line-strong hover:shadow-md">
+                                <article x-show="!onlyInStock || {{ $isInStock ? 'true' : 'false' }}"
+                                         x-data="{ qty: 1, max: {{ max(1, (int) $product->max_per_order) }}, unitPrice: {{ $wholesale }}, walletBal: {{ $walletBal }} }"
+                                         class="group card flex flex-col justify-between overflow-hidden transition duration-150 hover:-translate-y-0.5 hover:border-brand/45 hover:shadow-md">
                                     <div>
-                                        {{-- Product Header --}}
-                                        <div class="flex items-start justify-between gap-3">
-                                            <div class="flex items-center gap-3 min-w-0">
-                                                @if ($img = $product->imageUrl())
-                                                    <a href="{{ route('products.show', $product) }}" class="shrink-0">
-                                                        <img src="{{ $img }}" alt="{{ $product->imageSeoAlt() }}" width="48" height="48" loading="lazy" class="h-12 w-12 rounded-xl object-cover border border-line bg-grey-soft">
-                                                    </a>
-                                                @endif
-                                                <div class="min-w-0">
-                                                    <div class="flex flex-wrap items-center gap-1.5">
-                                                        <span class="text-[11px] font-semibold text-muted">{{ $product->category?->name ?? 'Digital Tool' }}</span>
-                                                        @if ($savingPct > 0)
-                                                            <span class="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">-{{ $savingPct }}% VIP</span>
-                                                        @endif
+                                        {{-- Full Uncropped Product Image Media Box (object-contain + ambient backdrop) --}}
+                                        <a href="{{ route('products.show', $product) }}" class="surface-dark-solid relative block h-36 sm:h-40 overflow-hidden">
+                                            @if ($img = $product->imageUrl())
+                                                <img src="{{ $img }}" alt="" width="40" height="25" loading="lazy" decoding="async" aria-hidden="true" class="pointer-events-none absolute inset-0 h-full w-full object-cover scale-110 opacity-35 blur-md {{ ! $isInStock ? 'grayscale' : '' }}">
+                                                <img src="{{ $img }}" alt="{{ $product->imageSeoAlt() }}" title="{{ $product->imageSeoTitle() }}" width="400" height="250" loading="lazy" decoding="async" class="relative z-10 h-full w-full object-contain p-1.5 transition duration-300 group-hover:scale-[1.03] {{ ! $isInStock ? 'grayscale opacity-65' : '' }}">
+                                            @else
+                                                <div class="surface-banner relative flex h-full w-full items-center gap-3 overflow-hidden px-4 text-white {{ ! $isInStock ? 'grayscale opacity-60' : '' }}">
+                                                    <div class="pointer-events-none absolute inset-0 opacity-15 [background-image:radial-gradient(rgba(255,255,255,0.55)_1px,transparent_1px)] [background-size:14px_14px]"></div>
+                                                    <div class="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/10 shadow-inner backdrop-blur-xs">
+                                                        <span class="display text-2xl tracking-wider text-white leading-none">{{ $initials }}</span>
                                                     </div>
-                                                    <h2 class="mt-0.5 text-sm sm:text-base font-bold text-ink leading-snug break-words">
-                                                        <a href="{{ route('products.show', $product) }}" class="hover:text-brand">{{ $product->name }}</a>
-                                                    </h2>
+                                                    <div class="relative min-w-0 flex-1">
+                                                        <span class="block truncate text-[10px] font-bold tracking-widest text-white/70 uppercase">
+                                                            {{ $product->category?->name ?? 'Digital Tool' }}
+                                                        </span>
+                                                        <span class="mt-0.5 block truncate text-[11px] font-medium text-white/80">
+                                                            Wholesale Partner Access
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            @endif
 
-                                            {{-- Live Stock Badge --}}
-                                            <div class="shrink-0">
-                                                @if ($isInStock)
-                                                    <span class="badge badge-success text-[10px]">
-                                                        <span class="dot bg-success live-dot"></span>
-                                                        {{ $product->stock_unlimited ? 'In Stock' : $product->available_stock.' left' }}
+                                            {{-- Top Overlay Badges (VIP Discount + Live Stock) --}}
+                                            <div class="absolute inset-x-2.5 top-2.5 z-20 flex items-center justify-between gap-1.5">
+                                                @if ($savingPct > 0)
+                                                    <span class="rounded bg-emerald-600 px-2 py-0.5 text-[10px] font-bold tracking-wide text-white shadow-xs">
+                                                        -{{ $savingPct }}% VIP
                                                     </span>
                                                 @else
-                                                    <span class="badge badge-danger text-[10px]">Out of Stock</span>
+                                                    <span class="rounded bg-black/65 backdrop-blur-xs border border-white/15 px-2 py-0.5 text-[10px] font-semibold text-white/95">
+                                                        Wholesale
+                                                    </span>
                                                 @endif
+
+                                                <span class="inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-0.5 text-[10px] font-bold shadow-xs backdrop-blur-xs {{ $isInStock ? 'text-success' : 'text-danger' }}">
+                                                    <span class="dot h-1.5 w-1.5 {{ $isInStock ? 'bg-success live-dot' : 'bg-danger' }}"></span>
+                                                    <span>{{ ! $isInStock ? 'Sold Out' : ($product->stock_unlimited ? 'In Stock' : $product->available_stock.' in stock') }}</span>
+                                                </span>
                                             </div>
-                                        </div>
+                                        </a>
 
-                                        {{-- Wholesale vs Retail Price Comparison Box --}}
-                                        <div class="mt-4 rounded-xl border border-line bg-grey-soft/80 p-3.5">
-                                            <div class="flex items-baseline justify-between gap-2">
-                                                <div>
-                                                    <span class="block text-[10px] font-bold uppercase tracking-wider text-muted">Your Wholesale Rate</span>
-                                                    <div class="mt-0.5 flex items-baseline gap-2">
-                                                        <span class="display text-2xl sm:text-3xl text-ink" x-text="$store.currency.format(unitPrice * qty)">
-                                                            {{ money($wholesale) }}
-                                                        </span>
-                                                        @if ($saving > 0)
-                                                            <span class="text-xs text-muted line-through" x-text="$store.currency.format({{ $retail }} * qty)">
-                                                                {{ money($retail) }}
+                                        {{-- Card Body --}}
+                                        <div class="p-3.5 sm:p-4 pb-0">
+                                            <span class="text-[11px] font-semibold text-muted">{{ $product->category?->name ?? 'Digital Tool' }}</span>
+                                            <h2 class="mt-0.5 line-clamp-1 text-sm sm:text-[15px] font-bold text-ink leading-snug" title="{{ $product->name }}">
+                                                <a href="{{ route('products.show', $product) }}" class="hover:text-brand">{{ $product->name }}</a>
+                                            </h2>
+
+                                            {{-- Wholesale vs Retail Price Comparison Box --}}
+                                            <div class="mt-3 rounded-xl border border-line bg-grey-soft/80 p-3">
+                                                <div class="flex items-baseline justify-between gap-2">
+                                                    <div>
+                                                        <span class="block text-[10px] font-bold uppercase tracking-wider text-muted">Your Wholesale Rate</span>
+                                                        <div class="mt-0.5 flex items-baseline gap-1.5">
+                                                            <span class="display text-2xl text-ink leading-none" x-text="$store.currency.format(unitPrice * qty)">
+                                                                {{ money($wholesale) }}
                                                             </span>
-                                                        @endif
+                                                            @if ($saving > 0)
+                                                                <span class="text-xs text-muted line-through" x-text="$store.currency.format({{ $retail }} * qty)">
+                                                                    {{ money($retail) }}
+                                                                </span>
+                                                            @endif
+                                                        </div>
                                                     </div>
-                                                </div>
 
-                                                @if ($saving > 0)
-                                                    <div class="text-right">
-                                                        <span class="block text-[10px] font-bold uppercase tracking-wider text-emerald-700">Your Profit</span>
-                                                        <span class="mt-0.5 inline-block rounded-md bg-emerald-100/80 px-2 py-0.5 text-xs font-bold text-emerald-800" x-text="'+' + $store.currency.format({{ $saving }} * qty)">
-                                                            +{{ money($saving) }}
-                                                        </span>
-                                                    </div>
-                                                @endif
+                                                    @if ($saving > 0)
+                                                        <div class="text-right">
+                                                            <span class="block text-[10px] font-bold uppercase tracking-wider text-emerald-700">Your Profit</span>
+                                                            <span class="mt-0.5 inline-block rounded-md bg-emerald-100/80 px-2 py-0.5 text-[11px] font-bold text-emerald-800" x-text="'+' + $store.currency.format({{ $saving }} * qty)">
+                                                                +{{ money($saving) }}
+                                                            </span>
+                                                        </div>
+                                                    @endif
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
 
                                     {{-- Quantity Selector & 1-Click Buy Actions --}}
-                                    <div class="mt-4 pt-3 border-t border-line space-y-2.5">
+                                    <div class="p-3.5 sm:p-4 pt-3 space-y-2">
                                         @if ($isInStock)
                                             <div class="flex items-center justify-between gap-2">
                                                 <span class="text-xs font-semibold text-muted">Quantity</span>
@@ -396,7 +417,7 @@
                                                       @submit="return confirm('Instant buy ' + qty + 'x {{ addslashes($product->name) }} for ' + $store.currency.format(unitPrice * qty) + ' from your Reseller Wallet?')">
                                                     @csrf
                                                     <input type="hidden" name="quantity" :value="qty">
-                                                    <button type="submit" class="btn btn-primary w-full py-2.5 text-xs sm:text-sm font-bold shadow-xs">
+                                                    <button type="submit" class="btn btn-primary w-full py-2 text-xs font-bold shadow-xs">
                                                         <span>⚡ 1-Click Wallet Buy</span>
                                                         <span class="opacity-90" x-text="'(' + $store.currency.format(unitPrice * qty) + ')'">({{ money($wholesale) }})</span>
                                                     </button>
@@ -404,20 +425,20 @@
                                             </template>
 
                                             <a :href="'{{ route('checkout.create', $product) }}?qty=' + qty"
-                                               :class="walletBal >= (unitPrice * qty) ? 'btn btn-outline w-full py-2 text-xs font-semibold' : 'btn btn-primary w-full py-2.5 text-xs sm:text-sm font-bold'"
+                                               :class="walletBal >= (unitPrice * qty) ? 'btn btn-outline w-full py-1.5 text-[11px] font-semibold' : 'btn btn-primary w-full py-2 text-xs font-bold'"
                                                class="block text-center">
-                                                <span x-show="walletBal >= (unitPrice * qty)">Or Checkout via Easypaisa / JazzCash / USDT →</span>
+                                                <span x-show="walletBal >= (unitPrice * qty)">Or Checkout via Other Gateways →</span>
                                                 <span x-show="walletBal < (unitPrice * qty)" x-cloak>
                                                     Buy at Wholesale (<span x-text="$store.currency.format(unitPrice * qty)">{{ money($wholesale) }}</span>) →
                                                 </span>
                                             </a>
                                         @else
-                                            <button disabled class="btn w-full bg-grey text-muted py-2.5 text-xs font-semibold cursor-not-allowed">
+                                            <button disabled class="btn w-full bg-grey text-muted py-2 text-xs font-semibold cursor-not-allowed">
                                                 Currently Out of Stock
                                             </button>
                                         @endif
                                     </div>
-                                </div>
+                                </article>
                             @empty
                                 <div class="card col-span-full p-10 text-center text-muted">
                                     No wholesale products found matching your search filter.
@@ -448,12 +469,24 @@
                                                 $savingPct = $retail > 0 && $saving > 0 ? round(($saving / $retail) * 100) : 0;
                                                 $isInStock = $product->inStock();
                                                 $canWalletBuy = $isInStock && (float) $reseller->wallet_balance >= $wholesale;
+                                                $initials = \Illuminate\Support\Str::of($product->name)
+                                                    ->explode(' ')
+                                                    ->filter()
+                                                    ->take(2)
+                                                    ->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))
+                                                    ->implode('');
                                             @endphp
                                             <tr x-show="!onlyInStock || {{ $isInStock ? 'true' : 'false' }}" class="hover:bg-grey-soft/60 transition">
                                                 <td class="py-3.5 pl-4 pr-3">
                                                     <div class="flex items-center gap-3">
                                                         @if ($img = $product->imageUrl())
-                                                            <img src="{{ $img }}" alt="{{ $product->imageSeoAlt() }}" width="38" height="38" loading="lazy" class="h-9 w-9 shrink-0 rounded-lg object-cover border border-line">
+                                                            <div class="surface-dark-solid h-10 w-16 shrink-0 overflow-hidden rounded-lg border border-line p-0.5">
+                                                                <img src="{{ $img }}" alt="{{ $product->imageSeoAlt() }}" width="64" height="40" loading="lazy" class="h-full w-full object-contain">
+                                                            </div>
+                                                        @else
+                                                            <div class="surface-banner flex h-10 w-16 shrink-0 items-center justify-center rounded-lg border border-line text-white">
+                                                                <span class="display text-sm tracking-wider">{{ $initials }}</span>
+                                                            </div>
                                                         @endif
                                                         <div>
                                                             <a href="{{ route('products.show', $product) }}" class="font-bold text-ink hover:text-brand">{{ $product->name }}</a>
