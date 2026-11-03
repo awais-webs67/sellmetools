@@ -19,7 +19,7 @@ class ProductSeoOptimizer
             return;
         }
 
-        $flagFile = storage_path('framework/product_seo_v2_synced.flag');
+        $flagFile = storage_path('framework/product_seo_v3_synced.flag');
         if (is_file($flagFile)) {
             return;
         }
@@ -51,7 +51,7 @@ class ProductSeoOptimizer
                     'description' => static::stripEmDashes($updates['description']),
                     'warranty' => static::stripEmDashes($updates['warranty']),
                     'meta_title' => static::stripEmDashes($customMetaTitle),
-                    'meta_description' => Str::limit(static::stripEmDashes($updates['meta_description']), 155, ''),
+                    'meta_description' => Str::limit(static::stripEmDashes($updates['meta_description']), 152, '...'),
                     'meta_keywords' => static::stripEmDashes($updates['meta_keywords']),
                 ])->saveQuietly();
             }
@@ -768,7 +768,11 @@ HTML;
 HTML;
 
             $metaTitle = Str::limit("Buy {$titleClean} | Best Price in Pakistan", 58, '');
-            $metaDesc = Str::limit($data['short'].' Instant delivery via Easypaisa, JazzCash & Binance USDT.', 154, '');
+            $shortClean = trim($data['short']);
+            $withSuffix = $shortClean.' Instant delivery in Pakistan & worldwide.';
+            $metaDesc = mb_strlen($withSuffix) <= 155
+                ? $withSuffix
+                : (mb_strlen($shortClean) <= 155 ? $shortClean : Str::limit($shortClean, 152, '...'));
 
             $formatted[$slug] = [
                 'short_description' => $data['short'],
