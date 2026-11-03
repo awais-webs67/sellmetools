@@ -222,10 +222,13 @@
         <span>✓ Real-time prices &amp; stock synced successfully!</span>
     </div>
 
-    <header x-data="{ open: false }" class="sticky top-0 z-40 border-b border-line bg-white/95 shadow-[0_1px_2px_rgba(0,0,0,.06)] backdrop-blur">
-        <div class="container-x flex h-16 items-center justify-between gap-2.5 sm:gap-3.5 xl:gap-5 lg:h-[74px]">
-            <a href="{{ route('home') }}" class="flex shrink-0 items-center transition active:scale-95" aria-label="{{ $storeName }} home">
-                <img src="{{ asset('images/logo.png') }}?v=6" alt="{{ $storeName }}" width="180" height="40" fetchpriority="high" decoding="async" class="h-7 sm:h-8 lg:h-9 w-auto object-contain">
+    <header x-data="{ open: false }" class="sticky top-0 z-40 w-full max-w-full border-b border-line bg-white/95 shadow-[0_1px_2px_rgba(0,0,0,.06)] backdrop-blur">
+        {{-- Instant Top Click Progress Bar --}}
+        <div id="smt-nav-progress" class="pointer-events-none fixed top-0 left-0 z-50 h-0.5 w-0 bg-brand opacity-0 transition-all duration-200 ease-out"></div>
+
+        <div class="container-x flex h-14 sm:h-16 lg:h-[74px] items-center justify-between gap-1.5 sm:gap-3.5 xl:gap-5 min-w-0">
+            <a href="{{ route('home') }}" class="flex min-w-0 shrink items-center transition active:scale-95" aria-label="{{ $storeName }} home">
+                <img src="{{ asset('images/logo.png') }}?v=6" alt="{{ $storeName }}" width="180" height="40" fetchpriority="high" decoding="async" class="h-6 sm:h-8 lg:h-9 w-auto max-w-[126px] sm:max-w-[170px] lg:max-w-none object-contain">
             </a>
 
             <form action="{{ route('shop') }}" method="get" class="relative hidden flex-1 min-w-[210px] lg:min-w-[260px] xl:min-w-[340px] max-w-lg md:block" role="search"
@@ -264,7 +267,7 @@
             </nav>
 
             {{-- PKR / USDT Currency Switcher + Mobile Menu Trigger --}}
-            <div class="flex items-center gap-2 shrink-0">
+            <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 <div class="inline-flex items-center rounded-full border border-line-strong bg-grey-soft p-0.5 shadow-2xs"
                      role="group"
                      aria-label="Switch currency between PKR and USDT"
@@ -273,16 +276,16 @@
                             @click="$store.currency.set('PKR')"
                             :aria-pressed="!$store.currency.isUsdt"
                             :class="!$store.currency.isUsdt ? 'bg-brand text-white shadow-xs' : 'text-muted hover:text-ink'"
-                            class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] sm:text-xs font-bold tracking-wide transition cursor-pointer">
-                        <span>Rs</span>
+                            class="inline-flex items-center gap-1 rounded-full px-2 py-1 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-bold tracking-wide transition cursor-pointer">
+                        <span class="hidden sm:inline">Rs</span>
                         <span>PKR</span>
                     </button>
                     <button type="button"
                             @click="$store.currency.set('USDT')"
                             :aria-pressed="$store.currency.isUsdt"
                             :class="$store.currency.isUsdt ? 'bg-[#0F9D58] text-white shadow-xs' : 'text-muted hover:text-ink'"
-                            class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] sm:text-xs font-bold tracking-wide transition cursor-pointer">
-                        <span>₮</span>
+                            class="inline-flex items-center gap-1 rounded-full px-2 py-1 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-bold tracking-wide transition cursor-pointer">
+                        <span class="hidden sm:inline">₮</span>
                         <span>USDT</span>
                     </button>
                 </div>
@@ -292,7 +295,7 @@
                         @click="open = !open"
                         :aria-expanded="open"
                         aria-controls="mobile-nav"
-                        class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-line bg-white text-ink hover:bg-grey-soft lg:hidden cursor-pointer">
+                        class="inline-flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg border border-line bg-white text-ink hover:bg-grey-soft active:scale-95 transition lg:hidden cursor-pointer">
                     <span class="sr-only">Menu</span>
                     <svg x-show="!open" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
                     <svg x-show="open" x-cloak class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -301,7 +304,7 @@
         </div>
 
         {{-- Responsive Mobile Search Bar Row (Visible on screens < md) --}}
-        <div class="border-t border-line/70 bg-white px-4 py-2 md:hidden">
+        <div class="border-t border-line/70 bg-white px-3.5 sm:px-6 py-2 md:hidden">
             <form action="{{ route('shop') }}" method="get" class="relative" role="search" x-data="liveSearch" @click.outside="open = false">
                 <label for="mobile-header-search" class="sr-only">Search products</label>
                 <div class="relative">
@@ -322,14 +325,6 @@
              @click.outside="open = false"
              class="border-t border-line bg-white shadow-lg lg:hidden">
             <div class="container-x py-3 space-y-2.5">
-                {{-- Mobile Search --}}
-                <form action="{{ route('shop') }}" method="get" class="relative md:hidden" role="search" x-data="liveSearch">
-                    <label for="mobile-search" class="sr-only">Search products</label>
-                    <svg class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                    <input id="mobile-search" type="search" name="q" value="{{ request('q') }}" placeholder="Search products..." class="input py-2 pl-9 text-sm" x-bind="field">
-                    <x-search-suggest />
-                </form>
-
                 {{-- Simple Links --}}
                 <nav class="flex flex-col divide-y divide-line text-sm font-semibold text-ink" aria-label="Mobile navigation">
                     <a href="{{ route('home') }}" @class(['py-2.5 hover:text-brand', 'text-brand font-bold' => request()->routeIs('home')])>Home</a>

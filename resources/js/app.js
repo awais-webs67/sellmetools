@@ -425,3 +425,64 @@ Alpine.data('loadMoreGrid', (initialNextUrl, initialShown, totalCount) => ({
 window.Alpine = Alpine;
 Alpine.start();
 Alpine.store('stock').start(60000);
+
+/**
+ * Instant 0ms Tactile Click Progress Bar & Single-Link Pointerdown Prefetch.
+ * Gives immediate visual feedback on every internal navigation click without hover-flooding PHP workers.
+ */
+(() => {
+    const prefetched = new Set();
+    let progressTimer = null;
+
+    const isInternalNavLink = (a) => {
+        if (!a || !a.href || a.target || a.hasAttribute('download')) return false;
+        if (a.origin !== window.location.origin) return false;
+        const rawHref = a.getAttribute('href') || '';
+        if (rawHref.startsWith('#') || rawHref.startsWith('javascript:')) return false;
+        if (a.hasAttribute('@click.prevent') || a.hasAttribute('x-on:click.prevent')) return false;
+        if (a.pathname === window.location.pathname && a.search === window.location.search && a.hash) return false;
+        if (/^\/(admin|logout|webhooks|quick-order|api)/.test(a.pathname)) return false;
+        return true;
+    };
+
+    const showNavProgress = () => {
+        const bar = document.getElementById('smt-nav-progress');
+        if (!bar) return;
+        clearTimeout(progressTimer);
+        bar.style.opacity = '1';
+        bar.style.width = '45%';
+        progressTimer = setTimeout(() => {
+            bar.style.width = '78%';
+        }, 120);
+    };
+
+    // Prefetch ONLY the 1 link the user actually presses down on (100-180ms head start before click release!)
+    const onPointerDown = (ev) => {
+        const a = ev.target?.closest?.('a');
+        if (!isInternalNavLink(a) || prefetched.has(a.href)) return;
+        prefetched.add(a.href);
+        const link = document.createElement('link');
+        link.rel = 'prefetch';
+        link.href = a.href;
+        link.as = 'document';
+        document.head.appendChild(link);
+    };
+
+    const onClick = (ev) => {
+        if (ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+        const a = ev.target?.closest?.('a');
+        if (!isInternalNavLink(a)) return;
+        if (a.pathname === window.location.pathname && a.search === window.location.search) return;
+        showNavProgress();
+    };
+
+    document.addEventListener('pointerdown', onPointerDown, { passive: true });
+    document.addEventListener('click', onClick, { passive: true });
+    window.addEventListener('pageshow', () => {
+        const bar = document.getElementById('smt-nav-progress');
+        if (bar) {
+            bar.style.opacity = '0';
+            bar.style.width = '0%';
+        }
+    });
+})();

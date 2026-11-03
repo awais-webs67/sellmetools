@@ -3,6 +3,7 @@
     use Illuminate\Support\Facades\Cache;
 
     $isLanding = ! $search && ! $activeCategory && $products->onFirstPage();
+    $isFilterAjax = request()->header('X-SMT-Filter') === '1';
 
     $seoTitle = $activeCategory
         ? $activeCategory->seoTitle()
@@ -113,7 +114,7 @@
     :canonical="$canonicalUrl"
     :robots="$robotsDirective"
 >
-    @if ($isLanding)
+    @if ($isLanding && ! $isFilterAjax)
         {{-- ================= HERO ================= --}}
         <section class="surface-hero relative overflow-hidden text-white">
             {{-- Subtle architectural grid --}}
@@ -166,10 +167,12 @@
                     </div>
 
                     @if ($categories->isNotEmpty())
-                        <nav class="mx-auto mt-6 hidden sm:flex max-w-2xl flex-wrap items-center justify-center gap-2 text-xs" aria-label="Popular categories">
+                        <nav x-data class="mx-auto mt-6 hidden sm:flex max-w-2xl flex-wrap items-center justify-center gap-2 text-xs" aria-label="Popular categories">
                             <span class="font-medium text-white/55">Categories:</span>
                             @foreach ($categories->take(6) as $category)
-                                <a href="{{ route('categories.show', $category) }}#products" class="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[.07] px-3.5 py-1 font-semibold text-white/90 transition hover:border-white/50 hover:bg-white/15 active:scale-95">
+                                <a href="{{ route('categories.show', $category) }}#products"
+                                   @click.prevent="document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' }); window.dispatchEvent(new CustomEvent('smt-category-select', { detail: { url: $el.href, slug: @js($category->slug) } }))"
+                                   class="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[.07] px-3.5 py-1 font-semibold text-white/90 transition hover:border-white/50 hover:bg-white/15 active:scale-95 cursor-pointer">
                                     @if ($category->icon)
                                         <span>{{ $category->icon }}</span>
                                     @endif
@@ -253,11 +256,15 @@
         </div>
 
         {{-- Filter bar --}}
-        <div class="card mt-4 p-3 sm:p-3.5" x-data="liveFilter('#catalog-results')" @click.outside="open = false">
+        <div class="card mt-4 p-3 sm:p-3.5"
+             x-data="liveFilter('#catalog-results')"
+             @smt-category-select.window="switchByEvent($event.detail)"
+             @click.outside="open = false">
             <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <nav class="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Categories">
                     <a href="{{ route('home') }}#products"
-                       @click.prevent="switchUrl($el.href, $event)"
+                       data-pill-slug=""
+                       @click.prevent="switchUrl($el.href, $event, '')"
                        @class([
                         'shrink-0 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition cursor-pointer',
                         'border-brand bg-brand text-white' => ! $activeCategory,
@@ -265,7 +272,8 @@
                     ])>All</a>
                     @foreach ($categories as $category)
                         <a href="{{ route('categories.show', $category) }}#products"
-                           @click.prevent="switchUrl($el.href, $event)"
+                           data-pill-slug="{{ $category->slug }}"
+                           @click.prevent="switchUrl($el.href, $event, @js($category->slug))"
                            @class([
                             'shrink-0 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition whitespace-nowrap cursor-pointer',
                             'border-brand bg-brand text-white' => $activeCategory?->is($category),
@@ -338,7 +346,7 @@
         </div>
     </section>
 
-    @if ($isLanding)
+    @if ($isLanding && ! $isFilterAjax)
         {{-- ================= HOW IT WORKS ================= --}}
         <section class="border-t border-line bg-white py-12 sm:py-16" aria-labelledby="how-heading">
             <div class="container-x">
@@ -558,7 +566,7 @@
                 </div>
             </div>
         </section>
-    @elseif ($activeCategory)
+    @elseif ($activeCategory && ! $isFilterAjax)
         {{-- ================= CATEGORY SEO BUYING GUIDE ================= --}}
         <section class="border-t border-line bg-white py-12 sm:py-16" aria-labelledby="category-guide-heading">
             <div class="container-x">

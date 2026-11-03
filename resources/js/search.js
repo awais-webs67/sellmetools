@@ -294,10 +294,30 @@ function createSearchBehavior(targetSelector = null) {
                 .catch(() => {});
         },
 
+        filterCategoryDomNow(slug) {
+            if (!targetSelector) return;
+            const container = document.querySelector(targetSelector);
+            if (!container) return;
+            const cards = [...container.querySelectorAll('[data-category-slug]')];
+            if (!cards.length) return;
+
+            if (!slug) {
+                cards.forEach((c) => (c.style.display = ''));
+                return;
+            }
+            const matching = cards.filter((c) => c.getAttribute('data-category-slug') === slug);
+            if (matching.length > 0) {
+                cards.forEach((c) => {
+                    c.style.display = c.getAttribute('data-category-slug') === slug ? '' : 'none';
+                });
+            }
+        },
+
         setCategory(slug, event = null) {
             if (event?.currentTarget) {
                 this.highlightPill(event.currentTarget);
             }
+            this.filterCategoryDomNow(slug);
             if (this.form) {
                 let catInput = this.form.querySelector('input[name="category"]');
                 if (slug) {
@@ -316,11 +336,29 @@ function createSearchBehavior(targetSelector = null) {
             this.run();
         },
 
-        switchUrl(rawUrl, event = null) {
+        switchUrl(rawUrl, event = null, slug = null) {
             if (event?.currentTarget) {
                 this.highlightPill(event.currentTarget);
             }
+            if (slug !== null) {
+                this.filterCategoryDomNow(slug);
+            }
             const cleanBase = String(rawUrl).split('#')[0];
+            if (this.form) {
+                this.form.action = cleanBase;
+            }
+            this.open = false;
+            this.runUrl(cleanBase);
+        },
+
+        switchByEvent(detail) {
+            if (!detail || !detail.url) return;
+            const pill = this.$el.querySelector(`a[data-pill-slug="${detail.slug || ''}"]`);
+            if (pill) {
+                this.highlightPill(pill);
+            }
+            this.filterCategoryDomNow(detail.slug || '');
+            const cleanBase = String(detail.url).split('#')[0];
             if (this.form) {
                 this.form.action = cleanBase;
             }
@@ -381,7 +419,10 @@ function createSearchBehavior(targetSelector = null) {
             }
 
             try {
-                const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, signal: controller.signal });
+                const res = await fetch(url, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-SMT-Filter': '1' },
+                    signal: controller.signal,
+                });
                 if (!res.ok) {
                     window.location.href = url;
                     return;
