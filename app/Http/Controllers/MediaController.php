@@ -15,18 +15,36 @@ class MediaController extends Controller
     {
         $path = ltrim(str_replace(['..', '\\'], ['', '/'], $path), '/');
         $disk = Storage::disk('public');
+        $downloadFilename = basename($path);
 
         if (! $disk->exists($path)) {
             $webpFallback = preg_replace('/\.[^.\/]+$/', '.webp', $path);
             if ($webpFallback && $disk->exists($webpFallback)) {
                 $path = $webpFallback;
             } else {
-                abort(404);
+                // Support SEO-friendly nested URLs: /media/gallery/{hash}/{seo-slug-filename}.{ext}
+                $ext = pathinfo($path, PATHINFO_EXTENSION);
+                $parentDir = dirname($path);
+                if ($parentDir !== '.' && $parentDir !== '') {
+                    $parentCandidate = $ext !== '' ? "{$parentDir}.{$ext}" : $parentDir;
+                    $parentWebpCandidate = "{$parentDir}.webp";
+                    if ($disk->exists($parentCandidate)) {
+                        $path = $parentCandidate;
+                    } elseif ($disk->exists($parentWebpCandidate)) {
+                        $path = $parentWebpCandidate;
+                    } else {
+                        abort(404);
+                    }
+                } else {
+                    abort(404);
+                }
             }
         }
 
         return response()->file($disk->path($path), [
             'Cache-Control' => 'public, max-age=31536000, immutable',
+            'Content-Disposition' => 'inline; filename="'.addslashes($downloadFilename).'"',
+            'X-Robots-Tag' => 'index, follow, max-image-preview:large',
         ]);
     }
 }

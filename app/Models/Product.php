@@ -425,9 +425,34 @@ class Product extends Model
             return null;
         }
 
-        return Str::startsWith($this->image, ['http://', 'https://'])
-            ? $this->image
-            : url('/media/'.ltrim($this->image, '/'));
+        if (Str::startsWith($this->image, ['http://', 'https://'])) {
+            return $this->image;
+        }
+
+        $cleanPath = ltrim((string) $this->image, '/');
+        if (filled($this->slug)) {
+            $ext = pathinfo($cleanPath, PATHINFO_EXTENSION) ?: 'webp';
+            $withoutExt = preg_replace('/\.[^.\/]+$/', '', $cleanPath) ?: $cleanPath;
+            $seoSlug = Str::slug((string) $this->slug) ?: 'digital-tool';
+
+            return url("/media/{$withoutExt}/{$seoSlug}-subscription-pakistan.{$ext}");
+        }
+
+        return url('/media/'.$cleanPath);
+    }
+
+    public function imageSeoAlt(): string
+    {
+        $pricePart = (float) $this->price > 0 ? ' ('.money($this->price).')' : '';
+
+        return str_replace(['—', '–'], '-', "Buy {$this->name} Subscription in Pakistan{$pricePart} - Instant Delivery | SellMeTools");
+    }
+
+    public function imageSeoTitle(): string
+    {
+        $pricePart = (float) $this->price > 0 ? ' - '.money($this->price) : '';
+
+        return str_replace(['—', '–'], '-', "{$this->name} Price in Pakistan{$pricePart} | SellMeTools");
     }
 
     public function ownAvailableCount(): int

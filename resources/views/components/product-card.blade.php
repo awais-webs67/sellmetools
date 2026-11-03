@@ -32,7 +32,7 @@
             {{-- Soft ambient backdrop fills side/top gaps so object-contain never leaves ugly empty bars (uses native lazy-loading!) --}}
             <img src="{{ $img }}" alt="" width="40" height="25" @if (! $priority) loading="lazy" @endif decoding="async" aria-hidden="true" class="pointer-events-none absolute inset-0 h-full w-full object-cover scale-110 opacity-35 blur-md" :class="!inStock && 'grayscale'">
             {{-- Full uncropped product image --}}
-            <img src="{{ $img }}" alt="{{ $product->name }}" width="400" height="250" @if ($priority) fetchpriority="high" @else loading="lazy" @endif decoding="async" class="relative z-10 h-full w-full object-contain p-1.5 transition duration-300 group-hover:scale-[1.03]" :class="!inStock && 'grayscale opacity-65'">
+            <img src="{{ $img }}" alt="{{ $product->imageSeoAlt() }}" title="{{ $product->imageSeoTitle() }}" width="400" height="250" @if ($priority) fetchpriority="high" @else loading="lazy" @endif decoding="async" class="relative z-10 h-full w-full object-contain p-1.5 transition duration-300 group-hover:scale-[1.03]" :class="!inStock && 'grayscale opacity-65'">
         @else
             <div class="surface-banner relative flex h-full w-full items-center gap-3 overflow-hidden px-3.5 sm:px-4 text-white" :class="!inStock && 'grayscale opacity-60'">
                 <div class="pointer-events-none absolute inset-0 opacity-15 [background-image:radial-gradient(rgba(255,255,255,0.55)_1px,transparent_1px)] [background-size:14px_14px]"></div>

@@ -12,12 +12,34 @@
         ? (float) $product->price
         : ((float) $product->compare_at_price > 0 ? (float) $product->compare_at_price : 0.0);
 
+    $imageObjectSchema = [
+        '@type' => 'ImageObject',
+        '@id' => $productUrl.'#primaryimage',
+        'url' => $productImage,
+        'contentUrl' => $productImage,
+        'name' => $product->imageSeoTitle(),
+        'caption' => $product->imageSeoAlt(),
+        'description' => $product->seoDescription(),
+        'width' => 640,
+        'height' => 400,
+        'representativeOfPage' => true,
+        'creditText' => $storeName,
+        'creator' => [
+            '@type' => 'Organization',
+            'name' => $storeName,
+            'url' => url('/'),
+        ],
+        'copyrightNotice' => '© '.date('Y').' '.$storeName.' (AivraSol Softwares)',
+        'license' => route('pages.show', 'terms'),
+        'acquireLicensePage' => $productUrl,
+    ];
+
     $productSchema = [
         '@context' => 'https://schema.org',
         '@type' => 'Product',
         'name' => $product->name,
         'description' => $product->seoDescription(),
-        'image' => [$productImage],
+        'image' => [$imageObjectSchema, $productImage],
         'sku' => 'SMT-'.$product->id,
         'mpn' => $product->slug,
         'brand' => [
@@ -220,16 +242,17 @@
              data-stock-id="{{ $product->id }}">
 
             {{-- Product Image (Full uncropped image with ambient backdrop) --}}
-            <div class="card surface-dark-solid relative aspect-[16/10] overflow-hidden">
+            <figure class="card surface-dark-solid relative aspect-[16/10] overflow-hidden m-0">
                 @if ($img = $product->imageUrl())
                     <div aria-hidden="true" style="background-image: url('{{ $img }}')" class="pointer-events-none absolute inset-0 bg-cover bg-center scale-110 opacity-35 blur-lg"></div>
-                    <img src="{{ $img }}" alt="{{ $product->name }}" width="640" height="400" fetchpriority="high" decoding="async" class="relative z-10 h-full w-full object-contain p-3 sm:p-4">
+                    <img src="{{ $img }}" alt="{{ $product->imageSeoAlt() }}" title="{{ $product->imageSeoTitle() }}" width="640" height="400" fetchpriority="high" decoding="async" class="relative z-10 h-full w-full object-contain p-3 sm:p-4">
                 @else
                     <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand to-ink">
                         <span class="display px-6 text-center text-3xl sm:text-6xl text-white">{{ $product->name }}</span>
                     </div>
                 @endif
-            </div>
+                <figcaption class="sr-only">{{ $product->imageSeoAlt() }} - {{ $product->cleanShortDescription() }}</figcaption>
+            </figure>
 
             {{-- Main Buy Box (Sticky on Desktop) --}}
             <aside class="lg:sticky lg:top-24">

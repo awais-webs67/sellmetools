@@ -161,7 +161,8 @@ class SeoController extends Controller
                 'daily',
                 '0.9',
                 $image,
-                $product->name
+                $product->imageSeoTitle(),
+                $product->imageSeoAlt()
             );
         }
 
@@ -334,6 +335,9 @@ class SeoController extends Controller
             'Allow: /',
             'User-agent: Amazonbot',
             'Allow: /',
+            'User-agent: Googlebot-Image',
+            'Allow: /',
+            'Allow: /media/',
             '',
             'Sitemap: '.url('/sitemap.xml'),
         ];
@@ -354,7 +358,8 @@ class SeoController extends Controller
         string $changefreq,
         string $priority,
         ?string $imageUrl = null,
-        ?string $imageTitle = null
+        ?string $imageTitle = null,
+        ?string $imageCaption = null
     ): string {
         $locEsc = $this->esc($loc);
         $node = "  <url>\n";
@@ -366,10 +371,14 @@ class SeoController extends Controller
         if ($imageUrl) {
             $imgEsc = $this->esc($imageUrl);
             $titleEsc = $this->esc((string) $imageTitle);
+            $captionEsc = $this->esc((string) $imageCaption);
             $node .= "    <image:image>\n";
             $node .= "      <image:loc>{$imgEsc}</image:loc>\n";
             if ($titleEsc !== '') {
                 $node .= "      <image:title>{$titleEsc}</image:title>\n";
+            }
+            if ($captionEsc !== '') {
+                $node .= "      <image:caption>{$captionEsc}</image:caption>\n";
             }
             $node .= "    </image:image>\n";
         }
