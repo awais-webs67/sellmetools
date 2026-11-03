@@ -17,14 +17,21 @@
 
     $itemListSchema = [
         '@context' => 'https://schema.org',
-        '@type' => 'ItemList',
-        'name' => $activeCategory ? $activeCategory->name : 'All Digital Tools & Subscriptions',
-        'itemListElement' => $products->getCollection()->values()->map(fn ($p, $idx) => [
-            '@type' => 'ListItem',
-            'position' => $idx + 1,
-            'url' => route('products.show', $p),
-            'name' => $p->name,
-        ])->all(),
+        '@type' => 'CollectionPage',
+        'name' => $seoTitle,
+        'description' => $seoDescription,
+        'url' => $canonicalUrl,
+        'mainEntity' => [
+            '@type' => 'ItemList',
+            'name' => $activeCategory ? $activeCategory->name : 'All Digital Tools & Cheap Subscriptions',
+            'numberOfItems' => $products->total(),
+            'itemListElement' => $products->getCollection()->values()->map(fn ($p, $idx) => [
+                '@type' => 'ListItem',
+                'position' => $idx + 1,
+                'url' => route('products.show', $p),
+                'name' => $p->name,
+            ])->all(),
+        ],
     ];
 
     $shopBreadcrumbSchema = [
@@ -88,14 +95,14 @@
                         @elseif ($activeCategory)
                             Buy {{ $activeCategory->name }} Subscriptions Online
                         @else
-                            Shop All AI Tools &amp; Digital Subscriptions
+                            Shop AI Tools &amp; Cheap Digital Subscriptions Online
                         @endif
                     </h1>
                     <p class="mt-2 max-w-2xl text-xs sm:text-sm leading-relaxed text-white/75">
                         @if ($activeCategory)
                             {{ $activeCategory->seoDescription() }}
                         @else
-                            Shop all genuine AI tools, creative software, cloud accounts and digital subscriptions online on <strong>{{ $storeName }}</strong>. Compare live USDT and PKR prices and stock with instant delivery on your private order page after verification.
+                            Shop genuine AI tools, cheap subscriptions, creative software, cloud accounts and digital plans online on <strong>{{ $storeName }}</strong>. Compare live USDT and PKR prices and stock with instant delivery on your private order page after verification.
                         @endif
                     </p>
                 </div>
@@ -201,6 +208,7 @@
              data-next-url="{{ $products->nextPageUrl() ?? '' }}"
              x-data="loadMoreGrid(@js($products->nextPageUrl() ?? ''), {{ (int) $products->count() }}, {{ (int) $products->total() }})"
              aria-live="polite">
+            <h2 class="sr-only">{{ $activeCategory ? $activeCategory->name.' Products' : 'All Available AI Tools & Digital Subscriptions' }}</h2>
             @if ($products->isEmpty())
                 <div class="card mt-6 p-10 text-center sm:p-14">
                     <p class="display text-3xl text-ink">No matching products found</p>
