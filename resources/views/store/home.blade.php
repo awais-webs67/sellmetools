@@ -257,7 +257,6 @@
             <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <nav class="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Categories">
                     <a href="{{ route('home') }}#products"
-                       @pointerenter.once="prefetch($el.href)"
                        @click.prevent="switchUrl($el.href, $event)"
                        @class([
                         'shrink-0 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition cursor-pointer',
@@ -266,7 +265,6 @@
                     ])>All</a>
                     @foreach ($categories as $category)
                         <a href="{{ route('categories.show', $category) }}#products"
-                           @pointerenter.once="prefetch($el.href)"
                            @click.prevent="switchUrl($el.href, $event)"
                            @class([
                             'shrink-0 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition whitespace-nowrap cursor-pointer',

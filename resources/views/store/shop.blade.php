@@ -129,7 +129,6 @@
                 {{-- Category Pills --}}
                 <nav class="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Filter by category">
                     <a href="{{ route('shop', array_filter(['q' => $search ?: null, 'sort' => $sort !== 'featured' ? $sort : null, 'in_stock' => $inStockOnly ? 1 : null])) }}"
-                       @pointerenter.once="prefetch($el.href)"
                        @click.prevent="setCategory('', $event)"
                        @class([
                            'shrink-0 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition cursor-pointer',
@@ -140,7 +139,6 @@
                     </a>
                     @foreach ($categories as $category)
                         <a href="{{ route('shop', array_filter(['category' => $category->slug, 'q' => $search ?: null, 'sort' => $sort !== 'featured' ? $sort : null, 'in_stock' => $inStockOnly ? 1 : null])) }}"
-                           @pointerenter.once="prefetch($el.href)"
                            @click.prevent="setCategory(@js($category->slug), $event)"
                            @class([
                                'shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition whitespace-nowrap cursor-pointer',

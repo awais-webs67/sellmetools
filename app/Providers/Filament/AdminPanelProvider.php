@@ -41,7 +41,7 @@ class AdminPanelProvider extends PanelProvider
             ))
             ->brandLogoHeight('28px')
             ->favicon(fn (): string => asset('favicon.png').'?v=8')
-            ->spa(hasPrefetching: true)
+            ->spa()
             ->sidebarCollapsibleOnDesktop()
             ->maxContentWidth(Width::Full)
             ->colors([

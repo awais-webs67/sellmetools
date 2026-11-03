@@ -425,37 +425,3 @@ Alpine.data('loadMoreGrid', (initialNextUrl, initialShown, totalCount) => ({
 window.Alpine = Alpine;
 Alpine.start();
 Alpine.store('stock').start(60000);
-
-/**
- * Instant Hover / Touchstart Link Prefetcher for browsers without Speculation Rules.
- */
-(() => {
-    const prefetched = new Set();
-    const shouldPrefetch = (a) => {
-        if (!a || !a.href || a.target || a.hasAttribute('download')) return false;
-        if (a.origin !== window.location.origin) return false;
-        const path = a.pathname;
-        if (
-            path === window.location.pathname &&
-            a.search === window.location.search
-        ) {
-            return false;
-        }
-        if (/^\/(admin|logout|webhooks|quick-order|api)/.test(path)) return false;
-        return !prefetched.has(a.href);
-    };
-
-    const prefetchLink = (ev) => {
-        const a = ev.target?.closest?.('a');
-        if (!shouldPrefetch(a)) return;
-        prefetched.add(a.href);
-        const link = document.createElement('link');
-        link.rel = 'prefetch';
-        link.href = a.href;
-        link.as = 'document';
-        document.head.appendChild(link);
-    };
-
-    document.addEventListener('pointerover', prefetchLink, { passive: true });
-    document.addEventListener('touchstart', prefetchLink, { passive: true });
-})();
