@@ -65,6 +65,11 @@ class SupplierProduct extends Model
         return $this->belongsToMany(Product::class, 'product_sources')->withPivot('is_active')->withTimestamps();
     }
 
+    public function products(): BelongsToMany
+    {
+        return $this->listings();
+    }
+
     public function scopeSellable(Builder $query): Builder
     {
         return $query->where('is_available', true)
