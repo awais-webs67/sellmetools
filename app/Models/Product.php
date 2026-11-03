@@ -647,7 +647,7 @@ class Product extends Model
             return;
         }
 
-        $flagFile = storage_path('framework/reviews_v3_seeded.flag');
+        $flagFile = storage_path('framework/reviews_v4_seeded.flag');
         if (is_file($flagFile)) {
             return;
         }
@@ -738,101 +738,113 @@ class Product extends Model
             'Edwards', 'Collins', 'Morris', 'Murphy', 'Cook',
         ];
 
-        $naturalReviews = [
-            'Great deal, working fine.',
-            'Best price I found online.',
-            'Very fast service!',
-            '100% legit, got my login in 2 minutes.',
-            'Working smoothly so far, thanks.',
-            'Super quick delivery. Recommended!',
+        // Pure English pool (mix of short half-line & 1-line comments)
+        $englishReviews = [
+            'Great deal',
+            'Best price I found',
+            'Very fast service',
+            'Working fine, thanks.',
+            '100% legit.',
+            'Super quick delivery!',
+            'Highly recommended.',
+            'Good value for money.',
+            'Works perfectly.',
+            'Instant delivery, thanks!',
+            'Legit and fast.',
+            'Top notch service!',
+            'No issues at all.',
+            'Smooth experience.',
+            'Totally worth it.',
+            'Best rates online.',
+            'Worked right away.',
+            'Affordable and reliable.',
+            'Quick and easy.',
+            'Very satisfied!',
+            'Good deal, working fine.',
             'Everything works as described.',
-            'Good experience, no issues at all.',
+            'Got my login in 2 minutes, working smoothly.',
             'Way cheaper than the official rate and works great.',
             'Activated on the first try.',
             'Solid service, will renew next month.',
             'Received the details right after verification.',
-            'Legit seller. Account is working properly.',
+            'Legit seller, account is working properly.',
             'Fast response from support when I had a question.',
-            'Five stars, very satisfied with the purchase.',
-            'Works perfectly on my laptop.',
-            'Honestly did not expect it to be this fast.',
             'Second time buying from here, always reliable.',
-            'Good value for money.',
-            'No complaints, logged in without any problem.',
-            'Smooth process from start to finish.',
+            'Logged in without any problem.',
             'Working fine since last week.',
             'Trusted store, highly recommended.',
-            'Quick and hassle-free.',
             'Got instant access as promised.',
-            'Best rates in Pakistan for sure.',
-            'Everything is active and working.',
-            'Very helpful team on WhatsApp.',
             'Simple checkout and fast delivery.',
-            'Exactly what I needed for my work.',
             'Been using it for a few days now, zero issues.',
-            'Instant delivery, works like a charm.',
             'Genuine access, happy with the deal.',
-            'Much better than random Facebook sellers.',
             'Delivered in under 3 minutes!',
             'Great service as always.',
-            'Clean and easy to use.',
-            'Totally worth the price.',
             'Third order from this site, never disappointed.',
-            'Account worked right away.',
-            'Affordable and reliable.',
             'Thank you! Working 100%.',
             'Saved a lot compared to paying in dollars.',
-            'Pretty fast verification.',
             'All features are unlocked and working.',
-            'Nice and smooth experience.',
-            'Recommended for students and freelancers.',
             'Zero downtime so far.',
             'Logged in easily, instructions were clear.',
             'Very reasonable price.',
             'Quick delivery, no drama.',
             'Works great on both mobile and PC.',
-            'Happy with the fast support.',
-            'Legit and fast.',
             'Got the credentials on the order page immediately.',
             'Good deal, will buy again.',
-            'Everything went smoothly.',
-            'Top notch service!',
-            'Took only a couple of minutes to get access.',
             'Genuine subscription, tested and verified.',
             'Best place to buy digital tools.',
-            'Working without any hiccups.',
             'Impressed by the speed.',
             'Fair pricing and genuine account.',
-            'No issues logging in at all.',
-            'Helpful instructions on the page.',
             'Delivered right on time.',
-            'Great experience overall.',
-            'Works as expected, good seller.',
             'Fastest delivery I have experienced.',
-            'Reliable and trustworthy.',
             'Used it for my project today, works great.',
-            'Instant activation, zero hassle.',
-            'Very neat order tracking page.',
-            'Glad I found this website.',
-            'Working fine, good customer service.',
             '10/10 would recommend.',
-            'Super easy to claim and log in.',
             'Price is unbeatable.',
             'Already recommended to my friends.',
-            'Everything is working properly, thanks!',
-            'Quick verification and valid login.',
-            'Smooth and professional.',
-            'Does exactly what it says.',
-            'Great quality and fast turnaround.',
             'Renewed my plan here again, still the best.',
             'Instant access, no waiting around.',
-            'Very satisfied!',
-            'Good support and working credentials.',
         ];
+
+        // Combined pool for Pakistani/Indian reviewers (mix of English + Hinglish / Roman Urdu, half-line & 1-line)
+        $mixedReviews = array_merge($englishReviews, [
+            'Bohat achi service ha',
+            'Foran mil gya thanks',
+            'Bilkul sahi chal rha ha',
+            'Kamaal service ha yar',
+            'Bohat zabardast deal ha',
+            '100% original aur fast',
+            '2 min ma mil gya',
+            'Sasta aur genuine!',
+            'Bohat tez delivery ha',
+            'Bilkul trusted site ha',
+            'Sab kuch sahi chal rha ha',
+            'Paisa vasool deal ha',
+            'Bohat fit chal rha ha',
+            'Achi service ha bohat',
+            'Time pa deliver ho gya',
+            'Full working ha yar',
+            'Bohat achi service ha, login foran mil gya.',
+            'Pehli dafa order kia tha, bilkul genuine nikla.',
+            'Market sa kafi kam rate ha aur account b sahi chal rha.',
+            'Order karty hi 2 minute ma details mil gyin, thanks.',
+            'Bilkul sahi kaam kar rha ha, koi masla nahi aya.',
+            'Bohat achi deal ha, dobara b yahi sa lu ga.',
+            'WhatsApp support b bohat fast ha, recommended!',
+            'Pehle thora doubt tha par service waqai bohat achi ha.',
+            'Dost na recommend kia tha, waqai best price ha.',
+            'Login foran ho gya tha, sab features chal rahy hain.',
+            'Bohat munasib rate ha aur delivery b fast ha.',
+            'Abhi tak bilkul smooth chal rha ha, shukriya.',
+            '2nd time buy kia ha, hamesha ki tarah fast service.',
+            'Bina kisi tension k foran account active ho gya.',
+            'Students k lia best jagah ha, rates bohat achy hain.',
+            'Bohat jaldi verify ho gya aur login b sahi ha.',
+            'Kafi sasta mil gya official price sa, working fine.',
+        ]);
 
         // Between 26 and 42 reviews per product (deterministic per productId)
         $targetCount = 26 + (($productId * 7) % 17);
         $usedNames = [];
+        $usedComments = [];
         $rows = [];
         $now = now();
 
@@ -842,7 +854,8 @@ class Product extends Model
         $inLCount = count($inLast);
         $auFCount = count($auFirst);
         $auLCount = count($auLast);
-        $revPoolCount = count($naturalReviews); // 89 (prime number, so step by 5 visits every single review without repeating!)
+        $enPoolCount = count($englishReviews);
+        $mixedPoolCount = count($mixedReviews);
 
         for ($i = 0; $i < $targetCount; $i++) {
             $mod = ($i + ($productId % 3)) % 11;
@@ -867,8 +880,20 @@ class Product extends Model
 
             $usedNames[$name] = true;
 
-            // Since $revPoolCount is 89 (prime) and step is 5 (coprime to 89), all 26-42 reviews on a product get 100% distinct comments!
-            $comment = $naturalReviews[(($productId * 17) + ($i * 5)) % $revPoolCount];
+            $cAttempt = 0;
+            do {
+                $cIndex = ($productId * 37) + ($i * 29) + $cAttempt;
+                if ($mod === 10) {
+                    // Australian reviewers always get pure English comments
+                    $comment = $englishReviews[$cIndex % $enPoolCount];
+                } else {
+                    // Pakistani & Indian reviewers get a natural mix of English and Hinglish/Roman Urdu
+                    $comment = $mixedReviews[$cIndex % $mixedPoolCount];
+                }
+                $cAttempt++;
+            } while (isset($usedComments[$comment]) && $cAttempt < 120);
+
+            $usedComments[$comment] = true;
 
             // ~86% 5-star, ~14% 4-star -> realistic 4.8 - 4.9 average rating
             $rating = (($productId + $i * 3) % 7 === 4) ? 4 : 5;
