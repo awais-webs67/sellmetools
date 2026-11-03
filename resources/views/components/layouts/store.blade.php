@@ -7,6 +7,10 @@
     'canonical' => null,
     'robots' => 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
 ])
+@if (request()->header('X-SMT-Filter') === '1')
+    <!DOCTYPE html><html><body>{{ $slot }}</body></html>
+    @php return; @endphp
+@endif
 @php
     $storeName = setting('store_name', 'SellMeTools');
     $defaultSeoTitle = setting('seo_title') ?: setting('store_tagline');

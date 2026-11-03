@@ -234,6 +234,7 @@
     </section>
 
     {{-- ================= SHOP SEO & WARRANTY GUIDE ================= --}}
+    @if (request()->header('X-SMT-Filter') !== '1')
     <section class="border-t border-line bg-white py-12 sm:py-16" aria-labelledby="shop-seo-heading">
         <div class="container-x">
             <div class="grid gap-8 lg:grid-cols-3">
@@ -263,5 +264,6 @@
             </div>
         </div>
     </section>
+    @endif
 </x-layouts.store>
 
