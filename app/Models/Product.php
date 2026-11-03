@@ -647,7 +647,7 @@ class Product extends Model
             return;
         }
 
-        $flagFile = storage_path('framework/reviews_v2_seeded.flag');
+        $flagFile = storage_path('framework/reviews_v3_seeded.flag');
         if (is_file($flagFile)) {
             return;
         }
@@ -661,30 +661,19 @@ class Product extends Model
 
             $allProducts = static::withTrashed()
                 ->select(['id', 'name'])
-                ->withCount('reviews')
                 ->get();
 
             if ($allProducts->isEmpty()) {
                 return;
             }
 
-            $productIdsToSeed = $allProducts
-                ->filter(fn (Product $p) => (int) $p->reviews_count < 25)
-                ->pluck('id')
-                ->all();
-
-            if ($productIdsToSeed === []) {
-                return;
-            }
-
             Review::query()
-                ->whereIn('product_id', $productIdsToSeed)
                 ->whereNull('order_id')
                 ->whereNull('user_id')
                 ->delete();
 
             $rows = [];
-            foreach ($allProducts->whereIn('id', $productIdsToSeed) as $prod) {
+            foreach ($allProducts as $prod) {
                 foreach (static::buildInitialReviewRowsFor((int) $prod->id, (string) $prod->name) as $row) {
                     $rows[] = $row;
                 }
@@ -749,42 +738,96 @@ class Product extends Model
             'Edwards', 'Collins', 'Morris', 'Murphy', 'Cook',
         ];
 
-        $pkTemplates = [
-            "Got my {$productName} credentials right after Easypaisa verification. Working smoothly without any issue!",
-            "Instant delivery on the order tracking page and genuine {$productName} access. Best price in Pakistan.",
-            "Super fast activation for {$productName}. Paid via JazzCash and received the details within minutes.",
-            "100% legit {$productName} subscription. Smooth checkout and very responsive WhatsApp support team.",
-            "Bohat zabardast service hai, Easypaisa se payment ki aur foran {$productName} ke credentials mil gaye. Highly recommended!",
-            "Great value for money. Using {$productName} daily for my freelance work and everything works as promised.",
-            "Paid via NayaPay and my {$productName} account unlocked on the order page right away. Best digital store in PK!",
-            "Second time buying {$productName} from SellMeTools. Zero downtime and genuine subscription access.",
-            "SadaPay se checkout kiya tha, 2 minute ke andar {$productName} deliver ho gaya. Full five stars!",
-            "Very affordable price compared to official dollar rates. My {$productName} plan activated cleanly on the first try.",
-            "Honestly the most reliable website in Pakistan for digital tools. {$productName} is working flawlessly.",
-            "Clean dashboard delivery and clear instructions included with {$productName}. Will definitely renew next month.",
-            "Raast bank transfer ke baad TID lagaya aur foran {$productName} unlock ho gaya. Super smooth experience!",
-            "Been using {$productName} for over a week now without a single issue. Genuine access and fast support.",
-            "Price bhi munasib hai aur delivery bhi instant hai. {$productName} bilkul original chal raha hai.",
-            "Bought {$productName} for my university project. Activated in under 3 minutes via JazzCash. Thank you!",
-            "Everything works exactly as described on the product page. {$productName} credentials popped up right after verification.",
-            "Trusted seller! I was hesitant at first, but {$productName} delivered instantly and works 100% fine.",
-            "Best platform for Pakistani freelancers. Saved so much money on {$productName} and got instant delivery.",
-            "Customer support on WhatsApp guided me politely and my {$productName} subscription is running great.",
-            "Order page par popup mein hi {$productName} ka login mil gaya, copy kiya aur seedha chal gaya. Amazing UI!",
-            "No credit card hassle, simple Easypaisa checkout and instant {$productName} access. Love this store!",
-            "Third purchase on SellMeTools this month. {$productName} works like a charm on my laptop and phone.",
-            "Fastest delivery I have seen for {$productName}. Credentials are saved in my account history too.",
-        ];
-
-        $globalTemplates = [
-            "Paid with Binance Pay USDT and received my {$productName} access details almost immediately. Great service!",
-            "Smooth USDT checkout and instant automated delivery on the order page. {$productName} works as advertised.",
-            "Very competitive pricing on {$productName}. Activated without any trouble and support is super helpful.",
-            "Genuine {$productName} subscription at a fraction of the retail price. Instant crypto checkout worked seamlessly.",
-            "Quick delivery and clear activation guide. My {$productName} plan has been running smoothly since day one.",
-            "Awesome digital store! Paid via Binance USDT and got the {$productName} credentials in my order vault right away.",
-            "Reliable and transparent. The {$productName} subscription activated on the first attempt with zero issues.",
-            "Great experience ordering {$productName}. Instant credential popup made it very easy to copy and log in.",
+        $naturalReviews = [
+            'Great deal, working fine.',
+            'Best price I found online.',
+            'Very fast service!',
+            '100% legit, got my login in 2 minutes.',
+            'Working smoothly so far, thanks.',
+            'Super quick delivery. Recommended!',
+            'Everything works as described.',
+            'Good experience, no issues at all.',
+            'Way cheaper than the official rate and works great.',
+            'Activated on the first try.',
+            'Solid service, will renew next month.',
+            'Received the details right after verification.',
+            'Legit seller. Account is working properly.',
+            'Fast response from support when I had a question.',
+            'Five stars, very satisfied with the purchase.',
+            'Works perfectly on my laptop.',
+            'Honestly did not expect it to be this fast.',
+            'Second time buying from here, always reliable.',
+            'Good value for money.',
+            'No complaints, logged in without any problem.',
+            'Smooth process from start to finish.',
+            'Working fine since last week.',
+            'Trusted store, highly recommended.',
+            'Quick and hassle-free.',
+            'Got instant access as promised.',
+            'Best rates in Pakistan for sure.',
+            'Everything is active and working.',
+            'Very helpful team on WhatsApp.',
+            'Simple checkout and fast delivery.',
+            'Exactly what I needed for my work.',
+            'Been using it for a few days now, zero issues.',
+            'Instant delivery, works like a charm.',
+            'Genuine access, happy with the deal.',
+            'Much better than random Facebook sellers.',
+            'Delivered in under 3 minutes!',
+            'Great service as always.',
+            'Clean and easy to use.',
+            'Totally worth the price.',
+            'Third order from this site, never disappointed.',
+            'Account worked right away.',
+            'Affordable and reliable.',
+            'Thank you! Working 100%.',
+            'Saved a lot compared to paying in dollars.',
+            'Pretty fast verification.',
+            'All features are unlocked and working.',
+            'Nice and smooth experience.',
+            'Recommended for students and freelancers.',
+            'Zero downtime so far.',
+            'Logged in easily, instructions were clear.',
+            'Very reasonable price.',
+            'Quick delivery, no drama.',
+            'Works great on both mobile and PC.',
+            'Happy with the fast support.',
+            'Legit and fast.',
+            'Got the credentials on the order page immediately.',
+            'Good deal, will buy again.',
+            'Everything went smoothly.',
+            'Top notch service!',
+            'Took only a couple of minutes to get access.',
+            'Genuine subscription, tested and verified.',
+            'Best place to buy digital tools.',
+            'Working without any hiccups.',
+            'Impressed by the speed.',
+            'Fair pricing and genuine account.',
+            'No issues logging in at all.',
+            'Helpful instructions on the page.',
+            'Delivered right on time.',
+            'Great experience overall.',
+            'Works as expected, good seller.',
+            'Fastest delivery I have experienced.',
+            'Reliable and trustworthy.',
+            'Used it for my project today, works great.',
+            'Instant activation, zero hassle.',
+            'Very neat order tracking page.',
+            'Glad I found this website.',
+            'Working fine, good customer service.',
+            '10/10 would recommend.',
+            'Super easy to claim and log in.',
+            'Price is unbeatable.',
+            'Already recommended to my friends.',
+            'Everything is working properly, thanks!',
+            'Quick verification and valid login.',
+            'Smooth and professional.',
+            'Does exactly what it says.',
+            'Great quality and fast turnaround.',
+            'Renewed my plan here again, still the best.',
+            'Instant access, no waiting around.',
+            'Very satisfied!',
+            'Good support and working credentials.',
         ];
 
         // Between 26 and 42 reviews per product (deterministic per productId)
@@ -799,12 +842,10 @@ class Product extends Model
         $inLCount = count($inLast);
         $auFCount = count($auFirst);
         $auLCount = count($auLast);
-        $pkTCount = count($pkTemplates);
-        $glTCount = count($globalTemplates);
+        $revPoolCount = count($naturalReviews); // 89 (prime number, so step by 5 visits every single review without repeating!)
 
         for ($i = 0; $i < $targetCount; $i++) {
             $mod = ($i + ($productId % 3)) % 11;
-            $isGlobal = in_array($mod, [5, 8, 10], true);
 
             $attempt = 0;
             do {
@@ -826,11 +867,8 @@ class Product extends Model
 
             $usedNames[$name] = true;
 
-            if ($isGlobal) {
-                $comment = $globalTemplates[($productId * 5 + $i * 3) % $glTCount];
-            } else {
-                $comment = $pkTemplates[($productId * 11 + $i * 7) % $pkTCount];
-            }
+            // Since $revPoolCount is 89 (prime) and step is 5 (coprime to 89), all 26-42 reviews on a product get 100% distinct comments!
+            $comment = $naturalReviews[(($productId * 17) + ($i * 5)) % $revPoolCount];
 
             // ~86% 5-star, ~14% 4-star -> realistic 4.8 - 4.9 average rating
             $rating = (($productId + $i * 3) % 7 === 4) ? 4 : 5;
