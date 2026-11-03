@@ -21,4 +21,31 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException $e, Request $request) {
+            if ($request->isMethod('GET') && ($request->is('livewire*') || str_contains($request->path(), 'livewire'))) {
+                if ($request->hasSession() && str_contains((string) $request->session()->get('url.intended', ''), 'livewire')) {
+                    $request->session()->forget('url.intended');
+                }
+
+                $referer = (string) $request->headers->get('referer', '');
+                if ($referer !== '' && ! str_contains($referer, 'livewire')) {
+                    return redirect()->to($referer);
+                }
+
+                return redirect()->to('/admin');
+            }
+        });
+
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, Request $request) {
+            if ($request->hasHeader('X-Livewire') || $request->is('livewire*') || str_contains($request->path(), 'livewire')) {
+                $referer = (string) $request->headers->get('referer', '');
+                $target = ($referer !== '' && ! str_contains($referer, 'livewire')) ? $referer : url('/admin');
+                if (preg_match('#/admin/([^/]+)/[^/]+$#', $target, $m)) {
+                    $target = url('/admin/'.$m[1]);
+                }
+
+                return redirect()->to($target);
+            }
+        });
     })->create();

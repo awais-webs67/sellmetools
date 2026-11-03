@@ -346,7 +346,27 @@ class AdminPanelProvider extends PanelProvider
                             width: 100% !important;
                         }
                     }
-                </style>')
+                </style>
+                <script>
+                    document.addEventListener("livewire:init", function () {
+                        if (window.Livewire && typeof window.Livewire.interceptRequest === "function") {
+                            window.Livewire.interceptRequest(({ onRedirect, onError }) => {
+                                onRedirect(({ url, preventDefault }) => {
+                                    if (url && url.includes("livewire") && url.includes("/update")) {
+                                        preventDefault();
+                                        window.location.reload();
+                                    }
+                                });
+                                onError(({ response, preventDefault }) => {
+                                    if (response && (response.status === 404 || response.status === 405)) {
+                                        preventDefault();
+                                        window.location.reload();
+                                    }
+                                });
+                            });
+                        }
+                    });
+                </script>')
             )
             ->navigationGroups([
                 NavigationGroup::make('Sales'),

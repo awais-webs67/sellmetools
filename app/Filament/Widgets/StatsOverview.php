@@ -16,6 +16,10 @@ class StatsOverview extends StatsOverviewWidget
 {
     protected static ?int $sort = 1;
 
+    protected static ?bool $isLazyLoaded = false;
+
+    protected static bool $isLazy = false;
+
     protected ?string $pollingInterval = null;
 
     public static function canView(): bool

@@ -365,6 +365,18 @@ class PaymentService
         $synced = true;
 
         try {
+            // Clean up any orphaned child records if orders were manually deleted in phpMyAdmin
+            \App\Models\OrderItem::query()->whereDoesntHave('order')->delete();
+            Payment::query()->whereDoesntHave('order')->delete();
+            \App\Models\StockItem::query()
+                ->where('status', \App\Enums\StockStatus::Reserved)
+                ->whereNotNull('order_item_id')
+                ->whereDoesntHave('orderItem')
+                ->update([
+                    'status' => \App\Enums\StockStatus::Available,
+                    'order_item_id' => null,
+                ]);
+
             Payment::query()
                 ->where('status', PaymentStatus::Pending)
                 ->whereHas('order', fn ($q) => $q->whereIn('status', [

@@ -17,6 +17,10 @@ class LatestOrders extends TableWidget
 {
     protected static ?int $sort = 3;
 
+    protected static ?bool $isLazyLoaded = false;
+
+    protected static bool $isLazy = false;
+
     protected int|string|array $columnSpan = 'full';
 
     protected static ?string $heading = 'Latest Orders (Quick Review & Delivery)';
