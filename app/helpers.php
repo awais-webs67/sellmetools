@@ -15,6 +15,21 @@ if (! function_exists('money')) {
     }
 }
 
+if (! function_exists('money_usd')) {
+    /** Converts a PKR amount into formatted USD/USDT using the configured usdt_rate, e.g. "$4.07". */
+    function money_usd(float|int|string|null $pkrAmount, string $prefix = '$'): string
+    {
+        $pkrAmount = (float) $pkrAmount;
+        if ($pkrAmount <= 0) {
+            return $prefix.'0.00';
+        }
+        $rate = Setting::usdtRate();
+        $usd = $pkrAmount / max(1.0, $rate);
+
+        return $prefix.number_format($usd, 2);
+    }
+}
+
 if (! function_exists('setting')) {
     function setting(string $key, mixed $default = null): mixed
     {
