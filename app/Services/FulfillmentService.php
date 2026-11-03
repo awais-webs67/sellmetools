@@ -427,43 +427,6 @@ class FulfillmentService
                     '👤 <b>Customer:</b> '.T::e($order->email)
                 );
 
-                // If customer placed this order directly inside the Telegram Bot, deliver credentials into their Telegram chat!
-                $customerTgChatId = (string) Cache::get("tg_order_chat:{$order->id}", '');
-                if ($customerTgChatId === '' && preg_match('/^tg_(\d+)@telegram\./i', (string) $order->email, $tgMatch)) {
-                    $customerTgChatId = $tgMatch[1];
-                }
-                if ($customerTgChatId !== '') {
-                    $botToken = T::cleanToken((string) \App\Models\Setting::get('telegram_bot_token', ''));
-                    if ($botToken !== '') {
-                        $credsBlocks = $items->map(function (OrderItem $i): string {
-                            $lines = $i->deliveries->pluck('content')->map(fn ($c) => '<code>'.T::e(trim((string) $c)).'</code>')->implode("\n");
-
-                            return '📦 <b>'.T::e($i->product_name)." (×{$i->quantity}):</b>\n{$lines}";
-                        })->implode("\n\n");
-
-                        $receiptUrl = route('orders.receipt', ['order' => $order->number, 'token' => $order->access_token]);
-                        $pdfUrl = route('orders.receipt', ['order' => $order->number, 'token' => $order->access_token, 'download' => 'pdf']);
-
-                        $this->telegram->send(
-                            $botToken,
-                            $customerTgChatId,
-                            "🎉✅ <b>Your Order {$order->number} is Delivered!</b>\n"
-                            ."━━━━━━━━━━━━━━━━━━\n"
-                            .$credsBlocks."\n\n"
-                            ."💡 <i>Tap any credential box above to copy it!</i>",
-                            [
-                                [
-                                    ['text' => '🧾 View Receipt', 'url' => $receiptUrl],
-                                    ['text' => '📥 Download PDF', 'url' => $pdfUrl],
-                                ],
-                                [
-                                    ['text' => '🛍️ Buy Another Tool', 'callback_data' => 'store:list:1:all'],
-                                ],
-                            ]
-                        );
-                    }
-                }
-
                 app(WhatsAppNotifier::class)->notifyOrderDelivered($order);
                 app(EmailNotifier::class)->sendOrderDelivered($order);
             };

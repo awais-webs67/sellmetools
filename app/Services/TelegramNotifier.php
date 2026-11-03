@@ -10,9 +10,7 @@ use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Handles Telegram Admin 1-Tap Alerts + Live Synchronized Supplier-Style Store Bot.
- * Automatically configures the Telegram Webhook (`message` + `callback_query`),
- * Bot Commands Menu (`setMyCommands`), and Chat Menu Button (`setChatMenuButton`).
+ * Sends Admin order & payment notifications to Telegram with 1-Tap In-Chat Approve & Decline buttons.
  */
 class TelegramNotifier
 {
@@ -33,37 +31,6 @@ class TelegramNotifier
         return filled(Setting::get('telegram_bot_token')) && filled(Setting::get('telegram_admin_chat_id'));
     }
 
-    /**
-     * Persistent bottom keyboard buttons (ReplyKeyboardMarkup) shown at the bottom of the Telegram chat.
-     *
-     * @return array<string, mixed>
-     */
-    public static function bottomMenuKeyboard(): array
-    {
-        return [
-            'keyboard' => [
-                [
-                    ['text' => '🛍️ All Products'],
-                    ['text' => '🟢 In-Stock Only'],
-                ],
-                [
-                    ['text' => '🔍 Search Product'],
-                    ['text' => '🧾 Track Order'],
-                ],
-                [
-                    ['text' => '🌐 Visit Website'],
-                    ['text' => '💬 Support'],
-                ],
-            ],
-            'resize_keyboard' => true,
-            'is_persistent' => true,
-        ];
-    }
-
-    /**
-     * Returns the canonical HTTPS webhook URL, replacing any temporary *.hostingersite.com preview domain
-     * with the official https://sellmetools.com domain.
-     */
     public function canonicalWebhookUrl(): string
     {
         $rawUrl = url('/api/webhooks/telegram');
@@ -72,40 +39,6 @@ class TelegramNotifier
         }
 
         return $rawUrl;
-    }
-
-    /**
-     * Ensures the webhook, slash commands menu, and menu button are registered with Telegram ONCE.
-     * Uses an in-memory Setting check (0 DB queries on subsequent requests) and marks the hash
-     * BEFORE calling Telegram API in a deferred callback so it NEVER blocks or slows down web requests.
-     */
-    public function ensureBotConfigured(): void
-    {
-        if (app()->runningUnitTests()) {
-            return;
-        }
-
-        $token = self::cleanToken((string) Setting::get('telegram_bot_token', ''));
-        if ($token === '') {
-            return;
-        }
-
-        $webhookUrl = $this->canonicalWebhookUrl();
-        if (! Str::startsWith($webhookUrl, 'https://')) {
-            return;
-        }
-
-        $expectedHash = md5('v5|'.$token.'|'.$webhookUrl);
-        if ((string) Setting::get('tg_webhook_hash', '') === $expectedHash) {
-            return;
-        }
-
-        // Save hash immediately so concurrent page refreshes never trigger duplicate Telegram API calls
-        Setting::set('tg_webhook_hash', $expectedHash);
-
-        defer(function () use ($token): void {
-            $this->registerWebhook($token);
-        });
     }
 
     public function notifyAdmin(string $html, ?array $inlineKeyboard = null): void
@@ -120,15 +53,21 @@ class TelegramNotifier
         $this->send($token, $chatId, $html, $inlineKeyboard);
     }
 
-    /**
-     * @param  array<string, mixed>|null  $customReplyMarkup
-     * @return bool true when Telegram accepted the message
-     */
-    public function send(string $token, string $chatId, string $html, ?array $inlineKeyboard = null, ?array $customReplyMarkup = null): bool
+    /** @return bool true when Telegram accepted the message */
+    public function send(string $token, string $chatId, string $html, ?array $inlineKeyboard = null): bool
     {
         $this->lastError = null;
         $token = self::cleanToken($token);
         $chatId = trim($chatId);
+
+        if ($inlineKeyboard && ! app()->runningUnitTests()) {
+            $webhookUrl = $this->canonicalWebhookUrl();
+            $cacheKey = 'tg_webhook_registered:'.md5($token.'|'.$webhookUrl);
+            if (! Cache::has($cacheKey)) {
+                Cache::put($cacheKey, true, now()->addDays(7));
+                $this->registerWebhook($token);
+            }
+        }
 
         try {
             $payload = [
@@ -138,13 +77,11 @@ class TelegramNotifier
                 'disable_web_page_preview' => true,
             ];
 
-            if ($customReplyMarkup !== null) {
-                $payload['reply_markup'] = $customReplyMarkup;
-            } elseif ($inlineKeyboard !== null) {
+            if ($inlineKeyboard) {
                 $payload['reply_markup'] = ['inline_keyboard' => $inlineKeyboard];
             }
 
-            $response = Http::timeout(10)->post("https://api.telegram.org/bot{$token}/sendMessage", $payload);
+            $response = Http::timeout(8)->post("https://api.telegram.org/bot{$token}/sendMessage", $payload);
 
             if (! $response->successful() || $response->json('ok') === false) {
                 $desc = (string) ($response->json('description') ?? ('HTTP '.$response->status()));
@@ -215,10 +152,6 @@ class TelegramNotifier
         return null;
     }
 
-    /**
-     * Registers the webhook (`message` + `callback_query`), slash commands list (`setMyCommands`),
-     * and the bottom-left Menu button (`setChatMenuButton`).
-     */
     public function registerWebhook(string $token): bool
     {
         $token = self::cleanToken($token);
@@ -226,18 +159,16 @@ class TelegramNotifier
             return false;
         }
 
-        // Always register bot commands and the Menu button with Telegram
-        $this->registerBotCommands($token);
-
         $webhookUrl = $this->canonicalWebhookUrl();
         if (! Str::startsWith($webhookUrl, 'https://')) {
             return false;
         }
 
         try {
-            $response = Http::timeout(8)->post("https://api.telegram.org/bot{$token}/setWebhook", [
+            $response = Http::timeout(6)->post("https://api.telegram.org/bot{$token}/setWebhook", [
                 'url' => $webhookUrl,
-                'allowed_updates' => ['callback_query', 'message'],
+                'allowed_updates' => ['callback_query'],
+                'drop_pending_updates' => true,
             ]);
 
             return $response->successful();
@@ -245,38 +176,6 @@ class TelegramNotifier
             Log::warning('Telegram setWebhook error: '.$e->getMessage());
 
             return false;
-        }
-    }
-
-    /**
-     * Registers the slash commands and blue Menu button in Telegram.
-     */
-    public function registerBotCommands(string $token): void
-    {
-        $token = self::cleanToken($token);
-        if ($token === '') {
-            return;
-        }
-
-        try {
-            Http::timeout(6)->post("https://api.telegram.org/bot{$token}/setMyCommands", [
-                'commands' => [
-                    ['command' => 'start', 'description' => '🛍️ Open Store & View All Products'],
-                    ['command' => 'products', 'description' => '📦 View All Products & Live Stock'],
-                    ['command' => 'instock', 'description' => '🟢 View In-Stock Tools Only'],
-                    ['command' => 'search', 'description' => '🔍 Search Any Tool by Name'],
-                    ['command' => 'track', 'description' => '🧾 Track Your Order (SMT-...)'],
-                    ['command' => 'support', 'description' => '💬 Contact Admin Support'],
-                ],
-            ]);
-
-            Http::timeout(6)->post("https://api.telegram.org/bot{$token}/setChatMenuButton", [
-                'menu_button' => [
-                    'type' => 'commands',
-                ],
-            ]);
-        } catch (Throwable $e) {
-            Log::debug('Telegram setMyCommands warning: '.$e->getMessage());
         }
     }
 
@@ -297,7 +196,7 @@ class TelegramNotifier
         }
     }
 
-    public function editMessage(string $chatId, int $messageId, string $html, ?array $inlineKeyboard = null): void
+    public function editMessage(string $chatId, int $messageId, string $html): void
     {
         $token = self::cleanToken((string) Setting::get('telegram_bot_token'));
         if ($token === '') {
@@ -305,19 +204,13 @@ class TelegramNotifier
         }
 
         try {
-            $payload = [
+            Http::timeout(6)->post("https://api.telegram.org/bot{$token}/editMessageText", [
                 'chat_id' => $chatId,
                 'message_id' => $messageId,
                 'text' => $html,
                 'parse_mode' => 'HTML',
                 'disable_web_page_preview' => true,
-            ];
-
-            if ($inlineKeyboard !== null) {
-                $payload['reply_markup'] = ['inline_keyboard' => $inlineKeyboard];
-            }
-
-            Http::timeout(6)->post("https://api.telegram.org/bot{$token}/editMessageText", $payload);
+            ]);
         } catch (Throwable) {
         }
     }

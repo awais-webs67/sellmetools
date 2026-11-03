@@ -65,23 +65,25 @@ class AppServiceProvider extends ServiceProvider
         }
 
         try {
-            if ((string) \App\Models\Setting::get('schema_v4_ready', '') === '1') {
+            if ((string) \App\Models\Setting::get('schema_v5_ready', '') === '1') {
                 return;
             }
 
+            \Illuminate\Support\Facades\Cache::forget('smt_active_categories_v1');
+
             $files = glob(database_path('migrations/*.php')) ?: [];
-            $hash = md5('v4|'.implode('|', array_map('basename', $files)));
+            $hash = md5('v5|'.implode('|', array_map('basename', $files)));
             $stampFile = storage_path('framework/migration_hash.txt');
 
             if (is_file($stampFile) && trim((string) @file_get_contents($stampFile)) === $hash) {
-                \App\Models\Setting::set('schema_v4_ready', '1');
+                \App\Models\Setting::set('schema_v5_ready', '1');
 
                 return;
             }
 
             // Write stamp file and setting IMMEDIATELY before running migrations so concurrent page refreshes never collide!
             @file_put_contents($stampFile, $hash);
-            \App\Models\Setting::set('schema_v4_ready', '1');
+            \App\Models\Setting::set('schema_v5_ready', '1');
 
             $this->ensureRequiredSchemaColumns();
 

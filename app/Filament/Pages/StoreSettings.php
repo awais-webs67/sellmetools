@@ -141,33 +141,6 @@ class StoreSettings extends Page
         }
 
         return [
-            Action::make('toggleTelegramBotShop')
-                ->label(fn (): string => (string) Setting::get('telegram_store_bot_enabled', '1') === '1'
-                    ? '🟢 Bot Shop: ON (Click to Turn OFF)'
-                    : '🔴 Bot Shop: OFF (Click to Turn ON)')
-                ->color(fn (): string => (string) Setting::get('telegram_store_bot_enabled', '1') === '1' ? 'success' : 'gray')
-                ->action(function (): void {
-                    $currentlyOn = (string) Setting::get('telegram_store_bot_enabled', '1') === '1';
-                    $newState = $currentlyOn ? '0' : '1';
-                    Setting::set('telegram_store_bot_enabled', $newState);
-                    if (is_array($this->data)) {
-                        $this->data['telegram_store_bot_enabled'] = $newState === '1';
-                    }
-
-                    if ($newState === '1') {
-                        Notification::make()
-                            ->title('🟢 Telegram Bot Shop Turned ON!')
-                            ->body('Customers can now browse products and buy directly inside your Telegram Bot.')
-                            ->success()
-                            ->send();
-                    } else {
-                        Notification::make()
-                            ->title('🔴 Telegram Bot Shop Turned OFF!')
-                            ->body('Customer Bot Shop is paused. Admin order notifications & 1-Tap Approve/Decline buttons in Telegram will continue working normally!')
-                            ->warning()
-                            ->send();
-                    }
-                }),
             Action::make('downloadBackupHeader')
                 ->label('📥 Download SQL Backup')
                 ->icon(Heroicon::OutlinedArrowDownTray)
@@ -472,14 +445,14 @@ class StoreSettings extends Page
                             ]),
 
                         // ==========================================
-                        // TAB 5: TELEGRAM BOT & MOBILE ALERTS
+                        // TAB 5: TELEGRAM & MOBILE ALERTS
                         // ==========================================
-                        Tab::make('Telegram Store Bot & Alerts')
+                        Tab::make('Telegram & Mobile Alerts')
                             ->icon(Heroicon::OutlinedBellAlert)
                             ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
                             ->schema([
-                                Section::make('Telegram Live Store Bot & Admin 1-Tap Alerts')
-                                    ->description('Connect your @BotFather token once: Admin gets 1-Tap Approve/Decline buttons in Telegram, AND customers who message your bot can browse all live Categories & Products synced automatically from your website!')
+                                Section::make('Telegram Admin Notifications & 1-Tap Approve/Decline')
+                                    ->description('Receive instant order & payment alerts in Telegram with 1-Tap Approve & Decline buttons.')
                                     ->columns(['default' => 1, 'sm' => 2])
                                     ->schema([
                                         TextInput::make('telegram_bot_token')
@@ -489,19 +462,14 @@ class StoreSettings extends Page
                                         TextInput::make('telegram_admin_chat_id')
                                             ->label('Admin Numeric Chat ID (Leave blank to Auto-Detect!)')
                                             ->placeholder('e.g. 582910384 (or click Auto-Detect below)'),
-                                        Toggle::make('telegram_store_bot_enabled')
-                                            ->label('🤖 Enable Live Synchronized Customer Store Bot in Telegram')
-                                            ->default(true)
-                                            ->helperText('When ON, anyone who sends /start, /shop, or searches a tool name in your Telegram Bot sees your live Categories, Products, PKR/USDT prices, stock, and 1-tap Buy Now links — 100% auto-synced with your website!')
-                                            ->columnSpanFull(),
                                         Actions::make([
                                             Action::make('saveTelegramSection')
-                                                ->label('Save Telegram Bot Settings')
+                                                ->label('Save Telegram Settings')
                                                 ->icon(Heroicon::OutlinedCheck)
                                                 ->color('gray')
-                                                ->action(fn () => $this->saveKeys(['telegram_bot_token', 'telegram_admin_chat_id', 'telegram_store_bot_enabled'], 'Telegram Bot settings saved')),
+                                                ->action(fn () => $this->saveKeys(['telegram_bot_token', 'telegram_admin_chat_id'], 'Telegram settings saved')),
                                             Action::make('testTelegram')
-                                                ->label('Auto-Detect Chat ID, Register Bot & Send Test')
+                                                ->label('Auto-Detect Chat ID & Send Test Notification')
                                                 ->icon(Heroicon::OutlinedPaperAirplane)
                                                 ->color('primary')
                                                 ->action(fn () => $this->sendTelegramTest()),
@@ -887,14 +855,12 @@ class StoreSettings extends Page
         Setting::setMany([
             'telegram_bot_token' => $token,
             'telegram_admin_chat_id' => $chatId,
-            'telegram_store_bot_enabled' => ! empty($this->data['telegram_store_bot_enabled']) ? '1' : '0',
         ]);
 
         $storeName = TelegramNotifier::e((string) ($this->data['store_name'] ?? Setting::get('store_name', 'SellMeTools')));
-        $testHtml = "✅ <b>{$storeName} — Supplier Store Bot Active!</b>\n\n"
-            ."• <b>Bottom Menu Buttons</b> &amp; <b>/Commands</b> are now enabled.\n"
-            ."• Tap <b>🛍️ All Products</b> below or send <code>/products</code> to view all live products with icons, prices &amp; stock!";
-        $sent = $notifier->send($token, $chatId, $testHtml, null, TelegramNotifier::bottomMenuKeyboard());
+        $testHtml = "✅ <b>{$storeName} — Admin 1-Tap Notifications Active!</b>\n"
+            ."You will receive instant payment &amp; order alerts with 1-Tap Approve/Decline buttons here.";
+        $sent = $notifier->send($token, $chatId, $testHtml);
 
         if (! $sent) {
             $detected = $notifier->detectChatId($token);
@@ -902,15 +868,15 @@ class StoreSettings extends Page
                 $chatId = $detected;
                 $this->data['telegram_admin_chat_id'] = $chatId;
                 Setting::set('telegram_admin_chat_id', $chatId);
-                $sent = $notifier->send($token, $chatId, $testHtml, null, TelegramNotifier::bottomMenuKeyboard());
+                $sent = $notifier->send($token, $chatId, $testHtml);
             }
         }
 
         if ($sent) {
             $notifier->registerWebhook($token);
             Notification::make()
-                ->title('Telegram Bot Connected & Live!')
-                ->body("Test message sent to Chat ID {$chatId} and Live Store Bot webhook registered.")
+                ->title('Telegram Admin Alerts Connected!')
+                ->body("Test notification sent to Chat ID {$chatId} and 1-Tap webhook registered.")
                 ->success()
                 ->send();
 
