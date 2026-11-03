@@ -11,6 +11,9 @@ class Setting extends Model
 
     private const CACHE_KEY = 'app_settings_v2';
 
+    /** @var array<string, mixed>|null In-memory memoized settings per PHP request (0 repeated DB/Cache hits). */
+    private static ?array $memoized = null;
+
     /** Default values used when a setting has never been saved. */
     public const DEFAULTS = [
         'store_name' => 'SellMeTools',
@@ -69,7 +72,11 @@ class Setting extends Model
 
     public static function values(): array
     {
-        return Cache::rememberForever(self::CACHE_KEY, function () {
+        if (self::$memoized !== null) {
+            return self::$memoized;
+        }
+
+        self::$memoized = Cache::rememberForever(self::CACHE_KEY, function () {
             $db = static::query()->pluck('value', 'key')->all();
             $out = self::DEFAULTS;
             foreach ($db as $k => $v) {
@@ -86,6 +93,8 @@ class Setting extends Model
 
             return $out;
         });
+
+        return self::$memoized;
     }
 
     public static function get(string $key, mixed $default = null): mixed
@@ -98,6 +107,7 @@ class Setting extends Model
     public static function set(string $key, mixed $value): void
     {
         static::query()->updateOrCreate(['key' => $key], ['value' => $value]);
+        self::$memoized = null;
         Cache::forget(self::CACHE_KEY);
     }
 
@@ -106,6 +116,7 @@ class Setting extends Model
         foreach ($values as $key => $value) {
             static::query()->updateOrCreate(['key' => $key], ['value' => $value]);
         }
+        self::$memoized = null;
         Cache::forget(self::CACHE_KEY);
     }
 

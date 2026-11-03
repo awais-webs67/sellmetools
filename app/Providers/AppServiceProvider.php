@@ -50,21 +50,33 @@ class AppServiceProvider extends ServiceProvider
 
         Paginator::defaultView('pagination::tailwind');
 
-        $this->autoMigrateDatabaseIfChanged();
-
+        // Skip heavy boot hooks on static media/API/asset requests so concurrent requests never overload shared hosting.
         if (! $this->app->runningUnitTests() && ! $this->app->runningInConsole()) {
-            try {
-                app(\App\Services\TelegramNotifier::class)->ensureBotConfigured();
-                app(\App\Services\DatabaseBackupService::class)->checkAndRunScheduledBackup();
-            } catch (Throwable) {
-                // Ignore if DB not ready
+            $path = ltrim((string) request()->path(), '/');
+            $isAssetOrApi = str_starts_with($path, 'media/')
+                || str_starts_with($path, 'storage/')
+                || str_starts_with($path, 'api/')
+                || str_starts_with($path, 'livewire/');
+
+            if (! $isAssetOrApi) {
+                $this->autoMigrateDatabaseIfChanged();
+
+                try {
+                    app(\App\Services\TelegramNotifier::class)->ensureBotConfigured();
+                    if ((string) \App\Models\Setting::get('backup_enabled', '0') === '1') {
+                        app(\App\Services\DatabaseBackupService::class)->checkAndRunScheduledBackup();
+                    }
+                } catch (Throwable) {
+                    // Ignore if DB not ready
+                }
             }
         }
     }
 
     /**
-     * Automatically runs pending database migrations (and initial seed if empty) whenever
-     * new migration files are deployed via Git, no SSH or phpMyAdmin import needed.
+     * Automatically runs pending database migrations ONLY when actual migration files change.
+     * Writes the stamp file FIRST and never calls view:clear / cache:clear / ImageOptimizer during web traffic,
+     * preventing 500 "Server is busy" errors on shared hosting when refreshing pages.
      */
     protected function autoMigrateDatabaseIfChanged(): void
     {
@@ -74,39 +86,27 @@ class AppServiceProvider extends ServiceProvider
 
         try {
             $files = glob(database_path('migrations/*.php')) ?: [];
-            $gitHeadFile = base_path('.git/refs/heads/main');
-            $gitRev = is_file($gitHeadFile) ? trim((string) @file_get_contents($gitHeadFile)) : '';
-            $hash = md5('v3|'.implode('|', array_map('basename', $files)).'|'.$gitRev);
+            $hash = md5('v4|'.implode('|', array_map('basename', $files)));
             $stampFile = storage_path('framework/migration_hash.txt');
 
-            if (is_file($stampFile) && trim((string) file_get_contents($stampFile)) === $hash) {
+            if (is_file($stampFile) && trim((string) @file_get_contents($stampFile)) === $hash) {
                 return;
             }
+
+            // Write stamp file IMMEDIATELY before running migrations so concurrent page refreshes never collide!
+            @file_put_contents($stampFile, $hash);
 
             $this->ensureRequiredSchemaColumns();
 
             try {
                 Artisan::call('migrate', ['--force' => true]);
             } catch (Throwable $e) {
-                // If database was imported via .sql and an older migration table already exists,
-                // ensureRequiredSchemaColumns() above guarantees all new columns exist.
                 report($e);
             }
-
-            try {
-                app(ImageOptimizer::class)->optimizeAllExisting();
-            } catch (Throwable $e) {
-                report($e);
-            }
-
-            Artisan::call('view:clear');
-            Artisan::call('cache:clear');
 
             if (Schema::hasTable('users') && User::query()->count() === 0) {
                 Artisan::call('db:seed', ['--class' => DatabaseSeeder::class, '--force' => true]);
             }
-
-            @file_put_contents($stampFile, $hash);
         } catch (Throwable $e) {
             report($e);
         }

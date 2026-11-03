@@ -43,7 +43,7 @@ class StockController extends Controller
             });
 
         return response()
-            ->json(['items' => $stock, 'need_sync' => ! Cache::has('auto_supplier_sync_tick')])
+            ->json(['items' => $stock, 'need_sync' => false])
             ->header('Cache-Control', 'no-store')
             ->header('Session-Driver', 'none');
     }

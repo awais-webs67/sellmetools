@@ -75,7 +75,9 @@ class TelegramNotifier
     }
 
     /**
-     * Ensures the webhook, slash commands menu, and menu button are registered with Telegram.
+     * Ensures the webhook, slash commands menu, and menu button are registered with Telegram ONCE.
+     * Uses an in-memory Setting check (0 DB queries on subsequent requests) and marks the hash
+     * BEFORE calling Telegram API in a deferred callback so it NEVER blocks or slows down web requests.
      */
     public function ensureBotConfigured(): void
     {
@@ -89,12 +91,21 @@ class TelegramNotifier
         }
 
         $webhookUrl = $this->canonicalWebhookUrl();
-        $cacheKey = 'tg_bot_v4_configured:'.md5($token.'|'.$webhookUrl);
-        if (! Cache::has($cacheKey)) {
-            if ($this->registerWebhook($token)) {
-                Cache::put($cacheKey, true, now()->addHours(12));
-            }
+        if (! Str::startsWith($webhookUrl, 'https://')) {
+            return;
         }
+
+        $expectedHash = md5('v5|'.$token.'|'.$webhookUrl);
+        if ((string) Setting::get('tg_webhook_hash', '') === $expectedHash) {
+            return;
+        }
+
+        // Save hash immediately so concurrent page refreshes never trigger duplicate Telegram API calls
+        Setting::set('tg_webhook_hash', $expectedHash);
+
+        defer(function () use ($token): void {
+            $this->registerWebhook($token);
+        });
     }
 
     public function notifyAdmin(string $html, ?array $inlineKeyboard = null): void
@@ -118,8 +129,6 @@ class TelegramNotifier
         $this->lastError = null;
         $token = self::cleanToken($token);
         $chatId = trim($chatId);
-
-        $this->ensureBotConfigured();
 
         try {
             $payload = [

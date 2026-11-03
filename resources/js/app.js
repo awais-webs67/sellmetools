@@ -74,10 +74,10 @@ Alpine.store('stock', {
     justSynced: false,
     hiddenAt: null,
 
-    start(intervalMs = 25000) {
+    start(intervalMs = 60000) {
         setTimeout(() => {
             if (!document.hidden) this.poll();
-        }, 6000);
+        }, 20000);
 
         clearInterval(this.timer);
         this.timer = setInterval(() => document.hidden || this.poll(), intervalMs);
@@ -421,4 +421,4 @@ Alpine.data('loadMoreGrid', (initialNextUrl, initialShown, totalCount) => ({
 
 window.Alpine = Alpine;
 Alpine.start();
-Alpine.store('stock').start(25000);
+Alpine.store('stock').start(60000);
