@@ -43,9 +43,22 @@ class StandardBotApiDriver implements SupplierDriver
         ];
     }
 
+    protected function normalizedBaseUrl(): string
+    {
+        $url = rtrim(trim((string) $this->supplier->base_url), '/');
+        $lower = strtolower($url);
+        $apiKey = (string) $this->supplier->api_key;
+
+        if ((str_contains($lower, 'canboso.com') || str_starts_with($apiKey, 'tgb_')) && ! str_ends_with($lower, '/api/v2/telegram-buyer')) {
+            return 'https://canboso.com/api/v2/telegram-buyer';
+        }
+
+        return $url;
+    }
+
     protected function productsEndpoint(): string
     {
-        $baseUrl = strtolower((string) $this->supplier->base_url);
+        $baseUrl = strtolower($this->normalizedBaseUrl());
         if (str_contains($baseUrl, 'bunaistore')) {
             return '/products?include_note=true&limit=100';
         }
@@ -55,7 +68,7 @@ class StandardBotApiDriver implements SupplierDriver
 
     protected function http(int $timeout = 12): PendingRequest
     {
-        return Http::baseUrl(rtrim($this->supplier->base_url, '/'))
+        return Http::baseUrl($this->normalizedBaseUrl())
             ->withHeaders($this->defaultHeaders())
             ->acceptJson()
             ->timeout($timeout)
@@ -69,7 +82,7 @@ class StandardBotApiDriver implements SupplierDriver
      */
     public function productsAndBalance(): array
     {
-        $baseUrl = rtrim($this->supplier->base_url, '/');
+        $baseUrl = $this->normalizedBaseUrl();
         $headers = $this->defaultHeaders();
         $productsPath = $this->productsEndpoint();
 
