@@ -192,7 +192,7 @@
         /* 3. Split Breakdown Grid */
         .smt-split-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
             gap: 0.85rem;
         }
         .smt-panel-head {
@@ -200,6 +200,7 @@
             background: #f8fafc;
             border-bottom: 1px solid #e2e8f0;
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
             justify-content: space-between;
             gap: 0.5rem;

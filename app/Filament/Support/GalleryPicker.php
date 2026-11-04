@@ -45,7 +45,6 @@ class GalleryPicker
                         ->all())
                     ->options(fn (): array => MediaItem::query()
                         ->latest()
-                        ->limit(30)
                         ->get()
                         ->mapWithKeys(fn (MediaItem $item): array => [$item->path => $item->optionHtml()])
                         ->all())

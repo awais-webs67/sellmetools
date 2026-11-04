@@ -170,6 +170,8 @@
             justify-content: space-between;
             text-decoration: none;
             transition: border-color 0.15s ease, box-shadow 0.15s ease;
+            min-width: 0;
+            overflow: hidden;
         }
         a.smt-panel:hover {
             border-color: #cbd5e1;
@@ -255,6 +257,7 @@
         }
         .smt-panel-header {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
             justify-content: space-between;
             gap: 0.5rem;

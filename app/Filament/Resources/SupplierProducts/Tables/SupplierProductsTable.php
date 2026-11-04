@@ -348,13 +348,11 @@ class SupplierProductsTable
                     ->label('Select Existing Storefront Product')
                     ->required()
                     ->searchable()
-                    ->getSearchResultsUsing(fn (string $search): array => Product::query()
-                        ->where('name', 'like', "%{$search}%")
+                    ->preload()
+                    ->options(fn (): array => Product::query()
                         ->orderBy('name')
-                        ->limit(50)
                         ->pluck('name', 'id')
-                        ->all())
-                    ->options(fn (): array => Product::query()->latest()->limit(50)->pluck('name', 'id')->all()),
+                        ->all()),
                 Toggle::make('copy_details')
                     ->label('Overwrite product Description & Warranty with this supplier’s info')
                     ->helperText('Leave OFF (recommended) to keep your existing product title, image, description & warranty untouched.')

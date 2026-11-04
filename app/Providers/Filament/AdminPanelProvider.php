@@ -70,7 +70,7 @@ class AdminPanelProvider extends PanelProvider
                     .'</a>'
                     .'<button type="button" id="smt-admin-install-btn" class="fi-live-store-btn smt-install-app-btn" style="display:none;" title="Install Admin Dashboard as App">'
                     .'<svg style="width:14px;height:14px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
-                    .'<span>Install App</span>'
+                    .'<span class="smt-btn-text">Install App</span>'
                     .'</button>'
                     .'<div class="smt-bell-container" id="smt-order-bell-wrap">'
                     .'<button type="button" id="smt-order-bell-btn" class="smt-bell-btn" aria-label="Order Notifications" title="Live Order Notifications">'
@@ -674,9 +674,43 @@ class AdminPanelProvider extends PanelProvider
                     .fi-ta-header-toolbar {
                         padding: 0.55rem 0.85rem !important;
                         background: #ffffff !important;
+                        flex-wrap: wrap !important;
+                        gap: 0.5rem !important;
                     }
                     .dark .fi-ta-header-toolbar {
                         background: #0f172a !important;
+                    }
+                    .fi-ta-header {
+                        flex-wrap: wrap !important;
+                        gap: 0.5rem !important;
+                    }
+                    .fi-ta-header-actions {
+                        flex-wrap: wrap !important;
+                        gap: 0.45rem !important;
+                    }
+
+                    /* 8b. Live Supplier Priority Green Row & Green Tab Highlight */
+                    .smt-live-supplier-row {
+                        background-color: rgba(16, 185, 129, 0.08) !important;
+                        box-shadow: inset 3px 0 0 #059669 !important;
+                    }
+                    .smt-live-supplier-row:hover {
+                        background-color: rgba(16, 185, 129, 0.13) !important;
+                    }
+                    .dark .smt-live-supplier-row {
+                        background-color: rgba(16, 185, 129, 0.14) !important;
+                        box-shadow: inset 3px 0 0 #10b981 !important;
+                    }
+                    .smt-live-supplier-row .fi-color-success.fi-badge {
+                        background-color: #059669 !important;
+                        color: #ffffff !important;
+                        border-color: #047857 !important;
+                        font-weight: 800 !important;
+                        padding: 0.22rem 0.6rem !important;
+                        box-shadow: 0 1px 2px rgba(5, 150, 105, 0.25) !important;
+                    }
+                    .smt-live-supplier-row .fi-color-success.fi-badge span {
+                        color: #ffffff !important;
                     }
 
                     /* 9. Scrollable Navigation & Filter Tabs */
@@ -705,7 +739,22 @@ class AdminPanelProvider extends PanelProvider
                         border-radius: 0.5rem !important;
                     }
 
-                    /* 10. Tablet & Mobile Breakpoint Refinements */
+                    /* 10. Full Mobile & Tablet Responsive Flow (Zero Overflow / Zero Overlap) */
+                    html, body {
+                        max-width: 100vw !important;
+                        overflow-x: hidden !important;
+                    }
+                    .fi-layout,
+                    .fi-main-ctn,
+                    .fi-main,
+                    .fi-page,
+                    .fi-resource-edit-record-page,
+                    .fi-resource-create-record-page,
+                    .fi-resource-list-records-page,
+                    .fi-resource-view-record-page {
+                        max-width: 100% !important;
+                        min-width: 0 !important;
+                    }
                     @media (max-width: 1024px) {
                         .fi-wi-stats-overview-stats-ctn {
                             grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -713,24 +762,61 @@ class AdminPanelProvider extends PanelProvider
                         }
                     }
                     @media (max-width: 768px) {
+                        .fi-topbar nav {
+                            padding-left: 0.5rem !important;
+                            padding-right: 0.5rem !important;
+                            gap: 0.35rem !important;
+                        }
+                        .smt-topbar-actions {
+                            gap: 0.25rem !important;
+                        }
                         .fi-main {
                             padding-left: 0.5rem !important;
                             padding-right: 0.5rem !important;
                             padding-top: 0.65rem !important;
                         }
+                        .fi-header {
+                            padding: 0.65rem 0.8rem !important;
+                            gap: 0.5rem !important;
+                        }
+                        .fi-header-heading {
+                            font-size: 1.08rem !important;
+                            word-break: break-word !important;
+                        }
+                        .fi-breadcrumbs {
+                            display: none !important;
+                        }
                         .fi-section-header {
-                            padding: 0.65rem 0.85rem !important;
+                            padding: 0.65rem 0.8rem !important;
+                            flex-wrap: wrap !important;
+                            gap: 0.45rem !important;
                         }
                         .fi-section-content {
                             padding: 0.75rem !important;
+                        }
+                        .fi-ta-header {
+                            padding: 0.65rem 0.8rem !important;
+                            flex-direction: column !important;
+                            align-items: stretch !important;
+                        }
+                        .fi-ta-header-actions {
+                            width: 100% !important;
+                            justify-content: flex-start !important;
+                        }
+                        .fi-ta-header-actions .fi-btn {
+                            font-size: 0.75rem !important;
+                            padding: 0.35rem 0.6rem !important;
+                            max-width: 100% !important;
+                            white-space: normal !important;
+                            text-align: left !important;
+                        }
+                        .fi-ta-header-toolbar {
+                            padding: 0.5rem 0.65rem !important;
                         }
                         .fi-wi-stats-overview-stat {
                             padding: 0.7rem 0.85rem !important;
                         }
                         .fi-wi-stats-overview-stat-value {
-                            font-size: 1.15rem !important;
-                        }
-                        .fi-header-heading {
                             font-size: 1.15rem !important;
                         }
                         .fi-ta-cell, .fi-ta-header-cell {
@@ -748,6 +834,14 @@ class AdminPanelProvider extends PanelProvider
                         .fi-simple-main {
                             padding: 1.5rem 1.25rem !important;
                         }
+                        .fi-modal-window {
+                            max-width: calc(100vw - 1rem) !important;
+                            margin: 0.5rem !important;
+                        }
+                        .fi-fo-actions, .fi-ac {
+                            flex-wrap: wrap !important;
+                            gap: 0.45rem !important;
+                        }
                     }
                     @media (max-width: 480px) {
                         .fi-wi-stats-overview-stats-ctn {
@@ -755,6 +849,18 @@ class AdminPanelProvider extends PanelProvider
                         }
                         .fi-header-actions {
                             width: 100% !important;
+                        }
+                        .fi-header-actions .fi-btn {
+                            flex: 1 1 auto !important;
+                            justify-content: center !important;
+                            font-size: 0.76rem !important;
+                        }
+                        .fi-live-store-btn {
+                            padding: 0.3rem 0.42rem !important;
+                        }
+                        .smt-bell-btn {
+                            width: 30px !important;
+                            height: 30px !important;
                         }
                     }
                 </style>

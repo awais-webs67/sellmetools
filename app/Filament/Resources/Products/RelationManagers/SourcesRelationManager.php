@@ -6,6 +6,7 @@ use App\Enums\PricingMode;
 use App\Filament\Support\Listings;
 use App\Filament\Support\Money;
 use App\Models\Product;
+use App\Models\Setting;
 use App\Models\SupplierProduct;
 use App\Services\PriceCalculator;
 use Filament\Actions\Action;
@@ -26,6 +27,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 
 /** Supplier products this listing can be fulfilled from (cheapest active source wins). */
 class SourcesRelationManager extends RelationManager
@@ -36,6 +38,20 @@ class SourcesRelationManager extends RelationManager
 
     public function table(Table $table): Table
     {
+        $applyCostPrioritySort = function (Builder $query): Builder {
+            $rate = max(1.0, (float) Setting::usdtRate());
+
+            return $query
+                ->reorder()
+                ->with('supplier')
+                ->orderByDesc('product_sources.is_active')
+                ->orderByRaw(
+                    "CASE WHEN COALESCE((SELECT UPPER(s.currency) FROM suppliers s WHERE s.id = supplier_products.supplier_id), 'USDT') = 'PKR' "
+                    ."THEN supplier_products.cost ELSE (supplier_products.cost * {$rate}) END ASC"
+                )
+                ->orderBy('supplier_products.id', 'asc');
+        };
+
         return $table
             ->recordTitle(fn (SupplierProduct $record): string => sprintf(
                 '%s: %s (%s / Rs %s)',
@@ -44,17 +60,21 @@ class SourcesRelationManager extends RelationManager
                 Money::currency($record->cost, $record->supplier?->currency),
                 number_format($record->costPkr(), 0),
             ))
-            ->modifyQueryUsing(fn (Builder $query) => $query
-                ->with('supplier')
-                ->orderByDesc('product_sources.is_active')
-                ->orderBy('supplier_products.cost', 'asc')
-                ->orderBy('supplier_products.id', 'asc'))
+            ->modifyQueryUsing($applyCostPrioritySort)
+            ->defaultSort($applyCostPrioritySort)
             ->paginated(false)
+            ->recordClasses(function (SupplierProduct $record): ?string {
+                $winning = app(PriceCalculator::class)->winningSource($this->owner());
+
+                return ($winning && (int) $winning->id === (int) $record->id)
+                    ? 'smt-live-supplier-row'
+                    : null;
+            })
             ->columns([
-                TextColumn::make('supplier.name')
-                    ->label('Priority & Supplier')
-                    ->weight('bold')
-                    ->formatStateUsing(function (SupplierProduct $record): string {
+                TextColumn::make('live_priority_status')
+                    ->label('Priority & Live Status')
+                    ->badge()
+                    ->state(function (SupplierProduct $record): string {
                         $ranked = $this->owner()->sources()
                             ->with('supplier')
                             ->get()
@@ -66,21 +86,41 @@ class SourcesRelationManager extends RelationManager
                         $pos = $ranked->search(fn (SupplierProduct $s): bool => (int) $s->id === (int) $record->id);
                         $rankNum = $pos !== false ? ($pos + 1) : 1;
 
-                        return "#{$rankNum} · ".($record->supplier?->name ?? 'Supplier');
-                    })
-                    ->description(function (SupplierProduct $record): string {
                         $winning = app(PriceCalculator::class)->winningSource($this->owner());
                         if ($winning && (int) $winning->id === (int) $record->id) {
-                            return 'Active on Store (Lowest Cost)';
+                            return "● LIVE ON STORE · #{$rankNum} Lowest Cost";
                         }
 
-                        return $record->pivot?->is_active ? 'Standby Backup' : 'Disabled';
+                        if (! ($record->pivot?->is_active ?? false)) {
+                            return "#{$rankNum} · Disabled";
+                        }
+
+                        if (! $record->unlimited_stock && (int) $record->stock <= 0) {
+                            return "#{$rankNum} Priority · Out of Stock";
+                        }
+
+                        return "#{$rankNum} Priority · Backup";
+                    })
+                    ->color(function (SupplierProduct $record): string {
+                        $winning = app(PriceCalculator::class)->winningSource($this->owner());
+                        if ($winning && (int) $winning->id === (int) $record->id) {
+                            return 'success';
+                        }
+
+                        if (! ($record->pivot?->is_active ?? false)) {
+                            return 'danger';
+                        }
+
+                        if (! $record->unlimited_stock && (int) $record->stock <= 0) {
+                            return 'warning';
+                        }
+
+                        return 'gray';
                     }),
-                TextColumn::make('name')
-                    ->label('Vendor Item')
-                    ->searchable()
-                    ->limit(32)
-                    ->tooltip(fn (SupplierProduct $record): string => $record->name),
+                TextColumn::make('supplier.name')
+                    ->label('Supplier')
+                    ->weight('bold')
+                    ->description(fn (SupplierProduct $record): string => $record->name ? Str::limit($record->name, 34) : ''),
                 TextColumn::make('cost')
                     ->label('Cost (Low → High)')
                     ->weight('bold')
