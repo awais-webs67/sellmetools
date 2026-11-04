@@ -19,11 +19,14 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -132,14 +135,34 @@ class SupplierOrderResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('order_type')
                     ->label('Order Type / #')
-                    ->state(fn (SupplierOrder $r): string => $r->orderItem?->order?->number ?: 'Direct Buy')
+                    ->state(function (SupplierOrder $r): string {
+                        if ($r->orderItem?->order?->number) {
+                            return $r->orderItem->order->number;
+                        }
+                        $resp = is_array($r->response) ? $r->response : [];
+
+                        return ! empty($resp['for_customer']) ? 'Direct Customer' : 'Direct Buy';
+                    })
                     ->badge(fn (SupplierOrder $r): bool => $r->order_item_id === null)
-                    ->color(fn (SupplierOrder $r): string => $r->order_item_id === null ? 'warning' : 'primary')
+                    ->color(function (SupplierOrder $r): string {
+                        if ($r->order_item_id !== null) {
+                            return 'primary';
+                        }
+                        $resp = is_array($r->response) ? $r->response : [];
+
+                        return ! empty($resp['for_customer']) ? 'success' : 'warning';
+                    })
                     ->weight('bold')
                     ->url(fn (SupplierOrder $r): ?string => $r->orderItem?->order
                         ? OrderResource::getUrl('view', ['record' => $r->orderItem->order])
                         : null)
-                    ->description(fn (SupplierOrder $r): string => $r->created_at?->diffForHumans(short: true) ?? ''),
+                    ->description(function (SupplierOrder $r): string {
+                        $time = $r->created_at?->diffForHumans(short: true) ?? '';
+                        $resp = is_array($r->response) ? $r->response : [];
+                        $note = trim((string) ($resp['customer_note'] ?? ''));
+
+                        return $note !== '' ? "{$note} · {$time}" : $time;
+                    }),
                 TextColumn::make('supplier.name')
                     ->label('Vendor')
                     ->badge()
@@ -152,14 +175,27 @@ class SupplierOrderResource extends Resource
                     ->tooltip(fn (SupplierOrder $r): string => (string) ($r->supplierProduct?->name ?? ''))
                     ->description(fn (SupplierOrder $r): string => 'Qty: '.$r->quantity.($r->external_order_id ? ' · ID: '.$r->external_order_id : '')),
                 TextColumn::make('cost')
-                    ->label('Cost')
+                    ->label('Cost & Profit')
                     ->weight('bold')
                     ->formatStateUsing(fn ($state, SupplierOrder $r): string => $state !== null
                         ? Money::currency($state, $r->supplier?->currency ?? 'USDT')
                         : '-')
-                    ->description(fn ($state, SupplierOrder $r): ?string => ($state !== null && $r->supplier)
-                        ? Money::pkr(round($r->supplier->toPkr((float) $state), 0))
-                        : null)
+                    ->description(function ($state, SupplierOrder $r): ?string {
+                        if ($state === null || ! $r->supplier) {
+                            return null;
+                        }
+                        $costPkr = round($r->supplier->toPkr((float) $state), 0);
+                        $resp = is_array($r->response) ? $r->response : [];
+                        if ($r->order_item_id === null && ! empty($resp['for_customer'])) {
+                            $sellPkr = round((float) ($resp['customer_sell_price_pkr'] ?? 0), 0);
+                            $profitPkr = $sellPkr - $costPkr;
+                            $sign = $profitPkr >= 0 ? '+' : '';
+
+                            return 'Cost: '.Money::pkr($costPkr).' · Sold: '.Money::pkr($sellPkr)." ({$sign}".Money::pkr($profitPkr).')';
+                        }
+
+                        return Money::pkr($costPkr);
+                    })
                     ->sortable(),
                 TextColumn::make('status')
                     ->badge()
@@ -276,46 +312,148 @@ class SupplierOrderResource extends Resource
             ->icon(Heroicon::OutlinedShoppingBag)
             ->color('primary')
             ->modalHeading('Place Direct Order on Vendor API')
-            ->modalDescription('Test a supplier product or buy stock directly from your vendor wallet.')
-            ->modalSubmitActionLabel('Place Vendor Order')
+            ->modalDescription('Buy from supplier at supplier cost. Enable "Buying for a Customer" to automatically record your selling price, supplier cost, and net profit in Sales & Profit Reports.')
+            ->modalSubmitActionLabel('Buy at Supplier Cost & Save to Ledger')
+            ->fillForm([
+                'for_customer' => true,
+                'quantity' => 1,
+                'customer_sell_price_pkr' => 0,
+                'customer_note' => '',
+            ])
             ->schema([
-                Select::make('supplier_id')
-                    ->label('Vendor / Supplier')
-                    ->options(fn (): array => Supplier::query()->where('is_active', true)->pluck('name', 'id')->all())
-                    ->required()
+                Toggle::make('for_customer')
+                    ->label('Buying for a Customer? (Record Sale Revenue, Cost & Profit in Ledger)')
+                    ->helperText('When ON: buys from supplier at supplier cost and logs your customer selling price & net profit in Sales & Profit Reports.')
+                    ->default(true)
                     ->live(),
-                Select::make('supplier_product_id')
-                    ->label('Vendor Product')
-                    ->options(fn (Get $get): array => $get('supplier_id')
-                        ? SupplierProduct::query()
-                            ->where('supplier_id', $get('supplier_id'))
-                            ->where('is_available', true)
-                            ->orderBy('name')
-                            ->get()
-                            ->mapWithKeys(fn (SupplierProduct $sp) => [
-                                $sp->id => "{$sp->name}: {$sp->cost} {$sp->supplier->currency} (Stock: ".($sp->unlimited_stock ? '∞' : (int) $sp->stock).')',
-                            ])
-                            ->all()
-                        : [])
-                    ->searchable()
-                    ->required(),
-                TextInput::make('quantity')
-                    ->label('Quantity')
-                    ->rule('integer')
-                    ->rule('min:1')
-                    ->default(1)
-                    ->required(),
+                Grid::make(['default' => 1, 'sm' => 2])->schema([
+                    Select::make('supplier_id')
+                        ->label('Vendor / Supplier')
+                        ->options(fn (): array => Supplier::query()->where('is_active', true)->pluck('name', 'id')->all())
+                        ->required()
+                        ->live(),
+                    Select::make('supplier_product_id')
+                        ->label('Vendor Product')
+                        ->options(fn (Get $get): array => $get('supplier_id')
+                            ? SupplierProduct::query()
+                                ->where('supplier_id', $get('supplier_id'))
+                                ->where('is_available', true)
+                                ->orderBy('name')
+                                ->get()
+                                ->mapWithKeys(fn (SupplierProduct $sp) => [
+                                    $sp->id => "{$sp->name}: {$sp->cost} {$sp->supplier->currency} ≈ Rs ".number_format($sp->costPkr(), 0).' (Stock: '.($sp->unlimited_stock ? '∞' : (int) $sp->stock).')',
+                                ])
+                                ->all()
+                            : [])
+                        ->searchable()
+                        ->required()
+                        ->live()
+                        ->afterStateUpdated(function ($state, Get $get, Set $set): void {
+                            if (! $state) {
+                                return;
+                            }
+                            $sp = SupplierProduct::with('supplier')->find($state);
+                            if (! $sp) {
+                                return;
+                            }
+                            $qty = max(1, (int) ($get('quantity') ?: 1));
+                            $linkedProduct = $sp->products()->first();
+                            $unitCostPkr = round($sp->costPkr(), 0);
+                            $unitSellPkr = $linkedProduct
+                                ? round($linkedProduct->calculateSellPriceForSource($sp), 0)
+                                : max($unitCostPkr, round($unitCostPkr * 1.25, 0));
+                            $set('customer_sell_price_pkr', round($unitSellPkr * $qty, 0));
+                        }),
+                    TextInput::make('quantity')
+                        ->label('Quantity')
+                        ->numeric()
+                        ->minValue(1)
+                        ->default(1)
+                        ->required()
+                        ->live(debounce: 200)
+                        ->afterStateUpdated(function ($state, Get $get, Set $set): void {
+                            $qty = max(1, (int) $state);
+                            $spId = $get('supplier_product_id');
+                            if (! $spId) {
+                                return;
+                            }
+                            $sp = SupplierProduct::with('supplier')->find($spId);
+                            if (! $sp) {
+                                return;
+                            }
+                            $linkedProduct = $sp->products()->first();
+                            $unitCostPkr = round($sp->costPkr(), 0);
+                            $unitSellPkr = $linkedProduct
+                                ? round($linkedProduct->calculateSellPriceForSource($sp), 0)
+                                : max($unitCostPkr, round($unitCostPkr * 1.25, 0));
+                            $set('customer_sell_price_pkr', round($unitSellPkr * $qty, 0));
+                        }),
+                    TextInput::make('customer_sell_price_pkr')
+                        ->label('Total Customer Selling Price (PKR)')
+                        ->prefix('Rs')
+                        ->numeric()
+                        ->minValue(0)
+                        ->live(debounce: 200)
+                        ->visible(fn (Get $get): bool => (bool) $get('for_customer'))
+                        ->required(fn (Get $get): bool => (bool) $get('for_customer')),
+                    TextInput::make('customer_note')
+                        ->label('Customer Name / Reference (Optional)')
+                        ->placeholder('e.g. WhatsApp Customer / Ali')
+                        ->visible(fn (Get $get): bool => (bool) $get('for_customer'))
+                        ->columnSpanFull(),
+                ]),
+                TextEntry::make('ledger_profit_preview')
+                    ->label('Live Cost & Profit Ledger Breakdown')
+                    ->visible(fn (Get $get): bool => filled($get('supplier_product_id')))
+                    ->state(function (Get $get): string {
+                        $spId = $get('supplier_product_id');
+                        $sp = $spId ? SupplierProduct::with('supplier')->find($spId) : null;
+                        if (! $sp) {
+                            return 'Select a vendor product above to preview cost and profit.';
+                        }
+                        $qty = max(1, (int) ($get('quantity') ?: 1));
+                        $costPkr = round($sp->costPkr() * $qty, 0);
+                        $costRaw = Money::currency((float) $sp->cost * $qty, $sp->supplier?->currency ?? 'USDT');
+
+                        if (! $get('for_customer')) {
+                            return 'Supplier Buy Cost: Rs '.number_format($costPkr, 0)." ({$costRaw}) · Internal Stock / Admin Purchase";
+                        }
+
+                        $sellPkr = round((float) ($get('customer_sell_price_pkr') ?: 0), 0);
+                        $profitPkr = $sellPkr - $costPkr;
+                        $sign = $profitPkr >= 0 ? '+' : '';
+
+                        return sprintf(
+                            'Supplier Cost: Rs %s (%s)  |  Customer Price: Rs %s  |  Your Net Profit: %sRs %s',
+                            number_format($costPkr, 0),
+                            $costRaw,
+                            number_format($sellPkr, 0),
+                            $sign,
+                            number_format($profitPkr, 0),
+                        );
+                    }),
                 Select::make('save_to_product_id')
                     ->label('Add delivered items to Own Stock of (Optional)')
                     ->placeholder('Just show me the credentials on screen')
                     ->options(fn (): array => Product::query()->orderBy('name')->pluck('name', 'id')->all())
-                    ->searchable(),
+                    ->searchable()
+                    ->visible(fn (Get $get): bool => ! (bool) $get('for_customer')),
             ])
             ->action(function (array $data): void {
                 $supplier = Supplier::findOrFail($data['supplier_id']);
                 $sp = SupplierProduct::findOrFail($data['supplier_product_id']);
                 $qty = max(1, (int) $data['quantity']);
+                $forCustomer = (bool) ($data['for_customer'] ?? false);
+                $customerSellPricePkr = $forCustomer ? round((float) ($data['customer_sell_price_pkr'] ?? 0), 2) : 0.0;
+                $customerNote = $forCustomer ? trim((string) ($data['customer_note'] ?? '')) : '';
                 $reqId = 'DIRECT-'.strtoupper(uniqid());
+
+                $metaPayload = [
+                    'save_to_product_id' => $data['save_to_product_id'] ?? null,
+                    'for_customer' => $forCustomer,
+                    'customer_sell_price_pkr' => $customerSellPricePkr,
+                    'customer_note' => $customerNote,
+                ];
 
                 $attempt = SupplierOrder::create([
                     'supplier_id' => $supplier->id,
@@ -324,6 +462,7 @@ class SupplierOrderResource extends Resource
                     'request_id' => $reqId,
                     'quantity' => $qty,
                     'status' => SupplierOrderStatus::Pending,
+                    'response' => $metaPayload,
                 ]);
 
                 try {
@@ -339,7 +478,7 @@ class SupplierOrderResource extends Resource
                         $attempt->update([
                             'status' => SupplierOrderStatus::Pending,
                             'error' => 'Relaying via Admin Browser Bridge...',
-                            'response' => ['save_to_product_id' => $data['save_to_product_id'] ?? null],
+                            'response' => $metaPayload,
                         ]);
 
                         Notification::make()
@@ -366,7 +505,7 @@ class SupplierOrderResource extends Resource
                 }
 
                 $cost = $res->total ?? ((float) $sp->cost * max(1, count($res->items)));
-                $rawWithItems = is_array($res->raw) ? $res->raw : [];
+                $rawWithItems = array_merge(is_array($res->raw) ? $res->raw : [], $metaPayload);
                 $rawWithItems['delivered_items'] = $res->items;
 
                 $attempt->update([
@@ -394,9 +533,14 @@ class SupplierOrderResource extends Resource
                     }
                 }
 
+                $costPkr = round($supplier->toPkr((float) $cost), 0);
+                $profitLine = $forCustomer
+                    ? sprintf("\nSold: Rs %s · Cost: Rs %s · Profit: +Rs %s (Added to Ledger)", number_format($customerSellPricePkr, 0), number_format($costPkr, 0), number_format($customerSellPricePkr - $costPkr, 0))
+                    : '';
+
                 Notification::make()
-                    ->title('Direct Vendor Order Saved! ('.count($res->items).' item(s))')
-                    ->body(implode("\n", $res->items))
+                    ->title('Direct Vendor Order Delivered! ('.count($res->items).' item(s))')
+                    ->body(implode("\n", $res->items).$profitLine)
                     ->persistent()
                     ->success()
                     ->send();

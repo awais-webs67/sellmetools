@@ -300,7 +300,27 @@ class SalesStatement extends Page
         foreach ($directBuys as $direct) {
             $costUsd = (float) ($direct->cost ?? 0);
             $costPkr = $direct->supplier ? round($direct->supplier->toPkr($costUsd), 2) : round($costUsd * 280, 2);
-            $directBuyCostPkr += $costPkr;
+            $resp = is_array($direct->response) ? $direct->response : [];
+            $isCustomerSale = ! empty($resp['for_customer']);
+            $sellPkr = $isCustomerSale ? round((float) ($resp['customer_sell_price_pkr'] ?? 0), 2) : 0.0;
+            $customerNote = trim((string) ($resp['customer_note'] ?? ''));
+
+            if ($isCustomerSale) {
+                $grossSalesPkr += $sellPkr;
+                $orderCostPkr += $costPkr;
+                $gwName = 'Direct Customer Sale';
+                if (! isset($gatewayMap[$gwName])) {
+                    $gatewayMap[$gwName] = [
+                        'name' => $gwName,
+                        'count' => 0,
+                        'total_pkr' => 0.0,
+                    ];
+                }
+                $gatewayMap[$gwName]['count']++;
+                $gatewayMap[$gwName]['total_pkr'] += $sellPkr;
+            } else {
+                $directBuyCostPkr += $costPkr;
+            }
 
             if ($direct->supplier_id && isset($supplierMap[$direct->supplier_id])) {
                 $supplierMap[$direct->supplier_id]['direct_count']++;
@@ -311,25 +331,27 @@ class SalesStatement extends Page
             $supName = $direct->supplier?->name ?? 'Supplier API';
             $prodName = $direct->supplierProduct?->name ?? 'Direct Vendor Item';
             $timestamp = $direct->created_at;
+            $netPkr = $isCustomerSale ? round($sellPkr - $costPkr, 2) : -$costPkr;
+            $marginPct = ($isCustomerSale && $sellPkr > 0) ? round(($netPkr / $sellPkr) * 100, 1) : null;
 
             $rawEntries[] = [
                 'timestamp' => $timestamp,
                 'date_formatted' => $timestamp?->format('d M Y') ?? '-',
                 'time_formatted' => $timestamp?->format('h:i A') ?? '-',
                 'type' => 'direct',
-                'type_label' => 'Vendor Buy',
+                'type_label' => $isCustomerSale ? 'Direct Sale' : 'Vendor Buy',
                 'ref' => 'DIRECT-#'.$direct->id,
                 'url' => SupplierOrderResource::getUrl('index', ['activeTab' => 'direct']),
                 'title' => $prodName.' ×'.$direct->quantity,
-                'subtitle' => 'Direct Admin Buy from '.$supName.($direct->external_order_id ? ' · Ext #'.$direct->external_order_id : ''),
-                'channel' => 'Supplier Wallet',
+                'subtitle' => ($isCustomerSale ? 'Direct Customer Sale'.($customerNote !== '' ? " ({$customerNote})" : '') : 'Direct Admin Buy').' via '.$supName.($direct->external_order_id ? ' · Ext #'.$direct->external_order_id : ''),
+                'channel' => $isCustomerSale ? 'Direct Customer' : 'Supplier Wallet',
                 'source' => $supName,
-                'status_label' => 'Delivered to Admin',
-                'credit_pkr' => 0.0,
+                'status_label' => $isCustomerSale ? 'Sold to Customer' : 'Delivered to Admin',
+                'credit_pkr' => $sellPkr,
                 'debit_pkr' => $costPkr,
                 'debit_usdt' => $costUsd,
-                'net_pkr' => -$costPkr,
-                'margin_pct' => null,
+                'net_pkr' => $netPkr,
+                'margin_pct' => $marginPct,
             ];
         }
 

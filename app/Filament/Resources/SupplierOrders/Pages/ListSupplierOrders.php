@@ -24,9 +24,9 @@ class ListSupplierOrders extends ListRecords
     {
         return [
             'all' => Tab::make('All Supplier Orders'),
-            'direct' => Tab::make('⚡ Direct Admin Buys')
+            'direct' => Tab::make('Direct Admin Buys')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereNull('order_item_id')),
-            'customer' => Tab::make('🛒 Customer Orders')
+            'customer' => Tab::make('Customer Orders')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereNotNull('order_item_id')),
             'failed' => Tab::make('Unfulfilled / Needs Action')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query

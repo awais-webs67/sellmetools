@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\Product;
 use App\Models\Setting;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -113,6 +114,8 @@ class WhatsAppNotifier
         $greenId = trim((string) Setting::get('greenapi_instance_id', ''));
         $greenToken = trim((string) Setting::get('greenapi_api_token', ''));
         $ntfyTopic = trim((string) Setting::get('ntfy_topic', ''));
+        $callMeBotKey = trim((string) Setting::get('whatsapp_callmebot_apikey', ''));
+        $webhookUrl = trim((string) Setting::get('whatsapp_admin_webhook_url', ''));
 
         $items = $order->items->map(fn ($i) => "{$i->product_name} × {$i->quantity}")->implode(', ');
         $supplierSummary = $order->adminSupplierSummary(true);
@@ -120,15 +123,21 @@ class WhatsAppNotifier
         $methodName = $order->paymentMethod?->name ?? 'Online';
         $profit = round((float) $order->total - (float) $order->total_cost, 2);
 
+        $rawCustomerPhone = $order->phone ?: ($order->latestPayment?->sender_number ?: ($order->user?->phone ?? ''));
+        $customerPhone = self::formatPhone((string) $rawCustomerPhone);
+        if ($customerPhone !== '' && empty($order->phone)) {
+            $order->updateQuietly(['phone' => $customerPhone]);
+        }
+
         if ($ntfyTopic !== '') {
             try {
                 Http::timeout(4)
                     ->withHeaders([
-                        'Title' => "✅ Order Delivered: {$order->number} (Rs {$order->total})",
+                        'Title' => "Order Delivered: {$order->number} (Rs {$order->total})",
                         'Tags' => 'white_check_mark,tada',
                     ])
                     ->withBody(
-                        "📦 {$items}\n🏭 Supplier: {$supplierSummary}\n💳 {$methodName} | 💰 Profit: Rs {$profit}\n👤 Customer: {$order->email}",
+                        "Product: {$items}\nSupplier: {$supplierSummary}\nMethod: {$methodName} | Profit: Rs {$profit}\nCustomer: {$order->email}".($customerPhone !== '' ? " (+{$customerPhone})" : ''),
                         'text/plain'
                     )
                     ->post('https://ntfy.sh/'.urlencode($ntfyTopic));
@@ -136,33 +145,61 @@ class WhatsAppNotifier
             }
         }
 
-        if ($greenId === '' || $greenToken === '') {
-            return;
-        }
+        $adminMsg = "*ORDER DELIVERED SUCCESSFULLY*\n"
+            ."━━━━━━━━━━━━━━━━━━\n"
+            ."*Order:* `{$order->number}`\n"
+            ."*Product:* {$items}\n"
+            ."*Supplier:* {$supplierSummary}\n"
+            ."*Method:* {$methodName}\n"
+            ."*Sale:* Rs {$order->total} | *Profit:* Rs {$profit}\n"
+            ."*Customer:* {$order->email}".($customerPhone !== '' ? " (+{$customerPhone})" : '');
 
-        if ($adminPhone !== '') {
-            $adminMsg = "✅ *ORDER DELIVERED SUCCESSFULLY*\n"
-                ."━━━━━━━━━━━━━━━━━━\n"
-                ."🧾 *Order:* `{$order->number}`\n"
-                ."📦 *Product:* {$items}\n"
-                ."🏭 *Supplier:* {$supplierSummary}\n"
-                ."💳 *Method:* {$methodName}\n"
-                ."💵 *Sale:* Rs {$order->total} | *Profit:* Rs {$profit}\n"
-                ."👤 *Customer:* {$order->email}";
+        if ($greenId !== '' && $greenToken !== '' && $adminPhone !== '') {
             $this->sendGreenApi($greenId, $greenToken, $adminPhone, $adminMsg);
         }
 
-        $customerPhone = self::formatPhone((string) ($order->phone ?? ''));
+        if ($callMeBotKey !== '' && $adminPhone !== '') {
+            try {
+                Http::timeout(5)->get('https://api.callmebot.com/whatsapp.php', [
+                    'phone' => $adminPhone,
+                    'text' => $adminMsg,
+                    'apikey' => $callMeBotKey,
+                ]);
+            } catch (Throwable) {
+            }
+        }
+
         if ($customerPhone !== '') {
             $storeName = (string) Setting::get('store_name', 'SellMeTools');
-            $customerMsg = "🎉 *{$storeName}: Order Confirmed & Delivered!*\n\n"
-                ."🧾 *Order ID:* `{$order->number}`\n"
-                ."📦 *Product:* {$items}\n\n"
-                ."🔑 *Your Credentials / Activation:*\n{$creds}\n\n"
-                .'🔗 *Order Receipt:* '.$order->customerUrl()."\n\n"
+            $customerMsg = "*{$storeName} — Order Delivered Successfully!*\n\n"
+                ."Please copy your product details below:\n"
+                ."━━━━━━━━━━━━━━━━━━\n"
+                ."*Order ID:* `{$order->number}`\n"
+                ."*Product:* {$items}\n\n"
+                ."*Your Credentials / Details:*\n{$creds}\n"
+                ."━━━━━━━━━━━━━━━━━━\n"
+                .'*Order & Receipt Link:* '.$order->customerUrl()."\n\n"
                 .'Thank you for shopping with us!';
 
-            $this->sendGreenApi($greenId, $greenToken, $customerPhone, $customerMsg);
+            if ($greenId !== '' && $greenToken !== '') {
+                $this->sendGreenApi($greenId, $greenToken, $customerPhone, $customerMsg);
+            }
+
+            if ($webhookUrl !== '') {
+                try {
+                    Http::timeout(5)->post($webhookUrl, [
+                        'event' => 'order_delivered',
+                        'phone' => $customerPhone,
+                        'order_number' => $order->number,
+                        'product' => $items,
+                        'credentials' => $creds,
+                        'order_url' => $order->customerUrl(),
+                        'message' => $customerMsg,
+                    ]);
+                } catch (Throwable $e) {
+                    Log::warning('Custom WhatsApp customer delivery webhook error: '.$e->getMessage());
+                }
+            }
         }
     }
 
@@ -220,7 +257,7 @@ class WhatsAppNotifier
     /**
      * 4. Product / Supplier Stock Depleted (0 Stock Alert to Admin on WhatsApp & ntfy)
      */
-    public function notifyAdminOutOfStock(\App\Models\Product $product, ?string $supplierSummary = null): void
+    public function notifyAdminOutOfStock(Product $product, ?string $supplierSummary = null): void
     {
         $adminPhone = admin_whatsapp_number();
         $greenId = trim((string) Setting::get('greenapi_instance_id', ''));

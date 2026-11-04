@@ -64,7 +64,7 @@ class AdminPanelProvider extends PanelProvider
                     .'<svg style="width:14px;height:14px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>'
                     .'<span class="smt-btn-text">Vendor</span>'
                     .'</a>'
-                    .'<a href="'.e(url('/')).'" target="_blank" rel="noopener" class="fi-live-store-btn" title="Open Live Storefront">'
+                    .'<a href="'.e(url('/')).'" target="_blank" rel="noopener" class="fi-live-store-btn smt-hide-mobile" title="Open Live Storefront">'
                     .'<svg style="width:14px;height:14px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
                     .'<span class="smt-btn-text">Store</span>'
                     .'</a>'
@@ -787,13 +787,12 @@ class AdminPanelProvider extends PanelProvider
                         border-radius: 0.5rem !important;
                     }
 
-                    /* 10. Full Mobile & Tablet Responsive Flow (Zero Overflow / Zero Overlap) */
-                    html, body {
-                        max-width: 100vw !important;
-                        overflow-x: hidden !important;
+                    /* 10. Desktop Sticky Sidebar & Full Mobile/Tablet Responsive Flow */
+                    .fi-main-ctn {
+                        max-width: 100% !important;
+                        min-width: 0 !important;
+                        overflow-x: clip !important;
                     }
-                    .fi-layout,
-                    .fi-main-ctn,
                     .fi-main,
                     .fi-page,
                     .fi-resource-edit-record-page,
@@ -802,6 +801,19 @@ class AdminPanelProvider extends PanelProvider
                     .fi-resource-view-record-page {
                         max-width: 100% !important;
                         min-width: 0 !important;
+                    }
+                    @media (min-width: 1024px) {
+                        .fi-sidebar {
+                            position: sticky !important;
+                            top: 0 !important;
+                            height: 100dvh !important;
+                            max-height: 100dvh !important;
+                            overflow-y: auto !important;
+                            align-self: flex-start !important;
+                        }
+                        .fi-sidebar-nav {
+                            overflow-y: auto !important;
+                        }
                     }
                     @media (max-width: 1024px) {
                         .fi-wi-stats-overview-stats-ctn {
@@ -814,33 +826,51 @@ class AdminPanelProvider extends PanelProvider
                             display: none !important;
                         }
                         .fi-topbar {
-                            padding-inline: 0.5rem !important;
-                            gap: 0.35rem !important;
-                            min-height: 3.35rem !important;
+                            width: 100% !important;
+                            max-width: 100vw !important;
+                            box-sizing: border-box !important;
+                            padding-inline: 0.45rem !important;
+                            gap: 0.3rem !important;
+                            min-height: 3.25rem !important;
                         }
                         .fi-topbar-open-sidebar-btn,
                         .fi-topbar-close-sidebar-btn {
-                            margin-inline-end: 0.15rem !important;
+                            margin-inline: 0 !important;
+                            width: 32px !important;
+                            height: 32px !important;
                             flex-shrink: 0 !important;
                         }
                         .fi-topbar-end {
-                            flex: 1 1 auto !important;
+                            flex: 1 1 0% !important;
                             min-width: 0 !important;
-                            column-gap: 0.35rem !important;
-                            justify-content: flex-end !important;
+                            max-width: 100% !important;
+                            margin-inline-start: 0 !important;
+                            column-gap: 0.3rem !important;
+                            justify-content: space-between !important;
                         }
                         .fi-global-search-ctn {
-                            flex: 1 1 auto !important;
-                            min-width: 115px !important;
+                            flex: 1 1 0% !important;
+                            width: 0 !important;
+                            min-width: 60px !important;
+                            max-width: 100% !important;
+                        }
+                        .fi-global-search,
+                        .fi-global-search-field,
+                        .fi-global-search-field .fi-input-wrp,
+                        .fi-global-search-field .fi-input-wrp-content-ctn {
+                            width: 100% !important;
+                            min-width: 0 !important;
                             max-width: 100% !important;
                         }
                         .fi-global-search-field .fi-input,
                         .fi-ta-search-field .fi-input {
+                            width: 100% !important;
+                            min-width: 0 !important;
                             font-size: 16px !important;
-                            padding-top: 0.35rem !important;
-                            padding-bottom: 0.35rem !important;
-                            padding-inline-start: 0.35rem !important;
-                            padding-inline-end: 0.5rem !important;
+                            padding-top: 0.3rem !important;
+                            padding-bottom: 0.3rem !important;
+                            padding-inline-start: 0.25rem !important;
+                            padding-inline-end: 0.4rem !important;
                         }
                         .fi-topbar .fi-global-search-results-ctn {
                             position: fixed !important;
@@ -855,16 +885,18 @@ class AdminPanelProvider extends PanelProvider
                             gap: 0.25rem !important;
                             flex-shrink: 0 !important;
                         }
-                        .fi-live-store-btn {
-                            width: 34px !important;
-                            height: 34px !important;
+                        .fi-live-store-btn,
+                        .smt-bell-btn {
+                            width: 32px !important;
+                            height: 32px !important;
                             padding: 0 !important;
                             justify-content: center !important;
-                            border-radius: 0.55rem !important;
+                            border-radius: 0.5rem !important;
+                            flex-shrink: 0 !important;
                         }
-                        .smt-bell-btn {
-                            width: 34px !important;
-                            height: 34px !important;
+                        .fi-topbar .fi-user-menu,
+                        .fi-topbar .fi-user-menu-trigger {
+                            flex-shrink: 0 !important;
                         }
                         .fi-main {
                             padding-left: 0.5rem !important;

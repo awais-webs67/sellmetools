@@ -159,14 +159,30 @@ class ExecutiveCommandCenter extends Widget
         }
         $directBuys = $directQuery->get();
         $directCostPkr = 0.0;
+        $directCustomerCount = 0;
         foreach ($directBuys as $db) {
             $usd = (float) ($db->cost ?? 0);
-            $directCostPkr += $db->supplier ? $db->supplier->toPkr($usd) : ($usd * 280);
+            $costPkr = $db->supplier ? $db->supplier->toPkr($usd) : ($usd * 280);
+            $resp = is_array($db->response) ? $db->response : [];
+            if (! empty($resp['for_customer'])) {
+                $sellPkr = (float) ($resp['customer_sell_price_pkr'] ?? 0);
+                $revenuePkr += $sellPkr;
+                $orderCostPkr += $costPkr;
+                $directCustomerCount++;
+                $gw = 'Direct Customer Sale';
+                if (! isset($gatewayTotals[$gw])) {
+                    $gatewayTotals[$gw] = ['name' => $gw, 'count' => 0, 'total' => 0.0];
+                }
+                $gatewayTotals[$gw]['count']++;
+                $gatewayTotals[$gw]['total'] += $sellPkr;
+            } else {
+                $directCostPkr += $costPkr;
+            }
         }
 
         $netProfitPkr = round($revenuePkr - $orderCostPkr, 2);
         $marginPct = $revenuePkr > 0 ? round(($netProfitPkr / $revenuePkr) * 100, 1) : 0.0;
-        $paidCount = $paidOrders->count();
+        $paidCount = $paidOrders->count() + $directCustomerCount;
         $avgOrderPkr = $paidCount > 0 ? round($revenuePkr / $paidCount, 0) : 0.0;
 
         // 2. Live Action Queues

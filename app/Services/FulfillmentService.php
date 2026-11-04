@@ -616,9 +616,10 @@ class FulfillmentService
                 return null;
             }
 
-            $saveToProductId = is_array($attempt->response) ? ($attempt->response['save_to_product_id'] ?? null) : null;
+            $existingMeta = is_array($attempt->response) ? $attempt->response : [];
+            $saveToProductId = $existingMeta['save_to_product_id'] ?? null;
             $cost = $result->total ?? ((float) $source->cost * count($cleanItems));
-            $rawWithItems = is_array($result->raw) ? $result->raw : [];
+            $rawWithItems = array_merge(is_array($result->raw) ? $result->raw : [], $existingMeta);
             $rawWithItems['delivered_items'] = $cleanItems;
 
             $attempt->update([

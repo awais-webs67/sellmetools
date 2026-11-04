@@ -39,9 +39,174 @@
     $customerInputLabel = $order->requiredCustomerInputLabel();
     $receiptUrl = route('orders.receipt', ['order' => $order->number, 'token' => $token]);
     $pdfReceiptUrl = route('orders.receipt', ['order' => $order->number, 'token' => $token, 'download' => 'pdf']);
+    $customerPhoneFormatted = format_whatsapp((string) ($order->phone ?: ($order->latestPayment?->sender_number ?: ($order->user?->phone ?? ''))));
 @endphp
 <x-layouts.store :title="'Order '.$order->number" robots="noindex, nofollow">
-    <div class="container-x max-w-5xl py-6 sm:py-10" x-data="orderWatcher(@js($statusUrl), @js($s->value), @js($initialReviewTimeout))">
+    <div class="container-x {{ $s === OrderStatus::Completed ? 'max-w-2xl' : 'max-w-5xl' }} py-6 sm:py-10" x-data="orderWatcher(@js($statusUrl), @js($s->value), @js($initialReviewTimeout))">
+
+        @if ($s === OrderStatus::Completed)
+            @php
+                $allDeliveredText = $order->items->map(function ($it) {
+                    $creds = $it->deliveries->pluck('content')->implode("\n");
+                    return "Product: {$it->product_name} (x{$it->quantity})\nCredentials:\n{$creds}";
+                })->implode("\n\n");
+                $onlyRawCreds = $order->items->flatMap(fn ($it) => $it->deliveries->pluck('content'))->map(fn ($c) => trim((string) $c))->filter()->implode("\n\n");
+                $fullReceiptText = "=== ".setting('store_name', 'SellMeTools')." Receipt ===\n"
+                    ."Order ID: {$order->number}\n"
+                    ."Status: Delivered\n\n"
+                    .$allDeliveredText;
+                $deliveredTime = ($order->completed_at ?? $order->updated_at)?->format('d M Y, h:i A');
+            @endphp
+
+            {{-- ============ DEDICATED CLEAN ORDER DELIVERED VIEW ============ --}}
+            <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                {{-- 1. Top Delivered Success Header --}}
+                <div class="border-b border-slate-200 bg-slate-50/70 px-5 py-6 sm:px-8 sm:py-7 text-center">
+                    <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xs">
+                        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+
+                    <div class="mt-3 flex flex-wrap items-center justify-center gap-2">
+                        <span class="rounded-md bg-slate-900 px-2.5 py-0.5 font-mono text-xs font-semibold text-white">
+                            #{{ $order->number }}
+                        </span>
+                        <span class="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                            Total Paid: {{ money($order->total) }}
+                        </span>
+                        @if ($deliveredTime)
+                            <span class="text-xs text-slate-500">{{ $deliveredTime }}</span>
+                        @endif
+                    </div>
+
+                    <h1 class="mt-3 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                        Order Delivered Successfully
+                    </h1>
+                    <p class="mt-1 text-xs sm:text-sm text-slate-600">
+                        Please copy your product details below.
+                    </p>
+
+                    @if ($customerPhoneFormatted !== '')
+                        <div class="mt-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50/80 px-3 py-1 text-[11px] font-medium text-emerald-800">
+                            <svg class="h-3.5 w-3.5 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            <span>Sent to Order Page, Email ({{ $order->email }}) &amp; WhatsApp (+{{ $customerPhoneFormatted }})</span>
+                        </div>
+                    @endif
+                </div>
+
+                {{-- 2. Middle Box: Product Credentials from Supplier --}}
+                <div class="p-5 sm:p-7 space-y-5">
+                    @foreach ($order->items as $item)
+                        <div class="rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden">
+                            {{-- Product Header Bar --}}
+                            <div class="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-200 bg-white px-4 py-3">
+                                <div class="flex items-center gap-2.5 min-w-0">
+                                    @if ($item->product?->imageUrl())
+                                        <img src="{{ $item->product->imageUrl() }}" alt="{{ $item->product_name }}" class="h-8 w-8 rounded-md object-cover border border-slate-200 shrink-0">
+                                    @endif
+                                    <div class="min-w-0">
+                                        <h2 class="text-sm sm:text-base font-bold text-slate-900 truncate">{{ $item->product_name }}</h2>
+                                        <p class="text-[11px] text-slate-500">Quantity: <strong class="text-slate-800">{{ $item->quantity }}</strong></p>
+                                    </div>
+                                </div>
+
+                                <div x-data="copy(@js($item->deliveries->pluck('content')->map(fn ($c) => trim((string) $c))->filter()->implode("\n\n")))">
+                                    <button type="button"
+                                            @click="copy"
+                                            class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer">
+                                        <svg class="h-3.5 w-3.5 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                        <span x-text="copied ? 'Copied!' : 'Copy Credentials'">Copy Credentials</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {{-- Supplier Credentials Content --}}
+                            <div class="p-4 space-y-3">
+                                @foreach ($item->deliveries as $idx => $delivery)
+                                    @php
+                                        $rawContent = trim($delivery->content);
+                                        $parts = null;
+                                        if (! str_contains($rawContent, "\n") && preg_match('/^([^\s:|]+@[^\s:|]+)[:|](.+)$/', $rawContent, $m)) {
+                                            $parts = ['Email / Username' => trim($m[1]), 'Password / Key' => trim($m[2])];
+                                        }
+                                        $firstUrl = null;
+                                        if (preg_match('/https?:\/\/[^\s"\'<>]+/i', $rawContent, $urlMatch)) {
+                                            $firstUrl = $urlMatch[0];
+                                        }
+                                    @endphp
+                                    <div class="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-2xs space-y-3">
+                                        <div class="flex items-center justify-between gap-2">
+                                            <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                                                {{ $item->deliveries->count() > 1 ? 'Delivered Access Credentials #'.($idx + 1) : 'Delivered Access Credentials' }}
+                                            </span>
+                                            <div class="flex items-center gap-1.5" x-data="copy(@js($rawContent))">
+                                                @if ($firstUrl)
+                                                    <a href="{{ $firstUrl }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 transition">
+                                                        <span>Open Link</span>
+                                                        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M7 17L17 7M7 7h10v10"/></svg>
+                                                    </a>
+                                                @endif
+                                                <button type="button" @click="copy" class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer">
+                                                    <svg class="h-3.5 w-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                                    <span x-text="copied ? 'Copied' : 'Copy'">Copy</span>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        @if ($parts)
+                                            <div class="grid gap-2.5 sm:grid-cols-2">
+                                                @foreach ($parts as $pLabel => $pVal)
+                                                    <div class="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2" x-data="copy(@js($pVal))">
+                                                        <div class="min-w-0">
+                                                            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{{ $pLabel }}</p>
+                                                            <p class="mt-0.5 font-mono text-xs sm:text-sm font-semibold text-slate-900 break-all">{{ $pVal }}</p>
+                                                        </div>
+                                                        <button type="button" @click="copy" class="shrink-0 rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer" x-text="copied ? 'Copied' : 'Copy'">Copy</button>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @endif
+
+                                        <pre class="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3 font-mono text-xs sm:text-sm font-semibold leading-relaxed whitespace-pre-wrap break-all text-slate-900 select-all">{{ $rawContent }}</pre>
+                                    </div>
+                                @endforeach
+
+                                @if ($item->product?->warranty)
+                                    <div class="rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-600">
+                                        <strong class="font-semibold text-slate-900">Warranty:</strong> {{ $item->product->cleanWarrantyText() }}
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+
+                    {{-- 3. Bottom Action Bar: View Receipt, Download Receipt & WhatsApp --}}
+                    <div class="pt-2 border-t border-slate-200">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            <a href="{{ $receiptUrl }}"
+                               target="_blank"
+                               class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs sm:text-sm font-semibold text-slate-800 hover:bg-slate-50 transition shadow-2xs">
+                                <svg class="h-4 w-4 text-slate-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                <span>View Receipt</span>
+                            </a>
+
+                            <a href="{{ $pdfReceiptUrl }}"
+                               class="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-xs sm:text-sm font-semibold text-white hover:bg-slate-800 transition shadow-2xs">
+                                <svg class="h-4 w-4 text-slate-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                <span>Download Receipt</span>
+                            </a>
+
+                            <a href="{{ $waHref }}"
+                               target="_blank"
+                               rel="noopener"
+                               class="inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 text-xs sm:text-sm font-semibold text-white hover:bg-[#1ebe5b] transition shadow-2xs">
+                                <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                                <span>WhatsApp Support</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @else
 
         {{-- Refined Editorial Order Header Bar --}}
         <div class="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xs">
@@ -669,5 +834,6 @@
                 </div>
             </aside>
         </div>
+        @endif
     </div>
 </x-layouts.store>

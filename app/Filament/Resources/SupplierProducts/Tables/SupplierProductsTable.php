@@ -28,6 +28,7 @@ use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -126,25 +127,94 @@ class SupplierProductsTable
             ->size('xs')
             ->modalHeading(fn (SupplierProduct $record): string => "Buy Directly: {$record->name}")
             ->modalDescription(fn (SupplierProduct $record): string => sprintf(
-                'Supplier: %s · Cost: Rs %s (%s) · Stock: %s. Record & credentials will be saved in Direct & Vendor Orders.',
+                'Supplier: %s · Supplier Cost: Rs %s (%s) · Stock: %s',
                 $record->supplier?->name,
                 number_format($record->costPkr(), 0),
                 Money::currency($record->cost, $record->supplier?->currency ?? 'USDT'),
                 $record->unlimited_stock ? '∞' : (string) (int) $record->stock,
             ))
-            ->modalSubmitActionLabel('Buy Now & Save Record')
-            ->schema([
-                TextInput::make('quantity')
-                    ->label('Quantity')
-                    ->numeric()
-                    ->minValue(1)
-                    ->default(1)
-                    ->required(),
+            ->modalSubmitActionLabel('Buy at Supplier Cost & Save to Ledger')
+            ->fillForm(function (SupplierProduct $record): array {
+                $linkedProduct = $record->products()->first();
+                $unitCostPkr = round($record->costPkr(), 0);
+                $defaultSellPkr = $linkedProduct
+                    ? round($linkedProduct->calculateSellPriceForSource($record), 0)
+                    : max($unitCostPkr, round($unitCostPkr * 1.25, 0));
+
+                return [
+                    'for_customer' => true,
+                    'quantity' => 1,
+                    'customer_sell_price_pkr' => $defaultSellPkr,
+                    'customer_note' => '',
+                ];
+            })
+            ->schema(fn (SupplierProduct $record): array => [
+                Toggle::make('for_customer')
+                    ->label('Buying for a Customer? (Record Sale Revenue, Cost & Profit in Ledger)')
+                    ->helperText('When ON: buys from supplier at supplier cost and logs your customer selling price & net profit in Sales & Profit Reports.')
+                    ->default(true)
+                    ->live(),
+                Grid::make(['default' => 1, 'sm' => 2])->schema([
+                    TextInput::make('quantity')
+                        ->label('Quantity')
+                        ->numeric()
+                        ->minValue(1)
+                        ->default(1)
+                        ->required()
+                        ->live(debounce: 200)
+                        ->afterStateUpdated(function ($state, Set $set) use ($record): void {
+                            $qty = max(1, (int) $state);
+                            $linkedProduct = $record->products()->first();
+                            $unitCostPkr = round($record->costPkr(), 0);
+                            $unitSellPkr = $linkedProduct
+                                ? round($linkedProduct->calculateSellPriceForSource($record), 0)
+                                : max($unitCostPkr, round($unitCostPkr * 1.25, 0));
+                            $set('customer_sell_price_pkr', round($unitSellPkr * $qty, 0));
+                        }),
+                    TextInput::make('customer_sell_price_pkr')
+                        ->label('Total Customer Selling Price (PKR)')
+                        ->prefix('Rs')
+                        ->numeric()
+                        ->minValue(0)
+                        ->live(debounce: 200)
+                        ->visible(fn (Get $get): bool => (bool) $get('for_customer'))
+                        ->required(fn (Get $get): bool => (bool) $get('for_customer')),
+                    TextInput::make('customer_note')
+                        ->label('Customer Name / Reference (Optional)')
+                        ->placeholder('e.g. WhatsApp Customer / Ali')
+                        ->visible(fn (Get $get): bool => (bool) $get('for_customer'))
+                        ->columnSpanFull(),
+                ]),
+                TextEntry::make('ledger_profit_preview')
+                    ->label('Live Cost & Profit Ledger Breakdown')
+                    ->state(function (Get $get) use ($record): string {
+                        $qty = max(1, (int) ($get('quantity') ?: 1));
+                        $costPkr = round($record->costPkr() * $qty, 0);
+                        $costRaw = Money::currency((float) $record->cost * $qty, $record->supplier?->currency ?? 'USDT');
+
+                        if (! $get('for_customer')) {
+                            return 'Supplier Buy Cost: Rs '.number_format($costPkr, 0)." ({$costRaw}) · Internal Stock / Admin Purchase";
+                        }
+
+                        $sellPkr = round((float) ($get('customer_sell_price_pkr') ?: 0), 0);
+                        $profitPkr = $sellPkr - $costPkr;
+                        $sign = $profitPkr >= 0 ? '+' : '';
+
+                        return sprintf(
+                            'Supplier Cost: Rs %s (%s)  |  Customer Price: Rs %s  |  Your Net Profit: %sRs %s',
+                            number_format($costPkr, 0),
+                            $costRaw,
+                            number_format($sellPkr, 0),
+                            $sign,
+                            number_format($profitPkr, 0),
+                        );
+                    }),
                 Select::make('save_to_product_id')
                     ->label('Also add delivered credentials to Own Stock Vault of (Optional)')
                     ->placeholder('Just save in Direct & Vendor Orders')
                     ->options(fn (): array => Product::query()->orderBy('name')->pluck('name', 'id')->all())
-                    ->searchable(),
+                    ->searchable()
+                    ->visible(fn (Get $get): bool => ! (bool) $get('for_customer')),
             ])
             ->action(function (SupplierProduct $record, array $data): void {
                 $supplier = $record->supplier;
@@ -155,7 +225,17 @@ class SupplierProductsTable
                 }
 
                 $qty = max(1, (int) ($data['quantity'] ?? 1));
+                $forCustomer = (bool) ($data['for_customer'] ?? false);
+                $customerSellPricePkr = $forCustomer ? round((float) ($data['customer_sell_price_pkr'] ?? 0), 2) : 0.0;
+                $customerNote = $forCustomer ? trim((string) ($data['customer_note'] ?? '')) : '';
                 $reqId = 'DIRECT-'.strtoupper(uniqid());
+
+                $metaPayload = [
+                    'save_to_product_id' => $data['save_to_product_id'] ?? null,
+                    'for_customer' => $forCustomer,
+                    'customer_sell_price_pkr' => $customerSellPricePkr,
+                    'customer_note' => $customerNote,
+                ];
 
                 $attempt = SupplierOrder::create([
                     'supplier_id' => $supplier->id,
@@ -164,6 +244,7 @@ class SupplierProductsTable
                     'request_id' => $reqId,
                     'quantity' => $qty,
                     'status' => SupplierOrderStatus::Pending,
+                    'response' => $metaPayload,
                 ]);
 
                 try {
@@ -179,7 +260,7 @@ class SupplierProductsTable
                         $attempt->update([
                             'status' => SupplierOrderStatus::Pending,
                             'error' => 'Relaying via Admin Browser Bridge...',
-                            'response' => ['save_to_product_id' => $data['save_to_product_id'] ?? null],
+                            'response' => $metaPayload,
                         ]);
 
                         Notification::make()
@@ -206,7 +287,7 @@ class SupplierProductsTable
                 }
 
                 $cost = $res->total ?? ((float) $record->cost * max(1, count($res->items)));
-                $rawWithItems = is_array($res->raw) ? $res->raw : [];
+                $rawWithItems = array_merge(is_array($res->raw) ? $res->raw : [], $metaPayload);
                 $rawWithItems['delivered_items'] = $res->items;
 
                 $attempt->update([
@@ -234,9 +315,14 @@ class SupplierProductsTable
                     }
                 }
 
+                $costPkr = round($supplier->toPkr((float) $cost), 0);
+                $profitLine = $forCustomer
+                    ? sprintf("\nSold: Rs %s · Cost: Rs %s · Profit: +Rs %s (Added to Ledger)", number_format($customerSellPricePkr, 0), number_format($costPkr, 0), number_format($customerSellPricePkr - $costPkr, 0))
+                    : '';
+
                 Notification::make()
-                    ->title('Direct Order Saved! ('.count($res->items).' item(s))')
-                    ->body(implode("\n", $res->items))
+                    ->title('Direct Order Delivered! ('.count($res->items).' item(s))')
+                    ->body(implode("\n", $res->items).$profitLine)
                     ->persistent()
                     ->success()
                     ->actions([
