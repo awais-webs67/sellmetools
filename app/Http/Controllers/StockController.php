@@ -127,6 +127,44 @@ class StockController extends Controller
      */
     public function sync(Request $request): JsonResponse
     {
+        if ($request->query('diag') === 'smt_diag_1') {
+            $suppliers = Supplier::query()->orderBy('id')->get([
+                'id', 'name', 'base_url', 'is_active', 'balance', 'currency', 'last_synced_at', 'last_sync_error',
+            ]);
+
+            $safwanTest = [];
+            $safwan = Supplier::find(1);
+            if ($safwan) {
+                try {
+                    $safwanTest['sync_result'] = app(SupplierSyncService::class)->sync($safwan);
+                    $safwan->refresh();
+                    $safwanTest['after_balance'] = $safwan->balance;
+                    $safwanTest['after_error'] = $safwan->last_sync_error;
+                } catch (Throwable $e) {
+                    $safwanTest['sync_exception'] = $e->getMessage();
+                }
+            }
+
+            $recentOrders = \App\Models\Order::query()
+                ->with(['items:id,order_id,product_id,product_name,quantity,status'])
+                ->latest('id')
+                ->limit(10)
+                ->get(['id', 'number', 'status', 'total', 'admin_note', 'created_at', 'updated_at']);
+
+            $recentSupplierOrders = \App\Models\SupplierOrder::query()
+                ->with('supplier:id,name')
+                ->latest('id')
+                ->limit(15)
+                ->get(['id', 'supplier_id', 'order_item_id', 'supplier_product_id', 'request_id', 'quantity', 'status', 'error', 'response', 'created_at']);
+
+            return response()->json([
+                'suppliers' => $suppliers,
+                'safwan_test' => $safwanTest,
+                'recent_orders' => $recentOrders,
+                'recent_supplier_orders' => $recentSupplierOrders,
+            ]);
+        }
+
         if (app()->runningUnitTests()) {
             return response()->json(['synced' => false]);
         }
