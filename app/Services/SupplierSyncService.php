@@ -5,8 +5,11 @@ namespace App\Services;
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\SupplierProduct;
+use App\Services\Suppliers\Data\SupplierBalance;
+use App\Services\Suppliers\Data\SupplierProductData;
 use App\Services\Suppliers\SupplierManager;
 use App\Services\TelegramNotifier as T;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -45,12 +48,57 @@ class SupplierSyncService
                 $rows = $driver->products();
             }
         } catch (Throwable $e) {
-            // Even if /products failed, still try to update balance so balance stays fresh
-            $this->syncBalance($supplier);
+            $isConnectTimeout = str_contains(strtolower($e->getMessage()), 'could not connect')
+                || str_contains(strtolower($e->getMessage()), 'connection timed out');
+            if (! $isConnectTimeout) {
+                $this->syncBalance($supplier);
+            }
             $supplier->forceFill(['last_sync_error' => $e->getMessage()])->save();
             throw $e;
         }
 
+        return $this->applySyncedRows($supplier, $rows, $balanceResult);
+    }
+
+    /**
+     * Ingests raw JSON payloads fetched by the Admin Browser Bridge (for CORS-enabled Railway suppliers).
+     *
+     * @return array{products: int, updated_listings: int, disabled: int, enabled: int}
+     */
+    public function ingestExternalPayload(Supplier $supplier, array $productsPayload, ?array $balancePayload = null): array
+    {
+        $driver = $this->manager->driver($supplier);
+
+        Cache::put('supplier_raw_cache_'.$supplier->id, [
+            'products' => $productsPayload,
+            'balance' => $balancePayload ?? $productsPayload,
+            'at' => now()->timestamp,
+        ], 86400);
+        Cache::forget('supplier_needs_bridge_sync_'.$supplier->id);
+
+        $rows = method_exists($driver, 'parseProductsPayloadArray')
+            ? $driver->parseProductsPayloadArray($productsPayload)
+            : [];
+
+        $balanceResult = null;
+        if (method_exists($driver, 'extractBalanceFromPayloadArray')) {
+            if (is_array($balancePayload)) {
+                $balanceResult = $driver->extractBalanceFromPayloadArray($balancePayload);
+            }
+            if ($balanceResult === null) {
+                $balanceResult = $driver->extractBalanceFromPayloadArray($productsPayload);
+            }
+        }
+
+        return $this->applySyncedRows($supplier, $rows, $balanceResult);
+    }
+
+    /**
+     * @param  SupplierProductData[]  $rows
+     * @return array{products: int, updated_listings: int, disabled: int, enabled: int}
+     */
+    protected function applySyncedRows(Supplier $supplier, array $rows, ?SupplierBalance $balanceResult): array
+    {
         $now = now();
         $seen = [];
         $existingByExtId = $supplier->products()->get()->keyBy(fn (SupplierProduct $sp) => (string) $sp->external_id);
@@ -212,7 +260,7 @@ class SupplierSyncService
         }
 
         if ($stats['updated_listings'] > 0 || $stats['disabled'] > 0 || $stats['enabled'] > 0) {
-            \Illuminate\Support\Facades\Cache::forget('smt_search_catalog_v1');
+            Cache::forget('smt_search_catalog_v1');
         }
 
         return $stats;

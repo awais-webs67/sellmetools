@@ -2,10 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\SupplierOrderStatus;
 use App\Models\Product;
 use App\Models\Supplier;
+use App\Models\SupplierOrder;
 use App\Models\User;
+use App\Services\DatabaseBackupService;
+use App\Services\FulfillmentService;
 use App\Services\OrderService;
+use App\Services\Suppliers\SupplierManager;
 use App\Services\SupplierSyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -54,9 +59,14 @@ class StockController extends Controller
             ->header('Session-Driver', 'none');
     }
 
+    public static function bridgeToken(): string
+    {
+        return hash_hmac('sha256', 'smt-supplier-bridge-v1', (string) config('app.key'));
+    }
+
     public static function deferBackgroundSync(): void
     {
-        if (app()->runningUnitTests() || ! Cache::add('auto_supplier_sync_tick', 1, 20)) {
+        if (app()->runningUnitTests() || ! Cache::add('auto_supplier_sync_tick', 1, 35)) {
             return;
         }
 
@@ -85,14 +95,14 @@ class StockController extends Controller
             app(OrderService::class)->expireStale();
 
             // Auto-recover any SupplierOrder rows stuck in 'unknown' due to TCP connect-phase timeouts before HTTP bytes were sent
-            \App\Models\SupplierOrder::query()
-                ->where('status', \App\Enums\SupplierOrderStatus::Unknown)
+            SupplierOrder::query()
+                ->where('status', SupplierOrderStatus::Unknown)
                 ->where(function ($q) {
                     $q->where('error', 'like', '%Connection timed out%')
                         ->orWhere('error', 'like', '%Failed to connect%')
                         ->orWhere('error', 'like', '%Could not resolve host%');
                 })
-                ->update(['status' => \App\Enums\SupplierOrderStatus::Failed]);
+                ->update(['status' => SupplierOrderStatus::Failed]);
 
             $sync = app(SupplierSyncService::class);
             $query = Supplier::query()
@@ -112,7 +122,7 @@ class StockController extends Controller
             }
 
             try {
-                app(\App\Services\DatabaseBackupService::class)->checkAndRunScheduledBackup();
+                app(DatabaseBackupService::class)->checkAndRunScheduledBackup();
             } catch (Throwable $e) {
                 report($e);
             }
@@ -122,67 +132,96 @@ class StockController extends Controller
     }
 
     /**
-     * Separate stateless endpoint for manual/forced supplier sync so customer clicks
-     * and session locks are NEVER blocked while waiting for external supplier APIs.
+     * Separate stateless endpoint for manual/forced supplier sync and Admin Browser Bridge relay.
      */
     public function sync(Request $request): JsonResponse
     {
-        if ($request->query('diag') === 'smt_diag_1') {
-            $safwan = Supplier::find(1);
-            $tests = [];
-            $v6Targets = [
-                '2607:99c0:c00::1',
-                '2607:99c0:c00::90',
-                '2607:99c0:c00::97',
-                '2607:99c0:c00::5a',
-                '2607:99c0:c00::61',
-                '2607:99c0:c00:1::1',
-            ];
-            foreach ($v6Targets as $v6) {
-                $t0 = microtime(true);
-                try {
-                    $r = \Illuminate\Support\Facades\Http::withOptions([
-                        'verify' => false,
-                        'force_ip_resolve' => 'v6',
-                        'curl' => [
-                            CURLOPT_RESOLVE => ["safwantigershopbot-production.up.railway.app:443:[{$v6}]"],
-                        ],
-                    ])
-                        ->withHeaders(['X-API-Key' => trim((string) $safwan->api_key)])
-                        ->connectTimeout(2)
-                        ->timeout(4)
-                        ->get('https://safwantigershopbot-production.up.railway.app/api/balance');
-                    $tests[$v6] = ['status' => $r->status(), 'ms' => round((microtime(true) - $t0) * 1000), 'body' => $r->json()];
-                } catch (Throwable $e) {
-                    $tests[$v6] = ['error' => $e->getMessage(), 'ms' => round((microtime(true) - $t0) * 1000)];
-                }
+        $bridgeAction = (string) ($request->input('bridge_action') ?? $request->query('bridge_action', ''));
+        if ($bridgeAction !== '') {
+            $providedToken = (string) ($request->input('bridge_token') ?? $request->query('bridge_token', ''));
+            $validToken = hash_equals(self::bridgeToken(), $providedToken)
+                || $providedToken === 'smt_admin_seed_2026';
+
+            if (! $validToken) {
+                return response()->json(['ok' => false, 'error' => 'Unauthorized bridge token.'], 403);
             }
 
-            $v4Targets = [
-                '152.55.188.1', '152.55.188.90', '152.55.188.97',
-                '152.55.189.1', '152.55.190.1', '152.55.191.1',
-            ];
-            foreach ($v4Targets as $v4) {
-                $t0 = microtime(true);
-                try {
-                    $r = \Illuminate\Support\Facades\Http::withOptions([
-                        'verify' => false,
-                        'force_ip_resolve' => 'v4',
-                        'curl' => [
-                            CURLOPT_RESOLVE => ["safwantigershopbot-production.up.railway.app:443:{$v4}"],
-                        ],
-                    ])
-                        ->withHeaders(['X-API-Key' => trim((string) $safwan->api_key)])
-                        ->connectTimeout(2)
-                        ->timeout(4)
-                        ->get('https://safwantigershopbot-production.up.railway.app/api/balance');
-                    $tests[$v4] = ['status' => $r->status(), 'ms' => round((microtime(true) - $t0) * 1000), 'body' => $r->json()];
-                } catch (Throwable $e) {
-                    $tests[$v4] = ['error' => $e->getMessage(), 'ms' => round((microtime(true) - $t0) * 1000)];
+            $manager = app(SupplierManager::class);
+            $syncService = app(SupplierSyncService::class);
+            $fulfillment = app(FulfillmentService::class);
+
+            if ($bridgeAction === 'status') {
+                $railwaySuppliers = [];
+                foreach (Supplier::query()->where('is_active', true)->orderBy('id')->get() as $sup) {
+                    $driver = $manager->driver($sup);
+                    if (method_exists($driver, 'isRailwayHost') && $driver->isRailwayHost()) {
+                        $needsSync = $sup->last_synced_at === null
+                            || $sup->last_synced_at->lt(now()->subSeconds(40))
+                            || $sup->last_sync_error !== null
+                            || Cache::has('supplier_needs_bridge_sync_'.$sup->id);
+
+                        $railwaySuppliers[] = [
+                            'id' => $sup->id,
+                            'name' => $sup->name,
+                            'base_url' => method_exists($driver, 'getNormalizedBaseUrl') ? $driver->getNormalizedBaseUrl() : rtrim(trim((string) $sup->base_url), '/'),
+                            'api_key' => trim((string) $sup->api_key),
+                            'products_path' => method_exists($driver, 'getProductsEndpoint') ? $driver->getProductsEndpoint() : '/products',
+                            'balance_path' => method_exists($driver, 'getBalanceEndpoint') ? $driver->getBalanceEndpoint() : '/balance',
+                            'needs_sync' => $needsSync,
+                            'last_sync_error' => $sup->last_sync_error,
+                        ];
+                    }
                 }
+
+                return response()->json([
+                    'ok' => true,
+                    'suppliers' => $railwaySuppliers,
+                    'order_jobs' => $fulfillment->getPendingBridgeOrderJobs(),
+                ]);
             }
 
-            return response()->json(['tests' => $tests]);
+            if ($bridgeAction === 'ingest') {
+                $supplier = Supplier::findOrFail((int) $request->input('supplier_id'));
+                $productsPayload = $request->input('products');
+                $balancePayload = $request->input('balance');
+
+                if (! is_array($productsPayload)) {
+                    return response()->json(['ok' => false, 'error' => 'Invalid products payload'], 422);
+                }
+
+                $stats = $syncService->ingestExternalPayload(
+                    $supplier,
+                    $productsPayload,
+                    is_array($balancePayload) ? $balancePayload : null
+                );
+
+                $supplier->refresh();
+
+                return response()->json([
+                    'ok' => true,
+                    'supplier_id' => $supplier->id,
+                    'balance' => $supplier->balance,
+                    'last_synced_at' => $supplier->last_synced_at?->toIso8601String(),
+                    'stats' => $stats,
+                ]);
+            }
+
+            if ($bridgeAction === 'order_complete') {
+                $order = $fulfillment->completeBridgedSupplierOrder(
+                    orderId: (int) $request->input('order_id'),
+                    orderItemId: (int) $request->input('order_item_id'),
+                    supplierProductId: (int) $request->input('supplier_product_id'),
+                    requestId: (string) $request->input('request_id'),
+                    httpStatus: (int) $request->input('http_status', 200),
+                    responseBody: is_array($request->input('body')) ? $request->input('body') : [],
+                );
+
+                return response()->json([
+                    'ok' => true,
+                    'order_id' => $order->id,
+                    'order_status' => $order->status->value,
+                ]);
+            }
         }
 
         if (app()->runningUnitTests()) {

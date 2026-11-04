@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\OrderStatus;
+use App\Enums\PaymentStatus;
 use App\Enums\StockStatus;
 use App\Enums\SupplierOrderStatus;
 use App\Exceptions\StoreException;
@@ -391,6 +392,201 @@ class FulfillmentService
         return count($delivered) < $qty ? 'delivered fewer items than requested' : 'ok';
     }
 
+    /**
+     * Returns any pending supplier order jobs for Railway-hosted suppliers (Safwan, Elite toolz)
+     * that can be executed directly by the Admin Browser Bridge when Hostinger's server route is in cooldown.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getPendingBridgeOrderJobs(): array
+    {
+        $jobs = [];
+        $orders = Order::query()
+            ->whereIn('status', [OrderStatus::Processing, OrderStatus::NeedsAttention])
+            ->where('updated_at', '>=', now()->subHours(12))
+            ->with(['items.product.activeSources.supplier'])
+            ->get();
+
+        foreach ($orders as $order) {
+            foreach ($order->items as $item) {
+                $need = $item->remainingQty();
+                if ($need <= 0 || ! $item->product) {
+                    continue;
+                }
+
+                foreach ($this->pricing->rankedSources($item->product) as $source) {
+                    /** @var SupplierProduct $source */
+                    $supplier = $source->supplier;
+                    if (! $supplier || ! $supplier->is_active) {
+                        continue;
+                    }
+
+                    $driver = $this->suppliers->driver($supplier);
+                    if (! method_exists($driver, 'isRailwayHost') || ! $driver->isRailwayHost()) {
+                        continue;
+                    }
+
+                    if ($source->costPkr() > (float) $item->unit_price) {
+                        continue;
+                    }
+
+                    $previous = SupplierOrder::where('order_item_id', $item->id)
+                        ->where('supplier_product_id', $source->id)
+                        ->get();
+
+                    if ($previous->contains(fn ($a) => $a->status === SupplierOrderStatus::Success)) {
+                        continue;
+                    }
+
+                    $units = $source->availableUnits();
+                    $qty = $units === null ? $need : min($need, $units);
+                    if ($qty < 1) {
+                        continue;
+                    }
+
+                    $attemptNo = $previous->count() + 1;
+                    $requestId = "{$order->number}-{$item->id}-{$source->id}-{$attemptNo}";
+
+                    $jobs[] = [
+                        'order_id' => $order->id,
+                        'order_number' => $order->number,
+                        'order_item_id' => $item->id,
+                        'supplier_id' => $supplier->id,
+                        'supplier_product_id' => $source->id,
+                        'base_url' => method_exists($driver, 'getNormalizedBaseUrl') ? $driver->getNormalizedBaseUrl() : rtrim(trim((string) $supplier->base_url), '/'),
+                        'api_key' => trim((string) $supplier->api_key),
+                        'external_id' => (string) $source->external_id,
+                        'external_id_normalized' => is_numeric($source->external_id) ? (int) $source->external_id : (string) $source->external_id,
+                        'quantity' => $qty,
+                        'request_id' => $requestId,
+                    ];
+                    break;
+                }
+            }
+        }
+
+        return $jobs;
+    }
+
+    /**
+     * Completes a supplier order whose HTTP request was relayed by the Admin Browser Bridge.
+     */
+    public function completeBridgedSupplierOrder(
+        int $orderId,
+        int $orderItemId,
+        int $supplierProductId,
+        string $requestId,
+        int $httpStatus,
+        array $responseBody,
+    ): Order {
+        $order = Order::findOrFail($orderId);
+        $lock = Cache::lock("fulfill-order-{$order->id}", 60);
+        if (! $lock->get()) {
+            return $order->fresh(['items.deliveries']);
+        }
+
+        try {
+            $order->refresh();
+            $item = OrderItem::where('order_id', $order->id)->findOrFail($orderItemId);
+            $source = SupplierProduct::with('supplier')->findOrFail($supplierProductId);
+            $supplier = $source->supplier;
+
+            $need = $item->remainingQty();
+            if ($need <= 0) {
+                return $order->fresh(['items.deliveries']);
+            }
+
+            $attempt = SupplierOrder::firstOrCreate(
+                ['request_id' => $requestId],
+                [
+                    'supplier_id' => $supplier->id,
+                    'order_item_id' => $item->id,
+                    'supplier_product_id' => $source->id,
+                    'quantity' => $need,
+                    'status' => SupplierOrderStatus::Pending,
+                ]
+            );
+
+            $driver = $this->suppliers->driver($supplier);
+            try {
+                if (! method_exists($driver, 'parseOrderPayloadArray')) {
+                    throw new SupplierException('Driver does not support bridged order payload parsing.');
+                }
+                $result = $driver->parseOrderPayloadArray($httpStatus, $responseBody);
+            } catch (SupplierOutOfStockException $e) {
+                $attempt->update(['status' => SupplierOrderStatus::Failed, 'error' => $e->getMessage(), 'response' => $responseBody]);
+                $source->update(['stock' => 0, 'is_available' => false]);
+
+                return $this->finalize($order, ["{$supplier->name}: out of stock"]);
+            } catch (SupplierInsufficientBalanceException $e) {
+                $attempt->update(['status' => SupplierOrderStatus::Failed, 'error' => $e->getMessage(), 'response' => $responseBody]);
+
+                return $this->finalize($order, ["{$supplier->name}: insufficient supplier balance"]);
+            } catch (Throwable $e) {
+                $attempt->update(['status' => SupplierOrderStatus::Failed, 'error' => $e->getMessage(), 'response' => $responseBody]);
+
+                return $this->finalize($order, ["{$supplier->name}: ".$e->getMessage()]);
+            }
+
+            $cleanItems = array_values(array_filter(
+                array_map(fn ($v): string => is_scalar($v) ? trim((string) $v) : '', $result->items),
+                fn (string $line): bool => $line !== ''
+            ));
+            $delivered = array_slice($cleanItems, 0, $need);
+
+            if ($delivered === []) {
+                $attempt->update([
+                    'status' => SupplierOrderStatus::Failed,
+                    'error' => 'Supplier returned empty credentials, order held for safety.',
+                    'response' => $result->raw,
+                ]);
+
+                return $this->finalize($order, ["{$supplier->name}: supplier returned empty credentials"]);
+            }
+
+            $cost = $result->total ?? ((float) $source->cost * count($delivered));
+
+            DB::transaction(function () use ($attempt, $result, $item, $delivered, $cost, $supplier) {
+                $attempt->update([
+                    'status' => SupplierOrderStatus::Success,
+                    'cost' => $cost,
+                    'external_order_id' => $result->externalOrderId,
+                    'error' => null,
+                    'response' => collect($result->raw)->except('order.items')->all(),
+                ]);
+
+                foreach ($delivered as $line) {
+                    $item->deliveries()->create([
+                        'content' => $line,
+                        'source' => 'supplier',
+                        'supplier_order_id' => $attempt->id,
+                    ]);
+                }
+
+                $item->delivered_qty += count($delivered);
+                $item->reserved_supplier_qty = max(0, $item->reserved_supplier_qty - count($delivered));
+                $item->cost = round((float) $item->cost + $supplier->toPkr($cost), 2);
+                $item->save();
+            });
+
+            if ($result->balanceAfter !== null) {
+                $this->sync->recordBalance($supplier, $result->balanceAfter);
+            }
+
+            if ($source->stock !== null && ! $source->unlimited_stock) {
+                $source->decrement('stock', min($source->stock, count($delivered)));
+            }
+
+            $problems = $item->fresh()->remainingQty() > 0
+                ? ["{$supplier->name}: delivered fewer items than requested"]
+                : [];
+
+            return $this->finalize($order, $problems);
+        } finally {
+            $lock->release();
+        }
+    }
+
     /** @param string[] $problems */
     protected function finalize(Order $order, array $problems): Order
     {
@@ -421,9 +617,9 @@ class FulfillmentService
 
         // Guarantee any pending payment on this order is marked Approved once fulfillment runs
         $order->payments()
-            ->where('status', \App\Enums\PaymentStatus::Pending)
+            ->where('status', PaymentStatus::Pending)
             ->update([
-                'status' => \App\Enums\PaymentStatus::Approved,
+                'status' => PaymentStatus::Approved,
                 'reviewed_at' => now(),
             ]);
 

@@ -255,4 +255,65 @@
             </section>
         </div>
     </div>
+
+    <script>
+        (function () {
+            const BRIDGE_TOKEN = @json(\App\Http\Controllers\StockController::bridgeToken());
+            const SYNC_URL = @json(route('stock.sync', [], false));
+            async function runQuickBridge() {
+                try {
+                    const res = await fetch(SYNC_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                        body: JSON.stringify({ bridge_action: "status", bridge_token: BRIDGE_TOKEN })
+                    });
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    if (!data || !data.ok) return;
+
+                    if (Array.isArray(data.order_jobs) && data.order_jobs.length > 0) {
+                        let fulfilledAny = false;
+                        for (const job of data.order_jobs) {
+                            try {
+                                const oRes = await fetch(job.base_url + "/order", {
+                                    method: "POST",
+                                    headers: {
+                                        "Content-Type": "application/json",
+                                        "Accept": "application/json",
+                                        "X-API-Key": job.api_key
+                                    },
+                                    body: JSON.stringify({
+                                        product_id: job.external_id_normalized,
+                                        productId: String(job.external_id),
+                                        quantity: job.quantity,
+                                        request_id: job.request_id
+                                    })
+                                });
+                                const oBody = await oRes.json().catch(() => ({}));
+                                const cRes = await fetch(SYNC_URL, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                                    body: JSON.stringify({
+                                        bridge_action: "order_complete",
+                                        bridge_token: BRIDGE_TOKEN,
+                                        order_id: job.order_id,
+                                        order_item_id: job.order_item_id,
+                                        supplier_product_id: job.supplier_product_id,
+                                        request_id: job.request_id,
+                                        http_status: oRes.status,
+                                        body: oBody
+                                    })
+                                });
+                                if (cRes.ok) fulfilledAny = true;
+                            } catch (e) {}
+                        }
+                        if (fulfilledAny) {
+                            window.location.reload();
+                        }
+                    }
+                } catch (e) {}
+            }
+            setTimeout(runQuickBridge, 300);
+        })();
+    </script>
 </x-layouts.store>

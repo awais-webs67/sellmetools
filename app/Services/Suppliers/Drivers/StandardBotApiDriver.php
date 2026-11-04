@@ -17,6 +17,8 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
@@ -92,6 +94,28 @@ class StandardBotApiDriver implements SupplierDriver
         return '/balance';
     }
 
+    public function isRailwayHost(): bool
+    {
+        $host = strtolower((string) parse_url($this->normalizedBaseUrl(), PHP_URL_HOST));
+
+        return str_ends_with($host, '.up.railway.app') || str_contains($host, 'elitetoolz.store');
+    }
+
+    public function getNormalizedBaseUrl(): string
+    {
+        return $this->normalizedBaseUrl();
+    }
+
+    public function getProductsEndpoint(): string
+    {
+        return $this->productsEndpoint();
+    }
+
+    public function getBalanceEndpoint(): string
+    {
+        return $this->balanceEndpoint();
+    }
+
     protected function curlOptions(?string $overrideIp = null): array
     {
         $opts = [
@@ -101,9 +125,9 @@ class StandardBotApiDriver implements SupplierDriver
 
         $host = parse_url($this->normalizedBaseUrl(), PHP_URL_HOST);
         $targetIp = $overrideIp;
-        if (! $targetIp && is_string($host) && str_ends_with(strtolower($host), '.up.railway.app')) {
-            // Hostinger's route to Railway edge .97 can blackhole TCP SYN; .90 (railway-hikari edge) is reachable
-            $targetIp = '69.46.46.90';
+        if (! $targetIp && is_string($host) && $this->isRailwayHost()) {
+            $edges = ['69.46.46.88', '69.46.46.90', '69.46.46.95', '69.46.46.97'];
+            $targetIp = $edges[array_rand($edges)];
         }
 
         if ($targetIp && is_string($host) && defined('CURLOPT_RESOLVE')) {
@@ -117,14 +141,14 @@ class StandardBotApiDriver implements SupplierDriver
         return $opts;
     }
 
-    protected function http(int $timeout = 25): PendingRequest
+    protected function http(int $timeout = 25, int $connectTimeout = 15): PendingRequest
     {
         return Http::baseUrl($this->normalizedBaseUrl())
             ->withOptions($this->curlOptions())
             ->withHeaders($this->defaultHeaders())
             ->acceptJson()
             ->timeout($timeout)
-            ->connectTimeout(15);
+            ->connectTimeout($connectTimeout);
     }
 
     /**
@@ -138,6 +162,50 @@ class StandardBotApiDriver implements SupplierDriver
         $headers = $this->defaultHeaders();
         $productsPath = $this->productsEndpoint();
         $balancePath = $this->balanceEndpoint();
+
+        if (! app()->runningUnitTests() && $this->isRailwayHost()) {
+            $cooldownKey = 'railway_direct_cooldown_'.$this->supplier->id;
+            if (Cache::has($cooldownKey)) {
+                Cache::put('supplier_needs_bridge_sync_'.$this->supplier->id, true, 600);
+
+                return $this->railwayFallbackProductsAndBalance();
+            }
+
+            try {
+                $prodResponse = $this->http(8, 3)->get($productsPath);
+                $this->guard($prodResponse);
+                $products = $this->parseProductsResponse($prodResponse);
+
+                $balanceObj = $this->extractBalanceFromResponse($prodResponse);
+                $balJson = null;
+                if ($balanceObj === null) {
+                    try {
+                        $balResponse = $this->http(6, 3)->get($balancePath);
+                        $balJson = $balResponse->json();
+                        $balanceObj = $this->extractBalanceFromResponse($balResponse);
+                    } catch (\Throwable) {
+                        // Use existing balance if balance endpoint fails
+                    }
+                }
+
+                Cache::put('supplier_raw_cache_'.$this->supplier->id, [
+                    'products' => $prodResponse->json(),
+                    'balance' => $balJson ?? $prodResponse->json(),
+                    'at' => now()->timestamp,
+                ], 86400);
+
+                return [
+                    'products' => $products,
+                    'balance' => $balanceObj,
+                ];
+            } catch (ConnectionException $e) {
+                Cache::put($cooldownKey, true, 600);
+                Cache::put('supplier_needs_bridge_sync_'.$this->supplier->id, true, 600);
+
+                return $this->railwayFallbackProductsAndBalance($e);
+            }
+        }
+
         $options = $this->curlOptions();
 
         $responses = Http::pool(fn (Pool $pool) => [
@@ -188,6 +256,54 @@ class StandardBotApiDriver implements SupplierDriver
         ];
     }
 
+    /**
+     * @return array{products: SupplierProductData[], balance: ?SupplierBalance}
+     */
+    protected function railwayFallbackProductsAndBalance(?\Throwable $e = null): array
+    {
+        $cached = Cache::get('supplier_raw_cache_'.$this->supplier->id);
+        if (is_array($cached) && is_array($cached['products'] ?? null)) {
+            $products = $this->parseProductsPayloadArray($cached['products']);
+            $balanceObj = is_array($cached['balance'] ?? null)
+                ? $this->extractBalanceFromPayloadArray($cached['balance'])
+                : null;
+            if ($balanceObj === null && $this->supplier->balance !== null) {
+                $balanceObj = new SupplierBalance((float) $this->supplier->balance, (string) $this->supplier->currency, ['cached' => true]);
+            }
+
+            return [
+                'products' => $products,
+                'balance' => $balanceObj,
+            ];
+        }
+
+        $existingProducts = $this->supplier->products()->get();
+        if ($existingProducts->isNotEmpty()) {
+            $products = $existingProducts->map(fn ($sp) => new SupplierProductData(
+                externalId: (string) $sp->external_id,
+                name: (string) $sp->name,
+                cost: (float) $sp->cost,
+                stock: $sp->stock !== null ? (int) $sp->stock : null,
+                unlimitedStock: (bool) $sp->unlimited_stock,
+                available: (bool) $sp->is_available,
+                warranty: $sp->warranty,
+                description: $sp->description,
+                raw: is_array($sp->raw) ? $sp->raw : [],
+            ))->values()->all();
+
+            $balanceObj = $this->supplier->balance !== null
+                ? new SupplierBalance((float) $this->supplier->balance, (string) $this->supplier->currency, ['cached' => true])
+                : null;
+
+            return [
+                'products' => $products,
+                'balance' => $balanceObj,
+            ];
+        }
+
+        throw new SupplierException('Could not connect to supplier /products endpoint: '.($e?->getMessage() ?? 'Railway edge cooldown active.'), previous: $e);
+    }
+
     protected function parseNumericValue(mixed $val): ?float
     {
         if (is_int($val) || is_float($val)) {
@@ -224,7 +340,21 @@ class StandardBotApiDriver implements SupplierDriver
 
     protected function extractBalanceFromResponse(?Response $response): ?SupplierBalance
     {
-        if (! $response instanceof Response || ! $response->successful() || $response->json('ok') === false || $response->json('success') === false) {
+        if (! $response instanceof Response || ! $response->successful()) {
+            return null;
+        }
+
+        $payload = $response->json();
+        if (! is_array($payload)) {
+            return null;
+        }
+
+        return $this->extractBalanceFromPayloadArray($payload);
+    }
+
+    public function extractBalanceFromPayloadArray(array $payload): ?SupplierBalance
+    {
+        if (($payload['ok'] ?? null) === false || ($payload['success'] ?? null) === false) {
             return null;
         }
 
@@ -271,7 +401,7 @@ class StandardBotApiDriver implements SupplierDriver
 
         $foundValues = [];
         foreach ($candidatePaths as $path) {
-            $raw = $response->json($path);
+            $raw = Arr::get($payload, $path);
             if ($raw === null) {
                 continue;
             }
@@ -281,8 +411,9 @@ class StandardBotApiDriver implements SupplierDriver
             }
         }
 
-        if ($foundValues === [] && is_numeric($response->json('balance_cents'))) {
-            $foundValues[] = ((float) $response->json('balance_cents')) / 100.0;
+        $balanceCents = Arr::get($payload, 'balance_cents');
+        if ($foundValues === [] && is_numeric($balanceCents)) {
+            $foundValues[] = ((float) $balanceCents) / 100.0;
         }
 
         if ($foundValues === []) {
@@ -295,8 +426,8 @@ class StandardBotApiDriver implements SupplierDriver
 
         return new SupplierBalance(
             balance: $finalBalance,
-            currency: (string) ($response->json('currency') ?? $response->json('walletCurrency') ?? $response->json('data.currency') ?? $this->supplier->currency),
-            raw: $response->json() ?? [],
+            currency: (string) (Arr::get($payload, 'currency') ?? Arr::get($payload, 'walletCurrency') ?? Arr::get($payload, 'data.currency') ?? $this->supplier->currency),
+            raw: $payload,
         );
     }
 
@@ -313,12 +444,25 @@ class StandardBotApiDriver implements SupplierDriver
      */
     protected function parseProductsResponse(Response $response): array
     {
-        $rows = $response->json('products')
-            ?? $response->json('data.products')
-            ?? $response->json('items')
-            ?? $response->json('data.items')
-            ?? $response->json('variants')
-            ?? (is_array($response->json()) && array_is_list($response->json()) ? $response->json() : null);
+        $payload = $response->json();
+        if (! is_array($payload)) {
+            throw new SupplierException('Unexpected products response format.');
+        }
+
+        return $this->parseProductsPayloadArray($payload);
+    }
+
+    /**
+     * @return SupplierProductData[]
+     */
+    public function parseProductsPayloadArray(array $payload): array
+    {
+        $rows = Arr::get($payload, 'products')
+            ?? Arr::get($payload, 'data.products')
+            ?? Arr::get($payload, 'items')
+            ?? Arr::get($payload, 'data.items')
+            ?? Arr::get($payload, 'variants')
+            ?? (array_is_list($payload) ? $payload : null);
 
         if (! is_array($rows)) {
             throw new SupplierException('Unexpected products response format.');
@@ -383,6 +527,44 @@ class StandardBotApiDriver implements SupplierDriver
     public function balance(): SupplierBalance
     {
         $primaryPath = $this->balanceEndpoint();
+
+        if (! app()->runningUnitTests() && $this->isRailwayHost()) {
+            $cooldownKey = 'railway_direct_cooldown_'.$this->supplier->id;
+            if (Cache::has($cooldownKey)) {
+                Cache::put('supplier_needs_bridge_sync_'.$this->supplier->id, true, 600);
+                $cached = Cache::get('supplier_raw_cache_'.$this->supplier->id);
+                if (is_array($cached) && is_array($cached['balance'] ?? null)) {
+                    $ext = $this->extractBalanceFromPayloadArray($cached['balance']);
+                    if ($ext !== null) {
+                        return $ext;
+                    }
+                }
+
+                return new SupplierBalance(
+                    balance: (float) ($this->supplier->balance ?? 0.0),
+                    currency: (string) ($this->supplier->currency ?: 'USDT'),
+                    raw: ['cached' => true],
+                );
+            }
+
+            try {
+                $response = $this->http(6, 3)->get($primaryPath);
+                $extracted = $this->extractBalanceFromResponse($response);
+                if ($extracted !== null) {
+                    return $extracted;
+                }
+            } catch (ConnectionException) {
+                Cache::put($cooldownKey, true, 600);
+                Cache::put('supplier_needs_bridge_sync_'.$this->supplier->id, true, 600);
+
+                return new SupplierBalance(
+                    balance: (float) ($this->supplier->balance ?? 0.0),
+                    currency: (string) ($this->supplier->currency ?: 'USDT'),
+                    raw: ['cached' => true],
+                );
+            }
+        }
+
         $response = $this->send(fn () => $this->http(15)->get($primaryPath));
 
         $extracted = $this->extractBalanceFromResponse($response);
@@ -430,10 +612,17 @@ class StandardBotApiDriver implements SupplierDriver
         $isQamify = str_contains($baseUrl, 'qamify') || str_starts_with($apiKey, 'qamify_');
         $isTunvn = str_contains($baseUrl, 'tunvnmmo');
         $isCanboso = str_contains($baseUrl, 'canboso') || str_starts_with($apiKey, 'tgb_');
+        $isRailway = ! app()->runningUnitTests() && $this->isRailwayHost();
 
-        $executeOrderRequest = function () use ($isProdSeller, $isBunai, $isQamify, $isTunvn, $isCanboso, $externalProductId, $normalizedId, $quantity, $requestId, $idempotencyKey, $apiKey): Response {
+        if ($isRailway && Cache::has('railway_direct_cooldown_'.$this->supplier->id)) {
+            throw SupplierException::withContext('Could not connect directly to Railway edge (queued for instant browser bridge / alternate supplier).');
+        }
+
+        $connTimeout = $isRailway ? 4 : 15;
+
+        $executeOrderRequest = function () use ($isProdSeller, $isBunai, $isQamify, $isTunvn, $isCanboso, $externalProductId, $normalizedId, $quantity, $requestId, $idempotencyKey, $apiKey, $connTimeout): Response {
             if ($isProdSeller) {
-                return $this->http(60)
+                return $this->http(60, $connTimeout)
                     ->withHeaders(['Idempotency-Key' => $idempotencyKey])
                     ->post('/orders', [
                         'productId' => (string) $externalProductId,
@@ -441,7 +630,7 @@ class StandardBotApiDriver implements SupplierDriver
                     ]);
             }
             if ($isBunai) {
-                return $this->http(60)
+                return $this->http(60, $connTimeout)
                     ->withHeaders(['Idempotency-Key' => $idempotencyKey])
                     ->post('/orders', [
                         'product_id' => (string) $externalProductId,
@@ -450,7 +639,7 @@ class StandardBotApiDriver implements SupplierDriver
                     ]);
             }
             if ($isQamify) {
-                return $this->http(60)
+                return $this->http(60, $connTimeout)
                     ->withHeaders(['Idempotency-Key' => $idempotencyKey])
                     ->post('/orders', [
                         'product_id' => $normalizedId,
@@ -458,14 +647,14 @@ class StandardBotApiDriver implements SupplierDriver
                     ]);
             }
             if ($isTunvn) {
-                return $this->http(60)->post('/buy', [
+                return $this->http(60, $connTimeout)->post('/buy', [
                     'product_id' => $normalizedId,
                     'quantity' => $quantity,
                     'currency' => strtolower($this->supplier->currency ?: 'usdt'),
                 ]);
             }
             if ($isCanboso) {
-                return $this->http(60)
+                return $this->http(60, $connTimeout)
                     ->withHeaders(['Idempotency-Key' => $idempotencyKey])
                     ->post('/purchase', [
                         'key' => $apiKey,
@@ -475,7 +664,7 @@ class StandardBotApiDriver implements SupplierDriver
             }
 
             // Default / Standard Bot / EliteToolz
-            $resp = $this->http(60)->post('/order', [
+            $resp = $this->http(60, $connTimeout)->post('/order', [
                 'product_id' => $normalizedId,
                 'productId' => (string) $externalProductId,
                 'quantity' => $quantity,
@@ -484,7 +673,7 @@ class StandardBotApiDriver implements SupplierDriver
 
             // Safe 404 fallback (route does not exist -> nothing was charged)
             if ($resp->status() === 404) {
-                $resp = $this->http(60)
+                $resp = $this->http(60, $connTimeout)
                     ->withHeaders(['Idempotency-Key' => $idempotencyKey])
                     ->post('/orders', [
                         'product_id' => $normalizedId,
@@ -509,6 +698,10 @@ class StandardBotApiDriver implements SupplierDriver
             ]);
 
             if ($isConnectPhaseTimeout) {
+                if ($isRailway) {
+                    Cache::put('railway_direct_cooldown_'.$this->supplier->id, true, 600);
+                    throw SupplierException::withContext('Could not connect to supplier while placing order: '.$e->getMessage());
+                }
                 if (! app()->runningUnitTests()) {
                     usleep(800000);
                     try {
@@ -534,7 +727,37 @@ class StandardBotApiDriver implements SupplierDriver
 
         $this->guard($response);
 
-        $order = is_array($response->json('order')) ? $response->json('order') : (is_array($response->json('data')) ? $response->json('data') : []);
+        return $this->parseOrderPayloadArray($response->status(), $response->json() ?? []);
+    }
+
+    public function parseOrderPayloadArray(int $httpStatus, array $payload): SupplierOrderResult
+    {
+        if ($httpStatus >= 500) {
+            throw SupplierUnknownResultException::withContext('Supplier server error '.$httpStatus, ['body' => $payload]);
+        }
+
+        $failed = $httpStatus >= 400 || ($payload['ok'] ?? null) === false || ($payload['success'] ?? null) === false;
+        if ($failed) {
+            $rawErr = Arr::get($payload, 'error.message')
+                ?? Arr::get($payload, 'error')
+                ?? Arr::get($payload, 'message')
+                ?? Arr::get($payload, 'detail');
+            $message = is_scalar($rawErr) ? (string) $rawErr : (is_array($rawErr) ? (string) json_encode($rawErr) : '');
+            $lower = Str::lower($message);
+
+            if (in_array($httpStatus, [401, 403], true)) {
+                throw SupplierAuthException::withContext($message ?: 'Invalid API key.');
+            }
+            if ($httpStatus === 402 || Str::contains($lower, ['insufficient', 'balance', 'not enough', 'solde insuffisant'])) {
+                throw SupplierInsufficientBalanceException::withContext($message ?: 'Insufficient balance.');
+            }
+            if ($httpStatus === 409 || Str::contains($lower, ['out of stock', 'no stock', 'unavailable', 'sold out', 'inventory not enough'])) {
+                throw SupplierOutOfStockException::withContext($message ?: 'Out of stock.');
+            }
+            throw SupplierException::withContext($message ?: 'Supplier request failed with HTTP '.$httpStatus, ['status' => $httpStatus, 'body' => $payload]);
+        }
+
+        $order = is_array($payload['order'] ?? null) ? $payload['order'] : (is_array($payload['data'] ?? null) ? $payload['data'] : []);
         $rawItems = $order['items']
             ?? $order['delivered_items']
             ?? $order['delivery_items']
@@ -546,22 +769,22 @@ class StandardBotApiDriver implements SupplierDriver
             ?? $order['codes']
             ?? $order['deliveries']
             ?? $order['content']
-            ?? $response->json('deliveredKeys')
-            ?? $response->json('deliveredKey')
-            ?? $response->json('delivered_items')
-            ?? $response->json('delivery_items')
-            ?? $response->json('deliveryItems')
-            ?? $response->json('items')
-            ?? $response->json('accounts')
-            ?? $response->json('credentials')
-            ?? $response->json('codes')
-            ?? $response->json('content')
-            ?? $response->json('delivery.accounts')
-            ?? $response->json('delivery.items')
-            ?? $response->json('data.items')
-            ?? $response->json('data.delivery_items')
-            ?? $response->json('data.delivered_items')
-            ?? $response->json('data.accounts')
+            ?? Arr::get($payload, 'deliveredKeys')
+            ?? Arr::get($payload, 'deliveredKey')
+            ?? Arr::get($payload, 'delivered_items')
+            ?? Arr::get($payload, 'delivery_items')
+            ?? Arr::get($payload, 'deliveryItems')
+            ?? Arr::get($payload, 'items')
+            ?? Arr::get($payload, 'accounts')
+            ?? Arr::get($payload, 'credentials')
+            ?? Arr::get($payload, 'codes')
+            ?? Arr::get($payload, 'content')
+            ?? Arr::get($payload, 'delivery.accounts')
+            ?? Arr::get($payload, 'delivery.items')
+            ?? Arr::get($payload, 'data.items')
+            ?? Arr::get($payload, 'data.delivery_items')
+            ?? Arr::get($payload, 'data.delivered_items')
+            ?? Arr::get($payload, 'data.accounts')
             ?? [];
 
         if (is_string($rawItems) && trim($rawItems) !== '') {
@@ -603,7 +826,7 @@ class StandardBotApiDriver implements SupplierDriver
             : [];
 
         if ($items === []) {
-            throw SupplierUnknownResultException::withContext('Order accepted by supplier but returned empty credentials.', ['body' => $response->json()]);
+            throw SupplierUnknownResultException::withContext('Order accepted by supplier but returned empty credentials.', ['body' => $payload]);
         }
 
         $extOrderId = $order['order_id']
@@ -612,11 +835,11 @@ class StandardBotApiDriver implements SupplierDriver
             ?? $order['orderCode']
             ?? $order['code']
             ?? $order['id']
-            ?? $response->json('orderId')
-            ?? $response->json('order_id')
-            ?? $response->json('order.orderCode')
-            ?? $response->json('code')
-            ?? $response->json('id')
+            ?? Arr::get($payload, 'orderId')
+            ?? Arr::get($payload, 'order_id')
+            ?? Arr::get($payload, 'order.orderCode')
+            ?? Arr::get($payload, 'code')
+            ?? Arr::get($payload, 'id')
             ?? null;
 
         $totalCost = $order['total']
@@ -625,23 +848,23 @@ class StandardBotApiDriver implements SupplierDriver
             ?? $order['total_usdt']
             ?? $order['amount']
             ?? $order['price']
-            ?? $response->json('amount')
-            ?? $response->json('total')
-            ?? $response->json('total_paid')
-            ?? $response->json('total_price')
-            ?? $response->json('total_usdt')
-            ?? $response->json('payment.amount')
-            ?? $response->json('price')
+            ?? Arr::get($payload, 'amount')
+            ?? Arr::get($payload, 'total')
+            ?? Arr::get($payload, 'total_paid')
+            ?? Arr::get($payload, 'total_price')
+            ?? Arr::get($payload, 'total_usdt')
+            ?? Arr::get($payload, 'payment.amount')
+            ?? Arr::get($payload, 'price')
             ?? null;
 
         $balAfter = $order['balance_after']
             ?? $order['new_balance']
-            ?? $response->json('balance_after')
-            ?? $response->json('new_balance')
-            ?? $response->json('reseller.balance')
-            ?? $response->json('payment.balance')
-            ?? $response->json('balance')
-            ?? $response->json('balance_usdt')
+            ?? Arr::get($payload, 'balance_after')
+            ?? Arr::get($payload, 'new_balance')
+            ?? Arr::get($payload, 'reseller.balance')
+            ?? Arr::get($payload, 'payment.balance')
+            ?? Arr::get($payload, 'balance')
+            ?? Arr::get($payload, 'balance_usdt')
             ?? null;
 
         return new SupplierOrderResult(
@@ -649,7 +872,7 @@ class StandardBotApiDriver implements SupplierDriver
             externalOrderId: $extOrderId !== null && is_scalar($extOrderId) ? (string) $extOrderId : null,
             total: $totalCost !== null && is_numeric($totalCost) ? (float) $totalCost : null,
             balanceAfter: $balAfter !== null && is_numeric($balAfter) ? (float) $balAfter : null,
-            raw: $response->json() ?? [],
+            raw: $payload,
         );
     }
 

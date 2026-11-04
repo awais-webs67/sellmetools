@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Http\Controllers\StockController;
 use App\Models\Setting;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -420,6 +421,124 @@ class AdminPanelProvider extends PanelProvider
                         }
                     });
                 </script>')
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                function (): HtmlString {
+                    if (! auth()->check() || ! auth()->user()?->is_admin) {
+                        return new HtmlString('');
+                    }
+                    $token = StockController::bridgeToken();
+                    $syncUrl = route('stock.sync', [], false);
+
+                    return new HtmlString('<script>
+                        (function () {
+                            if (window.__smtSupplierBridgeInit) return;
+                            window.__smtSupplierBridgeInit = true;
+                            const BRIDGE_TOKEN = '.json_encode($token).';
+                            const SYNC_URL = '.json_encode($syncUrl).';
+                            let running = false;
+
+                            async function runSupplierBridge() {
+                                if (running || document.hidden) return;
+                                running = true;
+                                try {
+                                    const res = await fetch(SYNC_URL, {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                                        body: JSON.stringify({ bridge_action: "status", bridge_token: BRIDGE_TOKEN })
+                                    });
+                                    if (!res.ok) return;
+                                    const data = await res.json();
+                                    if (!data || !data.ok) return;
+
+                                    // 1. Relay pending Railway order fulfillments immediately
+                                    if (Array.isArray(data.order_jobs) && data.order_jobs.length > 0) {
+                                        let fulfilledAny = false;
+                                        for (const job of data.order_jobs) {
+                                            try {
+                                                const oRes = await fetch(job.base_url + "/order", {
+                                                    method: "POST",
+                                                    headers: {
+                                                        "Content-Type": "application/json",
+                                                        "Accept": "application/json",
+                                                        "X-API-Key": job.api_key
+                                                    },
+                                                    body: JSON.stringify({
+                                                        product_id: job.external_id_normalized,
+                                                        productId: String(job.external_id),
+                                                        quantity: job.quantity,
+                                                        request_id: job.request_id
+                                                    })
+                                                });
+                                                const oBody = await oRes.json().catch(() => ({}));
+                                                const cRes = await fetch(SYNC_URL, {
+                                                    method: "POST",
+                                                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                                                    body: JSON.stringify({
+                                                        bridge_action: "order_complete",
+                                                        bridge_token: BRIDGE_TOKEN,
+                                                        order_id: job.order_id,
+                                                        order_item_id: job.order_item_id,
+                                                        supplier_product_id: job.supplier_product_id,
+                                                        request_id: job.request_id,
+                                                        http_status: oRes.status,
+                                                        body: oBody
+                                                    })
+                                                });
+                                                if (cRes.ok) fulfilledAny = true;
+                                            } catch (e) {}
+                                        }
+                                        if (fulfilledAny) {
+                                            window.location.reload();
+                                            return;
+                                        }
+                                    }
+
+                                    // 2. Sync Railway suppliers (Safwan, Elite toolz) directly from browser
+                                    if (Array.isArray(data.suppliers)) {
+                                        for (const sup of data.suppliers) {
+                                            if (!sup.needs_sync) continue;
+                                            try {
+                                                const [pRes, bRes] = await Promise.all([
+                                                    fetch(sup.base_url + sup.products_path, { headers: { "Accept": "application/json", "X-API-Key": sup.api_key } }),
+                                                    fetch(sup.base_url + sup.balance_path, { headers: { "Accept": "application/json", "X-API-Key": sup.api_key } }).catch(() => null)
+                                                ]);
+                                                if (!pRes || !pRes.ok) continue;
+                                                const pJson = await pRes.json();
+                                                const bJson = (bRes && bRes.ok) ? await bRes.json().catch(() => null) : null;
+                                                await fetch(SYNC_URL, {
+                                                    method: "POST",
+                                                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                                                    body: JSON.stringify({
+                                                        bridge_action: "ingest",
+                                                        bridge_token: BRIDGE_TOKEN,
+                                                        supplier_id: sup.id,
+                                                        products: pJson,
+                                                        balance: bJson
+                                                    })
+                                                });
+                                            } catch (e) {}
+                                        }
+                                    }
+                                } catch (e) {
+                                } finally {
+                                    running = false;
+                                }
+                            }
+
+                            setTimeout(runSupplierBridge, 400);
+                            setInterval(runSupplierBridge, 30000);
+                            document.addEventListener("livewire:navigated", () => setTimeout(runSupplierBridge, 300));
+                            document.addEventListener("click", (e) => {
+                                if (e.target && e.target.closest && e.target.closest("button, .fi-ac-Action")) {
+                                    setTimeout(runSupplierBridge, 1200);
+                                    setTimeout(runSupplierBridge, 3000);
+                                }
+                            });
+                        })();
+                    </script>');
+                }
             )
             ->navigationGroups([
                 NavigationGroup::make('Sales'),
