@@ -26,9 +26,9 @@ class SalesStatement extends Page
 
     protected static ?int $navigationSort = 2;
 
-    protected static ?string $navigationLabel = 'Sales & Bank Statement';
+    protected static ?string $navigationLabel = 'Sales & Profit Reports';
 
-    protected static ?string $title = 'Sales, Profit & Bank Statement';
+    protected static ?string $title = 'Sales & Profit Reports';
 
     protected static ?string $slug = 'sales-statement';
 
@@ -116,7 +116,7 @@ class SalesStatement extends Page
     {
         return [
             Action::make('exportCsv')
-                ->label('Export CSV Statement')
+                ->label('Export CSV')
                 ->icon(Heroicon::OutlinedArrowDownTray)
                 ->color('gray')
                 ->action(fn (): StreamedResponse => $this->exportStatementCsv()),
@@ -143,14 +143,14 @@ class SalesStatement extends Page
         }
 
         $label = match ($this->preset) {
-            'today' => 'Today ('.now()->format('d M Y').')',
-            'yesterday' => 'Yesterday ('.now()->subDay()->format('d M Y').')',
+            'today' => 'Today · '.now()->format('d M Y'),
+            'yesterday' => 'Yesterday · '.now()->subDay()->format('d M Y'),
             '7d' => 'Last 7 Days',
             '30d' => 'Last 30 Days',
-            'this_month' => 'This Month ('.now()->format('F Y').')',
-            'last_month' => 'Last Month ('.now()->subMonthNoOverflow()->format('F Y').')',
-            'all' => 'All Time Statement',
-            default => ($start ? $start->format('d M Y') : 'Beginning').' → '.($end ? $end->format('d M Y') : 'Today'),
+            'this_month' => now()->format('F Y'),
+            'last_month' => now()->subMonthNoOverflow()->format('F Y'),
+            'all' => 'All Time',
+            default => ($start ? $start->format('d M Y') : 'Start').' – '.($end ? $end->format('d M Y') : 'Today'),
         };
 
         return [$start, $end, $label];
@@ -281,7 +281,7 @@ class SalesStatement extends Page
                 'date_formatted' => $timestamp?->format('d M Y') ?? '-',
                 'time_formatted' => $timestamp?->format('h:i A') ?? '-',
                 'type' => 'sale',
-                'type_label' => 'CREDIT · SALE',
+                'type_label' => 'Sale',
                 'ref' => $order->number,
                 'url' => OrderResource::getUrl('view', ['record' => $order]),
                 'title' => $itemsSummary ?: 'Store Order',
@@ -317,7 +317,7 @@ class SalesStatement extends Page
                 'date_formatted' => $timestamp?->format('d M Y') ?? '-',
                 'time_formatted' => $timestamp?->format('h:i A') ?? '-',
                 'type' => 'direct',
-                'type_label' => 'DEBIT · DIRECT BUY',
+                'type_label' => 'Vendor Buy',
                 'ref' => 'DIRECT-#'.$direct->id,
                 'url' => SupplierOrderResource::getUrl('index', ['activeTab' => 'direct']),
                 'title' => $prodName.' ×'.$direct->quantity,
@@ -444,7 +444,7 @@ class SalesStatement extends Page
     public function exportStatementCsv(): StreamedResponse
     {
         $statement = $this->getStatementData();
-        $filename = 'sellmetools-bank-statement-'.now()->format('Y-m-d-His').'.csv';
+        $filename = 'sellmetools-sales-report-'.now()->format('Y-m-d-His').'.csv';
 
         return response()->streamDownload(function () use ($statement): void {
             $out = fopen('php://output', 'w');

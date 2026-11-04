@@ -58,7 +58,7 @@ class AdminPanelProvider extends PanelProvider
                     '<div style="display:inline-flex;align-items:center;gap:0.4rem;">'
                     .'<a href="'.e(url('/admin/sales-statement')).'" class="fi-live-store-btn">'
                     .'<svg style="width:13px;height:13px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 17v-6m3 6V7m3 10v-4M5 21h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2Z"/></svg>'
-                    .'<span>Statement</span>'
+                    .'<span>Sales Reports</span>'
                     .'</a>'
                     .'<a href="'.e(url('/admin/vendor-orders')).'" class="fi-live-store-btn">'
                     .'<svg style="width:13px;height:13px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>'

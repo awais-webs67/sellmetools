@@ -436,7 +436,7 @@
             <div class="smt-toolbar-actions">
                 <a href="{{ $m['urls']['statement'] }}" class="smt-btn dark-primary">
                     <svg class="smt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 17v-6m3 6V7m3 10v-4M5 21h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2Z"/></svg>
-                    <span>Bank Statement</span>
+                    <span>Sales Reports</span>
                 </a>
                 <a href="{{ $m['urls']['vendor_orders'] }}" class="smt-btn">
                     <svg class="smt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
@@ -669,7 +669,7 @@
                             <svg class="smt-icon" style="color:#64748b;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
                             <span>Payment Methods ({{ $m['range_label'] }})</span>
                         </span>
-                        <a href="{{ $m['urls']['statement'] }}" class="smt-panel-link">Statement ledger →</a>
+                        <a href="{{ $m['urls']['statement'] }}" class="smt-panel-link">View full report →</a>
                     </div>
 
                     @forelse ($m['gateways'] as $gw)
