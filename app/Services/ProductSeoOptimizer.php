@@ -21,7 +21,7 @@ class ProductSeoOptimizer
             return;
         }
 
-        $flagFile = storage_path('framework/product_seo_v5_synced.flag');
+        $flagFile = storage_path('framework/product_seo_v6_synced.flag');
         if (is_file($flagFile)) {
             return;
         }
@@ -68,11 +68,11 @@ class ProductSeoOptimizer
                 $cleanName = preg_replace('/\s+/u', ' ', trim(static::stripEmDashes((string) $product->name))) ?: (string) $product->name;
 
                 $customMetaTitle = $updates['meta_title'] ?? "Buy {$cleanName} | Cheap Subscription Online";
-                if (mb_strlen($customMetaTitle) > 58) {
+                if (mb_strlen($customMetaTitle) > 60) {
                     $customMetaTitle = "Buy {$cleanName} | Instant Delivery";
                 }
-                if (mb_strlen($customMetaTitle) > 58) {
-                    $customMetaTitle = Str::limit("Buy {$cleanName}", 58, '');
+                if (mb_strlen($customMetaTitle) > 60) {
+                    $customMetaTitle = Str::limit("Buy {$cleanName}", 60, '');
                 }
 
                 $fill = [
@@ -1138,7 +1138,14 @@ HTML;
 </ul>
 HTML;
 
-            $metaTitle = Str::limit("Buy {$titleClean} | Best Price in Pakistan", 58, '');
+            $candidateTitle = "Buy {$titleClean} | Best Price in Pakistan";
+            if (mb_strlen($candidateTitle) > 60) {
+                $candidateTitle = "Buy {$titleClean} in Pakistan";
+            }
+            if (mb_strlen($candidateTitle) > 60) {
+                $candidateTitle = "Buy {$titleClean} Online";
+            }
+            $metaTitle = Str::limit($candidateTitle, 60, '');
             $shortClean = trim($data['short']);
             $withSuffix = $shortClean.' Instant delivery in Pakistan & worldwide.';
             $metaDesc = mb_strlen($withSuffix) <= 155
