@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Products\Tables;
 use App\Filament\Support\Listings;
 use App\Filament\Support\Money;
 use App\Models\Product;
+use App\Models\Setting;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
@@ -33,22 +34,29 @@ class ProductsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with('category'))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['category', 'activeSources.supplier', 'sources.supplier']))
             ->defaultSort('sort')
+            ->paginated([15, 25, 50, 100])
+            ->defaultPaginationPageOption(25)
             ->columns([
                 ImageColumn::make('image')
                     ->state(fn (Product $record): ?string => $record->imageUrl())
                     ->square()
-                    ->imageSize(44)
+                    ->imageSize(32)
                     ->label(''),
                 TextColumn::make('name')
                     ->searchable()
                     ->sortable()
-                    ->wrap()
+                    ->weight('bold')
+                    ->limit(34)
+                    ->tooltip(fn (Product $record): string => $record->name)
                     ->description(fn (Product $record): ?string => $record->category?->name),
-                TextColumn::make('price')
-                    ->formatStateUsing(fn ($state): string => Money::pkr($state))
-                    ->sortable(),
+                TextColumn::make('supplier_source')
+                    ->label('#1 Source')
+                    ->visible(fn (): bool => ! auth()->user()?->isSeoStaff())
+                    ->badge()
+                    ->color('info')
+                    ->state(fn (Product $record): string => $record->adminSupplierSummary(false)),
                 TextColumn::make('cost_price')
                     ->label('Cost')
                     ->visible(fn (): bool => ! auth()->user()?->isSeoStaff())
@@ -57,20 +65,27 @@ class ProductsTable
                         if ($record->cost_price === null) {
                             return null;
                         }
-                        $usd = (float) $record->cost_price / max(1.0, \App\Models\Setting::usdtRate());
+                        $usd = (float) $record->cost_price / max(1.0, Setting::usdtRate());
                         $formatted = preg_replace('/(\.\d{2}\d*?)0+$/', '$1', number_format($usd, 4));
 
                         return '$'.$formatted;
                     })
                     ->placeholder('-')
-                    ->sortable()
-                    ->toggleable(),
+                    ->sortable(),
+                TextColumn::make('price')
+                    ->label('Sell Price')
+                    ->weight('bold')
+                    ->color('primary')
+                    ->formatStateUsing(fn ($state): string => Money::pkr($state))
+                    ->sortable(),
                 TextColumn::make('profit')
+                    ->label('Profit')
                     ->visible(fn (): bool => ! auth()->user()?->isSeoStaff())
+                    ->weight('bold')
                     ->state(fn (Product $record): ?float => $record->cost_price === null
                         ? null
                         : (float) $record->price - (float) $record->cost_price)
-                    ->formatStateUsing(fn ($state): string => Money::pkr($state))
+                    ->formatStateUsing(fn ($state): string => ($state !== null && $state >= 0 ? '+' : '').Money::pkr($state))
                     ->color(fn ($state): ?string => $state !== null && $state < 0 ? 'danger' : 'success')
                     ->placeholder('-'),
                 TextColumn::make('available_stock')
@@ -85,27 +100,27 @@ class ProductsTable
                     })
                     ->sortable(),
                 ToggleColumn::make('is_active')
-                    ->label('Active')
+                    ->label('Live')
                     ->afterStateUpdated(function (Product $record, bool $state): void {
                         if ($state && $record->disabled_reason) {
                             $record->forceFill(['disabled_reason' => null])->save();
                         }
                     }),
                 IconColumn::make('is_featured')
-                    ->label('Featured')
+                    ->label('Hot')
                     ->boolean()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('sold_count')
                     ->label('Sold')
                     ->numeric()
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('disabled_reason')
                     ->label('Auto-disabled')
                     ->badge()
                     ->color('danger')
                     ->placeholder('-')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('category.name')
                     ->label('Category')
                     ->sortable()

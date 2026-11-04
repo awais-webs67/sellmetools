@@ -29,13 +29,14 @@ class ProductForm
         return $schema
             ->columns(1)
             ->components([
-                Section::make('Product Information & Picture')
-                    ->columns(['default' => 1, 'md' => 2])
+                Section::make('Product & Store Status')
+                    ->columns(['default' => 1, 'sm' => 2, 'lg' => 4])
                     ->schema([
                         TextInput::make('name')
                             ->label('Product Name')
                             ->required()
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->columnSpan(['default' => 1, 'sm' => 2]),
                         Select::make('category_id')
                             ->label('Category')
                             ->relationship('category', 'name')
@@ -61,62 +62,104 @@ class ProductForm
                                 Toggle::make('is_active')
                                     ->label('Active on Storefront')
                                     ->default(true),
-                            ])
-                            ->editOptionForm([
-                                TextInput::make('name')
-                                    ->label('Category Name')
-                                    ->required()
-                                    ->maxLength(255),
-                                TextInput::make('slug')
-                                    ->label('URL Slug')
-                                    ->required()
-                                    ->maxLength(255)
-                                    ->alphaDash()
-                                    ->unique('categories', 'slug', ignoreRecord: true),
-                                TextInput::make('icon')
-                                    ->label('Icon / Emoji (Optional)')
-                                    ->maxLength(255),
-                                Toggle::make('is_active')
-                                    ->label('Active on Storefront')
-                                    ->default(true),
                             ]),
-                        GalleryPicker::make('image', 'Product Picture', 'gallery'),
-                        TextInput::make('short_description')
-                            ->label('Short Tag / Subtitle (optional)')
-                            ->placeholder('e.g. Instant Activation · Full Warranty')
-                            ->maxLength(500),
-                        TextInput::make('slug')
-                            ->label('URL Slug (optional)')
-                            ->maxLength(255)
-                            ->alphaDash()
-                            ->unique(ignoreRecord: true)
-                            ->helperText('Leave blank to auto-generate.'),
+                        Grid::make(2)
+                            ->schema([
+                                Toggle::make('is_active')
+                                    ->label('Live on Site')
+                                    ->default(true),
+                                Toggle::make('is_featured')
+                                    ->label('Featured'),
+                            ]),
+                        TextEntry::make('disabled_reason')
+                            ->label('Auto-disabled alert')
+                            ->color('danger')
+                            ->visible(fn (?Product $record): bool => filled($record?->disabled_reason))
+                            ->columnSpanFull(),
                     ]),
 
-                Section::make('Pricing & Profit Rule')
+                Section::make('Pricing & 2-Way Profit Calculator')
                     ->visible(fn (): bool => ! auth()->user()?->isSeoStaff())
                     ->columns(['default' => 1, 'sm' => 2, 'lg' => 4])
                     ->schema([
-                        Toggle::make('is_free')
-                            ->label('🎁 Free Product / Giveaway Tag (0 PKR · No Payment Needed)')
-                            ->helperText('Turn ON to add the FREE tag to this product and let customers claim it without paying or entering a Transaction ID.')
-                            ->live()
-                            ->afterStateUpdated(function ($state, callable $set): void {
-                                if ($state) {
-                                    $set('pricing_mode', PricingMode::Fixed->value);
-                                    $set('fixed_price', 0);
-                                }
-                            })
-                            ->columnSpanFull(),
+                        Grid::make(['default' => 1, 'md' => 2])
+                            ->columnSpanFull()
+                            ->schema([
+                                Toggle::make('use_overall_supplier_markup')
+                                    ->label('🟢 Apply Overall Profit % to All Suppliers')
+                                    ->helperText('ON = All linked suppliers use this overall profit. Turn OFF to set separate profit % or price for each supplier below.')
+                                    ->default(true)
+                                    ->live(),
+                                Toggle::make('is_free')
+                                    ->label('🎁 Free Product / Giveaway (Rs 0)')
+                                    ->helperText('Turn ON to let customers claim for free without payment.')
+                                    ->live()
+                                    ->afterStateUpdated(function ($state, callable $set): void {
+                                        if ($state) {
+                                            $set('pricing_mode', PricingMode::Fixed->value);
+                                            $set('fixed_price', 0);
+                                        }
+                                    }),
+                            ]),
                         Select::make('pricing_mode')
                             ->label('Pricing Rule')
                             ->options(PricingMode::options())
-                            ->default(PricingMode::Fixed->value)
+                            ->default(PricingMode::MarkupPercent->value)
                             ->required()
                             ->live()
                             ->visible(fn (Get $get): bool => ! (bool) $get('is_free')),
+                        TextInput::make('markup_value')
+                            ->label(fn (Get $get): string => self::mode($get) === PricingMode::MarkupPercent ? 'Profit Percentage (%)' : 'Profit Amount (PKR)')
+                            ->suffix(fn (Get $get): ?string => self::mode($get) === PricingMode::MarkupPercent ? '%' : 'Rs')
+                            ->placeholder('20')
+                            ->rule('numeric')
+                            ->rule('min:0')
+                            ->default(20)
+                            ->live(debounce: 250)
+                            ->afterStateUpdated(function ($state, callable $set, Get $get, ?Product $record): void {
+                                if ($state === null || $state === '' || ! is_numeric($state)) {
+                                    return;
+                                }
+                                $cost = self::liveCost($record, $get);
+                                if ($cost !== null && $cost > 0) {
+                                    $sell = Listings::previewPrice($cost, self::mode($get), $get('fixed_price'), (float) $state);
+                                    $set('calculated_sell_price_input', round($sell, 0));
+                                }
+                            })
+                            ->visible(fn (Get $get): bool => ! (bool) $get('is_free') && self::mode($get) !== PricingMode::Fixed),
+                        TextInput::make('calculated_sell_price_input')
+                            ->label('Total Sell Price (PKR)')
+                            ->prefix('Rs')
+                            ->placeholder('Auto-calculated or type price')
+                            ->numeric()
+                            ->minValue(0)
+                            ->dehydrated(false)
+                            ->live(debounce: 250)
+                            ->afterStateHydrated(function (TextInput $component, ?Product $record, Get $get): void {
+                                if ($record) {
+                                    $component->state(round((float) $record->price, 0));
+                                }
+                            })
+                            ->afterStateUpdated(function ($state, callable $set, Get $get, ?Product $record): void {
+                                if ($state === null || $state === '' || ! is_numeric($state)) {
+                                    return;
+                                }
+                                $sell = max(0.0, (float) $state);
+                                $cost = self::liveCost($record, $get);
+                                if ($cost !== null && $cost > 0) {
+                                    if (self::mode($get) === PricingMode::MarkupPercent) {
+                                        $pct = round((($sell - $cost) / $cost) * 100, 2);
+                                        $set('markup_value', max(0.0, $pct));
+                                    } elseif (self::mode($get) === PricingMode::MarkupAmount) {
+                                        $set('markup_value', max(0.0, round($sell - $cost, 2)));
+                                    }
+                                }
+                            })
+                            ->helperText('Type Sell Price here → Profit % updates automatically!')
+                            ->visible(fn (Get $get): bool => ! (bool) $get('is_free') && self::mode($get) !== PricingMode::Fixed),
                         TextInput::make('fixed_price')
                             ->label('Fixed Selling Price (PKR)')
+                            ->prefix('Rs')
                             ->placeholder('550')
                             ->rule('numeric')
                             ->rule('min:0')
@@ -124,24 +167,17 @@ class ProductForm
                             ->live(debounce: 250)
                             ->visible(fn (Get $get): bool => ! (bool) $get('is_free') && self::mode($get) === PricingMode::Fixed)
                             ->required(fn (Get $get): bool => ! (bool) $get('is_free') && self::mode($get) === PricingMode::Fixed),
-                        TextInput::make('markup_value')
-                            ->label(fn (Get $get): string => self::mode($get) === PricingMode::MarkupPercent ? 'Profit Markup (%)' : 'Profit Markup (PKR)')
-                            ->placeholder('250')
-                            ->rule('numeric')
-                            ->rule('min:0')
-                            ->default(0)
-                            ->live(debounce: 250)
-                            ->visible(fn (Get $get): bool => ! (bool) $get('is_free') && self::mode($get) !== PricingMode::Fixed),
                         TextInput::make('cost_price')
-                            ->label('Source Cost (PKR - If Any)')
-                            ->placeholder('0 (or auto from supplier)')
+                            ->label('Source Cost (PKR)')
+                            ->prefix('Rs')
+                            ->placeholder('Auto from #1 supplier')
                             ->rule('numeric')
                             ->rule('min:0')
                             ->live(debounce: 250)
-                            ->visible(fn (Get $get): bool => ! (bool) $get('is_free'))
-                            ->helperText('Optional: Enter your buying/source cost in PKR for Fixed Price products (auto-updated if a supplier is attached).'),
+                            ->visible(fn (Get $get): bool => ! (bool) $get('is_free')),
                         TextInput::make('compare_at_price')
-                            ->label('Old Price / Discount Strike (PKR)')
+                            ->label('Old Strike Price (PKR - Optional)')
+                            ->prefix('Rs')
                             ->placeholder('800')
                             ->rule('numeric')
                             ->rule('min:0'),
@@ -149,32 +185,81 @@ class ProductForm
                             ->columnSpanFull()
                             ->schema([
                                 TextEntry::make('supplier_cost_preview')
-                                    ->label('Source / Supplier Cost')
+                                    ->label('#1 Cheapest Cost')
                                     ->state(fn (?Product $record, Get $get): string => self::formatSupplierCost($record, $get)),
                                 TextEntry::make('price')
-                                    ->label('Final Selling Price')
+                                    ->label('Final Store Price')
                                     ->weight('bold')
                                     ->color('primary')
                                     ->state(fn (?Product $record, Get $get): string => Money::pkr(self::liveSellingPrice($record, $get))),
                                 TextEntry::make('profit')
-                                    ->label('Your Profit')
+                                    ->label('Your Net Profit')
+                                    ->weight('bold')
+                                    ->color('success')
                                     ->state(function (?Product $record, Get $get): string {
                                         $cost = self::liveCost($record, $get);
                                         if ($cost === null) {
                                             return '-';
                                         }
+                                        $sell = self::liveSellingPrice($record, $get);
+                                        $profit = round($sell - $cost, 0);
+                                        $pct = $cost > 0 ? round(($profit / $cost) * 100, 1) : 0;
 
-                                        return Money::pkr(round(self::liveSellingPrice($record, $get) - $cost, 2));
+                                        return Money::pkr($profit)." ({$pct}%)";
                                     }),
                                 TextEntry::make('stock')
-                                    ->label('Live Stock')
+                                    ->label('Total Stock')
                                     ->state(fn (?Product $record): string => $record?->stock_unlimited ? '∞' : (string) ($record?->available_stock ?? 0)),
                             ]),
                     ]),
 
-                Section::make('📦 Product Delivery Method & .TXT Stock Vault (For Supplier & Non-Supplier Products)')
+                Section::make('🖼️ Picture, Description & Warranty')
+                    ->collapsible()
+                    ->collapsed(fn (?Product $record): bool => $record !== null)
+                    ->columns(['default' => 1, 'md' => 2])
+                    ->schema([
+                        GalleryPicker::make('image', 'Product Picture', 'gallery'),
+                        Grid::make(1)
+                            ->schema([
+                                TextInput::make('short_description')
+                                    ->label('Short Subtitle (optional)')
+                                    ->placeholder('e.g. Instant Activation · Full Warranty')
+                                    ->maxLength(500),
+                                TextInput::make('slug')
+                                    ->label('URL Slug (optional)')
+                                    ->maxLength(255)
+                                    ->alphaDash()
+                                    ->unique(ignoreRecord: true)
+                                    ->helperText('Leave blank to auto-generate.'),
+                                Grid::make(2)
+                                    ->schema([
+                                        TextInput::make('max_per_order')
+                                            ->label('Max Qty Per Order')
+                                            ->rule('integer')
+                                            ->rule('min:1')
+                                            ->default(5)
+                                            ->required(),
+                                        TextInput::make('sort')
+                                            ->label('Sort Order')
+                                            ->rule('integer')
+                                            ->rule('min:0')
+                                            ->default(0)
+                                            ->required(),
+                                    ]),
+                            ]),
+                        Textarea::make('warranty')
+                            ->label('Warranty Terms')
+                            ->rows(2)
+                            ->columnSpanFull(),
+                        RichEditor::make('description')
+                            ->label('Full Description')
+                            ->columnSpanFull(),
+                    ]),
+
+                Section::make('📦 Delivery Method & .TXT Stock Vault (Click to Expand)')
                     ->visible(fn (): bool => ! auth()->user()?->isSeoStaff())
-                    ->description('Choose how this product is delivered to the customer after payment is confirmed.')
+                    ->collapsible()
+                    ->collapsed(fn (?Product $record): bool => $record !== null)
                     ->columns(['default' => 1, 'md' => 2])
                     ->schema([
                         Select::make('delivery_type')
@@ -183,13 +268,7 @@ class ProductForm
                             ->default('auto')
                             ->required()
                             ->live()
-                            ->columnSpanFull()
-                            ->helperText(fn (Get $get): string => match ((string) $get('delivery_type')) {
-                                'instant_link' => '🔗 Reusable Course / Resource Link Mode: Paste your Course Link, Google Drive URL, or download note below — every customer receives that exact link/content automatically! Set a Stock Limit below or leave blank for Unlimited (∞).',
-                                'manual_admin' => '👨‍💻 Non-Supplier Manual Mode: Once order is confirmed, you get an alert to paste & send credentials from Admin Panel or 1-Tap Page.',
-                                'whatsapp_handover' => '📲 Non-Supplier WhatsApp Mode: Once order is confirmed, the customer sees a big "Receive Order on WhatsApp" button with their verified Order ID.',
-                                default => '⚡ Auto Mode: Delivers from your uploaded .TXT / Own Stock Vault first, then falls back to linked Supplier API (if any). Sold items are locked so they are NEVER sold twice.',
-                            }),
+                            ->columnSpanFull(),
 
                         TextInput::make('stock_limit')
                             ->label('Stock Limit / Max Claims (Optional — Leave Blank for Unlimited ∞)')
@@ -197,23 +276,21 @@ class ProductForm
                             ->numeric()
                             ->minValue(0)
                             ->columnSpanFull()
-                            ->visible(fn (Get $get): bool => in_array((string) ($get('delivery_type') ?: 'auto'), ['instant_link', 'manual_admin', 'whatsapp_handover'], true))
-                            ->helperText('Leave blank for Unlimited Stock (∞), OR enter a number (e.g. 20 or 100) to limit how many orders/claims are allowed before it automatically goes Out of Stock.'),
+                            ->visible(fn (Get $get): bool => in_array((string) ($get('delivery_type') ?: 'auto'), ['instant_link', 'manual_admin', 'whatsapp_handover'], true)),
 
                         TextInput::make('customer_input_label')
-                            ->label('📝 Ask Customer for Activation Data After Payment (Optional — For Custom / Account Activation Products)')
-                            ->placeholder('e.g. Enter your Canva / ChatGPT Email Address (or Account Login) where we should activate your subscription')
+                            ->label('📝 Ask Customer for Activation Data After Payment (Optional)')
+                            ->placeholder('e.g. Enter your Email Address where we should activate your subscription')
                             ->maxLength(500)
-                            ->columnSpanFull()
-                            ->helperText('Leave blank for normal instant-delivery products. If you write a prompt here, the customer will see a text box on their Order Page to submit their Email / Account Details to you for custom activation & manual delivery!'),
+                            ->columnSpanFull(),
 
                         Select::make('quick_stock_separator')
                             ->label('Quick .TXT Stock Separator Mode')
                             ->options([
                                 'auto' => '✨ Smart Auto-Detect (Splits by --- or === if present, otherwise 1 Line = 1 PC)',
-                                'separator' => '✂️ Multi-Line Credentials Separated by --- or === (Between Credential A & B)',
+                                'separator' => '✂️ Multi-Line Credentials Separated by --- or ===',
                                 'blank_line' => '📄 Multi-Line Credentials Separated by Blank Empty Line',
-                                'line' => '📏 Single-Line Credentials (1 Line = 1 PC, e.g. email:password)',
+                                'line' => '📏 Single-Line Credentials (1 Line = 1 PC)',
                             ])
                             ->default('auto')
                             ->dehydrated(false)
@@ -226,60 +303,20 @@ class ProductForm
                             ->acceptedFileTypes(['text/plain', '.txt'])
                             ->maxSize(5120)
                             ->dehydrated(false)
-                            ->visible(fn (Get $get): bool => ((string) ($get('delivery_type') ?: 'auto')) === 'auto')
-                            ->helperText('Upload a .txt file here to immediately add stock units when you click Save.'),
+                            ->visible(fn (Get $get): bool => ((string) ($get('delivery_type') ?: 'auto')) === 'auto'),
 
                         Textarea::make('quick_stock_text')
                             ->label(fn (Get $get): string => ((string) $get('delivery_type')) === 'instant_link'
-                                ? '🔗 Paste Reusable Course Link / Download URL / Access Instructions'
-                                : 'Or Quick Paste Stock Credentials (Optional: Added to Vault on Save)')
-                            ->rows(5)
+                                ? '🔗 Paste Reusable Course Link / Download URL'
+                                : 'Or Quick Paste Stock Credentials (Added to Vault on Save)')
+                            ->rows(4)
                             ->dehydrated(false)
                             ->columnSpanFull()
-                            ->visible(fn (Get $get): bool => in_array((string) ($get('delivery_type') ?: 'auto'), ['auto', 'instant_link'], true))
-                            ->placeholder(fn (Get $get): string => ((string) $get('delivery_type')) === 'instant_link'
-                                ? "Course Link: https://drive.google.com/drive/folders/...\nPasscode / Note: Join our community for updates!"
-                                : "Email: userA@gmail.com\nPassword: pass123\n---\nEmail: userB@gmail.com\nPassword: pass456")
-                            ->helperText(fn (Get $get): string => ((string) $get('delivery_type')) === 'instant_link'
-                                ? 'Everything you paste here will be delivered as a single block to EVERY customer who orders/claims this product (Unlimited Stock).'
-                                : 'Put --- on its own line between Account A and Account B for multi-line credentials. When a user orders 2 PCs, 2 blocks are extracted, delivered, and marked Sold forever.'),
+                            ->visible(fn (Get $get): bool => in_array((string) ($get('delivery_type') ?: 'auto'), ['auto', 'instant_link'], true)),
                     ]),
 
-                Section::make('Description, Warranty & Display')
-                    ->columns(['default' => 1, 'sm' => 2, 'lg' => 4])
-                    ->schema([
-                        Toggle::make('is_active')
-                            ->label('Show on Website')
-                            ->default(true),
-                        Toggle::make('is_featured')
-                            ->label('Featured / Hot Badge'),
-                        TextInput::make('max_per_order')
-                            ->label('Max Qty Per Order')
-                            ->rule('integer')
-                            ->rule('min:1')
-                            ->default(5)
-                            ->required(),
-                        TextInput::make('sort')
-                            ->label('Sort Order')
-                            ->rule('integer')
-                            ->rule('min:0')
-                            ->default(0)
-                            ->required(),
-                        TextEntry::make('disabled_reason')
-                            ->label('Auto-disabled alert')
-                            ->color('danger')
-                            ->visible(fn (?Product $record): bool => filled($record?->disabled_reason))
-                            ->columnSpanFull(),
-                        Textarea::make('warranty')
-                            ->label('Warranty Terms')
-                            ->rows(2)
-                            ->columnSpanFull(),
-                        RichEditor::make('description')
-                            ->label('Full Description')
-                            ->columnSpanFull(),
-                    ]),
-
-                Section::make('SEO & Google Search (Optional: Auto-Generated if Left Blank)')
+                Section::make('🔍 SEO & Google Search (Auto-Generated if Left Blank)')
+                    ->collapsible()
                     ->collapsed(fn (): bool => ! auth()->user()?->isSeoStaff())
                     ->columns(['default' => 1, 'md' => 2])
                     ->schema([

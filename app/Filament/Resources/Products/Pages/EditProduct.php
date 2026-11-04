@@ -101,6 +101,6 @@ class EditProduct extends EditRecord
     public function reloadListing(): void
     {
         $this->record->refresh();
-        $this->refreshFormData(['is_active', 'quick_stock_file', 'quick_stock_text']);
+        $this->refreshFormData(['is_active', 'use_overall_supplier_markup', 'price', 'cost_price', 'quick_stock_file', 'quick_stock_text']);
     }
 }

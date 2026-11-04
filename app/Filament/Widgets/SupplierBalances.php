@@ -12,7 +12,7 @@ use Filament\Widgets\TableWidget;
 
 class SupplierBalances extends TableWidget
 {
-    protected static ?int $sort = 2;
+    protected static ?int $sort = 3;
 
     protected static ?bool $isLazyLoaded = false;
 

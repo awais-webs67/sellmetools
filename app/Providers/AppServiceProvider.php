@@ -66,13 +66,13 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        $readyFlag = storage_path('framework/schema_v6_ready.flag');
+        $readyFlag = storage_path('framework/schema_v7_ready.flag');
         if (is_file($readyFlag)) {
             return;
         }
 
         try {
-            if ((string) Setting::get('schema_v6_ready', '') === '1') {
+            if ((string) Setting::get('schema_v7_ready', '') === '1') {
                 @file_put_contents($readyFlag, '1');
 
                 return;
@@ -81,11 +81,11 @@ class AppServiceProvider extends ServiceProvider
             Cache::forget('smt_active_categories_v1');
 
             $files = glob(database_path('migrations/*.php')) ?: [];
-            $hash = md5('v6|'.implode('|', array_map('basename', $files)));
+            $hash = md5('v7|'.implode('|', array_map('basename', $files)));
             $stampFile = storage_path('framework/migration_hash.txt');
 
             if (is_file($stampFile) && trim((string) @file_get_contents($stampFile)) === $hash) {
-                Setting::set('schema_v6_ready', '1');
+                Setting::set('schema_v7_ready', '1');
                 @file_put_contents($readyFlag, '1');
 
                 return;
@@ -94,7 +94,7 @@ class AppServiceProvider extends ServiceProvider
             // Write stamp file and setting IMMEDIATELY before running migrations so concurrent page refreshes never collide!
             @file_put_contents($stampFile, $hash);
             @file_put_contents($readyFlag, '1');
-            Setting::set('schema_v6_ready', '1');
+            Setting::set('schema_v7_ready', '1');
 
             $this->ensureRequiredSchemaColumns();
 
@@ -144,6 +144,22 @@ class AppServiceProvider extends ServiceProvider
             Schema::table('products', function (Blueprint $table): void {
                 $table->string('customer_input_label', 160)->nullable()->after('delivery_type');
             });
+        }
+
+        if (! Schema::hasColumn('products', 'use_overall_supplier_markup')) {
+            Schema::table('products', function (Blueprint $table): void {
+                $table->boolean('use_overall_supplier_markup')->default(true)->after('markup_value');
+            });
+        }
+
+        if (Schema::hasTable('supplier_orders')) {
+            try {
+                Schema::table('supplier_orders', function (Blueprint $table): void {
+                    $table->unsignedBigInteger('order_item_id')->nullable()->change();
+                });
+            } catch (Throwable $e) {
+                report($e);
+            }
         }
 
         if (Schema::hasTable('orders') && ! Schema::hasColumn('orders', 'customer_input')) {

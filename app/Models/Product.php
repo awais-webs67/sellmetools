@@ -26,7 +26,7 @@ class Product extends Model
     protected $fillable = [
         'category_id', 'name', 'slug', 'short_description', 'description', 'warranty', 'image',
         'meta_title', 'meta_description', 'meta_keywords',
-        'pricing_mode', 'delivery_type', 'customer_input_label', 'fixed_price', 'markup_value', 'compare_at_price', 'price', 'cost_price',
+        'pricing_mode', 'delivery_type', 'customer_input_label', 'fixed_price', 'markup_value', 'use_overall_supplier_markup', 'compare_at_price', 'price', 'cost_price',
         'available_stock', 'stock_limit', 'stock_unlimited',
         'is_active', 'is_featured', 'is_free', 'disabled_reason', 'max_per_order', 'sort', 'sold_count',
     ];
@@ -138,6 +138,7 @@ class Product extends Model
             'pricing_mode' => PricingMode::class,
             'fixed_price' => 'decimal:2',
             'markup_value' => 'decimal:2',
+            'use_overall_supplier_markup' => 'boolean',
             'compare_at_price' => 'decimal:2',
             'price' => 'decimal:2',
             'cost_price' => 'decimal:2',
@@ -252,7 +253,7 @@ class Product extends Model
         }
         $checked = true;
 
-        if (! app()->runningUnitTests() && is_file(storage_path('framework/schema_v6_ready.flag'))) {
+        if (! app()->runningUnitTests() && is_file(storage_path('framework/schema_v7_ready.flag'))) {
             return;
         }
 
@@ -260,6 +261,11 @@ class Product extends Model
             if (! Schema::hasColumn('products', 'is_free')) {
                 Schema::table('products', function (Blueprint $table): void {
                     $table->boolean('is_free')->default(false)->after('is_featured');
+                });
+            }
+            if (! Schema::hasColumn('products', 'use_overall_supplier_markup')) {
+                Schema::table('products', function (Blueprint $table): void {
+                    $table->boolean('use_overall_supplier_markup')->default(true)->after('markup_value');
                 });
             }
             if (! Schema::hasColumn('products', 'stock_limit')) {

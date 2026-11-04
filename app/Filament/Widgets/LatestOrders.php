@@ -15,7 +15,7 @@ use Filament\Widgets\TableWidget;
 
 class LatestOrders extends TableWidget
 {
-    protected static ?int $sort = 3;
+    protected static ?int $sort = 2;
 
     protected static ?bool $isLazyLoaded = false;
 
@@ -53,8 +53,7 @@ class LatestOrders extends TableWidget
                     ->state(fn (Order $record): string => $record->items
                         ->map(fn (OrderItem $item): string => "{$item->quantity}× {$item->product_name}")
                         ->implode(', '))
-                    ->limit(40)
-                    ->wrap(),
+                    ->limit(32),
                 TextColumn::make('supplier_badge')
                     ->label('Supplier / Source')
                     ->badge()

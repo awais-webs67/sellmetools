@@ -44,11 +44,11 @@ class SupplierOrderResource extends Resource
 
     protected static ?int $navigationSort = 3;
 
-    protected static ?string $navigationLabel = 'Vendor Orders';
+    protected static ?string $navigationLabel = 'Direct & Vendor Orders';
 
     protected static ?string $modelLabel = 'Vendor Order';
 
-    protected static ?string $pluralModelLabel = 'Vendor Orders';
+    protected static ?string $pluralModelLabel = 'Direct & Vendor Orders';
 
     protected static ?string $slug = 'vendor-orders';
 
@@ -89,15 +89,15 @@ class SupplierOrderResource extends Resource
                     ->label('#')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('orderItem.order.number')
-                    ->label('Order #')
-                    ->searchable()
+                TextColumn::make('order_type')
+                    ->label('Order Type / #')
+                    ->state(fn (SupplierOrder $r): string => $r->orderItem?->order?->number ?: '⚡ Direct Buy')
+                    ->badge(fn (SupplierOrder $r): bool => $r->order_item_id === null)
+                    ->color(fn (SupplierOrder $r): string => $r->order_item_id === null ? 'warning' : 'primary')
                     ->weight('bold')
-                    ->color('primary')
                     ->url(fn (SupplierOrder $r): ?string => $r->orderItem?->order
                         ? OrderResource::getUrl('view', ['record' => $r->orderItem->order])
                         : null)
-                    ->placeholder('Direct Buy')
                     ->description(fn (SupplierOrder $r): string => $r->created_at?->diffForHumans(short: true) ?? ''),
                 TextColumn::make('supplier.name')
                     ->label('Vendor')
@@ -168,12 +168,12 @@ class SupplierOrderResource extends Resource
                                 TextEntry::make('error')->label('Error Message')->color('danger')->columnSpanFull()->visible(fn (): bool => filled($r->error)),
                             ]),
                         Section::make('Delivered Credentials / Items')
-                            ->visible(fn (): bool => $r->orderItem && $r->orderItem->deliveries()->where('supplier_order_id', $r->id)->exists())
+                            ->visible(fn (): bool => self::extractDeliveredLines($r) !== [])
                             ->schema([
                                 TextEntry::make('delivered_items')
                                     ->label('')
                                     ->state(function () use ($r): HtmlString {
-                                        $lines = $r->orderItem->deliveries()->where('supplier_order_id', $r->id)->get()->map(fn ($d) => e($d->content))->implode('<br>');
+                                        $lines = collect(self::extractDeliveredLines($r))->map(fn (string $l) => e($l))->implode("\n---\n");
 
                                         return new HtmlString('<pre class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs font-mono text-slate-800 whitespace-pre-wrap break-all overflow-x-auto">'.$lines.'</pre>');
                                     }),
@@ -259,11 +259,25 @@ class SupplierOrderResource extends Resource
                 $supplier = Supplier::findOrFail($data['supplier_id']);
                 $sp = SupplierProduct::findOrFail($data['supplier_product_id']);
                 $qty = max(1, (int) $data['quantity']);
-                $reqId = 'ADMIN-'.strtoupper(uniqid());
+                $reqId = 'DIRECT-'.strtoupper(uniqid());
+
+                $attempt = SupplierOrder::create([
+                    'supplier_id' => $supplier->id,
+                    'order_item_id' => null,
+                    'supplier_product_id' => $sp->id,
+                    'request_id' => $reqId,
+                    'quantity' => $qty,
+                    'status' => SupplierOrderStatus::Pending,
+                ]);
 
                 try {
                     $res = app(SupplierManager::class)->driver($supplier)->placeOrder($sp->external_id, $qty, $reqId);
                 } catch (Throwable $e) {
+                    $attempt->update([
+                        'status' => SupplierOrderStatus::Failed,
+                        'error' => $e->getMessage(),
+                    ]);
+
                     Notification::make()
                         ->title('Vendor order failed')
                         ->body($e->getMessage())
@@ -273,8 +287,23 @@ class SupplierOrderResource extends Resource
                     return;
                 }
 
+                $cost = $res->total ?? ((float) $sp->cost * max(1, count($res->items)));
+                $rawWithItems = is_array($res->raw) ? $res->raw : [];
+                $rawWithItems['delivered_items'] = $res->items;
+
+                $attempt->update([
+                    'status' => SupplierOrderStatus::Success,
+                    'cost' => $cost,
+                    'external_order_id' => $res->externalOrderId,
+                    'response' => $rawWithItems,
+                ]);
+
                 if ($res->balanceAfter !== null) {
                     app(SupplierSyncService::class)->recordBalance($supplier, $res->balanceAfter);
+                }
+
+                if ($sp->stock !== null && ! $sp->unlimited_stock) {
+                    $sp->decrement('stock', min($sp->stock, count($res->items)));
                 }
 
                 if (! empty($data['save_to_product_id'])) {
@@ -288,12 +317,48 @@ class SupplierOrderResource extends Resource
                 }
 
                 Notification::make()
-                    ->title('Vendor order successful! ('.count($res->items).' item(s))')
+                    ->title('Direct Vendor Order Saved! ('.count($res->items).' item(s))')
                     ->body(implode("\n", $res->items))
                     ->persistent()
                     ->success()
                     ->send();
             });
+    }
+
+    /**
+     * Extracts delivered credential lines for both Customer Orders and Direct Admin Buys.
+     *
+     * @return string[]
+     */
+    public static function extractDeliveredLines(SupplierOrder $r): array
+    {
+        if ($r->orderItem) {
+            $fromDeliveries = $r->orderItem->deliveries()
+                ->where('supplier_order_id', $r->id)
+                ->pluck('content')
+                ->filter(fn ($v): bool => trim((string) $v) !== '')
+                ->values()
+                ->all();
+            if ($fromDeliveries !== []) {
+                return $fromDeliveries;
+            }
+        }
+
+        $resp = is_array($r->response) ? $r->response : [];
+        $candidates = $resp['delivered_items']
+            ?? data_get($resp, 'order.items')
+            ?? data_get($resp, 'data.items')
+            ?? data_get($resp, 'items')
+            ?? [];
+
+        if (! is_array($candidates)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            array_map(fn ($v): string => is_scalar($v) ? trim((string) $v) : '', $candidates),
+            fn (string $l): bool => $l !== ''
+        ));
     }
 
     public static function getPages(): array

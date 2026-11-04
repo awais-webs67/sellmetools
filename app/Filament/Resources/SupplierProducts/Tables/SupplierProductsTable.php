@@ -3,13 +3,18 @@
 namespace App\Filament\Resources\SupplierProducts\Tables;
 
 use App\Enums\PricingMode;
+use App\Enums\SupplierOrderStatus;
 use App\Filament\Resources\Products\ProductResource;
+use App\Filament\Resources\SupplierOrders\SupplierOrderResource;
 use App\Filament\Support\GalleryPicker;
 use App\Filament\Support\Listings;
 use App\Filament\Support\Money;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\SupplierOrder;
 use App\Models\SupplierProduct;
+use App\Services\Suppliers\SupplierManager;
+use App\Services\SupplierSyncService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Forms\Components\RichEditor;
@@ -40,10 +45,14 @@ class SupplierProductsTable
                 'id', 'supplier_id', 'external_id', 'name', 'cost', 'stock',
                 'unlimited_stock', 'is_available', 'warranty', 'description', 'last_seen_at',
             ])->with('supplier')->withCount('listings'))
-            ->defaultSort('name')
+            ->defaultSort('cost', 'asc')
+            ->paginated([15, 25, 50, 100])
+            ->defaultPaginationPageOption(25)
             ->columns([
                 TextColumn::make('supplier.name')
                     ->label('Supplier')
+                    ->badge()
+                    ->color('info')
                     ->sortable(),
                 TextColumn::make('external_id')
                     ->label('Ext. ID')
@@ -53,28 +62,34 @@ class SupplierProductsTable
                 TextColumn::make('name')
                     ->searchable()
                     ->sortable()
-                    ->wrap(),
+                    ->limit(38)
+                    ->tooltip(fn (SupplierProduct $record): string => $record->name),
                 TextColumn::make('cost')
-                    ->formatStateUsing(fn (SupplierProduct $record): string => Money::currency($record->cost, $record->supplier->currency))
-                    ->description(fn (SupplierProduct $record): string => Money::pkr(round($record->costPkr(), 2)))
+                    ->label('Cost (Low → High)')
+                    ->weight('bold')
+                    ->formatStateUsing(fn (SupplierProduct $record): string => Money::pkr(round($record->costPkr(), 2)))
+                    ->description(fn (SupplierProduct $record): string => Money::currency($record->cost, $record->supplier->currency))
                     ->sortable(),
                 TextColumn::make('stock')
+                    ->badge()
+                    ->color(fn (SupplierProduct $record): string => ($record->unlimited_stock || (int) $record->stock > 0) ? 'success' : 'danger')
                     ->state(fn (SupplierProduct $record): string => $record->unlimited_stock ? '∞' : (string) (int) $record->stock)
                     ->alignCenter(),
                 IconColumn::make('is_available')
                     ->label('Available')
-                    ->boolean(),
+                    ->boolean()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('listings_count')
-                    ->label('Listings')
+                    ->label('Linked')
                     ->badge()
                     ->color(fn (int $state): string => $state > 0 ? 'success' : 'gray')
                     ->sortable(),
                 TextColumn::make('last_seen_at')
-                    ->label('Last seen')
+                    ->label('Synced')
                     ->since()
                     ->dateTimeTooltip()
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('supplier_id')
@@ -91,12 +106,118 @@ class SupplierProductsTable
                     ->query(fn (Builder $query): Builder => $query->doesntHave('listings')),
             ])
             ->recordActions([
-                self::createListingAction(),
-                self::linkAction(),
+                self::quickBuyDirectAction(),
+                self::createListingAction()->button()->size('xs'),
+                self::linkAction()->button()->size('xs'),
             ])
             ->toolbarActions([
                 self::bulkCreateListingsAction(),
             ]);
+    }
+
+    protected static function quickBuyDirectAction(): Action
+    {
+        return Action::make('quickBuyDirect')
+            ->label('⚡ Buy Direct')
+            ->icon(Heroicon::OutlinedShoppingBag)
+            ->color('success')
+            ->button()
+            ->size('xs')
+            ->modalHeading(fn (SupplierProduct $record): string => "Buy Directly: {$record->name}")
+            ->modalDescription(fn (SupplierProduct $record): string => sprintf(
+                'Supplier: %s · Cost: Rs %s (%s) · Stock: %s. Record & credentials will be saved in Direct & Vendor Orders.',
+                $record->supplier?->name,
+                number_format($record->costPkr(), 0),
+                Money::currency($record->cost, $record->supplier?->currency ?? 'USDT'),
+                $record->unlimited_stock ? '∞' : (string) (int) $record->stock,
+            ))
+            ->modalSubmitActionLabel('Buy Now & Save Record')
+            ->schema([
+                TextInput::make('quantity')
+                    ->label('Quantity')
+                    ->numeric()
+                    ->minValue(1)
+                    ->default(1)
+                    ->required(),
+                Select::make('save_to_product_id')
+                    ->label('Also add delivered credentials to Own Stock Vault of (Optional)')
+                    ->placeholder('Just save in Direct & Vendor Orders')
+                    ->options(fn (): array => Product::query()->orderBy('name')->pluck('name', 'id')->all())
+                    ->searchable(),
+            ])
+            ->action(function (SupplierProduct $record, array $data): void {
+                $supplier = $record->supplier;
+                if (! $supplier) {
+                    Notification::make()->title('Supplier not found')->danger()->send();
+
+                    return;
+                }
+
+                $qty = max(1, (int) ($data['quantity'] ?? 1));
+                $reqId = 'DIRECT-'.strtoupper(uniqid());
+
+                $attempt = SupplierOrder::create([
+                    'supplier_id' => $supplier->id,
+                    'order_item_id' => null,
+                    'supplier_product_id' => $record->id,
+                    'request_id' => $reqId,
+                    'quantity' => $qty,
+                    'status' => SupplierOrderStatus::Pending,
+                ]);
+
+                try {
+                    $res = app(SupplierManager::class)->driver($supplier)->placeOrder($record->external_id, $qty, $reqId);
+                } catch (\Throwable $e) {
+                    $attempt->update([
+                        'status' => SupplierOrderStatus::Failed,
+                        'error' => $e->getMessage(),
+                    ]);
+                    Notification::make()->title('Direct order failed')->body($e->getMessage())->danger()->send();
+
+                    return;
+                }
+
+                $cost = $res->total ?? ((float) $record->cost * max(1, count($res->items)));
+                $rawWithItems = is_array($res->raw) ? $res->raw : [];
+                $rawWithItems['delivered_items'] = $res->items;
+
+                $attempt->update([
+                    'status' => SupplierOrderStatus::Success,
+                    'cost' => $cost,
+                    'external_order_id' => $res->externalOrderId,
+                    'response' => $rawWithItems,
+                ]);
+
+                if ($res->balanceAfter !== null) {
+                    app(SupplierSyncService::class)->recordBalance($supplier, $res->balanceAfter);
+                }
+
+                if ($record->stock !== null && ! $record->unlimited_stock) {
+                    $record->decrement('stock', min($record->stock, count($res->items)));
+                }
+
+                if (! empty($data['save_to_product_id'])) {
+                    $product = Product::find($data['save_to_product_id']);
+                    if ($product) {
+                        foreach ($res->items as $line) {
+                            $product->stockItems()->create(['content' => $line]);
+                        }
+                        Listings::refresh($product);
+                    }
+                }
+
+                Notification::make()
+                    ->title('Direct Order Saved! ('.count($res->items).' item(s))')
+                    ->body(implode("\n", $res->items))
+                    ->persistent()
+                    ->success()
+                    ->actions([
+                        Action::make('viewVendorOrders')
+                            ->label('Open Direct & Vendor Orders')
+                            ->url(SupplierOrderResource::getUrl('index', ['activeTab' => 'direct'])),
+                    ])
+                    ->send();
+            });
     }
 
     protected static function createListingAction(): Action

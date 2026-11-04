@@ -61,6 +61,7 @@ class PricingTest extends TestCase
         $product = $this->listing([$sup1, $sup2], [
             'pricing_mode' => PricingMode::MarkupPercent,
             'markup_value' => 20,
+            'use_overall_supplier_markup' => false,
         ]);
 
         // Set custom 30% markup on Supplier 2 (the cheaper supplier)
@@ -75,6 +76,14 @@ class PricingTest extends TestCase
         // Cheapest supplier (Sup2: Rs 240) wins, and its custom 30% margin is used -> Rs 320
         $this->assertSame(240.0, (float) $product->cost_price);
         $this->assertSame(320.0, (float) $product->price);
+
+        // When Overall Profit Toggle is turned ON, it overrides custom supplier profit and uses 20% on Sup2 (240 * 1.20 = 288 -> 290)
+        $product->update(['use_overall_supplier_markup' => true]);
+        app(PriceCalculator::class)->refresh($product->refresh());
+        $this->assertSame(290.0, (float) $product->refresh()->price);
+
+        // Turn Separate Supplier Profit back ON (use_overall_supplier_markup = false)
+        $product->update(['use_overall_supplier_markup' => false]);
 
         // When Sup2 goes out of stock, Sup1 (Rs 300) becomes active and uses Product overall 20% margin -> Rs 360
         $sup2->update(['stock' => 0]);

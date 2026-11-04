@@ -13,10 +13,13 @@ use Filament\Actions\AttachAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DetachAction;
 use Filament\Actions\DetachBulkAction;
-use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
@@ -29,7 +32,7 @@ class SourcesRelationManager extends RelationManager
 {
     protected static string $relationship = 'sources';
 
-    protected static ?string $title = 'Supplier sources';
+    protected static ?string $title = 'Supplier Sources (Sorted: Cheapest Cost First)';
 
     public function table(Table $table): Table
     {
@@ -41,36 +44,55 @@ class SourcesRelationManager extends RelationManager
                 Money::currency($record->cost, $record->supplier?->currency),
                 number_format($record->costPkr(), 0),
             ))
-            ->modifyQueryUsing(fn (Builder $query) => $query->with('supplier'))
+            ->modifyQueryUsing(fn (Builder $query) => $query
+                ->with('supplier')
+                ->orderByDesc('product_sources.is_active')
+                ->orderBy('supplier_products.cost', 'asc')
+                ->orderBy('supplier_products.id', 'asc'))
+            ->paginated(false)
             ->columns([
                 TextColumn::make('supplier.name')
-                    ->label('Supplier / Priority')
+                    ->label('Priority & Supplier')
                     ->weight('bold')
+                    ->formatStateUsing(function (SupplierProduct $record): string {
+                        $ranked = $this->owner()->sources()
+                            ->with('supplier')
+                            ->get()
+                            ->sortBy([
+                                fn (SupplierProduct $a, SupplierProduct $b) => (int) ($b->pivot?->is_active ?? false) <=> (int) ($a->pivot?->is_active ?? false),
+                                fn (SupplierProduct $a, SupplierProduct $b) => $a->costPkr() <=> $b->costPkr(),
+                            ])
+                            ->values();
+                        $pos = $ranked->search(fn (SupplierProduct $s): bool => (int) $s->id === (int) $record->id);
+                        $rankNum = $pos !== false ? ($pos + 1) : 1;
+
+                        return "#{$rankNum} · ".($record->supplier?->name ?? 'Supplier');
+                    })
                     ->description(function (SupplierProduct $record): string {
                         $winning = app(PriceCalculator::class)->winningSource($this->owner());
                         if ($winning && (int) $winning->id === (int) $record->id) {
-                            return '⭐ #1 Active Storefront Source (Cheapest)';
+                            return '⭐ Active on Store (Lowest Cost)';
                         }
 
-                        return $record->pivot?->is_active ? 'Backup Supplier (Standby)' : 'Disabled';
+                        return $record->pivot?->is_active ? 'Standby Backup' : 'Disabled';
                     }),
                 TextColumn::make('name')
                     ->label('Vendor Item')
                     ->searchable()
-                    ->limit(36)
+                    ->limit(32)
                     ->tooltip(fn (SupplierProduct $record): string => $record->name),
                 TextColumn::make('cost')
-                    ->label('Vendor Cost')
-                    ->weight('semibold')
+                    ->label('Cost (Low → High)')
+                    ->weight('bold')
                     ->formatStateUsing(fn (SupplierProduct $record): string => Money::pkr(round($record->costPkr(), 2)))
                     ->description(fn (SupplierProduct $record): string => Money::currency($record->cost, $record->supplier?->currency ?? 'USDT')),
                 TextColumn::make('profit_rule')
-                    ->label('Margin Rule')
+                    ->label('Profit Mode')
                     ->badge()
-                    ->color(fn (SupplierProduct $record): string => filled($record->pivot?->pricing_mode) ? 'primary' : 'gray')
+                    ->color(fn (SupplierProduct $record): string => (! ($this->owner()->use_overall_supplier_markup ?? true) && filled($record->pivot?->pricing_mode)) ? 'primary' : 'gray')
                     ->state(fn (SupplierProduct $record): string => app(PriceCalculator::class)->sourceMarginLabel($this->owner(), $record)),
                 TextColumn::make('calculated_price')
-                    ->label('Price & Profit')
+                    ->label('Sell Price & Profit')
                     ->weight('bold')
                     ->state(function (SupplierProduct $record): string {
                         $price = app(PriceCalculator::class)->sellingPriceForSource($this->owner(), $record);
@@ -83,115 +105,181 @@ class SourcesRelationManager extends RelationManager
                         $profit = round($price - $cost, 2);
                         $pct = $cost > 0 ? round(($profit / $cost) * 100, 1) : 0;
 
-                        return ($profit >= 0 ? 'Profit: +' : 'Loss: ').Money::pkr($profit)." ({$pct}%)";
+                        return ($profit >= 0 ? '+'.Money::pkr($profit) : Money::pkr($profit))." ({$pct}%)";
                     }),
                 TextColumn::make('stock')
                     ->label('Stock')
                     ->badge()
                     ->color(fn (SupplierProduct $record): string => ($record->unlimited_stock || (int) $record->stock > 0) ? 'success' : 'danger')
                     ->state(fn (SupplierProduct $record): string => $record->unlimited_stock ? '∞' : (string) (int) $record->stock),
-                IconColumn::make('is_available')
-                    ->label('Available')
-                    ->boolean()
-                    ->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('source_active')
                     ->label('Enabled')
                     ->state(fn (SupplierProduct $record): bool => (bool) $record->pivot?->is_active)
                     ->boolean(),
-                TextColumn::make('last_seen_at')
-                    ->label('Last seen')
-                    ->since()
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->headerActions([
+                Action::make('toggleOverallMarkup')
+                    ->label(fn (): string => ($this->owner()->use_overall_supplier_markup ?? true)
+                        ? '🟢 Overall Profit on All Suppliers: ON (Click to Turn OFF)'
+                        : '⚡ Custom Profit Per Supplier: ON (Click to Use Overall)')
+                    ->icon(fn (): Heroicon => ($this->owner()->use_overall_supplier_markup ?? true)
+                        ? Heroicon::OutlinedLockClosed
+                        : Heroicon::OutlinedAdjustmentsHorizontal)
+                    ->color(fn (): string => ($this->owner()->use_overall_supplier_markup ?? true) ? 'success' : 'warning')
+                    ->button()
+                    ->action(function (): void {
+                        $owner = $this->owner();
+                        $newState = ! ($owner->use_overall_supplier_markup ?? true);
+                        $owner->update(['use_overall_supplier_markup' => $newState]);
+                        $this->refreshOwner();
+
+                        Notification::make()
+                            ->title($newState
+                                ? 'Overall Profit ON: All suppliers now use the product’s overall margin'
+                                : 'Custom Per-Supplier Profit ON: You can now set separate profit % or price for each supplier')
+                            ->color($newState ? 'success' : 'warning')
+                            ->send();
+                    }),
                 AttachAction::make()
-                    ->label('Attach supplier product')
+                    ->label('Attach Supplier')
                     ->preloadRecordSelect()
                     ->recordSelectSearchColumns(['name', 'external_id'])
-                    ->recordSelectOptionsQuery(fn (Builder $query) => $query->with('supplier')->orderBy('name'))
-                    ->schema(fn (AttachAction $action): array => [
-                        $action->getRecordSelect(),
-                        Select::make('pricing_mode')
-                            ->label('Profit / Margin Mode for This Supplier')
-                            ->options([
-                                '' => 'Use Product Overall Margin (Default)',
-                                PricingMode::MarkupPercent->value => 'Custom Profit Percentage (%) for this Supplier',
-                                PricingMode::MarkupAmount->value => 'Custom Profit Amount (PKR) for this Supplier',
-                                PricingMode::Fixed->value => 'Custom Fixed Selling Price (PKR) for this Supplier',
-                            ])
-                            ->default('')
-                            ->selectablePlaceholder(false)
-                            ->live(),
-                        TextInput::make('markup_value')
-                            ->label(fn (Get $get): string => match ($get('pricing_mode')) {
-                                PricingMode::MarkupPercent->value => 'Custom Profit % (e.g. 30 for +30%)',
-                                PricingMode::MarkupAmount->value => 'Custom Profit in PKR (e.g. 250 for +Rs 250)',
-                                PricingMode::Fixed->value => 'Custom Fixed Selling Price in PKR',
-                                default => 'Custom Value',
-                            })
-                            ->numeric()
-                            ->minValue(0)
-                            ->visible(fn (Get $get): bool => filled($get('pricing_mode')))
-                            ->required(fn (Get $get): bool => filled($get('pricing_mode'))),
-                    ])
+                    ->recordSelectOptionsQuery(fn (Builder $query) => $query->with('supplier')->orderBy('cost', 'asc'))
                     ->after(fn () => $this->refreshOwner()),
             ])
             ->recordActions([
                 Action::make('setMargin')
-                    ->label('Profit %')
-                    ->tooltip('Set separate profit % or markup when this supplier is active')
+                    ->label(fn (): string => ($this->owner()->use_overall_supplier_markup ?? true) ? '🔒 Overall ON' : 'Set Profit / Price')
+                    ->tooltip(fn (): string => ($this->owner()->use_overall_supplier_markup ?? true)
+                        ? 'Turn OFF "Overall Profit on All Suppliers" button above to set custom profit for this supplier'
+                        : 'Set Profit % or Total Sell Price for this supplier (2-way live calculator)')
                     ->icon(Heroicon::OutlinedCalculator)
-                    ->color('primary')
+                    ->color(fn (): string => ($this->owner()->use_overall_supplier_markup ?? true) ? 'gray' : 'primary')
+                    ->disabled(fn (): bool => (bool) ($this->owner()->use_overall_supplier_markup ?? true))
                     ->button()
                     ->size('xs')
-                    ->modalHeading(fn (SupplierProduct $record): string => 'Supplier Profit Margin: '.($record->supplier?->name ?? 'Supplier'))
+                    ->modalHeading(fn (SupplierProduct $record): string => 'Set Profit & Sell Price: '.($record->supplier?->name ?? 'Supplier'))
                     ->modalDescription(fn (SupplierProduct $record): string => sprintf(
-                        'Supplier Cost: Rs %s (%s). Storefront always selects the lowest-cost active supplier first and applies that supplier’s profit margin.',
+                        'Supplier Cost: Rs %s (%s). Type either Profit %% OR Total Sell Price below — the other box updates automatically!',
                         number_format($record->costPkr(), 2),
                         Money::currency($record->cost, $record->supplier?->currency ?? 'USDT'),
                     ))
-                    ->fillForm(fn (SupplierProduct $record): array => [
-                        'pricing_mode' => (string) ($record->pivot?->pricing_mode ?? ''),
-                        'markup_value' => $record->pivot?->markup_value !== null ? (float) $record->pivot->markup_value : (float) ($this->owner()->markup_value ?? 20),
-                    ])
-                    ->schema([
-                        Select::make('pricing_mode')
-                            ->label('Margin Mode for This Supplier')
-                            ->options([
-                                '' => 'Use Product Overall Margin (Default)',
-                                PricingMode::MarkupPercent->value => 'Custom Profit Percentage (%)',
-                                PricingMode::MarkupAmount->value => 'Custom Profit Amount (PKR)',
-                                PricingMode::Fixed->value => 'Custom Fixed Selling Price (PKR)',
-                            ])
-                            ->default('')
-                            ->selectablePlaceholder(false)
-                            ->live(),
-                        TextInput::make('markup_value')
-                            ->label(fn (Get $get): string => match ($get('pricing_mode')) {
-                                PricingMode::MarkupPercent->value => 'Profit Percentage (%) (e.g. 20 or 30)',
-                                PricingMode::MarkupAmount->value => 'Profit Amount in PKR (e.g. 200)',
-                                PricingMode::Fixed->value => 'Fixed Selling Price in PKR (e.g. 1200)',
-                                default => 'Value',
-                            })
-                            ->numeric()
-                            ->minValue(0)
-                            ->visible(fn (Get $get): bool => filled($get('pricing_mode')))
-                            ->required(fn (Get $get): bool => filled($get('pricing_mode'))),
-                    ])
-                    ->action(function (SupplierProduct $record, array $data): void {
-                        $mode = trim((string) ($data['pricing_mode'] ?? ''));
-                        $val = $mode !== '' && isset($data['markup_value']) && $data['markup_value'] !== ''
-                            ? round((float) $data['markup_value'], 2)
-                            : null;
+                    ->fillForm(function (SupplierProduct $record): array {
+                        $cost = max(1.0, round($record->costPkr(), 2));
+                        $currentPrice = app(PriceCalculator::class)->sellingPriceForSource($this->owner(), $record, $cost);
+                        $pivotMode = (string) ($record->pivot?->pricing_mode ?? '');
+                        $pivotVal = $record->pivot?->markup_value;
 
-                        $this->owner()->sources()->updateExistingPivot($record->getKey(), [
-                            'pricing_mode' => $mode !== '' ? $mode : null,
-                            'markup_value' => $val,
-                        ]);
+                        if ($pivotMode === PricingMode::MarkupPercent->value && $pivotVal !== null) {
+                            $pct = round((float) $pivotVal, 2);
+                        } else {
+                            $pct = max(0.0, round((($currentPrice - $cost) / $cost) * 100, 2));
+                        }
+
+                        return [
+                            'use_default_for_this_row' => $pivotMode === '',
+                            'calc_mode' => $pivotMode === PricingMode::Fixed->value ? 'price' : 'percent',
+                            'profit_percent' => $pct,
+                            'sell_price_pkr' => round($currentPrice, 0),
+                        ];
+                    })
+                    ->schema(function (SupplierProduct $record): array {
+                        $cost = max(0.01, round($record->costPkr(), 2));
+
+                        return [
+                            Grid::make(['default' => 1, 'sm' => 2])
+                                ->schema([
+                                    TextInput::make('profit_percent')
+                                        ->label('Profit Percentage (%)')
+                                        ->suffix('%')
+                                        ->numeric()
+                                        ->minValue(0)
+                                        ->live(debounce: 250)
+                                        ->afterStateUpdated(function ($state, callable $set) use ($cost): void {
+                                            if ($state === null || $state === '' || ! is_numeric($state)) {
+                                                return;
+                                            }
+                                            $pct = max(0.0, (float) $state);
+                                            $sell = round($cost * (1 + ($pct / 100)), 0);
+                                            $set('sell_price_pkr', $sell);
+                                            $set('calc_mode', 'percent');
+                                            $set('use_default_for_this_row', false);
+                                        })
+                                        ->helperText('Type % here → Total Sell Price updates automatically.'),
+
+                                    TextInput::make('sell_price_pkr')
+                                        ->label('Total Sell Price (PKR)')
+                                        ->prefix('Rs')
+                                        ->numeric()
+                                        ->minValue(0)
+                                        ->live(debounce: 250)
+                                        ->afterStateUpdated(function ($state, callable $set) use ($cost): void {
+                                            if ($state === null || $state === '' || ! is_numeric($state)) {
+                                                return;
+                                            }
+                                            $sell = max(0.0, (float) $state);
+                                            $pct = $cost > 0 ? round((($sell - $cost) / $cost) * 100, 2) : 0.0;
+                                            $set('profit_percent', max(0.0, $pct));
+                                            $set('calc_mode', 'price');
+                                            $set('use_default_for_this_row', false);
+                                        })
+                                        ->helperText('Type Sell Price here → Profit % updates automatically.'),
+                                ]),
+
+                            Grid::make(3)
+                                ->schema([
+                                    TextEntry::make('live_cost_box')
+                                        ->label('Supplier Cost')
+                                        ->state(Money::pkr($cost).' ('.Money::currency($record->cost, $record->supplier?->currency ?? 'USDT').')'),
+                                    TextEntry::make('live_price_box')
+                                        ->label('Store Sell Price')
+                                        ->weight('bold')
+                                        ->color('primary')
+                                        ->state(fn (Get $get): string => Money::pkr((float) ($get('sell_price_pkr') ?: 0))),
+                                    TextEntry::make('live_profit_box')
+                                        ->label('Your Net Profit')
+                                        ->weight('bold')
+                                        ->color(fn (Get $get): string => ((float) ($get('sell_price_pkr') ?: 0) - $cost) >= 0 ? 'success' : 'danger')
+                                        ->state(function (Get $get) use ($cost): string {
+                                            $sell = (float) ($get('sell_price_pkr') ?: 0);
+                                            $profit = round($sell - $cost, 0);
+                                            $pct = (float) ($get('profit_percent') ?: 0);
+
+                                            return ($profit >= 0 ? '+Rs ' : '-Rs ').number_format(abs($profit), 0)." ({$pct}%)";
+                                        }),
+                                ]),
+
+                            Hidden::make('calc_mode')->default('percent'),
+
+                            Toggle::make('use_default_for_this_row')
+                                ->label('Use Product Overall Profit for this supplier instead of custom')
+                                ->default(false),
+                        ];
+                    })
+                    ->action(function (SupplierProduct $record, array $data): void {
+                        if (! empty($data['use_default_for_this_row'])) {
+                            $this->owner()->sources()->updateExistingPivot($record->getKey(), [
+                                'pricing_mode' => null,
+                                'markup_value' => null,
+                            ]);
+                        } else {
+                            $calcMode = (string) ($data['calc_mode'] ?? 'percent');
+                            if ($calcMode === 'price') {
+                                $this->owner()->sources()->updateExistingPivot($record->getKey(), [
+                                    'pricing_mode' => PricingMode::Fixed->value,
+                                    'markup_value' => round((float) ($data['sell_price_pkr'] ?? 0), 2),
+                                ]);
+                            } else {
+                                $this->owner()->sources()->updateExistingPivot($record->getKey(), [
+                                    'pricing_mode' => PricingMode::MarkupPercent->value,
+                                    'markup_value' => round((float) ($data['profit_percent'] ?? 0), 2),
+                                ]);
+                            }
+                        }
 
                         $this->refreshOwner();
                         Notification::make()
-                            ->title('Supplier profit margin updated')
+                            ->title('Supplier profit & price saved!')
                             ->success()
                             ->send();
                     }),

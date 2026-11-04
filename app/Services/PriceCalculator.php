@@ -73,8 +73,9 @@ class PriceCalculator
 
     /**
      * Computes the selling price when fulfilled by a specific supplier source.
-     * Uses the supplier pivot's custom `pricing_mode` + `markup_value` if set;
-     * otherwise falls back to the Product's overall markup settings.
+     * When `use_overall_supplier_markup` is false (Separate Supplier Profit mode),
+     * uses the supplier pivot's custom `pricing_mode` + `markup_value` if set;
+     * otherwise uses the Product's overall markup settings.
      */
     public function sellingPriceForSource(Product $product, ?SupplierProduct $source, ?float $cost = null): float
     {
@@ -84,21 +85,25 @@ class PriceCalculator
 
         $resolvedCost = $cost ?? ($source ? round($source->costPkr(), 2) : null);
 
-        $pivotModeRaw = trim((string) ($source?->pivot?->pricing_mode ?? ''));
-        $pivotValRaw = $source?->pivot?->markup_value ?? null;
+        $useOverall = (bool) ($product->use_overall_supplier_markup ?? true);
 
-        if ($pivotModeRaw !== '' && $pivotValRaw !== null && $pivotValRaw !== '') {
-            $mode = PricingMode::tryFrom($pivotModeRaw) ?? ($product->pricing_mode ?? PricingMode::Fixed);
-            $markup = (float) $pivotValRaw;
+        if (! $useOverall) {
+            $pivotModeRaw = trim((string) ($source?->pivot?->pricing_mode ?? ''));
+            $pivotValRaw = $source?->pivot?->markup_value ?? null;
 
-            $price = match (true) {
-                $mode === PricingMode::Fixed => $markup,
-                $resolvedCost === null => (float) $product->fixed_price,
-                $mode === PricingMode::MarkupAmount => $resolvedCost + $markup,
-                $mode === PricingMode::MarkupPercent => $resolvedCost * (1 + $markup / 100),
-            };
+            if ($pivotModeRaw !== '' && $pivotValRaw !== null && $pivotValRaw !== '') {
+                $mode = PricingMode::tryFrom($pivotModeRaw) ?? ($product->pricing_mode ?? PricingMode::Fixed);
+                $markup = (float) $pivotValRaw;
 
-            return $this->round($price, $mode === PricingMode::Fixed || $resolvedCost === null);
+                $price = match (true) {
+                    $mode === PricingMode::Fixed => $markup,
+                    $resolvedCost === null => (float) $product->fixed_price,
+                    $mode === PricingMode::MarkupAmount => $resolvedCost + $markup,
+                    $mode === PricingMode::MarkupPercent => $resolvedCost * (1 + $markup / 100),
+                };
+
+                return $this->round($price, $mode === PricingMode::Fixed || $resolvedCost === null);
+            }
         }
 
         return $this->sellingPrice($product, $resolvedCost);
@@ -106,16 +111,17 @@ class PriceCalculator
 
     public function sourceMarginLabel(Product $product, SupplierProduct $source): string
     {
+        $useOverall = (bool) ($product->use_overall_supplier_markup ?? true);
         $pivotModeRaw = trim((string) ($source->pivot?->pricing_mode ?? ''));
         $pivotValRaw = $source->pivot?->markup_value ?? null;
 
-        if ($pivotModeRaw !== '' && $pivotValRaw !== null && $pivotValRaw !== '') {
+        if (! $useOverall && $pivotModeRaw !== '' && $pivotValRaw !== null && $pivotValRaw !== '') {
             $val = rtrim(rtrim(number_format((float) $pivotValRaw, 2, '.', ''), '0'), '.');
 
             return match ($pivotModeRaw) {
                 PricingMode::MarkupPercent->value => "Custom +{$val}%",
                 PricingMode::MarkupAmount->value => "Custom +Rs {$val}",
-                PricingMode::Fixed->value => "Custom Fixed Rs {$val}",
+                PricingMode::Fixed->value => "Custom Rs {$val}",
                 default => "Custom {$val}",
             };
         }
