@@ -84,7 +84,8 @@ class PriceCalculator
     public function refresh(Product $product): array
     {
         $supplierCost = $this->cheapestCost($product);
-        $cost = $supplierCost ?? ($product->cost_price !== null ? round((float) $product->cost_price, 2) : null);
+        $isManualFixed = ($product->pricing_mode ?? PricingMode::Fixed) === PricingMode::Fixed && ! $product->sources()->exists();
+        $cost = $supplierCost ?? ($isManualFixed && $product->cost_price !== null ? round((float) $product->cost_price, 2) : null);
         $price = $this->sellingPrice($product, $cost);
 
         $product->cost_price = $cost;

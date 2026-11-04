@@ -8,6 +8,9 @@
     $seoDescription = $activeCategory
         ? $activeCategory->seoDescription()
         : (string) setting('shop_seo_description', 'Browse genuine AI tools, cheap subscriptions, design software and cloud plans. Instant delivery via Binance USDT, Easypaisa or JazzCash.');
+    $seoKeywords = $activeCategory
+        ? $activeCategory->seoKeywords()
+        : null;
     $canonicalUrl = $activeCategory
         ? route('categories.show', $activeCategory)
         : route('shop');
@@ -68,6 +71,7 @@
 <x-layouts.store
     :title="$seoTitle"
     :description="$seoDescription"
+    :keywords="$seoKeywords"
     :canonical="$canonicalUrl"
     :robots="$robotsDirective"
 >

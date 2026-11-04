@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Http\Controllers\SeoController;
+use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
@@ -10,7 +12,7 @@ use Illuminate\Support\Str;
 class ProductSeoOptimizer
 {
     /**
-     * Runs once on production/local to upgrade all catalog products with clean, high-ranking SEO descriptions,
+     * Runs once on production/local to upgrade all catalog products and categories with clean, high-ranking SEO descriptions,
      * short summaries, structured HTML feature lists, and clean warranty terms (with zero em dashes).
      */
     public static function syncCatalogOnce(): void
@@ -19,7 +21,7 @@ class ProductSeoOptimizer
             return;
         }
 
-        $flagFile = storage_path('framework/product_seo_v3_synced.flag');
+        $flagFile = storage_path('framework/product_seo_v4_synced.flag');
         if (is_file($flagFile)) {
             return;
         }
@@ -31,14 +33,41 @@ class ProductSeoOptimizer
                 return;
             }
 
+            $categoryMap = [];
+            if (Schema::hasTable('categories')) {
+                $curatedCatSeo = Category::curatedSeoMap();
+                foreach (Category::query()->get() as $cat) {
+                    $cleanCatName = preg_replace('/\s+/u', ' ', trim(static::stripEmDashes((string) $cat->name))) ?: $cat->name;
+                    $slug = trim((string) $cat->slug);
+                    $catSeo = $curatedCatSeo[$slug] ?? null;
+
+                    $cat->forceFill([
+                        'name' => $cleanCatName,
+                        'meta_title' => $catSeo['title'] ?? ($cat->meta_title ?: Str::limit("Buy {$cleanCatName} Subscriptions Online | SellMeTools", 58, '')),
+                        'meta_description' => $catSeo['description'] ?? ($cat->meta_description ?: Str::limit("Buy genuine {$cleanCatName} subscriptions and accounts online in Pakistan & worldwide. Instant delivery via Easypaisa, JazzCash & Binance USDT.", 154, '')),
+                    ])->saveQuietly();
+
+                    $categoryMap[$slug] = (int) $cat->id;
+                }
+            }
+
+            $categoryReassignments = [
+                'chatgpt-plus-1m-1hw' => 'ai-tools',
+                'grok-cursor-premium-1month-fw' => 'ai-tools',
+                'warp-build-12m' => 'cloud-dev',
+                'official-zoom-pro-3-months' => 'productivity',
+            ];
+            $generalCatId = $categoryMap['general'] ?? null;
+
             $catalog = static::curatedCatalog();
             $products = Product::withTrashed()->get();
 
             foreach ($products as $product) {
                 $slug = (string) $product->slug;
                 $updates = $catalog[$slug] ?? static::buildDynamicSeoFields($product);
-                $cleanName = static::stripEmDashes((string) $product->name);
-                $customMetaTitle = "Buy {$cleanName} | Cheap Subscription Online";
+                $cleanName = preg_replace('/\s+/u', ' ', trim(static::stripEmDashes((string) $product->name))) ?: (string) $product->name;
+
+                $customMetaTitle = $updates['meta_title'] ?? "Buy {$cleanName} | Cheap Subscription Online";
                 if (mb_strlen($customMetaTitle) > 58) {
                     $customMetaTitle = "Buy {$cleanName} | Instant Delivery";
                 }
@@ -46,17 +75,35 @@ class ProductSeoOptimizer
                     $customMetaTitle = Str::limit("Buy {$cleanName}", 58, '');
                 }
 
-                $product->forceFill([
+                $fill = [
+                    'name' => $cleanName,
                     'short_description' => static::stripEmDashes($updates['short_description']),
                     'description' => static::stripEmDashes($updates['description']),
                     'warranty' => static::stripEmDashes($updates['warranty']),
                     'meta_title' => static::stripEmDashes($customMetaTitle),
                     'meta_description' => Str::limit(static::stripEmDashes($updates['meta_description']), 152, '...'),
                     'meta_keywords' => static::stripEmDashes($updates['meta_keywords']),
-                ])->saveQuietly();
+                ];
+
+                if (isset($categoryReassignments[$slug])) {
+                    $targetSlug = $categoryReassignments[$slug];
+                    if (isset($categoryMap[$targetSlug]) && (! $product->category_id || $product->category_id === $generalCatId)) {
+                        $fill['category_id'] = $categoryMap[$targetSlug];
+                    }
+                }
+
+                $product->forceFill($fill)->saveQuietly();
             }
 
             Cache::forget('smt_search_catalog_v1');
+
+            defer(function (): void {
+                try {
+                    SeoController::submitAllToIndexNow();
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            });
         } catch (\Throwable $e) {
             report($e);
         }
@@ -74,17 +121,17 @@ class ProductSeoOptimizer
     }
 
     /**
-     * Dynamic fallback optimizer for any new product added in the future.
+     * Dynamic fallback optimizer for any new product added in the future via Admin Panel.
      *
      * @return array{short_description: string, description: string, warranty: string, meta_title: string, meta_description: string, meta_keywords: string}
      */
     public static function buildDynamicSeoFields(Product $product): array
     {
-        $name = trim(static::stripEmDashes((string) $product->name));
+        $name = preg_replace('/\s+/u', ' ', trim(static::stripEmDashes((string) $product->name))) ?: 'Digital Tool';
         $brand = $product->brandName();
-        $categoryName = $product->category?->name ?: 'Digital Subscription';
+        $categoryName = trim((string) ($product->category?->name ?: 'Digital Subscription'));
 
-        $rawSummary = Product::normalizeUnicodeText((string) ($product->short_description ?: $product->description));
+        $rawSummary = $product->cleanSummaryText();
         $rawSummary = static::cleanRawSupplierText($rawSummary);
 
         $shortDesc = $rawSummary !== ''
@@ -118,15 +165,18 @@ class ProductSeoOptimizer
 HTML;
         }
 
-        $metaTitle = Str::limit("Buy {$name} Online | Best Price & Instant Delivery", 58, '');
+        $metaTitle = "Buy {$name} | Cheap Subscription Online";
         if (mb_strlen($metaTitle) > 58) {
-            $metaTitle = Str::limit("Buy {$name} | Cheap Subscription", 58, '');
+            $metaTitle = "Buy {$name} | Instant Delivery";
+        }
+        if (mb_strlen($metaTitle) > 58) {
+            $metaTitle = Str::limit("Buy {$name}", 58, '');
         }
 
         $metaDesc = Str::limit(
             "Buy {$name} online at the lowest price in Pakistan and worldwide. {$shortDesc} Instant delivery via Easypaisa, JazzCash & USDT.",
-            154,
-            ''
+            152,
+            '...'
         );
 
         $metaKeywords = implode(', ', array_filter([
@@ -167,7 +217,7 @@ HTML;
     }
 
     /**
-     * Hand-crafted, keyword-rich SEO descriptions and clean warranty terms for all 52+ store products.
+     * Hand-crafted, keyword-rich SEO descriptions and clean warranty terms for all 76+ store products.
      * Zero em dashes or en dashes are used anywhere.
      *
      * @return array<string, array{short_description: string, description: string, warranty: string, meta_title: string, meta_description: string, meta_keywords: string}>
@@ -750,6 +800,314 @@ HTML;
                 ],
                 'warranty' => 'Full 20-Day Subscription Warranty (recommended for desktop use with extension).',
                 'kw' => 'Google Flow Omni AI video price in Pakistan, buy Google Flow unlimited video subscription, AI video tool Pakistan',
+            ],
+
+            // ================= 27 NEWLY ADDED PRODUCTS =================
+            'heygen-creator-1-month-20dw' => [
+                'short' => 'Buy HeyGen Creator Plan 1 Month ready-made account with 20-Day Warranty (20DW). Generate studio-quality AI avatar videos, voice clones, and translations.',
+                'overview' => 'Create professional AI spokesperson videos, lip-synced translations, and custom talking avatars with a ready-made HeyGen Creator Plan 1 Month account. You receive direct login credentials right after purchase so you can sign in and use the Creator Plan immediately without needing any credit card.',
+                'bullets' => [
+                    '<strong>Plan &amp; Duration:</strong> HeyGen Creator Plan with 1 Month access.',
+                    '<strong>Ready-to-Use Account:</strong> Login details are provided immediately after purchase; simply sign in and use the given account directly.',
+                    '<strong>Creator Plan Features:</strong> Premium AI avatars, voice cloning, video translation, fast rendering queue, and 1080p watermark-free video exports.',
+                    '<strong>20-Day Warranty (20DW):</strong> Backed by a 20-Day Replacement Warranty.',
+                ],
+                'warranty' => '20-Day Replacement Warranty (20DW). Format: Ready-made HeyGen Creator account (use the provided account directly).',
+                'kw' => 'HeyGen Creator 1 month price in Pakistan, buy HeyGen subscription online, HeyGen AI video generator account Pakistan, HeyGen Easypaisa JazzCash',
+            ],
+            'railway-hobby-1-year' => [
+                'short' => 'Buy Railway Hobby Plan 12 Months (1 Year) official coupon code. Redeem on your own new Railway account to unlock all Hobby cloud hosting features.',
+                'overview' => 'Deploy web apps, APIs, bots, and databases effortlessly with an official Railway Hobby 12 Months (1 Year) Coupon Code. Redeem the promo code directly on your own new Railway account to unlock all Railway Hobby plan features for a full year.',
+                'bullets' => [
+                    '<strong>Official 12-Month Coupon Code:</strong> Unlocks 1 Year (12 Months) of the Railway Hobby Plan.',
+                    '<strong>Redeem on Your Own Account:</strong> Activate directly on your personal Railway account (works on new Railway accounts only).',
+                    '<strong>Full Hobby Features Unlocked:</strong> Deploy GitHub repos, Docker containers, PostgreSQL/MySQL/Redis databases, and custom domains with Hobby resource limits.',
+                ],
+                'warranty' => 'Coupon Code Redemption Guarantee (Non-Warranty after activation on your Railway account; valid for new Railway accounts only).',
+                'kw' => 'Railway Hobby 1 year price in Pakistan, buy Railway app coupon code, Railway cloud hosting subscription Pakistan, cheap Railway Hobby plan',
+            ],
+            'expressvpn-1-month-5-devices' => [
+                'short' => 'Buy ExpressVPN 1 Month 100% private account supporting 5 devices (Format: Email | Password | Activation Key) with instant delivery.',
+                'overview' => 'Browse privately and unblock global streaming platforms with a 100% private ExpressVPN 1 Month account supporting up to 5 simultaneous devices. You receive the full login and desktop activation key so you can connect across PC and mobile right away.',
+                'bullets' => [
+                    '<strong>100% Private Account:</strong> Dedicated 1-Month ExpressVPN subscription supporting up to 5 devices.',
+                    '<strong>Delivery Format (`email | password | key`):</strong> Here `key` is the activation key/password used to sign in and open the ExpressVPN desktop app.',
+                    '<strong>Ultra-Fast Lightway Protocol:</strong> High-speed servers across 105 countries for 4K streaming, gaming, and secure browsing.',
+                ],
+                'warranty' => 'Activation Warranty only. Format: email | password | key (use the key to activate the ExpressVPN desktop application).',
+                'kw' => 'ExpressVPN 1 month price in Pakistan, buy ExpressVPN 5 devices private account, ExpressVPN activation key Pakistan, cheap ExpressVPN Easypaisa',
+            ],
+            'express-vpn-2-years' => [
+                'short' => 'Buy ExpressVPN 2 Years (24 Months) subscription for both Mobile and PC with a Full 2-Year Warranty and instant delivery.',
+                'overview' => 'Get 24 months of non-stop online privacy and unrestricted streaming with an ExpressVPN 2 Years subscription that works on both Mobile (Android & iOS) and PC (Windows & macOS). Backed by a Full 2-Year Warranty for complete peace of mind.',
+                'bullets' => [
+                    '<strong>Plan Duration:</strong> 2 Years (24 Months) ExpressVPN premium access.',
+                    '<strong>Mobile &amp; PC Compatible:</strong> Works seamlessly on both Mobile devices and Desktop PCs.',
+                    '<strong>Full 2-Year Warranty:</strong> Complete 24-month warranty coverage included.',
+                ],
+                'warranty' => 'Full 2-Year (24-Month) Subscription Warranty for both Mobile and PC.',
+                'kw' => 'ExpressVPN 2 years price in Pakistan, buy ExpressVPN 24 months mobile and PC, ExpressVPN full warranty Pakistan, cheap ExpressVPN subscription',
+            ],
+            'miro-lifetime-panel-100-invite' => [
+                'short' => 'Buy Miro Lifetime Admin & Owner Panel with 100 member invitations. Full team owner control over settings, permissions, and project spaces.',
+                'overview' => 'Take complete command of your visual collaboration workspace with a Miro Lifetime Team Owner & Admin Panel supporting up to 100 member invitations. Unlike regular shared seats, you are the official Owner and Admin of the team, giving you full control over team settings, member permissions, and project spaces.',
+                'bullets' => [
+                    '<strong>Absolute Admin &amp; Owner Control:</strong> You are the "Owner" and "Admin" of the Miro team, controlling all team settings, member permissions, and project spaces (not just a regular member of a shared account).',
+                    '<strong>100-Member Team Scale:</strong> Easily create, invite, and manage a formal team of up to 100 members, ideal for startup teams, agencies, class projects, and student organizations.',
+                    '<strong>Unlimited Collaboration Boards:</strong> Create unlimited whiteboards, mind maps, wireframes, and agile workflows.',
+                ],
+                'warranty' => 'Admin Panel Login & Activation Verification Warranty. Includes full Owner/Admin control for up to 100 team members.',
+                'kw' => 'Miro Lifetime Panel 100 invites price in Pakistan, buy Miro Admin Owner account, Miro team subscription Pakistan, Miro whiteboard pro',
+            ],
+            'chatgpt-plus-1-month-full-warranty' => [
+                'short' => 'Buy ChatGPT Plus 1 Month super-stable Apple-billed Gmail account (Mail | Pass | 2FA) with Full 30-Day Warranty.',
+                'overview' => 'Get our most stable ChatGPT Plus 1 Month subscription: a 100% Gmail-registered, Apple-billed dedicated account where each account is paid with its own individual card (Vietnamese billing address) with zero IP conflicts. Accounts are updated daily and pre-checked with 2FA configured so you can log in and use GPT-4o, o1/o3 reasoning, DALL-E, and voice mode confidently without changing any settings.',
+                'bullets' => [
+                    '<strong>Super-Stable Dedicated Billing:</strong> 100% Gmail Apple-billed accounts, updated daily, paid with one dedicated card per account and zero IP conflicts.',
+                    '<strong>Delivery Format (`Mail | Pass | 2FA`):</strong> Pre-checked accounts with 2FA ready. Get your 6-digit login code anytime at <code>https://2fa.live/</code>.',
+                    '<strong>Phone Verification Tip (If Prompted):</strong> If Codex/SMS verification ever occurs, you can verify via <code>https://viotp.com/</code> (select ChatGPT service + Vina number prefix).',
+                    '<strong>Mandatory Security &amp; Warranty Policy:</strong> Accounts are registered via Gmail OTP, so password or 2FA recovery is not supported. <strong>Do NOT change the Password, 2FA, or Email</strong> (if changing 2FA, only do so immediately after first login). We never reclaim accounts, and warranty is NOT provided for security lockouts caused by changing password, 2FA, or email. Warranty applies whenever the account can be logged in to verify the Plus package.',
+                ],
+                'warranty' => 'Full 30-Day Subscription Warranty (Format: Mail | Pass | 2FA; get 2FA code at https://2fa.live/). Strictly do NOT change Password, 2FA, or Email, as security lockouts caused by changing login details void warranty.',
+                'kw' => 'ChatGPT Plus 1 month full warranty price in Pakistan, buy stable ChatGPT Plus account Pakistan, OpenAI ChatGPT Plus 30 days warranty Easypaisa JazzCash',
+            ],
+            'higgsfield-genjutsu-30-day-limit-24h-warranty' => [
+                'short' => 'Buy Higgsfield AI Genjutsu Video Package (720p, 30s video, Motion/Swap Genjutsu) with account, password & OTP mailbox link and 24-Hour Warranty.',
+                'overview' => 'Create viral AI motion and character-swap videos with the Higgsfield Genjutsu package. This account lets you generate 1 AI video using Motion / Swap Genjutsu in 720p HD quality (up to 30 seconds per video) directly on Higgsfield AI.',
+                'bullets' => [
+                    '<strong>Package Output:</strong> Create 1 video using Motion / Swap Genjutsu in <strong>720p HD quality (30 seconds per video)</strong>.',
+                    '<strong>Account Format:</strong> <code>Higgsfield Account | Higgsfield Password | OTP Link</code>.',
+                    '<strong>Login &amp; Video Creation Links:</strong> Open <code>https://higgsfield.ai/ai/video?model=genjutsu</code> and sign in with the provided account and password. If an OTP code is requested, click the OTP mailbox link at <code>https://dongvanfb.net/read_mail_box/</code>.',
+                    '<strong>Render Time &amp; Usage Rule:</strong> Render time is approximately 20 minutes per video (or longer depending on server queue). Generate your video immediately after purchase, wait during rendering (reload the page if it takes long), and do NOT turn off/on multiple times while generating to avoid losing your slot.',
+                ],
+                'warranty' => '24-Hour (1-Day) Warranty. Generate your video immediately after purchase and do not toggle generation on/off repeatedly while rendering.',
+                'kw' => 'Higgsfield AI Genjutsu price in Pakistan, buy Higgsfield AI video account, Motion Swap Genjutsu AI video Pakistan, SellMeTools',
+            ],
+            'zoom-pro-1-month' => [
+                'short' => 'Buy Zoom Pro 1 Month pre-provided account (100 participants, 30 hours per meeting, Format: Email | Pass | Web Mail) with Full 30-Day Warranty.',
+                'overview' => 'Host long, uninterrupted video conferences, classes, and webinars with a pre-provided Zoom Pro 1 Month account supporting up to 100 participants and up to 30 hours per meeting. Delivered in the format `Email | Pass | Web Mail` with a Full 30-Day Warranty.',
+                'bullets' => [
+                    '<strong>Plan Specs:</strong> Zoom Pro 1 Month supporting <strong>100 members</strong> and up to <strong>30 hours per meeting</strong>.',
+                    '<strong>Delivery Format:</strong> <code>Email | Pass | Web Mail</code>.',
+                    '<strong>Account Password Rule:</strong> Please do NOT change the password during the subscription period so our shop can assist you immediately if any issue arises (if you do change it, please inform support of the new password).',
+                    '<strong>2FA Prompt Rule:</strong> During login, if the screen prompts for two-factor authentication (2FA), simply click <strong>"Skip"</strong>.',
+                    '<strong>Important Webmail OTP Code Note (`333333`):</strong> When checking webmail for your login OTP, if you see the code <code>333333</code>, <strong>click on `333333` to open the email content</strong> containing the actual 6-digit verification code. Do NOT enter `333333` as the OTP (it is incorrect and will lock the account for 30 minutes).',
+                ],
+                'warranty' => 'Full 30-Day Subscription Warranty. Do not change the password, click "Skip" if prompted for 2FA, and click on 333333 in webmail to reveal the real 6-digit OTP code.',
+                'kw' => 'Zoom Pro 1 month price in Pakistan, buy Zoom Pro account 100 participants, cheap Zoom Pro subscription Pakistan, Zoom Pro Easypaisa JazzCash',
+            ],
+            'zoom-pro-14-days-full-warranty' => [
+                'short' => 'Buy Zoom Pro 14 Days pre-provided account (100 participants, 30 hours/meeting, unlimited meetings, Host & Co-Host) with Full 14-Day Warranty.',
+                'overview' => 'Need Zoom Pro for a two-week conference, training batch, or online event? Get a pre-provided Zoom Pro 14-Day account that removes the 40-minute limit and supports up to 100 participants, 30 hours per meeting, unlimited meetings, and Host/Co-Host assignment.',
+                'bullets' => [
+                    '<strong>Plan Duration &amp; Capacity:</strong> 14 Days active Zoom Pro account for up to <strong>100 members</strong>.',
+                    '<strong>Pro Meeting Controls:</strong> Removes the 40-minute limit (up to 30 hours per meeting), unlimited number of meetings, and full Host &amp; Co-Host assignment.',
+                    '<strong>Delivery Format:</strong> Pre-provided account in <code>Email | Pass | Web Mail</code> format.',
+                ],
+                'warranty' => 'Full 14-Day Subscription Warranty. Format: Email | Pass | Web Mail.',
+                'kw' => 'Zoom Pro 14 days price in Pakistan, buy 2 weeks Zoom Pro account, Zoom Pro 100 members subscription Pakistan',
+            ],
+            'official-zoom-pro-3-months' => [
+                'short' => 'Buy Official Zoom Pro 3 Months subscription (100 participants, 30 hours/meeting) activated on your own account or pre-provided with Full Warranty.',
+                'overview' => 'Upgrade to Official Zoom Pro for 3 Months with support for 100 participants and up to 30 hours per meeting. Can be activated directly on your own Zoom account (`Mail | Pass | 2FA`) with automatic 14-day renewal, or you can request a pre-provided ready-made account.',
+                'bullets' => [
+                    '<strong>Plan Specs:</strong> Official Zoom Pro for 3 Months (100 members, up to 30 hours per meeting).',
+                    '<strong>Upgrade on Your Account (`Mail | Pass | 2FA`):</strong> Provide your Zoom credentials in the format <code>Mail | Pass | 2FA</code>. Add 2FA at <code>https://zoom.us/profile</code> under Two-Step Verification by adding the <strong>Authenticator App</strong> with a secret key.',
+                    '<strong>Auto-Renewal Requirement:</strong> Do not change your login password or 2FA information during use so our renewal tool can automatically renew your Pro status every 14 days.',
+                    '<strong>Pre-Provided Account Option:</strong> If you prefer a ready-made pre-provided Zoom account instead, simply mention it in your order note.',
+                ],
+                'warranty' => 'Full 3-Month Subscription Warranty. Keep login & 2FA unchanged during use so automatic 14-day renewal works seamlessly.',
+                'kw' => 'Official Zoom Pro 3 months price in Pakistan, buy Zoom Pro 3 months upgrade, Zoom Pro 100 participants Pakistan',
+            ],
+            'official-zoom-pro-6-months' => [
+                'short' => 'Buy Official Zoom Pro 6 Months subscription (100 participants, 30 hours/meeting) activated on your account or pre-provided with Full 6-Month Warranty.',
+                'overview' => 'Enjoy half a year of uninterrupted meetings with Official Zoom Pro for 6 Months (100 participants, 30 hours per meeting). Activated directly on your own Zoom account (`Mail | Pass | 2FA`) with automated 14-day renewal, or request a pre-provided account from our shop.',
+                'bullets' => [
+                    '<strong>Plan Specs:</strong> Official Zoom Pro for 6 Months (100 members, up to 30 hours per meeting).',
+                    '<strong>Upgrade Format (`Mail | Pass | 2FA`):</strong> Submit your account in <code>Mail | Pass | 2FA</code> format after enabling Two-Step Verification (Authenticator App secret key) at <code>https://zoom.us/profile</code>.',
+                    '<strong>Seamless Auto-Renewal:</strong> Do not change your password or 2FA secret key during the 6-month period so the system can automatically renew every 14 days (or request a pre-provided account if preferred).',
+                ],
+                'warranty' => 'Full 6-Month Subscription Warranty. Keep account credentials and 2FA secret key unchanged for automatic 14-day renewal.',
+                'kw' => 'Official Zoom Pro 6 months price in Pakistan, buy Zoom Pro 6 months subscription, Zoom Pro Pakistan Easypaisa USDT',
+            ],
+            'zoom-pro-1-year' => [
+                'short' => 'Buy Official Zoom Pro 1 Year (12 Months) subscription (100 participants, 30 hours/meeting) with Full 1-Year Warranty.',
+                'overview' => 'Get 12 full months of Official Zoom Pro supporting up to 100 members and 30 hours per meeting. Upgrade your own Zoom account (`Mail | Pass | 2FA`) with automated 14-day renewal throughout the year, or request a pre-provided account.',
+                'bullets' => [
+                    '<strong>Plan Specs:</strong> Official Zoom Pro for 1 Year / 12 Months (100 members, up to 30 hours per meeting).',
+                    '<strong>Account Upgrade Format (`Mail | Pass | 2FA`):</strong> Provide your account in <code>Mail | Pass | 2FA</code> format by adding the Authenticator App secret key under Two-Step Verification at <code>https://zoom.us/profile</code>.',
+                    '<strong>Auto-Renewal Rule:</strong> Keep your login and 2FA details unchanged during use so our tool automatically renews the license every 14 days (or ask our shop for a pre-provided account).',
+                ],
+                'warranty' => 'Full 1-Year (12-Month) Subscription Warranty. Do not change account info during use to maintain automatic 14-day renewal.',
+                'kw' => 'Zoom Pro 1 year price in Pakistan, buy Official Zoom Pro 12 months subscription, Zoom Pro yearly plan Pakistan',
+            ],
+            'scribd-premium-1month' => [
+                'short' => 'Buy Scribd Premium 1 Month full private account with complete Outlook mail access (Email | Password) and Full 1-Month Warranty.',
+                'overview' => 'Read unlimited ebooks, audiobooks, magazines, sheet music, and research documents with a 100% private Scribd (Everand) Premium 1 Month account. Delivered with full Outlook email and password login access.',
+                'bullets' => [
+                    '<strong>100% Private Monthly Plan:</strong> Dedicated Scribd Premium 1 Month subscription.',
+                    '<strong>Full Outlook Mail Access:</strong> Includes complete <code>Email | Password</code> login for both Scribd and the linked Outlook mail inbox.',
+                    '<strong>Unlimited Digital Library:</strong> Access millions of books, audiobooks, and PDF documents on Web, iOS, and Android.',
+                ],
+                'warranty' => 'Full 1-Month (30-Day) Subscription Warranty with full private Outlook mail access.',
+                'kw' => 'Scribd Premium 1 month price in Pakistan, buy Scribd account online Pakistan, Everand Scribd subscription Easypaisa JazzCash',
+            ],
+            'youtube-premium-account-1month' => [
+                'short' => 'Buy YouTube Premium 1 Month personal account with full Gmail + password access and Full 1-Month Warranty. Ad-free YouTube & Music.',
+                'overview' => 'Watch YouTube 100% ad-free with background play, offline downloads, and YouTube Music Premium using a private personal YouTube Premium 1 Month account. You receive full Gmail + password access so you can secure the account with your own password and recovery details.',
+                'bullets' => [
+                    '<strong>Full Gmail Access (`Gmail + Password`):</strong> Personal Google/Gmail account with active 1-Month YouTube Premium + YouTube Music.',
+                    '<strong>Custom Security Allowed:</strong> You can change the account password after delivery and add your primary phone number and email as recovery options.',
+                    '<strong>Important Billing Rule:</strong> Do NOT change, remove, or tamper with the linked payment method so your Premium membership stays active for the full month.',
+                ],
+                'warranty' => 'Full 1-Month (30-Day) Subscription Warranty. You may change the password and add recovery info, but do NOT tamper with the payment method.',
+                'kw' => 'YouTube Premium 1 month personal account price in Pakistan, buy YouTube Premium Gmail account, cheap YouTube Premium Pakistan Easypaisa',
+            ],
+            'linkedin-career-2-months' => [
+                'short' => 'Buy LinkedIn Premium Career 2 Months official voucher link for new users ($0 checkout for 2 months) with Full Warranty.',
+                'overview' => 'Stand out to recruiters and land your dream job faster with an official LinkedIn Premium Career 2 Months Voucher Link. Designed for new users whose LinkedIn accounts have never used a LinkedIn Premium trial before, opening the official checkout at $0 for 2 months.',
+                'bullets' => [
+                    '<strong>Official 2-Month Career Voucher:</strong> Upgrades your LinkedIn profile to LinkedIn Premium Career for 2 full months.',
+                    '<strong>Eligibility (New Trial Users):</strong> Works on LinkedIn accounts that have never used any LinkedIn trial before. Opening the voucher link takes you to the official LinkedIn checkout page showing <strong>$0 for 2 Months</strong>.',
+                    '<strong>Career Benefits:</strong> 5 InMail credits/month, see Who Viewed Your Profile, applicant insights, AI resume/profile tools, and full LinkedIn Learning access.',
+                ],
+                'warranty' => 'Full 2-Month Subscription Warranty (valid for fresh LinkedIn accounts that have never used a LinkedIn trial before).',
+                'kw' => 'LinkedIn Career 2 months voucher price in Pakistan, buy LinkedIn Premium Career Pakistan, LinkedIn 2 months redeem link Easypaisa',
+            ],
+            'linkedin-career-3-months' => [
+                'short' => 'Buy LinkedIn Premium Career 3 Months official voucher link for fresh accounts ($0 checkout for 3 months) with Full Warranty.',
+                'overview' => 'Boost your job search for a full quarter with an official LinkedIn Premium Career 3 Months Voucher for new users. When opened on a fresh LinkedIn account that has never used a 3-month subscription or trial before, it sets the official LinkedIn checkout to $0 for 3 months.',
+                'bullets' => [
+                    '<strong>Official 3-Month Career Voucher:</strong> Unlocks 3 months of LinkedIn Premium Career + LinkedIn Learning.',
+                    '<strong>Eligibility (Fresh Accounts Only):</strong> Works on fresh LinkedIn accounts that have never taken any LinkedIn trial or 3-month voucher before, making checkout <strong>$0 for 3 Months</strong>.',
+                    '<strong>Get Hired Faster:</strong> Direct recruiter InMails, Top Applicant recommendations, salary insights, and 21,000+ LinkedIn Learning courses.',
+                ],
+                'warranty' => 'Full 3-Month Subscription Warranty (valid for fresh accounts with no prior LinkedIn trial or 3-month voucher).',
+                'kw' => 'LinkedIn Career 3 months voucher price in Pakistan, buy LinkedIn Premium 3 months link, cheap LinkedIn Premium Pakistan',
+            ],
+            'linkedin-career-3-months-via-login-all-users' => [
+                'short' => 'Buy LinkedIn Premium Career 3 Months via Login Method (works on ALL accounts, old & new). Official subscription activated in 30 to 60 minutes.',
+                'overview' => 'Already used a LinkedIn trial in the past? Upgrade ANY LinkedIn profile with our Official LinkedIn Premium Career 3 Months via Login service. Works on all accounts (both old and new), activated directly by our team within 30 minutes to 1 hour.',
+                'bullets' => [
+                    '<strong>Works on ALL Accounts:</strong> Compatible with both new and existing LinkedIn accounts, even if you have already used previous trials or vouchers.',
+                    '<strong>Activation Method (Via Login):</strong> Customer submits their LinkedIn login credentials after ordering so our team can activate the official 3-month Career subscription.',
+                    '<strong>Fast Turnaround:</strong> Activated within <strong>30 Minutes to 1 Hour</strong>.',
+                ],
+                'warranty' => 'Official Activation Warranty. Works on all LinkedIn accounts (delivery time: 30 minutes to 1 hour).',
+                'kw' => 'LinkedIn Career 3 months via login price in Pakistan, upgrade existing LinkedIn account to Premium, buy LinkedIn Career all users Pakistan',
+            ],
+            'linkedin-career-12-months-via-login' => [
+                'short' => 'Buy LinkedIn Premium Career 12 Months (1 Year) via Login Method for ALL accounts. Official 1-year upgrade completed in 30 to 60 minutes.',
+                'overview' => 'Get a full year of LinkedIn Premium Career and LinkedIn Learning on any LinkedIn profile (old or new) via our direct login activation service. Ideal for professionals and job seekers who want 12 months of official Career access activated within 30 to 60 minutes.',
+                'bullets' => [
+                    '<strong>12 Months Official Career Plan:</strong> Full 1-year LinkedIn Premium Career + LinkedIn Learning subscription.',
+                    '<strong>Works on All Accounts:</strong> Valid for both old and new LinkedIn accounts regardless of previous trial history.',
+                    '<strong>Activation via Login (30 Mins to 1 Hour):</strong> Share your LinkedIn credentials after checkout for rapid official activation.',
+                ],
+                'warranty' => 'Official Activation Warranty. Works on all LinkedIn accounts (delivery time: 30 minutes to 1 hour).',
+                'kw' => 'LinkedIn Career 12 months price in Pakistan, buy LinkedIn Premium 1 year Pakistan, LinkedIn Career yearly upgrade via login',
+            ],
+            'linkedin-career-duo-12-months-voucher' => [
+                'short' => 'Buy LinkedIn Career Duo 12 Months (1 Year) official voucher activated via your LinkedIn email (no password needed) with 10-Month Warranty.',
+                'overview' => 'Upgrade your personal profile without sharing your password using the LinkedIn Career Duo 12 Months Voucher activation. Simply provide your LinkedIn email address, and your 12-month official Career subscription is activated within 6 to 30 hours, backed by a 10-Month Warranty.',
+                'bullets' => [
+                    '<strong>Email-Only Activation:</strong> Activated directly via the email address of your LinkedIn account (no login password required).',
+                    '<strong>Delivery Time:</strong> Completed within <strong>6 Hours to 30 Hours</strong>.',
+                    '<strong>10-Month Warranty Included:</strong> Long-term 10-month warranty protection included.',
+                ],
+                'warranty' => '10-Month Subscription Warranty. Activated via your LinkedIn email address within 6 to 30 hours.',
+                'kw' => 'LinkedIn Career Duo 12 months voucher price in Pakistan, buy LinkedIn 1 year email activation, LinkedIn Premium 12 months warranty Pakistan',
+            ],
+            'linkedin-business-2-months' => [
+                'short' => 'Buy LinkedIn Premium Business 2 Months official voucher link for new users ($0 checkout for 2 months) with Activation Warranty.',
+                'overview' => 'Expand your network and unlock unlimited people browsing with an official LinkedIn Premium Business 2 Months Voucher Link. Works on LinkedIn accounts that have never used any LinkedIn trial before, showing $0 for 2 months on the official checkout page.',
+                'bullets' => [
+                    '<strong>Official 2-Month Business Voucher:</strong> Unlocks LinkedIn Premium Business for 2 months.',
+                    '<strong>Eligibility (New Users):</strong> Works on accounts that have never used a LinkedIn trial before; opens the official LinkedIn checkout page showing <strong>$0 for 2 Months</strong>.',
+                    '<strong>Business Plan Features:</strong> Unlimited people browsing up to 3rd degree, 15 InMail credits/month, Company Insights, and 365-day Who Viewed Your Profile.',
+                ],
+                'warranty' => 'Official Activation Warranty (valid for LinkedIn accounts that have never used a trial before).',
+                'kw' => 'LinkedIn Business 2 months voucher price in Pakistan, buy LinkedIn Premium Business link, cheap LinkedIn Business Pakistan',
+            ],
+            'linkedin-business-3-months-via-login-all-users' => [
+                'short' => 'Buy LinkedIn Premium Business 3 Months via Login Method (works on ALL accounts, old & new). Official activation in 30 to 60 minutes.',
+                'overview' => 'Upgrade any new or existing LinkedIn account to LinkedIn Premium Business for 3 Months via our direct login method. Works on all profiles even if you have previously redeemed trials or subscriptions, with fast 30-to-60-minute activation.',
+                'bullets' => [
+                    '<strong>Works on ALL LinkedIn Accounts:</strong> Compatible with both old and new accounts regardless of prior trials.',
+                    '<strong>Activation via Login:</strong> Customer provides LinkedIn login credentials after payment for official 3-month Business activation.',
+                    '<strong>Fast Delivery Time:</strong> Completed in <strong>30 Minutes to 1 Hour</strong>.',
+                ],
+                'warranty' => 'Official Activation Warranty. Works on all accounts with 30-minute to 1-hour delivery.',
+                'kw' => 'LinkedIn Business 3 months price in Pakistan, buy LinkedIn Business via login all users, LinkedIn Premium Business Pakistan',
+            ],
+            'linkedin-business-12-months-via-login' => [
+                'short' => 'Buy LinkedIn Premium Business 12 Months (1 Year) via Login Method for ALL accounts. Official 1-year Business upgrade in 30 to 60 minutes.',
+                'overview' => 'Unlock 12 full months of unlimited people search, 15 monthly InMails, and business intelligence on any LinkedIn account with our Official LinkedIn Business 12 Months via Login service. Works on all accounts (old and new) within 30 minutes to 1 hour.',
+                'bullets' => [
+                    '<strong>12 Months Official Business Plan:</strong> Full 1-Year LinkedIn Premium Business upgrade.',
+                    '<strong>All Accounts Eligible:</strong> Works on both new and old LinkedIn profiles.',
+                    '<strong>Via Login Activation (30 Mins to 1 Hour):</strong> Submit your LinkedIn credentials after checkout for fast official activation.',
+                ],
+                'warranty' => 'Official Activation Warranty. Works on all LinkedIn accounts (delivery time: 30 minutes to 1 hour).',
+                'kw' => 'LinkedIn Business 12 months price in Pakistan, buy LinkedIn Business 1 year Pakistan, LinkedIn Premium Business yearly upgrade',
+            ],
+            'linkedin-business-duo-12-months-voucher' => [
+                'short' => 'Buy LinkedIn Business Duo 12 Months (1 Year) official voucher activated via your LinkedIn email address (6 to 30 hours delivery).',
+                'overview' => 'Upgrade to LinkedIn Premium Business for 12 Months without sharing your account password. With the LinkedIn Business Duo 12 Months Voucher, activation is processed directly via your LinkedIn email address within 6 to 30 hours.',
+                'bullets' => [
+                    '<strong>12-Month Business Duo Plan:</strong> Full 1-Year LinkedIn Premium Business membership.',
+                    '<strong>Email-Only Activation:</strong> Activated directly via your LinkedIn email address (no password required).',
+                    '<strong>Delivery Time:</strong> <strong>6 Hours to 30 Hours</strong>.',
+                ],
+                'warranty' => 'Official Activation Warranty. Activated via your LinkedIn email within 6 to 30 hours.',
+                'kw' => 'LinkedIn Business Duo 12 months voucher price in Pakistan, buy LinkedIn Business 1 year email voucher, SellMeTools',
+            ],
+            'linkedin-sales-navigator-core-2-months-voucher' => [
+                'short' => 'Buy LinkedIn Sales Navigator Core 2 Months official voucher link for new users ($0 checkout for 2 months) with Activation Warranty.',
+                'overview' => 'Supercharge your B2B lead generation and outbound sales with an official LinkedIn Sales Navigator Core 2 Months Voucher Link. Works on LinkedIn accounts that have never used any LinkedIn trial before and shows $0 for 2 months on the official checkout page.',
+                'bullets' => [
+                    '<strong>2 Months Sales Navigator Core:</strong> Unlock advanced lead and company filters, 50 InMails/month, and saved lead alerts.',
+                    '<strong>Eligibility (New Users):</strong> Works on accounts that have never used any LinkedIn trial before; opens the official LinkedIn checkout page showing <strong>$0 for 2 Months</strong>.',
+                    '<strong>Instant Voucher Delivery:</strong> Receive your redemption link right on your order page.',
+                ],
+                'warranty' => 'Official Activation Warranty (valid for fresh accounts that have never used any LinkedIn trial before).',
+                'kw' => 'LinkedIn Sales Navigator Core 2 months price in Pakistan, buy Sales Navigator voucher Pakistan, LinkedIn Sales Navigator cheap subscription',
+            ],
+            'linkedin-sales-navigator-advance-1-months-voucher' => [
+                'short' => 'Buy LinkedIn Sales Navigator Advanced 1 Month official voucher activated via your LinkedIn email (6 to 30 hours) with Full Warranty.',
+                'overview' => 'Access enterprise B2B sales tools including Smart Links, TeamLink, and buyer intent signals with the LinkedIn Sales Navigator Advanced 1 Month Voucher. Activated directly via your LinkedIn email address within 6 to 30 hours and backed by a Full 1-Month Warranty.',
+                'bullets' => [
+                    '<strong>Sales Navigator Advanced (1 Month):</strong> Includes 50 InMails, Smart Links presentation tracking, TeamLink, and advanced CRM/lead filters.',
+                    '<strong>Email-Only Activation:</strong> Activated via the email address of your LinkedIn account (no password required).',
+                    '<strong>Delivery Time &amp; Warranty:</strong> Delivered in <strong>6 Hours to 30 Hours</strong> with <strong>Full Warranty</strong>.',
+                ],
+                'warranty' => 'Full 1-Month Subscription Warranty. Activated via your LinkedIn email within 6 to 30 hours.',
+                'kw' => 'LinkedIn Sales Navigator Advance 1 month price in Pakistan, buy Sales Navigator Advanced voucher Pakistan, LinkedIn B2B sales tool',
+            ],
+            'ahrefs-1-month-with-free-gifts' => [
+                'short' => 'Buy Ahrefs Premium 1 Month Package (50 Reports/Day, 20,000 Exports/Day) + FREE Bonus Access to 30+ SEO & AI Tools (Semrush, Moz Pro, Canva Pro) with Full Warranty.',
+                'overview' => 'The ultimate all-in-one SEO and digital marketing bundle for smart learners, bloggers, agencies, and digital hustlers! Get Ahrefs Premium 1 Month access with 50 Reports/Day and 20,000 Exports/Day (Keyword Explorer, Domain Explorer, Batch Analysis v2, Content Explorer, Competitive Analysis, Link Intersect & Ahrefs Rank) PLUS 30+ bonus premium tools absolutely FREE with 99.9% uptime and Full Warranty.',
+                'bullets' => [
+                    '<strong>Ahrefs Premium Daily Limits:</strong> <strong>50 Reports/Day</strong> and <strong>20,000 Exports/Day</strong> across Keyword Explorer, Domain Explorer, Batch Analysis v2, Content Explorer, Competitive Analysis, Link Intersect, and Ahrefs Rank.',
+                    '<strong>FREE Bonus Access to 30+ Premium Tools Included:</strong> (1) Semrush, (2) Moz Pro, (3) Ubersuggest, (4) Grammarly, (5) Canva Pro, (6) Keywords Everywhere, (7) VistaCreate, (8) QuillBot, (9) PicMonkey, (10) AnswerThePublic, (11) Envato Elements, (12) ChatGPT, (13) SEO Site Checkup, (14) Storyblocks, (15) SpyFu, (16) Closercopy, (17) WordHero, (18) SpinRewriter, (19) FotoJet, (20) Indexification &amp; 10+ more tools!',
+                    '<strong>Built For:</strong> SEO Professionals, Bloggers &amp; Affiliate Marketers, Students &amp; Freelancers, Content Writers, Graphic &amp; Video Creators, and Digital Marketing Agencies.',
+                    '<strong>Safe, Trusted &amp; 99.9% Uptime:</strong> Backed by our Full 1-Month Subscription Warranty.',
+                ],
+                'warranty' => 'Full 1-Month (30-Day) Subscription Warranty with 99.9% uptime across Ahrefs Premium (50 reports/day, 20,000 exports/day) and the 30+ bonus tools.',
+                'kw' => 'Ahrefs 1 month price in Pakistan, buy Ahrefs Semrush bundle Pakistan, cheap Ahrefs group buy 50 reports day Pakistan, SEO tools bundle Easypaisa JazzCash',
+            ],
+            'stealth-writer' => [
+                'short' => 'Buy StealthWriter AI Humanizer 1 Month subscription (20 to 50 Daily Requests deals starting at Rs 1,200) with Full Warranty. Bypass Turnitin & GPTZero.',
+                'overview' => 'Humanize AI-generated essays, articles, and research papers into natural, 100% undetectable human writing with a StealthWriter AI 1 Month Subscription. Choose from 4 flexible daily humanizing request limit deals starting at Rs 1,200, all backed by a Full Warranty.',
+                'bullets' => [
+                    '<strong>Deal 1 (20 Requests/Day Limit):</strong> Rs 1,200 / month.',
+                    '<strong>Deal 2 (30 Requests/Day Limit):</strong> Rs 1,799 / month.',
+                    '<strong>Deal 3 (40 Requests/Day Limit):</strong> Rs 2,699 / month.',
+                    '<strong>Deal 4 (50 Requests/Day Limit):</strong> Rs 3,200 / month.',
+                    '<strong>Bypass AI Detectors:</strong> Built for students, researchers, and SEO writers to convert ChatGPT, Claude, and Gemini text into human-grade content that passes Turnitin, GPTZero, and Originality.ai.',
+                ],
+                'warranty' => 'Full 1-Month Subscription Warranty across all 4 daily request limit deals (20, 30, 40, or 50 requests/day).',
+                'kw' => 'StealthWriter price in Pakistan, buy Stealth Writer AI humanizer subscription, bypass Turnitin GPTZero tool Pakistan, StealthWriter Easypaisa JazzCash',
             ],
         ];
 

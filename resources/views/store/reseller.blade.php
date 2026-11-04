@@ -51,7 +51,7 @@
                         <div class="flex flex-wrap items-center justify-between gap-2">
                             <span class="inline-flex items-center gap-1.5 rounded-full bg-white/15 border border-white/20 px-3 py-1 text-[11px] font-bold tracking-wider text-white uppercase backdrop-blur-xs">
                                 <span class="h-2 w-2 rounded-full bg-[#4ade80] live-dot"></span>
-                                VIP Reseller Partner Portal
+                                Secret VIP Reseller Portal
                             </span>
                             <span class="rounded-lg bg-white/10 px-2.5 py-1 font-mono text-xs font-semibold text-dark-accent">
                                 /{{ $reseller->reseller_slug }}
@@ -142,7 +142,7 @@
                                 </div>
 
                                 <h1 class="display text-3xl sm:text-5xl text-white tracking-wide">
-                                    {{ $reseller->name }} · Wholesale Desk
+                                    {{ $reseller->name }} · Wholesale Portal
                                 </h1>
                                 <p class="text-xs sm:text-sm text-white/80 max-w-2xl leading-relaxed">
                                     All catalog prices below automatically reflect your private reseller tier. Use your Wallet Balance for 1-click instant delivery without waiting for payment verification.

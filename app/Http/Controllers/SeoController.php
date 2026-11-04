@@ -28,12 +28,12 @@ class SeoController extends Controller
     }
 
     /**
-     * Collects all live indexable URLs and submits them in a single batch to the IndexNow network
-     * (Bing, Microsoft Copilot, ChatGPT Search, Yandex, Naver, Seznam, Yep).
+     * Submits a specific list of URLs to IndexNow (used automatically when a Product or Category is created/updated).
      *
+     * @param  string[]  $urls
      * @return array{success: bool, status: int, count: int, message: string}
      */
-    public static function submitAllToIndexNow(): array
+    public static function submitUrlsToIndexNow(array $urls): array
     {
         $key = trim((string) Setting::get('indexnow_key', 'a7f9c2e4b8d106359a2c4e6f8b0d2e4a'));
         if ($key === '') {
@@ -41,34 +41,16 @@ class SeoController extends Controller
             Setting::set('indexnow_key', $key);
         }
 
-        $urls = [
-            route('home'),
-            route('shop'),
-        ];
-
-        $categories = Category::query()
-            ->where('is_active', true)
-            ->orderBy('sort')
-            ->get();
-
-        foreach ($categories as $category) {
-            $urls[] = route('categories.show', $category);
+        $urls = array_values(array_unique(array_filter($urls)));
+        if ($urls === []) {
+            return [
+                'success' => false,
+                'status' => 0,
+                'count' => 0,
+                'message' => 'No URLs provided.',
+            ];
         }
 
-        $products = Product::query()
-            ->visible()
-            ->orderByDesc('updated_at')
-            ->get();
-
-        foreach ($products as $product) {
-            $urls[] = route('products.show', $product);
-        }
-
-        foreach (['about', 'faq', 'contact', 'terms', 'refund', 'privacy'] as $page) {
-            $urls[] = route('pages.show', $page);
-        }
-
-        $urls = array_values(array_unique($urls));
         $host = parse_url(url('/'), PHP_URL_HOST) ?: 'sellmetools.com';
         $keyLocation = url("/{$key}.txt");
 
@@ -108,8 +90,51 @@ class SeoController extends Controller
             ];
         }
     }
+
+    /**
+     * Collects all live indexable URLs and submits them in a single batch to the IndexNow network
+     * (Bing, Microsoft Copilot, ChatGPT Search, Yandex, Naver, Seznam, Yep).
+     *
+     * @return array{success: bool, status: int, count: int, message: string}
+     */
+    public static function submitAllToIndexNow(): array
+    {
+        $urls = [
+            route('home'),
+            route('shop'),
+        ];
+
+        $categories = Category::query()
+            ->where('is_active', true)
+            ->orderBy('sort')
+            ->get();
+
+        foreach ($categories as $category) {
+            $urls[] = route('categories.show', $category);
+        }
+
+        $products = Product::query()
+            ->visible()
+            ->orderByDesc('updated_at')
+            ->get();
+
+        foreach ($products as $product) {
+            $urls[] = route('products.show', $product);
+        }
+
+        foreach (['about', 'faq', 'contact', 'terms', 'refund', 'privacy'] as $page) {
+            $urls[] = route('pages.show', $page);
+        }
+
+        $urls[] = url('/sitemap.xml');
+
+        return static::submitUrlsToIndexNow($urls);
+    }
+
     public function sitemap(): Response
     {
+        \App\Services\ProductSeoOptimizer::syncCatalogOnce();
+
         $categories = Category::query()
             ->where('is_active', true)
             ->whereHas('products', fn ($q) => $q->visible())
@@ -121,6 +146,7 @@ class SeoController extends Controller
             ->orderByDesc('updated_at')
             ->get();
 
+        $latestMod = ($products->first()?->updated_at ?? now())->toAtomString();
         $staticPages = ['about', 'faq', 'contact', 'terms', 'refund', 'privacy'];
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>'."\n";
@@ -129,7 +155,7 @@ class SeoController extends Controller
         // Homepage
         $xml .= $this->urlNode(
             route('home'),
-            now()->toAtomString(),
+            $latestMod,
             'hourly',
             '1.0'
         );
@@ -137,7 +163,7 @@ class SeoController extends Controller
         // Full Shop / Catalog page
         $xml .= $this->urlNode(
             route('shop'),
-            now()->toAtomString(),
+            $latestMod,
             'hourly',
             '0.9'
         );

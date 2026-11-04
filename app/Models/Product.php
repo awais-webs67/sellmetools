@@ -153,12 +153,33 @@ class Product extends Model
         static::saving(function (Product $product) {
             static::ensureFreeAndStockColumnsExist();
 
+            $product->name = preg_replace('/\s+/u', ' ', trim(\App\Services\ProductSeoOptimizer::stripEmDashes((string) $product->name))) ?: $product->name;
+
             if (blank($product->slug)) {
-                $product->slug = static::uniqueSlug($product->name);
+                $product->slug = static::uniqueSlug((string) $product->name);
             }
             if ($product->is_free) {
                 $product->fixed_price = 0;
                 $product->price = 0;
+            }
+
+            if (blank($product->meta_title) || blank($product->meta_keywords) || blank($product->short_description)) {
+                $autoSeo = \App\Services\ProductSeoOptimizer::buildDynamicSeoFields($product);
+                if (blank($product->short_description) && filled($product->description)) {
+                    $product->short_description = $autoSeo['short_description'];
+                }
+                if (blank($product->meta_title)) {
+                    $product->meta_title = $autoSeo['meta_title'];
+                }
+                if (blank($product->meta_keywords)) {
+                    $product->meta_keywords = $autoSeo['meta_keywords'];
+                }
+            }
+
+            foreach (['short_description', 'description', 'warranty', 'meta_title', 'meta_description', 'meta_keywords'] as $seoField) {
+                if (filled($product->{$seoField})) {
+                    $product->{$seoField} = \App\Services\ProductSeoOptimizer::stripEmDashes((string) $product->{$seoField});
+                }
             }
         });
 
@@ -186,6 +207,21 @@ class Product extends Model
             }
 
             Cache::forget('smt_search_catalog_v1');
+
+            if (! app()->runningUnitTests() && $product->is_active && ($product->wasRecentlyCreated || $product->wasChanged(['name', 'slug', 'is_active', 'price', 'short_description', 'description']))) {
+                defer(function () use ($product): void {
+                    $urls = [
+                        route('products.show', $product),
+                        route('shop'),
+                        route('home'),
+                        url('/sitemap.xml'),
+                    ];
+                    if ($product->category) {
+                        $urls[] = route('categories.show', $product->category);
+                    }
+                    \App\Http\Controllers\SeoController::submitUrlsToIndexNow($urls);
+                });
+            }
         });
 
         static::deleted(function () {
@@ -482,15 +518,19 @@ class Product extends Model
         $brands = [
             'capcut' => 'CapCut',
             'gemini' => 'Google',
+            'antigravity' => 'Google',
             'google' => 'Google',
             'youtube' => 'Google',
             'outlook' => 'Microsoft',
             'hotmail' => 'Microsoft',
             'microsoft' => 'Microsoft',
             'office 365' => 'Microsoft',
+            'office365' => 'Microsoft',
+            'ms365' => 'Microsoft',
             'copilot' => 'Microsoft',
             'github' => 'GitHub',
             'chatgpt' => 'OpenAI',
+            'codex' => 'OpenAI',
             'openai' => 'OpenAI',
             'claude' => 'Anthropic',
             'canva' => 'Canva',
@@ -501,23 +541,49 @@ class Product extends Model
             'spotify' => 'Spotify',
             'prime video' => 'Amazon',
             'aws' => 'Amazon',
+            'apple tv' => 'Apple',
             'cursor' => 'Cursor',
+            'grok' => 'xAI',
             'perplexity' => 'Perplexity',
             'midjourney' => 'Midjourney',
+            'heygen' => 'HeyGen',
+            'higgsfield' => 'Higgsfield AI',
+            'kling' => 'Kling AI',
+            'elevenlabs' => 'ElevenLabs',
+            'wispr' => 'Wispr Flow',
+            'lovable' => 'Lovable',
+            'replit' => 'Replit',
+            'railway' => 'Railway',
+            'warp' => 'Warp',
+            'framer' => 'Framer',
+            'jetbrains' => 'JetBrains',
+            'autodesk' => 'Autodesk',
+            'miro' => 'Miro',
+            'notion' => 'Notion',
+            'ilovepdf' => 'iLovePDF',
+            'scribd' => 'Scribd',
+            'duolingo' => 'Duolingo',
+            'stealth writer' => 'StealthWriter',
+            'stealthwriter' => 'StealthWriter',
             'grammarly' => 'Grammarly',
             'quillbot' => 'QuillBot',
             'turnitin' => 'Turnitin',
             'semrush' => 'Semrush',
             'ahrefs' => 'Ahrefs',
             'nordvpn' => 'NordVPN',
+            'nord vpn' => 'NordVPN',
             'expressvpn' => 'ExpressVPN',
+            'express vpn' => 'ExpressVPN',
             'surfshark' => 'Surfshark',
+            'hma' => 'HMA VPN',
             'zoom' => 'Zoom',
             'figma' => 'Figma',
             'envato' => 'Envato',
             'freepik' => 'Freepik',
             'coursera' => 'Coursera',
             'udemy' => 'Udemy',
+            'apna college' => 'Apna College',
+            'muse ai' => 'Muse AI',
             'linkedin' => 'LinkedIn',
             'discord' => 'Discord',
             'telegram' => 'Telegram',
@@ -647,7 +713,7 @@ class Product extends Model
             return;
         }
 
-        $flagFile = storage_path('framework/reviews_v4_seeded.flag');
+        $flagFile = storage_path('framework/reviews_v5_seeded.flag');
         if (is_file($flagFile)) {
             return;
         }

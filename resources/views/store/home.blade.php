@@ -11,6 +11,9 @@
     $seoDescription = $activeCategory
         ? $activeCategory->seoDescription()
         : null;
+    $seoKeywords = $activeCategory
+        ? $activeCategory->seoKeywords()
+        : null;
     $canonicalUrl = $activeCategory
         ? route('categories.show', $activeCategory)
         : route('home');
@@ -111,6 +114,7 @@
 <x-layouts.store
     :title="$seoTitle"
     :description="$seoDescription"
+    :keywords="$seoKeywords"
     :canonical="$canonicalUrl"
     :robots="$robotsDirective"
 >
@@ -147,7 +151,7 @@
                         </p>
                     @else
                         <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base leading-relaxed text-white/75">
-                            Welcome to <strong>{{ $storeName }}</strong> — buy genuine AI tools, cheap subscriptions, premium software, cloud accounts and digital plans online in Pakistan and worldwide. Pay globally with <strong>USDT / Binance Pay</strong> or locally in <strong>PKR (Easypaisa, JazzCash &amp; Bank)</strong> for instant automated delivery.
+                            Welcome to <strong>{{ $storeName }}</strong> - buy genuine AI tools, cheap subscriptions, premium software, cloud accounts and digital plans online in Pakistan and worldwide. Pay globally with <strong>USDT / Binance Pay</strong> or locally in <strong>PKR (Easypaisa, JazzCash &amp; Bank)</strong> for instant automated delivery.
                         </p>
                     @endif
 
