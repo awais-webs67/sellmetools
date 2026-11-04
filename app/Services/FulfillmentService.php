@@ -524,11 +524,46 @@ class FulfillmentService
             }
         }
 
+        // Also include any pending Direct Admin Vendor Buys (order_item_id IS NULL) for Railway-hosted suppliers
+        $directOrders = SupplierOrder::with(['supplier', 'supplierProduct'])
+            ->whereNull('order_item_id')
+            ->where('status', SupplierOrderStatus::Pending)
+            ->where('created_at', '>=', now()->subMinutes(15))
+            ->get();
+
+        foreach ($directOrders as $dOrder) {
+            $supplier = $dOrder->supplier;
+            $source = $dOrder->supplierProduct;
+            if (! $supplier || ! $supplier->is_active || ! $source) {
+                continue;
+            }
+
+            $driver = $this->suppliers->driver($supplier);
+            if (! method_exists($driver, 'isRailwayHost') || ! $driver->isRailwayHost()) {
+                continue;
+            }
+
+            $jobs[] = [
+                'order_id' => 0,
+                'order_number' => $dOrder->request_id,
+                'order_item_id' => 0,
+                'supplier_id' => $supplier->id,
+                'supplier_product_id' => $source->id,
+                'base_url' => method_exists($driver, 'getNormalizedBaseUrl') ? $driver->getNormalizedBaseUrl() : rtrim(trim((string) $supplier->base_url), '/'),
+                'api_key' => trim((string) $supplier->api_key),
+                'external_id' => (string) $source->external_id,
+                'external_id_normalized' => is_numeric($source->external_id) ? (int) $source->external_id : (string) $source->external_id,
+                'quantity' => max(1, (int) $dOrder->quantity),
+                'request_id' => $dOrder->request_id,
+            ];
+        }
+
         return $jobs;
     }
 
     /**
-     * Completes a supplier order whose HTTP request was relayed by the Admin Browser Bridge.
+     * Completes a supplier order (either a Customer Order or a Direct Admin Buy when $orderId === 0)
+     * whose HTTP request was relayed by the Admin Browser Bridge.
      */
     public function completeBridgedSupplierOrder(
         int $orderId,
@@ -537,7 +572,81 @@ class FulfillmentService
         string $requestId,
         int $httpStatus,
         array $responseBody,
-    ): Order {
+    ): ?Order {
+        if ($orderId === 0) {
+            $attempt = SupplierOrder::with(['supplier', 'supplierProduct'])->where('request_id', $requestId)->first();
+            if (! $attempt || $attempt->status === SupplierOrderStatus::Success) {
+                return null;
+            }
+
+            $supplier = $attempt->supplier;
+            $source = $attempt->supplierProduct;
+            if (! $supplier || ! $source) {
+                return null;
+            }
+
+            $driver = $this->suppliers->driver($supplier);
+            try {
+                if (! method_exists($driver, 'parseOrderPayloadArray')) {
+                    throw new SupplierException('Driver does not support bridged order payload parsing.');
+                }
+                $result = $driver->parseOrderPayloadArray($httpStatus, $responseBody);
+            } catch (Throwable $e) {
+                $attempt->update([
+                    'status' => SupplierOrderStatus::Failed,
+                    'error' => $e->getMessage(),
+                    'response' => $responseBody,
+                ]);
+
+                return null;
+            }
+
+            $cleanItems = array_values(array_filter(
+                array_map(fn ($v): string => is_scalar($v) ? trim((string) $v) : '', $result->items),
+                fn (string $line): bool => $line !== ''
+            ));
+
+            if ($cleanItems === []) {
+                $attempt->update([
+                    'status' => SupplierOrderStatus::Failed,
+                    'error' => 'Supplier returned empty credentials.',
+                    'response' => $result->raw,
+                ]);
+
+                return null;
+            }
+
+            $saveToProductId = is_array($attempt->response) ? ($attempt->response['save_to_product_id'] ?? null) : null;
+            $cost = $result->total ?? ((float) $source->cost * count($cleanItems));
+            $rawWithItems = is_array($result->raw) ? $result->raw : [];
+            $rawWithItems['delivered_items'] = $cleanItems;
+
+            $attempt->update([
+                'status' => SupplierOrderStatus::Success,
+                'cost' => $cost,
+                'external_order_id' => $result->externalOrderId,
+                'error' => null,
+                'response' => $rawWithItems,
+            ]);
+
+            if ($result->balanceAfter !== null) {
+                $this->sync->recordBalance($supplier, $result->balanceAfter);
+            }
+
+            if ($source->stock !== null && ! $source->unlimited_stock) {
+                $source->decrement('stock', min($source->stock, count($cleanItems)));
+            }
+
+            if (! empty($saveToProductId) && ($product = Product::find($saveToProductId))) {
+                foreach ($cleanItems as $line) {
+                    $product->stockItems()->create(['content' => $line]);
+                }
+                $this->inventory->refresh($product);
+            }
+
+            return null;
+        }
+
         $order = Order::findOrFail($orderId);
         $lock = Cache::lock("fulfill-order-{$order->id}", 60);
         if (! $lock->get()) {

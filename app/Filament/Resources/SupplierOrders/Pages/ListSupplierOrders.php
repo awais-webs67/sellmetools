@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\SupplierOrders\Pages;
 
+use App\Enums\OrderStatus;
 use App\Enums\SupplierOrderStatus;
 use App\Filament\Resources\SupplierOrders\SupplierOrderResource;
 use Filament\Resources\Pages\ListRecords;
@@ -24,14 +25,18 @@ class ListSupplierOrders extends ListRecords
         return [
             'all' => Tab::make('All Supplier Orders'),
             'direct' => Tab::make('⚡ Direct Admin Buys')
-                ->modifyQueryUsing(fn (Builder $q): Builder => $q->whereNull('order_item_id')),
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereNull('order_item_id')),
             'customer' => Tab::make('🛒 Customer Orders')
-                ->modifyQueryUsing(fn (Builder $q): Builder => $q->whereNotNull('order_item_id')),
-            'failed' => Tab::make('⚠️ Failed / Timeout')
-                ->modifyQueryUsing(fn (Builder $q): Builder => $q->whereIn('status', [
-                    SupplierOrderStatus::Failed,
-                    SupplierOrderStatus::Unknown,
-                ])),
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereNotNull('order_item_id')),
+            'failed' => Tab::make('⚠️ Unfulfilled / Needs Action')
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                    ->whereIn('status', [SupplierOrderStatus::Failed, SupplierOrderStatus::Unknown])
+                    ->where(function (Builder $sub): void {
+                        $sub->whereNull('order_item_id')
+                            ->orWhereHas('orderItem.order', function (Builder $oq): void {
+                                $oq->whereIn('status', [OrderStatus::Processing, OrderStatus::NeedsAttention]);
+                            });
+                    })),
         ];
     }
 }

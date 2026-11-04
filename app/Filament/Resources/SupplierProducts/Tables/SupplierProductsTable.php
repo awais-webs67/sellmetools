@@ -13,6 +13,7 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\SupplierOrder;
 use App\Models\SupplierProduct;
+use App\Services\ProductSeoOptimizer;
 use App\Services\Suppliers\SupplierManager;
 use App\Services\SupplierSyncService;
 use Filament\Actions\Action;
@@ -168,6 +169,33 @@ class SupplierProductsTable
                 try {
                     $res = app(SupplierManager::class)->driver($supplier)->placeOrder($record->external_id, $qty, $reqId);
                 } catch (\Throwable $e) {
+                    $errLower = strtolower($e->getMessage());
+                    $isBridgeable = str_contains($errLower, 'cooldown')
+                        || str_contains($errLower, 'timed out')
+                        || str_contains($errLower, 'connection error')
+                        || str_contains($errLower, 'failed to connect');
+
+                    if ($isBridgeable) {
+                        $attempt->update([
+                            'status' => SupplierOrderStatus::Pending,
+                            'error' => 'Relaying via Admin Browser Bridge...',
+                            'response' => ['save_to_product_id' => $data['save_to_product_id'] ?? null],
+                        ]);
+
+                        Notification::make()
+                            ->title("Connecting to {$supplier->name} via Browser Bridge...")
+                            ->body('Your browser is completing the direct purchase now. Open Direct & Vendor Orders in 2 seconds to view your credentials!')
+                            ->info()
+                            ->actions([
+                                Action::make('viewVendorOrders')
+                                    ->label('Open Direct & Vendor Orders')
+                                    ->url(SupplierOrderResource::getUrl('index', ['activeTab' => 'direct'])),
+                            ])
+                            ->send();
+
+                        return;
+                    }
+
                     $attempt->update([
                         'status' => SupplierOrderStatus::Failed,
                         'error' => $e->getMessage(),
@@ -228,7 +256,7 @@ class SupplierProductsTable
             ->modalWidth('3xl')
             ->modalSubmitActionLabel('Create listing')
             ->fillForm(fn (SupplierProduct $record): array => [
-                'name' => $record->name,
+                'name' => ProductSeoOptimizer::cleanProductTitle((string) $record->name),
                 'pricing_mode' => PricingMode::MarkupPercent->value,
                 'markup_value' => 20,
                 'warranty' => $record->warranty,
@@ -334,6 +362,24 @@ class SupplierProductsTable
             ])
             ->action(function (SupplierProduct $record, array $data): void {
                 $product = Product::query()->findOrFail($data['product_id']);
+
+                $alreadyAttached = $product->sources()
+                    ->where(function ($q) use ($record): void {
+                        $q->where('supplier_products.id', $record->id)
+                            ->orWhere('supplier_products.supplier_id', $record->supplier_id);
+                    })
+                    ->exists();
+
+                if ($alreadyAttached) {
+                    Notification::make()
+                        ->title('Supplier Already Attached!')
+                        ->body(($record->supplier?->name ?? 'This supplier')." is already attached to \"{$product->name}\". Cannot attach the same supplier a 2nd time.")
+                        ->warning()
+                        ->send();
+
+                    return;
+                }
+
                 if (! empty($data['copy_details'])) {
                     $product->update(array_filter([
                         'description' => $record->description ?: $product->description,

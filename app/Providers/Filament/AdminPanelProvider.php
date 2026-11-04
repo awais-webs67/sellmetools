@@ -56,18 +56,34 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::USER_MENU_BEFORE,
                 fn (): HtmlString => new HtmlString(
-                    '<a href="'.e(url('/')).'" target="_blank" rel="noopener" class="fi-live-store-btn">'
+                    '<div style="display:inline-flex;align-items:center;gap:0.45rem;">'
+                    .'<a href="'.e(url('/admin/sales-statement')).'" class="fi-live-store-btn" style="background:rgba(236,253,245,0.9);color:#065f46;border-color:rgba(16,185,129,0.3);">'
+                    .'<span>📊 Statement</span>'
+                    .'</a>'
+                    .'<a href="'.e(url('/admin/vendor-orders')).'" class="fi-live-store-btn" style="background:rgba(254,243,199,0.85);color:#92400e;border-color:rgba(245,158,11,0.35);">'
+                    .'<span>⚡ Vendor Orders</span>'
+                    .'</a>'
+                    .'<a href="'.e(url('/')).'" target="_blank" rel="noopener" class="fi-live-store-btn">'
                     .'<svg style="width:14px;height:14px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
                     .'<span>Live Store</span>'
                     .'</a>'
+                    .'</div>'
                 )
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): HtmlString => new HtmlString('<style>
                     /* ==========================================================================
-                       SellMeTools Executive Admin UI/UX Design System (Filament 5)
+                       SellMeTools Executive E-Commerce Admin UI/UX Design System (Filament 5)
                        ========================================================================== */
+
+                    /* 0. Clean Slate Workspace Canvas so Cards & Sections Pop Out Clearly */
+                    .fi-body {
+                        background-color: #f1f5f9 !important;
+                    }
+                    .dark .fi-body {
+                        background-color: #020617 !important;
+                    }
 
                     /* 1. Executive Dark Sidebar & Sleek Topbar */
                     .fi-sidebar {
@@ -83,15 +99,15 @@ class AdminPanelProvider extends PanelProvider
                     }
                     .fi-sidebar-group-label {
                         color: #94a3b8 !important;
-                        font-size: 0.7rem !important;
-                        font-weight: 700 !important;
+                        font-size: 0.68rem !important;
+                        font-weight: 800 !important;
                         text-transform: uppercase !important;
                         letter-spacing: 0.08em !important;
                     }
                     .fi-sidebar-item-btn {
                         border-radius: 0.6rem !important;
-                        padding-top: 0.55rem !important;
-                        padding-bottom: 0.55rem !important;
+                        padding-top: 0.5rem !important;
+                        padding-bottom: 0.5rem !important;
                         transition: all 0.15s ease !important;
                     }
                     .fi-sidebar-item:not(.fi-active) .fi-sidebar-item-label {
@@ -114,37 +130,45 @@ class AdminPanelProvider extends PanelProvider
                         font-weight: 700 !important;
                     }
                     .fi-topbar {
+                        background: rgba(255, 255, 255, 0.92) !important;
                         backdrop-filter: blur(12px) !important;
-                        border-bottom: 1px solid rgba(226, 232, 240, 0.85) !important;
+                        border-bottom: 1px solid #cbd5e1 !important;
                     }
                     .dark .fi-topbar {
+                        background: rgba(15, 23, 42, 0.92) !important;
                         border-bottom-color: rgba(51, 65, 85, 0.65) !important;
                     }
 
-                    /* 1b. Live Store Header Button */
+                    /* 1b. Live Store & Quick Action Header Buttons */
                     .fi-live-store-btn {
                         display: inline-flex;
                         align-items: center;
-                        gap: 0.4rem;
-                        padding: 0.42rem 0.85rem;
+                        gap: 0.35rem;
+                        padding: 0.38rem 0.72rem;
                         border-radius: 0.55rem;
-                        font-size: 0.78rem;
+                        font-size: 0.74rem;
                         font-weight: 700;
                         border: 1px solid rgba(79, 70, 229, 0.25);
-                        background: rgba(238, 242, 255, 0.85);
+                        background: rgba(238, 242, 255, 0.9);
                         color: #3730a3;
                         text-decoration: none;
                         white-space: nowrap;
                         transition: all 0.15s ease;
                     }
                     .fi-live-store-btn:hover {
-                        background: #e0e7ff;
-                        border-color: rgba(79, 70, 229, 0.45);
+                        transform: translateY(-1px);
+                        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
                     }
                     .dark .fi-live-store-btn {
-                        background: rgba(49, 46, 129, 0.4);
-                        color: #e0e7ff;
-                        border-color: rgba(99, 102, 241, 0.35);
+                        background: rgba(49, 46, 129, 0.4) !important;
+                        color: #e0e7ff !important;
+                        border-color: rgba(99, 102, 241, 0.35) !important;
+                    }
+                    @media (max-width: 640px) {
+                        .fi-live-store-btn {
+                            padding: 0.32rem 0.5rem;
+                            font-size: 0.68rem;
+                        }
                     }
 
                     /* 2. Modern Responsive Admin Login Page (.fi-simple-layout) */
@@ -175,7 +199,7 @@ class AdminPanelProvider extends PanelProvider
 
                     /* 3. Main Content Container & Page Header Hierarchy */
                     .fi-main {
-                        padding-top: 1.25rem !important;
+                        padding-top: 1.15rem !important;
                         padding-bottom: 2.5rem !important;
                     }
                     .fi-header {
@@ -183,11 +207,20 @@ class AdminPanelProvider extends PanelProvider
                         flex-wrap: wrap !important;
                         align-items: center !important;
                         justify-content: space-between !important;
-                        gap: 0.85rem !important;
-                        margin-bottom: 0.25rem !important;
+                        gap: 0.75rem !important;
+                        margin-bottom: 0.35rem !important;
+                        padding: 0.85rem 1.15rem !important;
+                        background: #ffffff !important;
+                        border: 1px solid #cbd5e1 !important;
+                        border-radius: 0.875rem !important;
+                        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+                    }
+                    .dark .fi-header {
+                        background: #0f172a !important;
+                        border-color: #1e293b !important;
                     }
                     .fi-header-heading {
-                        font-size: 1.5rem !important;
+                        font-size: 1.35rem !important;
                         font-weight: 800 !important;
                         letter-spacing: -0.025em !important;
                         line-height: 1.25 !important;
@@ -199,42 +232,44 @@ class AdminPanelProvider extends PanelProvider
                         gap: 0.5rem !important;
                     }
 
-                    /* 4. Section Cards, Boxes & Containers — Anti-Overflow & Clean Elevation */
+                    /* 4. Section Cards, Boxes & Containers — Distinct Separation & Elevation */
                     .fi-section,
                     .fi-ta-ctn,
                     .fi-wi-stats-overview-stat {
+                        background: #ffffff !important;
                         border-radius: 0.875rem !important;
-                        border: 1px solid rgba(226, 232, 240, 0.95) !important;
-                        box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.03) !important;
+                        border: 1px solid #cbd5e1 !important;
+                        box-shadow: 0 2px 5px -1px rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.03) !important;
                         overflow: hidden !important;
                         min-width: 0 !important;
                     }
                     .dark .fi-section,
                     .dark .fi-ta-ctn,
                     .dark .fi-wi-stats-overview-stat {
-                        border-color: rgba(51, 65, 85, 0.8) !important;
-                        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.25) !important;
+                        background: #0f172a !important;
+                        border-color: rgba(51, 65, 85, 0.85) !important;
+                        box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.3) !important;
                     }
                     .fi-section-header {
-                        padding: 1rem 1.25rem !important;
-                        border-bottom: 1px solid rgba(226, 232, 240, 0.7) !important;
-                        background: rgba(248, 250, 252, 0.6) !important;
+                        padding: 0.85rem 1.2rem !important;
+                        border-bottom: 1px solid #e2e8f0 !important;
+                        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
                     }
                     .dark .fi-section-header {
-                        border-bottom-color: rgba(51, 65, 85, 0.6) !important;
-                        background: rgba(15, 23, 42, 0.35) !important;
+                        border-bottom-color: rgba(51, 65, 85, 0.65) !important;
+                        background: rgba(30, 41, 59, 0.55) !important;
                     }
                     .fi-section-header-heading {
-                        font-size: 0.95rem !important;
-                        font-weight: 700 !important;
+                        font-size: 0.92rem !important;
+                        font-weight: 800 !important;
                         letter-spacing: -0.01em !important;
                     }
                     .fi-section-header-description {
-                        font-size: 0.8rem !important;
-                        line-height: 1.45 !important;
+                        font-size: 0.78rem !important;
+                        line-height: 1.4 !important;
                     }
                     .fi-section-content {
-                        padding: 1.25rem !important;
+                        padding: 1.15rem !important;
                         min-width: 0 !important;
                     }
 
@@ -324,14 +359,24 @@ class AdminPanelProvider extends PanelProvider
                         max-width: 100% !important;
                     }
                     .fi-ta-header-cell {
-                        font-size: 0.7rem !important;
+                        font-size: 0.69rem !important;
+                        font-weight: 800 !important;
                         text-transform: uppercase !important;
-                        letter-spacing: 0.04em !important;
-                        padding: 0.45rem 0.6rem !important;
+                        letter-spacing: 0.045em !important;
+                        padding: 0.5rem 0.65rem !important;
                         white-space: nowrap !important;
+                        background: #f8fafc !important;
+                        border-bottom: 1px solid #cbd5e1 !important;
+                    }
+                    .dark .fi-ta-header-cell {
+                        background: #1e293b !important;
+                        border-bottom-color: #334155 !important;
+                    }
+                    .fi-ta-row:hover {
+                        background-color: rgba(79, 70, 229, 0.03) !important;
                     }
                     .fi-ta-cell {
-                        padding: 0.32rem 0.6rem !important;
+                        padding: 0.34rem 0.65rem !important;
                         vertical-align: middle !important;
                     }
                     .fi-ta-text {
@@ -362,6 +407,10 @@ class AdminPanelProvider extends PanelProvider
                     }
                     .fi-ta-header-toolbar {
                         padding: 0.55rem 0.85rem !important;
+                        background: #ffffff !important;
+                    }
+                    .dark .fi-ta-header-toolbar {
+                        background: #0f172a !important;
                     }
 
                     /* 9. Scrollable Navigation & Filter Tabs */
@@ -372,7 +421,14 @@ class AdminPanelProvider extends PanelProvider
                         -webkit-overflow-scrolling: touch;
                         max-width: 100% !important;
                         border-radius: 0.75rem !important;
-                        padding: 0.25rem !important;
+                        padding: 0.3rem !important;
+                        background: #ffffff !important;
+                        border: 1px solid #cbd5e1 !important;
+                        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+                    }
+                    .dark .fi-tabs {
+                        background: #0f172a !important;
+                        border-color: #334155 !important;
                     }
                     .fi-tabs::-webkit-scrollbar {
                         display: none !important;

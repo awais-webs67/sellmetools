@@ -156,7 +156,7 @@ class Product extends Model
         static::saving(function (Product $product) {
             static::ensureFreeAndStockColumnsExist();
 
-            $product->name = preg_replace('/\s+/u', ' ', trim(ProductSeoOptimizer::stripEmDashes((string) $product->name))) ?: $product->name;
+            $product->name = ProductSeoOptimizer::cleanProductTitle((string) $product->name) ?: $product->name;
 
             if (blank($product->slug)) {
                 $product->slug = static::uniqueSlug((string) $product->name);
@@ -527,15 +527,16 @@ class Product extends Model
 
     public function seoTitle(): string
     {
+        $cleanName = ProductSeoOptimizer::cleanProductTitle((string) $this->name);
         if (filled($this->meta_title)) {
-            return str_replace(['—', '–'], '-', (string) $this->meta_title);
+            return ProductSeoOptimizer::cleanProductTitle((string) $this->meta_title);
         }
 
-        if (str_contains(strtolower((string) $this->name), 'subscription')) {
-            return str_replace(['—', '–'], '-', "Buy {$this->name} Cheap Online");
+        if (str_contains(strtolower($cleanName), 'subscription')) {
+            return "Buy {$cleanName} Cheap Online";
         }
 
-        return str_replace(['—', '–'], '-', "Buy {$this->name} | Cheap Subscription");
+        return "Buy {$cleanName} | Best Price in Pakistan";
     }
 
     /**

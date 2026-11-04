@@ -217,8 +217,8 @@ class StockController extends Controller
 
                 return response()->json([
                     'ok' => true,
-                    'order_id' => $order->id,
-                    'order_status' => $order->status->value,
+                    'order_id' => $order?->id ?? 0,
+                    'order_status' => $order?->status?->value ?? 'direct_completed',
                 ]);
             }
         }

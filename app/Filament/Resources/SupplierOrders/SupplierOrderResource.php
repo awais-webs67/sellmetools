@@ -63,13 +63,54 @@ class SupplierOrderResource extends Resource
     {
         $fetch = fn (): int => (int) SupplierOrder::query()
             ->whereIn('status', [SupplierOrderStatus::Failed, SupplierOrderStatus::Unknown])
+            ->whereHas('orderItem.order', function (Builder $query): void {
+                $query->whereIn('status', [OrderStatus::Processing, OrderStatus::NeedsAttention]);
+            })
             ->count();
 
         $failed = app()->runningUnitTests()
             ? $fetch()
-            : (int) Cache::remember('smt_admin_nav_vendor_orders', 12, $fetch);
+            : (int) Cache::remember('smt_admin_nav_vendor_orders_v2', 12, $fetch);
 
         return $failed > 0 ? (string) $failed : null;
+    }
+
+    /**
+     * Returns true if this supplier attempt failed/timed out, BUT the customer's order
+     * has ALREADY been delivered (via manual delivery, WhatsApp, or backup supplier) or cancelled/refunded.
+     */
+    public static function isOrderAlreadyResolved(SupplierOrder $r): bool
+    {
+        if ($r->status === SupplierOrderStatus::Success || $r->order_item_id === null) {
+            return false;
+        }
+
+        $order = $r->orderItem?->order;
+        if (! $order) {
+            return true;
+        }
+
+        if (in_array($order->status, [OrderStatus::Completed, OrderStatus::Cancelled, OrderStatus::Refunded, OrderStatus::Expired], true)) {
+            return true;
+        }
+
+        return $r->orderItem->remainingQty() <= 0;
+    }
+
+    /**
+     * Returns true ONLY when this supplier order failed/timed out AND the customer order is STILL unfulfilled.
+     */
+    public static function isStillUnfulfilled(SupplierOrder $r): bool
+    {
+        if (! in_array($r->status, [SupplierOrderStatus::Failed, SupplierOrderStatus::Unknown], true)) {
+            return false;
+        }
+
+        if ($r->order_item_id === null) {
+            return false;
+        }
+
+        return ! self::isOrderAlreadyResolved($r);
     }
 
     public static function getNavigationBadgeColor(): ?string
@@ -122,12 +163,27 @@ class SupplierOrderResource extends Resource
                     ->sortable(),
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn (SupplierOrderStatus $state): string => $state->color()),
+                    ->formatStateUsing(function (SupplierOrderStatus $state, SupplierOrder $r): string {
+                        if (self::isOrderAlreadyResolved($r)) {
+                            $orderStatus = $r->orderItem?->order?->status;
+
+                            return $orderStatus === OrderStatus::Completed ? 'Resolved (Delivered)' : 'Order Closed';
+                        }
+
+                        return $state->name;
+                    })
+                    ->color(function (SupplierOrderStatus $state, SupplierOrder $r): string {
+                        if (self::isOrderAlreadyResolved($r)) {
+                            return 'gray';
+                        }
+
+                        return $state->color();
+                    }),
                 TextColumn::make('error')
                     ->label('Error / Info')
                     ->limit(30)
                     ->tooltip(fn (SupplierOrder $r): ?string => $r->error ?: null)
-                    ->color('danger')
+                    ->color(fn (SupplierOrder $r): string => self::isStillUnfulfilled($r) ? 'danger' : 'gray')
                     ->placeholder('-'),
                 TextColumn::make('created_at')
                     ->label('Time')
@@ -196,7 +252,7 @@ class SupplierOrderResource extends Resource
                     ->button()
                     ->size('xs')
                     ->requiresConfirmation()
-                    ->visible(fn (SupplierOrder $r): bool => $r->status === SupplierOrderStatus::Failed && $r->orderItem?->order !== null)
+                    ->visible(fn (SupplierOrder $r): bool => self::isStillUnfulfilled($r))
                     ->action(function (SupplierOrder $r): void {
                         $order = $r->orderItem->order;
                         if ($order->status === OrderStatus::NeedsAttention) {
@@ -273,6 +329,28 @@ class SupplierOrderResource extends Resource
                 try {
                     $res = app(SupplierManager::class)->driver($supplier)->placeOrder($sp->external_id, $qty, $reqId);
                 } catch (Throwable $e) {
+                    $errLower = strtolower($e->getMessage());
+                    $isBridgeable = str_contains($errLower, 'cooldown')
+                        || str_contains($errLower, 'timed out')
+                        || str_contains($errLower, 'connection error')
+                        || str_contains($errLower, 'failed to connect');
+
+                    if ($isBridgeable) {
+                        $attempt->update([
+                            'status' => SupplierOrderStatus::Pending,
+                            'error' => 'Relaying via Admin Browser Bridge...',
+                            'response' => ['save_to_product_id' => $data['save_to_product_id'] ?? null],
+                        ]);
+
+                        Notification::make()
+                            ->title("Connecting to {$supplier->name} via Browser Bridge...")
+                            ->body('Your browser is completing the direct purchase now. The page will refresh in 2 seconds with your credentials!')
+                            ->info()
+                            ->send();
+
+                        return;
+                    }
+
                     $attempt->update([
                         'status' => SupplierOrderStatus::Failed,
                         'error' => $e->getMessage(),

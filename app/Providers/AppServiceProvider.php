@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\ImageOptimizer;
+use App\Services\ProductSeoOptimizer;
 use App\Services\Suppliers\SupplierManager;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Database\Eloquent\Model;
@@ -53,6 +54,8 @@ class AppServiceProvider extends ServiceProvider
         Paginator::defaultView('pagination::tailwind');
 
         $this->autoMigrateDatabaseIfChanged();
+        ProductSeoOptimizer::syncCatalogOnce();
+        ProductSeoOptimizer::syncCatalogOnce();
     }
 
     /**

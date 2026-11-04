@@ -144,7 +144,42 @@ class SourcesRelationManager extends RelationManager
                     ->label('Attach Supplier')
                     ->preloadRecordSelect()
                     ->recordSelectSearchColumns(['name', 'external_id'])
-                    ->recordSelectOptionsQuery(fn (Builder $query) => $query->with('supplier')->orderBy('cost', 'asc'))
+                    ->recordSelectOptionsQuery(function (Builder $query): Builder {
+                        $attachedIds = $this->owner()->sources()->pluck('supplier_products.id')->all();
+                        $attachedSupplierIds = $this->owner()->sources()->pluck('supplier_products.supplier_id')->filter()->unique()->all();
+
+                        return $query
+                            ->with('supplier')
+                            ->when($attachedIds !== [], fn (Builder $q) => $q->whereNotIn('supplier_products.id', $attachedIds))
+                            ->when($attachedSupplierIds !== [], fn (Builder $q) => $q->whereNotIn('supplier_products.supplier_id', $attachedSupplierIds))
+                            ->orderBy('cost', 'asc');
+                    })
+                    ->before(function (AttachAction $action, array $data): void {
+                        $spId = (int) ($data['recordId'] ?? 0);
+                        if ($spId <= 0) {
+                            return;
+                        }
+                        $sp = SupplierProduct::with('supplier')->find($spId);
+                        if (! $sp) {
+                            return;
+                        }
+                        $alreadyAttached = $this->owner()->sources()
+                            ->where(function (Builder $q) use ($sp): void {
+                                $q->where('supplier_products.id', $sp->id)
+                                    ->orWhere('supplier_products.supplier_id', $sp->supplier_id);
+                            })
+                            ->exists();
+
+                        if ($alreadyAttached) {
+                            Notification::make()
+                                ->title('Supplier Already Attached!')
+                                ->body(($sp->supplier?->name ?? 'This supplier').' already has a product linked to "'.$this->owner()->name.'". Cannot attach a 2nd time.')
+                                ->warning()
+                                ->send();
+
+                            $action->halt();
+                        }
+                    })
                     ->after(fn () => $this->refreshOwner()),
             ])
             ->recordActions([

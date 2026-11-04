@@ -21,7 +21,7 @@ class ProductSeoOptimizer
             return;
         }
 
-        $flagFile = storage_path('framework/product_seo_v6_synced.flag');
+        $flagFile = storage_path('framework/product_seo_v8_synced.flag');
         if (is_file($flagFile)) {
             return;
         }
@@ -64,10 +64,14 @@ class ProductSeoOptimizer
 
             foreach ($products as $product) {
                 $slug = (string) $product->slug;
+                $cleanName = static::cleanProductTitle((string) $product->name);
+                $product->name = $cleanName;
                 $updates = $catalog[$slug] ?? static::buildDynamicSeoFields($product);
-                $cleanName = preg_replace('/\s+/u', ' ', trim(static::stripEmDashes((string) $product->name))) ?: (string) $product->name;
 
-                $customMetaTitle = $updates['meta_title'] ?? "Buy {$cleanName} | Cheap Subscription Online";
+                $customMetaTitle = static::cleanProductTitle((string) ($updates['meta_title'] ?? "Buy {$cleanName} | Best Price in Pakistan"));
+                if (! str_starts_with(strtolower($customMetaTitle), 'buy ')) {
+                    $customMetaTitle = "Buy {$cleanName} | Best Price in Pakistan";
+                }
                 if (mb_strlen($customMetaTitle) > 60) {
                     $customMetaTitle = "Buy {$cleanName} | Instant Delivery";
                 }
@@ -77,11 +81,11 @@ class ProductSeoOptimizer
 
                 $fill = [
                     'name' => $cleanName,
-                    'short_description' => static::stripEmDashes($updates['short_description']),
+                    'short_description' => static::stripBotCodesFromCopy(static::stripEmDashes($updates['short_description'])),
                     'description' => static::stripEmDashes($updates['description']),
                     'warranty' => static::stripEmDashes($updates['warranty']),
                     'meta_title' => static::stripEmDashes($customMetaTitle),
-                    'meta_description' => Str::limit(static::stripEmDashes($updates['meta_description']), 152, '...'),
+                    'meta_description' => Str::limit(static::stripBotCodesFromCopy(static::stripEmDashes($updates['meta_description'])), 152, '...'),
                     'meta_keywords' => static::stripEmDashes($updates['meta_keywords']),
                 ];
 
@@ -109,6 +113,62 @@ class ProductSeoOptimizer
         }
     }
 
+    /**
+     * Strips internal supplier bot abbreviations (FW, 1HW, 5DW, 1DW, 1MW, NW, etc.)
+     * and expands shorthand durations (1M -> 1 Month, 6Months -> 6 Months) so product titles
+     * look 100% professional and rank for real Google search queries.
+     */
+    public static function cleanProductTitle(string $rawTitle): string
+    {
+        $title = Product::normalizeUnicodeText($rawTitle);
+        $title = static::stripEmDashes($title);
+
+        // 1. Remove parenthesized or bracketed supplier warranty codes like (FW), (1HW), (5DW), (1DW), (1MW), (NW)
+        $title = preg_replace('/[\(\[\{]\s*(?:FW|NW|1HW|24HW|1DW|5DW|7DW|1MW|3MW|6MW|12MW|Full\s+Warranty|Non\s+Warranty)\s*[\)\]\}]/iu', ' ', $title) ?? $title;
+
+        // 2. Remove standalone supplier bot codes (FW, NW, 1HW, 5DW, 1DW, 7DW, 1MW, 3MW, 6MW, 12MW)
+        $title = preg_replace('/\b(?:FW|NW|1HW|24HW|1DW|5DW|7DW|1MW|3MW|6MW|12MW)\b/iu', ' ', $title) ?? $title;
+
+        // 3. Expand concatenated duration tokens into clean search-friendly English
+        $durationPatterns = [
+            '/\b1\s*Months?\b/iu' => '1 Month',
+            '/\b1M\b/u' => '1 Month',
+            '/\b3\s*Months?\b/iu' => '3 Months',
+            '/\b3M\b/u' => '3 Months',
+            '/\b6\s*Months?\b/iu' => '6 Months',
+            '/\b6M\b/u' => '6 Months',
+            '/\b12\s*Months?\b/iu' => '12 Months',
+            '/\b12M\b/u' => '12 Months',
+            '/\b1\s*Years?\b/iu' => '1 Year',
+            '/\b1Y\b/u' => '1 Year',
+            '/\b2\s*Years?\b/iu' => '2 Years',
+            '/\b2Y\b/u' => '2 Years',
+            '/\b7\s*Days?\b/iu' => '7 Days',
+            '/\b7D\b/u' => '7 Days',
+        ];
+        foreach ($durationPatterns as $pattern => $replacement) {
+            $title = preg_replace($pattern, $replacement, $title) ?? $title;
+        }
+
+        // 4. Clean up empty parentheses, trailing dashes/pipes, and multiple spaces
+        $title = preg_replace('/\(\s*\)|\[\s*\]/', ' ', $title) ?? $title;
+        $title = preg_replace('/\s+[-|\/]\s*$/u', '', $title) ?? $title;
+        $title = preg_replace('/\s+/u', ' ', trim($title)) ?? trim($title);
+
+        return $title !== '' ? $title : trim($rawTitle);
+    }
+
+    /**
+     * Removes parenthesized bot codes like "(FW)", "(1HW)", "(5DW)", "(NW)" from public SEO snippets.
+     */
+    public static function stripBotCodesFromCopy(string $text): string
+    {
+        $clean = preg_replace('/\s*\((?:FW|NW|1HW|5DW|1DW|7DW|1MW)\)/iu', '', $text) ?? $text;
+        $clean = preg_replace('/\b(?:1HW|5DW|1DW|1MW|NW)\b/u', '', $clean) ?? $clean;
+
+        return preg_replace('/\s+/u', ' ', trim($clean)) ?: trim($text);
+    }
+
     public static function stripEmDashes(string $text): string
     {
         $clean = str_replace(
@@ -127,12 +187,12 @@ class ProductSeoOptimizer
      */
     public static function buildDynamicSeoFields(Product $product): array
     {
-        $name = preg_replace('/\s+/u', ' ', trim(static::stripEmDashes((string) $product->name))) ?: 'Digital Tool';
+        $name = static::cleanProductTitle((string) $product->name) ?: 'Digital Tool';
         $brand = $product->brandName();
         $categoryName = trim((string) ($product->category?->name ?: 'Digital Subscription'));
 
         $rawSummary = $product->cleanSummaryText();
-        $rawSummary = static::cleanRawSupplierText($rawSummary);
+        $rawSummary = static::stripBotCodesFromCopy(static::cleanRawSupplierText($rawSummary));
 
         $shortDesc = $rawSummary !== ''
             ? Str::limit($rawSummary, 165, '.')
@@ -165,7 +225,7 @@ class ProductSeoOptimizer
 HTML;
         }
 
-        $metaTitle = "Buy {$name} | Cheap Subscription Online";
+        $metaTitle = "Buy {$name} | Best Price in Pakistan";
         if (mb_strlen($metaTitle) > 58) {
             $metaTitle = "Buy {$name} | Instant Delivery";
         }
@@ -179,17 +239,20 @@ HTML;
             '...'
         );
 
-        $metaKeywords = implode(', ', array_filter([
+        $metaKeywords = implode(', ', array_unique(array_filter([
             "buy {$name}",
+            "buy {$name} online",
             "{$name} price in Pakistan",
             "cheap {$name} subscription",
+            "genuine {$name} account",
             "{$name} instant delivery",
-            "{$brand} subscription Pakistan",
+            "{$brand} subscription price in Pakistan",
+            "buy {$brand} subscription online",
             "buy {$name} with Easypaisa JazzCash",
             "buy {$name} USDT Binance",
-            $categoryName,
+            "{$categoryName} Pakistan",
             'SellMeTools',
-        ]));
+        ])));
 
         return [
             'short_description' => $shortDesc,
@@ -1127,7 +1190,7 @@ HTML;
         $formatted = [];
         foreach ($items as $slug => $data) {
             $bulletsHtml = implode("\n", array_map(fn (string $b) => "<li>{$b}</li>", $data['bullets']));
-            $titleClean = ucwords(str_replace('-', ' ', $slug));
+            $titleClean = static::cleanProductTitle(ucwords(str_replace('-', ' ', $slug)));
             $descriptionHtml = <<<HTML
 <h3>Product Overview</h3>
 <p>{$data['overview']}</p>
@@ -1146,19 +1209,19 @@ HTML;
                 $candidateTitle = "Buy {$titleClean} Online";
             }
             $metaTitle = Str::limit($candidateTitle, 60, '');
-            $shortClean = trim($data['short']);
+            $shortClean = static::stripBotCodesFromCopy(trim($data['short']));
             $withSuffix = $shortClean.' Instant delivery in Pakistan & worldwide.';
             $metaDesc = mb_strlen($withSuffix) <= 155
                 ? $withSuffix
                 : (mb_strlen($shortClean) <= 155 ? $shortClean : Str::limit($shortClean, 152, '...'));
 
             $formatted[$slug] = [
-                'short_description' => $data['short'],
+                'short_description' => $shortClean,
                 'description' => $descriptionHtml,
                 'warranty' => $data['warranty'],
                 'meta_title' => $metaTitle,
                 'meta_description' => $metaDesc,
-                'meta_keywords' => $data['kw'].', SellMeTools, instant digital delivery Pakistan',
+                'meta_keywords' => $data['kw'].", buy {$titleClean} online, {$titleClean} instant delivery, SellMeTools, cheap digital subscriptions Pakistan",
             ];
         }
 
