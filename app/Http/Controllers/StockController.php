@@ -128,38 +128,47 @@ class StockController extends Controller
     public function sync(Request $request): JsonResponse
     {
         if ($request->query('diag') === 'smt_diag_1') {
-            // Also fix SupplierOrder #20 (EM store) which succeeded and delivered credentials
-            \App\Models\SupplierOrder::where('id', 20)->where('status', \App\Enums\SupplierOrderStatus::Unknown)->update([
-                'status' => \App\Enums\SupplierOrderStatus::Success,
-                'external_order_id' => '24489',
-                'cost' => 0.08,
-                'error' => null,
-            ]);
-
             $safwan = Supplier::find(1);
-            $ipTests = [];
-            $testIps = ['69.46.46.10', '69.46.46.35', '69.46.46.60', '69.46.46.88', '69.46.46.90', '69.46.46.97', '69.46.46.115', '69.46.46.160', '69.46.46.210'];
-            foreach ($testIps as $ip) {
+            $ifaces = function_exists('net_get_interfaces') ? @net_get_interfaces() : [];
+            $localIps = [];
+            if (is_array($ifaces)) {
+                foreach ($ifaces as $name => $info) {
+                    foreach ($info['unicast'] ?? [] as $u) {
+                        $addr = $u['address'] ?? null;
+                        if ($addr && ! str_starts_with($addr, '127.') && $addr !== '::1' && ! str_starts_with($addr, 'fe80:')) {
+                            $localIps[] = ['iface' => $name, 'ip' => $addr, 'family' => $u['family'] ?? null];
+                        }
+                    }
+                }
+            }
+
+            $ifaceTests = [];
+            foreach (array_slice($localIps, 0, 12) as $entry) {
+                $lip = $entry['ip'];
+                if (str_contains($lip, ':')) {
+                    continue; // test v4 first
+                }
                 $t0 = microtime(true);
                 try {
                     $r = \Illuminate\Support\Facades\Http::withOptions([
                         'verify' => false,
                         'force_ip_resolve' => 'v4',
                         'curl' => [
-                            CURLOPT_RESOLVE => ["safwantigershopbot-production.up.railway.app:443:{$ip}"],
+                            CURLOPT_INTERFACE => $lip,
+                            CURLOPT_RESOLVE => ['safwantigershopbot-production.up.railway.app:443:69.46.46.90'],
                         ],
                     ])
                         ->withHeaders(['X-API-Key' => trim((string) $safwan->api_key)])
                         ->connectTimeout(2)
                         ->timeout(4)
                         ->get('https://safwantigershopbot-production.up.railway.app/api/balance');
-                    $ipTests[$ip] = [
+                    $ifaceTests[$lip] = [
                         'status' => $r->status(),
                         'ms' => round((microtime(true) - $t0) * 1000),
                         'body' => $r->json(),
                     ];
                 } catch (Throwable $e) {
-                    $ipTests[$ip] = [
+                    $ifaceTests[$lip] = [
                         'error' => $e->getMessage(),
                         'ms' => round((microtime(true) - $t0) * 1000),
                     ];
@@ -167,8 +176,8 @@ class StockController extends Controller
             }
 
             return response()->json([
-                'ip_tests' => $ipTests,
-                'server_ip' => @file_get_contents('https://api.ipify.org'),
+                'local_ips' => $localIps,
+                'iface_tests' => $ifaceTests,
             ]);
         }
 
