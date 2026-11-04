@@ -108,17 +108,12 @@
         .smt-kpi-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(225px, 1fr));
-            gap: 1rem;
+            gap: 0.9rem;
         }
         .smt-kpi-box {
-            padding: 1.15rem 1.25rem;
+            padding: 1.05rem 1.15rem;
             position: relative;
-            border-top: 4px solid #6366f1;
         }
-        .smt-kpi-box.credit { border-top-color: #10b981; }
-        .smt-kpi-box.debit { border-top-color: #f43f5e; }
-        .smt-kpi-box.profit { border-top-color: #4f46e5; }
-        .smt-kpi-box.pipeline { border-top-color: #f59e0b; }
         .smt-kpi-label {
             font-size: 0.7rem;
             font-weight: 800;
@@ -240,8 +235,8 @@
                         </button>
                     @endforeach
                 </div>
-                <span style="font-size:0.76rem;font-weight:700;color:#4f46e5;">
-                    📅 Period: {{ $data['period_label'] }}
+                <span style="font-size:0.75rem;font-weight:600;color:#475569;">
+                    Period: <strong style="color:#0f172a;" class="dark:!text-white">{{ $data['period_label'] }}</strong>
                 </span>
             </div>
 
@@ -333,7 +328,7 @@
             {{-- Payment Gateway Breakdown --}}
             <div class="smt-card">
                 <div class="smt-card-head">
-                    <span class="smt-card-title">💳 Payment Gateways (Money In by Method)</span>
+                    <span class="smt-card-title">Payment Gateways (Money In by Method)</span>
                     <span style="font-size:0.72rem;color:#64748b;font-weight:600;">{{ count($data['gateways']) }} Active Methods</span>
                 </div>
                 <div class="smt-table-wrap">
@@ -369,7 +364,7 @@
             {{-- Supplier Wallets & Spend Breakdown --}}
             <div class="smt-card">
                 <div class="smt-card-head">
-                    <span class="smt-card-title">⚡ Supplier Wallets &amp; Period Spend (Money Out)</span>
+                    <span class="smt-card-title">Supplier Wallets &amp; Period Spend (Money Out)</span>
                     <span style="font-size:0.72rem;color:#64748b;font-weight:600;">Live Balances &amp; Costs</span>
                 </div>
                 <div class="smt-table-wrap">
@@ -419,12 +414,12 @@
         <div class="smt-card">
             <div class="smt-card-head">
                 <div>
-                    <span class="smt-card-title">🏦 Official Bank Statement Ledger ({{ $data['period_label'] }})</span>
+                    <span class="smt-card-title">Statement Ledger ({{ $data['period_label'] }})</span>
                     <span style="display:block;font-size:0.72rem;color:#64748b;">
                         Showing {{ count($data['entries']) }} transaction(s) with Credit, Debit, Net Profit &amp; Running Balance
                     </span>
                 </div>
-                <span style="font-size:0.75rem;font-weight:800;color:#4f46e5;">
+                <span style="font-size:0.75rem;font-weight:800;color:#0f172a;" class="dark:!text-white">
                     Closing Net Balance: Rs {{ number_format($data['net_cashflow_pkr'], 0) }}
                 </span>
             </div>
@@ -470,7 +465,7 @@
                                 </td>
                                 <td style="white-space:nowrap;">
                                     <div style="font-weight:700;">{{ $row['channel'] }}</div>
-                                    <div style="font-size:0.68rem;color:#64748b;">⚡ {{ $row['source'] }}</div>
+                                    <div style="font-size:0.68rem;color:#64748b;">{{ $row['source'] }}</div>
                                 </td>
                                 <td style="text-align:right;font-family:monospace;font-weight:800;color:#059669;white-space:nowrap;">
                                     {{ $row['credit_pkr'] > 0 ? '+Rs '.number_format($row['credit_pkr'], 0) : '—' }}

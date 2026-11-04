@@ -107,8 +107,8 @@ class ExecutiveCommandCenter extends Widget
 
         $now = now();
         [$start, $end, $rangeLabel] = match ($this->range) {
-            'today' => [$now->copy()->startOfDay(), $now->copy()->endOfDay(), 'Today ('.$now->format('d M').')'],
-            'yesterday' => [$now->copy()->subDay()->startOfDay(), $now->copy()->subDay()->endOfDay(), 'Yesterday'],
+            'today' => [$now->copy()->startOfDay(), $now->copy()->endOfDay(), 'Today · '.$now->format('d M')],
+            'yesterday' => [$now->copy()->subDay()->startOfDay(), $now->copy()->subDay()->endOfDay(), 'Yesterday · '.$now->copy()->subDay()->format('d M')],
             '7d' => [$now->copy()->subDays(6)->startOfDay(), $now->copy()->endOfDay(), 'Last 7 Days'],
             'this_month' => [$now->copy()->startOfMonth(), $now->copy()->endOfDay(), $now->format('F Y')],
             default => [null, null, 'All Time'],

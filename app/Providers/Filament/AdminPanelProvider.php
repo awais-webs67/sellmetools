@@ -55,15 +55,17 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::USER_MENU_BEFORE,
                 fn (): HtmlString => new HtmlString(
-                    '<div style="display:inline-flex;align-items:center;gap:0.45rem;">'
-                    .'<a href="'.e(url('/admin/sales-statement')).'" class="fi-live-store-btn" style="background:rgba(236,253,245,0.9);color:#065f46;border-color:rgba(16,185,129,0.3);">'
-                    .'<span>📊 Statement</span>'
+                    '<div style="display:inline-flex;align-items:center;gap:0.4rem;">'
+                    .'<a href="'.e(url('/admin/sales-statement')).'" class="fi-live-store-btn">'
+                    .'<svg style="width:13px;height:13px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 17v-6m3 6V7m3 10v-4M5 21h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2Z"/></svg>'
+                    .'<span>Statement</span>'
                     .'</a>'
-                    .'<a href="'.e(url('/admin/vendor-orders')).'" class="fi-live-store-btn" style="background:rgba(254,243,199,0.85);color:#92400e;border-color:rgba(245,158,11,0.35);">'
-                    .'<span>⚡ Vendor Orders</span>'
+                    .'<a href="'.e(url('/admin/vendor-orders')).'" class="fi-live-store-btn">'
+                    .'<svg style="width:13px;height:13px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>'
+                    .'<span>Vendor Orders</span>'
                     .'</a>'
                     .'<a href="'.e(url('/')).'" target="_blank" rel="noopener" class="fi-live-store-btn">'
-                    .'<svg style="width:14px;height:14px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
+                    .'<svg style="width:13px;height:13px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
                     .'<span>Live Store</span>'
                     .'</a>'
                     .'</div>'

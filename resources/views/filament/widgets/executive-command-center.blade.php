@@ -3,697 +3,692 @@
     $ranges = [
         'today' => 'Today',
         'yesterday' => 'Yesterday',
-        '7d' => 'Last 7 Days',
-        'this_month' => 'This Month',
-        'all' => 'All Time',
+        '7d' => 'Last 7 days',
+        'this_month' => 'This month',
+        'all' => 'All time',
     ];
-    $adminName = auth()->user()?->name ?: 'Admin';
 @endphp
 
 <x-filament-widgets::widget>
     <style>
-        .smt-dash {
-            display: flex;
-            flex-direction: column;
-            gap: 1.15rem;
-        }
-
-        /* 1. Executive Dark Command Banner */
-        .smt-hero {
-            background: radial-gradient(circle at 85% 15%, rgba(79, 70, 229, 0.35) 0%, transparent 45%),
-                        linear-gradient(135deg, #0b0f19 0%, #0f172a 60%, #1e1b4b 100%);
-            border: 1px solid rgba(99, 102, 241, 0.28);
-            border-radius: 1rem;
-            padding: 1.25rem 1.4rem;
-            color: #ffffff;
-            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25);
+        .smt-pro-dash {
             display: flex;
             flex-direction: column;
             gap: 1rem;
         }
-        .smt-hero-top {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.85rem;
-        }
-        .smt-hero-pulse {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.45rem;
-            padding: 0.22rem 0.65rem;
-            border-radius: 9999px;
-            background: rgba(16, 185, 129, 0.15);
-            border: 1px solid rgba(16, 185, 129, 0.35);
-            color: #6ee7b7;
-            font-size: 0.68rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-        }
-        .smt-hero-pulse-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 9999px;
-            background: #10b981;
-            box-shadow: 0 0 8px #10b981;
-        }
-        .smt-hero-title {
-            font-size: 1.35rem;
-            font-weight: 800;
-            letter-spacing: -0.025em;
-            margin-top: 0.3rem;
-            color: #ffffff;
-        }
-        .smt-hero-sub {
-            font-size: 0.78rem;
-            color: #94a3b8;
-            margin-top: 0.1rem;
-        }
-        .smt-range-bar {
-            display: inline-flex;
-            flex-wrap: wrap;
-            gap: 0.3rem;
-            background: rgba(15, 23, 42, 0.75);
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            padding: 0.28rem;
-            border-radius: 0.65rem;
-        }
-        .smt-range-btn {
-            padding: 0.35rem 0.72rem;
-            border-radius: 0.45rem;
-            font-size: 0.73rem;
-            font-weight: 700;
-            color: #cbd5e1;
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        .smt-range-btn:hover {
-            color: #ffffff;
-            background: rgba(255, 255, 255, 0.06);
-        }
-        .smt-range-btn.active {
-            background: #4f46e5;
-            color: #ffffff;
-            box-shadow: 0 2px 8px rgba(79, 70, 229, 0.45);
-        }
-        .smt-hero-actions {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.65rem;
-            padding-top: 0.85rem;
-            border-top: 1px solid rgba(148, 163, 184, 0.14);
-        }
-        .smt-quick-links {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.45rem;
-        }
-        .smt-qbtn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.38rem;
-            padding: 0.4rem 0.78rem;
-            border-radius: 0.55rem;
-            font-size: 0.74rem;
-            font-weight: 700;
-            text-decoration: none;
-            border: 1px solid rgba(255, 255, 255, 0.14);
-            background: rgba(255, 255, 255, 0.07);
-            color: #f8fafc;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        .smt-qbtn:hover {
-            background: rgba(255, 255, 255, 0.14);
-            transform: translateY(-1px);
-        }
-        .smt-qbtn.primary {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            border-color: rgba(16, 185, 129, 0.5);
-            color: #ffffff;
-        }
-        .smt-qbtn.indigo {
-            background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
-            border-color: rgba(99, 102, 241, 0.5);
-            color: #ffffff;
-        }
 
-        /* 2. 4-Card Primary KPI Grid */
-        .smt-kpi-row {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 0.9rem;
-        }
-        @media (max-width: 1100px) {
-            .smt-kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-        @media (max-width: 580px) {
-            .smt-kpi-row { grid-template-columns: 1fr; }
-        }
-        .smt-bento-card {
+        /* 1. Minimalist Stripe / Linear Top Control Bar */
+        .smt-toolbar {
             background: #ffffff;
-            border: 1px solid #cbd5e1;
-            border-radius: 0.9rem;
-            padding: 1.05rem 1.15rem;
-            box-shadow: 0 2px 4px rgba(15, 23, 42, 0.04);
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 0.65rem 0.9rem;
             display: flex;
-            flex-direction: column;
+            flex-wrap: wrap;
+            align-items: center;
             justify-content: space-between;
-            position: relative;
-            overflow: hidden;
-            text-decoration: none;
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            gap: 0.75rem;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
         }
-        a.smt-bento-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px -6px rgba(15, 23, 42, 0.1);
-        }
-        .dark .smt-bento-card {
+        .dark .smt-toolbar {
             background: #0f172a;
             border-color: #1e293b;
         }
-        .smt-kpi-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
-        }
-        .smt-kpi-tag {
-            font-size: 0.69rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.055em;
-            color: #64748b;
-        }
-        .smt-kpi-icon {
-            width: 34px;
-            height: 34px;
-            border-radius: 0.6rem;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.95rem;
-            flex-shrink: 0;
-        }
-        .smt-kpi-num {
-            font-size: 1.55rem;
-            font-weight: 800;
-            letter-spacing: -0.03em;
-            margin-top: 0.4rem;
-            color: #0f172a;
-            font-variant-numeric: tabular-nums;
-            line-height: 1.15;
-        }
-        .dark .smt-kpi-num { color: #f8fafc; }
-        .smt-kpi-foot {
-            margin-top: 0.55rem;
-            padding-top: 0.5rem;
-            border-top: 1px dashed #e2e8f0;
-            font-size: 0.72rem;
-            color: #64748b;
+        .smt-toolbar-left {
             display: flex;
             flex-wrap: wrap;
             align-items: center;
-            justify-content: space-between;
-            gap: 0.35rem;
+            gap: 0.75rem;
         }
-        .dark .smt-kpi-foot { border-top-color: #1e293b; }
-        .smt-pill {
+        .smt-seg-group {
+            display: inline-flex;
+            flex-wrap: wrap;
+            background: #f1f5f9;
+            padding: 0.2rem;
+            border-radius: 0.5rem;
+            border: 1px solid #e2e8f0;
+            gap: 2px;
+        }
+        .dark .smt-seg-group {
+            background: #1e293b;
+            border-color: #334155;
+        }
+        .smt-seg-btn {
+            padding: 0.32rem 0.7rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #475569;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: all 0.12s ease;
+        }
+        .smt-seg-btn:hover {
+            color: #0f172a;
+        }
+        .smt-seg-btn.active {
+            background: #ffffff;
+            color: #0f172a;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+        }
+        .dark .smt-seg-btn {
+            color: #94a3b8;
+        }
+        .dark .smt-seg-btn:hover {
+            color: #f8fafc;
+        }
+        .dark .smt-seg-btn.active {
+            background: #0f172a;
+            color: #f8fafc;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+        }
+        .smt-period-meta {
+            font-size: 0.75rem;
+            color: #64748b;
+            font-weight: 500;
             display: inline-flex;
             align-items: center;
-            padding: 0.12rem 0.48rem;
-            border-radius: 9999px;
-            font-size: 0.66rem;
-            font-weight: 800;
+            gap: 0.5rem;
         }
-        .smt-pill.green { background: #dcfce7; color: #166534; }
-        .smt-pill.amber { background: #fef3c7; color: #92400e; }
-        .smt-pill.rose  { background: #ffe4e6; color: #9f1239; }
-        .smt-pill.indigo { background: #e0e7ff; color: #3730a3; }
-        .dark .smt-pill.green { background: rgba(22, 163, 74, 0.22); color: #86efac; }
-        .dark .smt-pill.amber { background: rgba(217, 119, 6, 0.22); color: #fcd34d; }
-        .dark .smt-pill.rose  { background: rgba(225, 29, 72, 0.22); color: #fda4af; }
-        .dark .smt-pill.indigo { background: rgba(79, 70, 229, 0.25); color: #c7d2fe; }
 
-        /* 3. Mid Bento Row: 7-Day Visual Chart + Supplier Wallets */
-        .smt-mid-grid {
+        .smt-toolbar-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.45rem;
+        }
+        .smt-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.38rem;
+            padding: 0.38rem 0.72rem;
+            border-radius: 0.45rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #334155;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.12s ease;
+            line-height: 1.2;
+        }
+        .smt-btn:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+            color: #0f172a;
+        }
+        .smt-btn.dark-primary {
+            background: #0f172a;
+            border-color: #0f172a;
+            color: #ffffff;
+        }
+        .smt-btn.dark-primary:hover {
+            background: #1e293b;
+        }
+        .dark .smt-btn {
+            background: #1e293b;
+            border-color: #334155;
+            color: #e2e8f0;
+        }
+        .dark .smt-btn:hover {
+            background: #334155;
+            color: #ffffff;
+        }
+        .dark .smt-btn.dark-primary {
+            background: #4f46e5;
+            border-color: #4f46e5;
+            color: #ffffff;
+        }
+        .smt-icon {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+        }
+
+        /* 2. Clean 4-Column Metric Grid (Stripe / Linear Style) */
+        .smt-metrics-grid {
             display: grid;
-            grid-template-columns: 1.15fr 1fr;
-            gap: 0.9rem;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.85rem;
         }
-        @media (max-width: 1024px) {
-            .smt-mid-grid { grid-template-columns: 1fr; }
+        @media (max-width: 1100px) {
+            .smt-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
-        .smt-section-head {
+        @media (max-width: 580px) {
+            .smt-metrics-grid { grid-template-columns: 1fr; }
+        }
+        .smt-panel {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 1rem 1.15rem;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            text-decoration: none;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        a.smt-panel:hover {
+            border-color: #cbd5e1;
+            box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.06);
+        }
+        .dark .smt-panel {
+            background: #0f172a;
+            border-color: #1e293b;
+        }
+        .dark a.smt-panel:hover {
+            border-color: #334155;
+        }
+        .smt-metric-top {
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 0.5rem;
-            padding-bottom: 0.75rem;
-            border-bottom: 1px solid #f1f5f9;
-            margin-bottom: 0.85rem;
         }
-        .dark .smt-section-head { border-bottom-color: #1e293b; }
-        .smt-section-title {
-            font-size: 0.86rem;
-            font-weight: 800;
+        .smt-metric-label {
+            font-size: 0.76rem;
+            font-weight: 600;
+            color: #64748b;
+        }
+        .smt-metric-svg {
+            width: 16px;
+            height: 16px;
+            color: #94a3b8;
+            flex-shrink: 0;
+        }
+        .smt-metric-value {
+            font-size: 1.55rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
             color: #0f172a;
+            margin-top: 0.45rem;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.15;
+        }
+        .dark .smt-metric-value {
+            color: #f8fafc;
+        }
+        .smt-metric-bottom {
+            margin-top: 0.65rem;
+            padding-top: 0.55rem;
+            border-top: 1px solid #f1f5f9;
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 0.4rem;
+            font-size: 0.72rem;
+            color: #64748b;
         }
-        .dark .smt-section-title { color: #f8fafc; }
+        .dark .smt-metric-bottom {
+            border-top-color: #1e293b;
+        }
+        .smt-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.1rem 0.45rem;
+            border-radius: 0.35rem;
+            font-size: 0.68rem;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+        .smt-tag.neutral { background: #f1f5f9; color: #334155; }
+        .smt-tag.emerald { background: #ecfdf5; color: #065f46; }
+        .smt-tag.amber   { background: #fffbeb; color: #92400e; }
+        .smt-tag.rose    { background: #fff1f2; color: #9f1239; }
+        .dark .smt-tag.neutral { background: #1e293b; color: #cbd5e1; }
+        .dark .smt-tag.emerald { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; }
+        .dark .smt-tag.amber   { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
+        .dark .smt-tag.rose    { background: rgba(244, 63, 94, 0.15); color: #fda4af; }
 
-        /* 7-Day Bar Chart */
-        .smt-chart-bars {
+        /* 3. Two-Column Layout Sections */
+        .smt-two-col {
+            display: grid;
+            grid-template-columns: 1.15fr 1fr;
+            gap: 0.85rem;
+        }
+        @media (max-width: 1024px) {
+            .smt-two-col { grid-template-columns: 1fr; }
+        }
+        .smt-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            padding-bottom: 0.7rem;
+            margin-bottom: 0.75rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .dark .smt-panel-header {
+            border-bottom-color: #1e293b;
+        }
+        .smt-panel-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #0f172a;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+        }
+        .dark .smt-panel-title {
+            color: #f8fafc;
+        }
+        .smt-panel-link {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #475569;
+            text-decoration: none;
+        }
+        .smt-panel-link:hover {
+            color: #0f172a;
+            text-decoration: underline;
+        }
+        .dark .smt-panel-link { color: #94a3b8; }
+
+        /* 7-Day Chart */
+        .smt-chart-grid {
             display: grid;
             grid-template-columns: repeat(7, minmax(0, 1fr));
-            gap: 0.55rem;
+            gap: 0.5rem;
             align-items: end;
-            height: 150px;
-            padding-top: 1rem;
+            height: 145px;
+            padding-top: 0.5rem;
         }
-        .smt-bar-col {
+        .smt-chart-col {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 0.35rem;
-            height: 100%;
             justify-content: flex-end;
+            height: 100%;
+            gap: 0.35rem;
         }
-        .smt-bar-val {
-            font-size: 0.63rem;
-            font-weight: 700;
+        .smt-chart-num {
+            font-size: 0.64rem;
+            font-weight: 600;
             color: #64748b;
-            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
         }
-        .smt-bar-track {
+        .smt-chart-track {
             width: 100%;
-            max-width: 38px;
-            height: 102px;
-            background: #f1f5f9;
-            border-radius: 0.45rem;
+            max-width: 34px;
+            height: 98px;
+            background: #f8fafc;
+            border: 1px solid #f1f5f9;
+            border-radius: 0.35rem;
             display: flex;
             align-items: flex-end;
-            justify-content: center;
             overflow: hidden;
             position: relative;
         }
-        .dark .smt-bar-track { background: #1e293b; }
-        .smt-bar-fill-rev {
-            width: 100%;
-            background: linear-gradient(180deg, #6366f1 0%, #4338ca 100%);
-            border-radius: 0.4rem 0.4rem 0 0;
-            position: relative;
-            transition: height 0.3s ease;
+        .dark .smt-chart-track {
+            background: #1e293b;
+            border-color: #334155;
         }
-        .smt-bar-fill-prof {
+        .smt-chart-bar-rev {
+            width: 100%;
+            background: #334155;
+            border-radius: 0.25rem 0.25rem 0 0;
+            position: relative;
+            transition: height 0.25s ease;
+        }
+        .dark .smt-chart-bar-rev { background: #64748b; }
+        .smt-chart-bar-prof {
             position: absolute;
             bottom: 0;
             left: 0;
             right: 0;
-            background: linear-gradient(180deg, #10b981 0%, #059669 100%);
-            border-radius: 0.3rem 0.3rem 0 0;
+            background: #10b981;
         }
-        .smt-bar-day {
+        .smt-chart-day {
             font-size: 0.68rem;
-            font-weight: 800;
-            color: #334155;
+            font-weight: 600;
+            color: #475569;
         }
-        .dark .smt-bar-day { color: #cbd5e1; }
+        .dark .smt-chart-day { color: #94a3b8; }
 
-        /* Supplier Wallet Mini-Cards */
-        .smt-sup-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.65rem;
+        /* Supplier Table Rows */
+        .smt-sup-table {
+            width: 100%;
+            border-collapse: collapse;
         }
-        @media (max-width: 540px) {
-            .smt-sup-grid { grid-template-columns: 1fr; }
+        .smt-sup-table td {
+            padding: 0.48rem 0.25rem;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.76rem;
+            vertical-align: middle;
         }
-        .smt-sup-box {
-            border: 1px solid #e2e8f0;
-            background: #f8fafc;
-            border-radius: 0.7rem;
-            padding: 0.7rem 0.85rem;
-            display: flex;
+        .smt-sup-table tr:last-child td { border-bottom: none; }
+        .dark .smt-sup-table td { border-bottom-color: #1e293b; }
+        .smt-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 9999px;
+            display: inline-block;
+            margin-right: 0.35rem;
+        }
+        .smt-icon-btn {
+            display: inline-flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
+            gap: 0.25rem;
+            padding: 0.24rem 0.5rem;
+            border-radius: 0.375rem;
+            font-size: 0.68rem;
+            font-weight: 600;
+            color: #475569;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: all 0.12s ease;
         }
-        .dark .smt-sup-box {
+        .smt-icon-btn:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+            border-color: #cbd5e1;
+        }
+        .dark .smt-icon-btn {
             background: #1e293b;
             border-color: #334155;
-        }
-        .smt-sync-mini {
-            padding: 0.28rem 0.52rem;
-            border-radius: 0.45rem;
-            font-size: 0.68rem;
-            font-weight: 700;
-            border: 1px solid #cbd5e1;
-            background: #ffffff;
-            color: #334155;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        .smt-sync-mini:hover {
-            background: #4f46e5;
-            color: #ffffff;
-            border-color: #4f46e5;
-        }
-        .dark .smt-sync-mini {
-            background: #0f172a;
-            border-color: #475569;
-            color: #e2e8f0;
+            color: #cbd5e1;
         }
 
-        /* 4. Bottom Bento Row: Top Products + Payment Gateways & Store Health */
-        .smt-bot-grid {
-            display: grid;
-            grid-template-columns: 1.15fr 1fr;
-            gap: 0.9rem;
-        }
-        @media (max-width: 1024px) {
-            .smt-bot-grid { grid-template-columns: 1fr; }
-        }
-        .smt-list-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.65rem;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid #f1f5f9;
-        }
-        .smt-list-row:last-child { border-bottom: none; }
-        .dark .smt-list-row { border-bottom-color: #1e293b; }
-        .smt-prog-bg {
-            height: 6px;
+        /* Progress Bar */
+        .smt-bar-bg {
+            height: 4px;
             width: 100%;
             background: #f1f5f9;
             border-radius: 9999px;
             overflow: hidden;
-            margin-top: 4px;
+            margin-top: 0.3rem;
         }
-        .dark .smt-prog-bg { background: #1e293b; }
-        .smt-prog-fill {
+        .dark .smt-bar-bg { background: #1e293b; }
+        .smt-bar-fg {
             height: 100%;
-            background: linear-gradient(90deg, #4f46e5, #10b981);
+            background: #0f172a;
             border-radius: 9999px;
         }
+        .dark .smt-bar-fg { background: #6366f1; }
     </style>
 
-    <div class="smt-dash">
-        {{-- 1. Executive Command Banner --}}
-        <div class="smt-hero">
-            <div class="smt-hero-top">
-                <div>
-                    <div class="smt-hero-pulse">
-                        <span class="smt-hero-pulse-dot"></span>
-                        <span>SellMeTools E-Commerce Command Center · {{ $m['range_label'] }}</span>
-                    </div>
-                    <h2 class="smt-hero-title">Welcome back, {{ $adminName }} 👋</h2>
-                    <p class="smt-hero-sub">
-                        Live store overview, automated supplier wallets, and instant order fulfillment controls.
-                    </p>
-                </div>
-
-                {{-- Interactive Period Filter Pills --}}
-                <div class="smt-range-bar">
+    <div class="smt-pro-dash">
+        {{-- 1. Minimalist Segmented Control & Action Toolbar --}}
+        <div class="smt-toolbar">
+            <div class="smt-toolbar-left">
+                <div class="smt-seg-group" role="tablist" aria-label="Date range">
                     @foreach ($ranges as $key => $label)
                         <button type="button"
                                 wire:click="setRange('{{ $key }}')"
-                                class="smt-range-btn {{ $range === $key ? 'active' : '' }}">
+                                class="smt-seg-btn {{ $range === $key ? 'active' : '' }}">
                             {{ $label }}
                         </button>
                     @endforeach
                 </div>
+
+                <div class="smt-period-meta">
+                    <span>Showing: <strong style="color:#0f172a;" class="dark:!text-white">{{ $m['range_label'] }}</strong></span>
+                    <span>·</span>
+                    <span>Catalog: <strong style="color:#0f172a;" class="dark:!text-white">{{ $m['in_stock_products_count'] }}/{{ $m['active_products_count'] }}</strong> in stock</span>
+                </div>
             </div>
 
-            <div class="smt-hero-actions">
-                <div class="smt-quick-links">
-                    <a href="{{ $m['urls']['statement'] }}" class="smt-qbtn primary">
-                        <span>🏦 Full Bank Statement &amp; Reports</span>
-                    </a>
-                    <a href="{{ $m['urls']['vendor_orders'] }}" class="smt-qbtn indigo">
-                        <span>⚡ Direct &amp; Vendor Orders</span>
-                    </a>
-                    <a href="{{ $m['urls']['create_product'] }}" class="smt-qbtn">
-                        <span>➕ New Product</span>
-                    </a>
-                    <button type="button" wire:click="syncAllSuppliers" wire:loading.attr="disabled" class="smt-qbtn">
-                        <span wire:loading.remove wire:target="syncAllSuppliers">🔄 Sync All Suppliers</span>
-                        <span wire:loading wire:target="syncAllSuppliers">⏳ Syncing...</span>
-                    </button>
-                </div>
-
-                <div style="display:flex;align-items:center;gap:0.85rem;font-size:0.74rem;color:#cbd5e1;">
-                    <span>📦 Active Products: <strong style="color:#fff;">{{ $m['in_stock_products_count'] }}/{{ $m['active_products_count'] }}</strong></span>
-                    <span>·</span>
-                    <span>👥 Customers: <strong style="color:#fff;">{{ $m['customers_count'] }}</strong></span>
-                </div>
+            <div class="smt-toolbar-actions">
+                <a href="{{ $m['urls']['statement'] }}" class="smt-btn dark-primary">
+                    <svg class="smt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 17v-6m3 6V7m3 10v-4M5 21h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2Z"/></svg>
+                    <span>Bank Statement</span>
+                </a>
+                <a href="{{ $m['urls']['vendor_orders'] }}" class="smt-btn">
+                    <svg class="smt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                    <span>Vendor Orders</span>
+                </a>
+                <a href="{{ $m['urls']['create_product'] }}" class="smt-btn">
+                    <svg class="smt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14m-7-7h14"/></svg>
+                    <span>New Product</span>
+                </a>
+                <button type="button" wire:click="syncAllSuppliers" wire:loading.attr="disabled" class="smt-btn">
+                    <svg class="smt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+                    <span wire:loading.remove wire:target="syncAllSuppliers">Sync Suppliers</span>
+                    <span wire:loading wire:target="syncAllSuppliers">Syncing...</span>
+                </button>
             </div>
         </div>
 
-        {{-- 2. Primary 4 Bento KPI Cards --}}
-        <div class="smt-kpi-row">
-            {{-- Revenue Card --}}
-            <a href="{{ $m['urls']['statement'] }}" class="smt-bento-card" style="border-top: 3px solid #10b981;">
+        {{-- 2. Clean 4-Column Metric Grid --}}
+        <div class="smt-metrics-grid">
+            {{-- Gross Revenue --}}
+            <a href="{{ $m['urls']['statement'] }}" class="smt-panel">
                 <div>
-                    <div class="smt-kpi-head">
-                        <span class="smt-kpi-tag">Gross Revenue ({{ $m['range_label'] }})</span>
-                        <span class="smt-kpi-icon" style="background:rgba(16,185,129,0.12);color:#059669;">💰</span>
+                    <div class="smt-metric-top">
+                        <span class="smt-metric-label">Gross Revenue</span>
+                        <svg class="smt-metric-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
                     </div>
-                    <div class="smt-kpi-num" style="color:#059669;">
+                    <div class="smt-metric-value">
                         Rs {{ number_format($m['revenue_pkr'], 0) }}
                     </div>
                 </div>
-                <div class="smt-kpi-foot">
-                    <span class="smt-pill green">{{ $m['paid_orders_count'] }} Paid Orders</span>
-                    <span>Avg: <strong>Rs {{ number_format($m['avg_order_pkr'], 0) }}</strong></span>
+                <div class="smt-metric-bottom">
+                    <span class="smt-tag neutral">{{ $m['paid_orders_count'] }} paid orders</span>
+                    <span>Avg Rs {{ number_format($m['avg_order_pkr'], 0) }}</span>
                 </div>
             </a>
 
-            {{-- Net Profit Card --}}
-            <a href="{{ $m['urls']['statement'] }}" class="smt-bento-card" style="border-top: 3px solid #4f46e5;">
+            {{-- Net Profit --}}
+            <a href="{{ $m['urls']['statement'] }}" class="smt-panel">
                 <div>
-                    <div class="smt-kpi-head">
-                        <span class="smt-kpi-tag">Net Profit ({{ $m['range_label'] }})</span>
-                        <span class="smt-kpi-icon" style="background:rgba(79,70,229,0.12);color:#4f46e5;">📈</span>
+                    <div class="smt-metric-top">
+                        <span class="smt-metric-label">Net Profit</span>
+                        <svg class="smt-metric-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
                     </div>
-                    <div class="smt-kpi-num" style="color:{{ $m['net_profit_pkr'] >= 0 ? '#4f46e5' : '#e11d48' }};">
+                    <div class="smt-metric-value" style="color: {{ $m['net_profit_pkr'] >= 0 ? '#059669' : '#e11d48' }};">
                         {{ $m['net_profit_pkr'] >= 0 ? '+Rs ' : '-Rs ' }}{{ number_format(abs($m['net_profit_pkr']), 0) }}
                     </div>
                 </div>
-                <div class="smt-kpi-foot">
-                    <span class="smt-pill indigo">{{ $m['margin_pct'] }}% Margin</span>
-                    <span>Cost: <strong>Rs {{ number_format($m['order_cost_pkr'], 0) }}</strong></span>
+                <div class="smt-metric-bottom">
+                    <span class="smt-tag {{ $m['net_profit_pkr'] >= 0 ? 'emerald' : 'rose' }}">{{ $m['margin_pct'] }}% margin</span>
+                    <span>Cost Rs {{ number_format($m['order_cost_pkr'], 0) }}</span>
                 </div>
             </a>
 
-            {{-- Payment Verification Queue --}}
-            <a href="{{ $m['urls']['review_orders'] }}" class="smt-bento-card" style="border-top: 3px solid {{ $m['pending_payments_count'] > 0 ? '#f59e0b' : '#94a3b8' }};">
+            {{-- Payment Verification --}}
+            <a href="{{ $m['urls']['review_orders'] }}" class="smt-panel">
                 <div>
-                    <div class="smt-kpi-head">
-                        <span class="smt-kpi-tag">Payment Review Queue</span>
-                        <span class="smt-kpi-icon" style="background:rgba(245,158,11,0.14);color:#d97706;">⏳</span>
+                    <div class="smt-metric-top">
+                        <span class="smt-metric-label">Payment Review</span>
+                        <svg class="smt-metric-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     </div>
-                    <div class="smt-kpi-num" style="color:{{ $m['pending_payments_count'] > 0 ? '#d97706' : '#64748b' }};">
+                    <div class="smt-metric-value">
                         {{ $m['pending_payments_count'] }}
                     </div>
                 </div>
-                <div class="smt-kpi-foot">
+                <div class="smt-metric-bottom">
                     @if ($m['pending_payments_count'] > 0)
-                        <span class="smt-pill amber">Action Needed: Approve TID</span>
+                        <span class="smt-tag amber">Awaiting TID verification</span>
                     @else
-                        <span class="smt-pill green">✓ All Payments Verified</span>
+                        <span class="smt-tag emerald">All verified</span>
                     @endif
-                    <span>Open Queue →</span>
+                    <span>Review queue →</span>
                 </div>
             </a>
 
-            {{-- Delivery & Vendor Alert Queue --}}
-            <a href="{{ $m['unfulfilled_vendor_count'] > 0 ? $m['urls']['unfulfilled_vendor'] : $m['urls']['attention_orders'] }}"
-               class="smt-bento-card"
-               style="border-top: 3px solid {{ ($m['needs_attention_count'] + $m['unfulfilled_vendor_count']) > 0 ? '#e11d48' : '#10b981' }};">
+            {{-- Fulfillment Queue --}}
+            <a href="{{ $m['unfulfilled_vendor_count'] > 0 ? $m['urls']['unfulfilled_vendor'] : $m['urls']['attention_orders'] }}" class="smt-panel">
                 <div>
-                    <div class="smt-kpi-head">
-                        <span class="smt-kpi-tag">Pending Delivery / Alerts</span>
-                        <span class="smt-kpi-icon" style="background:rgba(225,29,72,0.12);color:#e11d48;">⚡</span>
+                    <div class="smt-metric-top">
+                        <span class="smt-metric-label">Fulfillment Queue</span>
+                        <svg class="smt-metric-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                     </div>
-                    <div class="smt-kpi-num" style="color:{{ ($m['needs_attention_count'] + $m['unfulfilled_vendor_count']) > 0 ? '#e11d48' : '#059669' }};">
-                        {{ $m['needs_attention_count'] }} <span style="font-size:0.85rem;font-weight:600;color:#64748b;">Orders</span>
+                    <div class="smt-metric-value">
+                        {{ $m['needs_attention_count'] }}
                     </div>
                 </div>
-                <div class="smt-kpi-foot">
+                <div class="smt-metric-bottom">
                     @if ($m['unfulfilled_vendor_count'] > 0)
-                        <span class="smt-pill rose">{{ $m['unfulfilled_vendor_count'] }} Vendor Unfulfilled</span>
+                        <span class="smt-tag rose">{{ $m['unfulfilled_vendor_count'] }} vendor unfulfilled</span>
                     @elseif ($m['needs_attention_count'] > 0)
-                        <span class="smt-pill amber">Awaiting Manual Delivery</span>
+                        <span class="smt-tag amber">Manual delivery pending</span>
                     @else
-                        <span class="smt-pill green">✓ Zero Delivery Issues</span>
+                        <span class="smt-tag emerald">All orders delivered</span>
                     @endif
-                    <span>Direct Buys: <strong>{{ $m['direct_buys_count'] }}</strong></span>
+                    <span>Direct buys: {{ $m['direct_buys_count'] }}</span>
                 </div>
             </a>
         </div>
 
-        {{-- 3. Middle Bento Row: 7-Day Revenue vs Profit Chart + Live Supplier Wallets --}}
-        <div class="smt-mid-grid">
-            {{-- 7-Day Revenue & Profit Visual Bar Chart --}}
-            <div class="smt-bento-card">
+        {{-- 3. Middle Row: 7-Day Revenue/Profit Chart + Supplier Wallets Table --}}
+        <div class="smt-two-col">
+            {{-- 7-Day Revenue & Profit Trend --}}
+            <div class="smt-panel">
                 <div>
-                    <div class="smt-section-head">
-                        <span class="smt-section-title">📊 Last 7 Days Revenue &amp; Profit Trend</span>
-                        <div style="display:flex;align-items:center;gap:0.65rem;font-size:0.68rem;font-weight:700;color:#64748b;">
+                    <div class="smt-panel-header">
+                        <span class="smt-panel-title">
+                            <svg class="smt-icon" style="color:#64748b;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                            <span>7-Day Revenue &amp; Profit</span>
+                        </span>
+                        <div style="display:flex;align-items:center;gap:0.75rem;font-size:0.68rem;font-weight:600;color:#64748b;">
                             <span style="display:inline-flex;align-items:center;gap:4px;">
-                                <span style="width:8px;height:8px;border-radius:2px;background:#4f46e5;"></span> Revenue
+                                <span style="width:8px;height:8px;border-radius:2px;background:#334155;"></span> Revenue
                             </span>
                             <span style="display:inline-flex;align-items:center;gap:4px;">
-                                <span style="width:8px;height:8px;border-radius:2px;background:#10b981;"></span> Net Profit
+                                <span style="width:8px;height:8px;border-radius:2px;background:#10b981;"></span> Profit
                             </span>
                         </div>
                     </div>
 
-                    <div class="smt-chart-bars">
+                    <div class="smt-chart-grid">
                         @foreach ($m['daily_chart'] as $day)
-                            <div class="smt-bar-col" title="{{ $day['date_short'] }}: Sales Rs {{ number_format($day['revenue'], 0) }} | Profit Rs {{ number_format($day['profit'], 0) }} ({{ $day['orders'] }} orders)">
-                                <span class="smt-bar-val">
+                            <div class="smt-chart-col" title="{{ $day['date_short'] }}: Revenue Rs {{ number_format($day['revenue'], 0) }} | Profit Rs {{ number_format($day['profit'], 0) }} ({{ $day['orders'] }} orders)">
+                                <span class="smt-chart-num">
                                     {{ $day['revenue'] >= 1000 ? round($day['revenue'] / 1000, 1).'k' : ($day['revenue'] > 0 ? number_format($day['revenue'], 0) : '0') }}
                                 </span>
-                                <div class="smt-bar-track">
-                                    <div class="smt-bar-fill-rev" style="height: {{ $day['height_pct'] }}%;">
-                                        <div class="smt-bar-fill-prof" style="height: {{ $day['revenue'] > 0 ? min(100, round(($day['profit'] / max(1, $day['revenue'])) * 100)) : 0 }}%;"></div>
+                                <div class="smt-chart-track">
+                                    <div class="smt-chart-bar-rev" style="height: {{ $day['height_pct'] }}%;">
+                                        <div class="smt-chart-bar-prof" style="height: {{ $day['revenue'] > 0 ? min(100, round(($day['profit'] / max(1, $day['revenue'])) * 100)) : 0 }}%;"></div>
                                     </div>
                                 </div>
-                                <span class="smt-bar-day">{{ $day['label'] }}</span>
+                                <span class="smt-chart-day">{{ $day['label'] }}</span>
                             </div>
                         @endforeach
                     </div>
                 </div>
             </div>
 
-            {{-- Live Supplier Wallets & 1-Tap Sync --}}
-            <div class="smt-bento-card">
+            {{-- Supplier Wallets & API Status --}}
+            <div class="smt-panel">
                 <div>
-                    <div class="smt-section-head">
-                        <span class="smt-section-title">⚡ Supplier Wallets &amp; Live API Status</span>
-                        <a href="{{ $m['urls']['suppliers'] }}" style="font-size:0.72rem;font-weight:700;color:#4f46e5;text-decoration:none;">
-                            Manage All →
-                        </a>
+                    <div class="smt-panel-header">
+                        <span class="smt-panel-title">
+                            <svg class="smt-icon" style="color:#64748b;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+                            <span>Supplier API Wallets</span>
+                        </span>
+                        <a href="{{ $m['urls']['suppliers'] }}" class="smt-panel-link">Manage suppliers →</a>
                     </div>
 
-                    <div class="smt-sup-grid">
-                        @foreach ($m['suppliers'] as $sup)
-                            @php
-                                $bal = (float) ($sup->balance ?? 0);
-                                $low = (float) ($sup->low_balance_threshold ?? 1.0);
-                                $isLow = $bal < max(0.5, $low);
-                                $pkrEq = $sup->toPkr($bal);
-                            @endphp
-                            <div class="smt-sup-box">
-                                <div style="min-width:0;">
-                                    <div style="display:flex;align-items:center;gap:0.35rem;">
-                                        <span style="width:7px;height:7px;border-radius:9999px;background:{{ $sup->is_active ? ($isLow ? '#f59e0b' : '#10b981') : '#94a3b8' }};"></span>
-                                        <span style="font-size:0.78rem;font-weight:800;color:#0f172a;" class="dark:!text-white truncate">
-                                            {{ $sup->name }}
-                                        </span>
-                                    </div>
-                                    <div style="font-family:monospace;font-size:0.9rem;font-weight:800;margin-top:2px;color:{{ $isLow ? '#e11d48' : '#059669' }};">
+                    <table class="smt-sup-table">
+                        <tbody>
+                            @foreach ($m['suppliers'] as $sup)
+                                @php
+                                    $bal = (float) ($sup->balance ?? 0);
+                                    $low = (float) ($sup->low_balance_threshold ?? 1.0);
+                                    $isLow = $bal < max(0.5, $low);
+                                    $pkrEq = $sup->toPkr($bal);
+                                @endphp
+                                <tr>
+                                    <td>
+                                        <span class="smt-dot" style="background: {{ $sup->is_active ? ($isLow ? '#f59e0b' : '#10b981') : '#94a3b8' }};"></span>
+                                        <strong style="color:#0f172a;" class="dark:!text-white">{{ $sup->name }}</strong>
+                                        <span style="font-size:0.68rem;color:#64748b;margin-left:4px;">({{ $sup->products_count }})</span>
+                                    </td>
+                                    <td style="text-align:right;font-family:monospace;font-weight:700;color:{{ $isLow ? '#e11d48' : '#0f172a' }};" class="{{ ! $isLow ? 'dark:!text-white' : '' }}">
                                         {{ number_format($bal, 2) }} {{ $sup->currency ?: 'USDT' }}
-                                    </div>
-                                    <div style="font-size:0.65rem;color:#64748b;">
-                                        ≈ Rs {{ number_format($pkrEq, 0) }} · {{ $sup->products_count }} items
-                                    </div>
-                                </div>
-
-                                <button type="button"
-                                        wire:click="syncSupplierNow({{ $sup->id }})"
-                                        wire:loading.attr="disabled"
-                                        class="smt-sync-mini"
-                                        title="Sync {{ $sup->name }} now">
-                                    🔄 Sync
-                                </button>
-                            </div>
-                        @endforeach
-                    </div>
+                                        <span style="display:block;font-size:0.65rem;color:#64748b;font-weight:500;">≈ Rs {{ number_format($pkrEq, 0) }}</span>
+                                    </td>
+                                    <td style="text-align:right;width:68px;">
+                                        <button type="button"
+                                                wire:click="syncSupplierNow({{ $sup->id }})"
+                                                wire:loading.attr="disabled"
+                                                class="smt-icon-btn"
+                                                title="Sync {{ $sup->name }}">
+                                            <svg style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+                                            <span>Sync</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
-        {{-- 4. Bottom Bento Row: Top Selling Products + Payment Gateways Breakdown --}}
-        <div class="smt-bot-grid">
-            {{-- Top Selling Products Leaderboard --}}
-            <div class="smt-bento-card">
+        {{-- 4. Bottom Row: Top Products + Payment Gateways --}}
+        <div class="smt-two-col">
+            {{-- Top Selling Products --}}
+            <div class="smt-panel">
                 <div>
-                    <div class="smt-section-head">
-                        <span class="smt-section-title">🏆 Top Selling Products ({{ $m['range_label'] }})</span>
-                        <a href="{{ $m['urls']['products'] }}" style="font-size:0.72rem;font-weight:700;color:#4f46e5;text-decoration:none;">
-                            All Products →
-                        </a>
+                    <div class="smt-panel-header">
+                        <span class="smt-panel-title">
+                            <svg class="smt-icon" style="color:#64748b;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                            <span>Top Products ({{ $m['range_label'] }})</span>
+                        </span>
+                        <a href="{{ $m['urls']['products'] }}" class="smt-panel-link">View catalog →</a>
                     </div>
 
-                    @forelse ($m['top_products'] as $idx => $tp)
-                        <div class="smt-list-row">
-                            <div style="display:flex;align-items:center;gap:0.6rem;min-width:0;">
-                                <span style="width:22px;height:22px;border-radius:6px;background:#e0e7ff;color:#3730a3;font-size:0.7rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                    #{{ $idx + 1 }}
-                                </span>
-                                <div style="min-width:0;">
-                                    <div style="font-size:0.78rem;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" class="dark:!text-white">
-                                        {{ $tp->product_name }}
-                                    </div>
-                                    <div style="font-size:0.67rem;color:#64748b;">
-                                        {{ (int) $tp->units_sold }} unit(s) sold
-                                    </div>
-                                </div>
-                            </div>
-                            <div style="text-align:right;flex-shrink:0;">
-                                <div style="font-family:monospace;font-size:0.8rem;font-weight:800;color:#059669;">
-                                    Rs {{ number_format((float) $tp->total_rev, 0) }}
-                                </div>
-                            </div>
-                        </div>
-                    @empty
-                        <div style="text-align:center;padding:1.5rem 0;font-size:0.76rem;color:#64748b;">
-                            No paid product sales recorded in {{ strtolower($m['range_label']) }} yet.
-                        </div>
-                    @endforelse
+                    <table class="smt-sup-table">
+                        <tbody>
+                            @forelse ($m['top_products'] as $idx => $tp)
+                                <tr>
+                                    <td style="width:28px;font-family:monospace;font-size:0.7rem;color:#64748b;font-weight:600;">
+                                        0{{ $idx + 1 }}
+                                    </td>
+                                    <td>
+                                        <div style="font-weight:600;color:#0f172a;line-height:1.25;" class="dark:!text-white">{{ $tp->product_name }}</div>
+                                        <div style="font-size:0.68rem;color:#64748b;">{{ (int) $tp->units_sold }} sold</div>
+                                    </td>
+                                    <td style="text-align:right;font-family:monospace;font-weight:700;color:#0f172a;" class="dark:!text-white">
+                                        Rs {{ number_format((float) $tp->total_rev, 0) }}
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="3" style="text-align:center;padding:1.25rem 0;color:#64748b;">
+                                        No product sales recorded in this period.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
-            {{-- Payment Gateways Mix --}}
-            <div class="smt-bento-card">
+            {{-- Payment Gateways --}}
+            <div class="smt-panel">
                 <div>
-                    <div class="smt-section-head">
-                        <span class="smt-section-title">💳 Payment Gateways Mix ({{ $m['range_label'] }})</span>
-                        <a href="{{ $m['urls']['statement'] }}" style="font-size:0.72rem;font-weight:700;color:#4f46e5;text-decoration:none;">
-                            Full Ledger →
-                        </a>
+                    <div class="smt-panel-header">
+                        <span class="smt-panel-title">
+                            <svg class="smt-icon" style="color:#64748b;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                            <span>Payment Methods ({{ $m['range_label'] }})</span>
+                        </span>
+                        <a href="{{ $m['urls']['statement'] }}" class="smt-panel-link">Statement ledger →</a>
                     </div>
 
                     @forelse ($m['gateways'] as $gw)
-                        <div style="padding:0.4rem 0;">
-                            <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.76rem;">
-                                <span style="font-weight:700;color:#0f172a;" class="dark:!text-white">
-                                    {{ $gw['name'] }} <span style="font-size:0.68rem;color:#64748b;font-weight:500;">({{ $gw['count'] }} orders)</span>
+                        <div style="padding:0.42rem 0;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.75rem;">
+                                <span style="font-weight:600;color:#0f172a;" class="dark:!text-white">
+                                    {{ $gw['name'] }} <span style="font-size:0.68rem;color:#64748b;font-weight:400;">({{ $gw['count'] }})</span>
                                 </span>
-                                <span style="font-family:monospace;font-weight:800;color:#059669;">
-                                    Rs {{ number_format($gw['total'], 0) }} ({{ $gw['share_pct'] }}%)
+                                <span style="font-family:monospace;font-weight:700;color:#0f172a;" class="dark:!text-white">
+                                    Rs {{ number_format($gw['total'], 0) }} <span style="color:#64748b;font-weight:500;">({{ $gw['share_pct'] }}%)</span>
                                 </span>
                             </div>
-                            <div class="smt-prog-bg">
-                                <div class="smt-prog-fill" style="width: {{ max(4, $gw['share_pct']) }}%;"></div>
+                            <div class="smt-bar-bg">
+                                <div class="smt-bar-fg" style="width: {{ max(4, $gw['share_pct']) }}%;"></div>
                             </div>
                         </div>
                     @empty
-                        <div style="text-align:center;padding:1.5rem 0;font-size:0.76rem;color:#64748b;">
-                            No gateway payments in {{ strtolower($m['range_label']) }} yet.
+                        <div style="text-align:center;padding:1.25rem 0;font-size:0.76rem;color:#64748b;">
+                            No payments recorded in this period.
                         </div>
                     @endforelse
                 </div>

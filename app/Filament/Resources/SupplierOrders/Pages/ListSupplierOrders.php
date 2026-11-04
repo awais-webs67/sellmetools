@@ -28,7 +28,7 @@ class ListSupplierOrders extends ListRecords
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereNull('order_item_id')),
             'customer' => Tab::make('🛒 Customer Orders')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereNotNull('order_item_id')),
-            'failed' => Tab::make('⚠️ Unfulfilled / Needs Action')
+            'failed' => Tab::make('Unfulfilled / Needs Action')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query
                     ->whereIn('status', [SupplierOrderStatus::Failed, SupplierOrderStatus::Unknown])
                     ->where(function (Builder $sub): void {
