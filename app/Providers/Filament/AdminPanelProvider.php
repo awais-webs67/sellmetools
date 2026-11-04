@@ -56,11 +56,11 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::USER_MENU_BEFORE,
                 fn (): HtmlString => new HtmlString(
                     '<div class="smt-topbar-actions">'
-                    .'<a href="'.e(url('/admin/sales-statement')).'" class="fi-live-store-btn" title="Sales & Profit Reports">'
+                    .'<a href="'.e(url('/admin/sales-statement')).'" class="fi-live-store-btn smt-hide-mobile" title="Sales & Profit Reports">'
                     .'<svg style="width:14px;height:14px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 17v-6m3 6V7m3 10v-4M5 21h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2Z"/></svg>'
                     .'<span class="smt-btn-text">Reports</span>'
                     .'</a>'
-                    .'<a href="'.e(url('/admin/vendor-orders')).'" class="fi-live-store-btn" title="Direct & Vendor Orders">'
+                    .'<a href="'.e(url('/admin/vendor-orders')).'" class="fi-live-store-btn smt-hide-mobile" title="Direct & Vendor Orders">'
                     .'<svg style="width:14px;height:14px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>'
                     .'<span class="smt-btn-text">Vendor</span>'
                     .'</a>'
@@ -395,14 +395,60 @@ class AdminPanelProvider extends PanelProvider
                         color: #ffffff !important;
                         font-weight: 700 !important;
                     }
+                    .fi-topbar-ctn {
+                        overflow: visible !important;
+                    }
                     .fi-topbar {
                         background: rgba(255, 255, 255, 0.92) !important;
                         backdrop-filter: blur(12px) !important;
                         border-bottom: 1px solid #cbd5e1 !important;
+                        gap: 0.5rem !important;
                     }
                     .dark .fi-topbar {
                         background: rgba(15, 23, 42, 0.92) !important;
                         border-bottom-color: rgba(51, 65, 85, 0.65) !important;
+                    }
+                    .fi-topbar-end {
+                        flex: 1 1 auto !important;
+                        min-width: 0 !important;
+                        justify-content: flex-end !important;
+                        column-gap: 0.5rem !important;
+                    }
+                    .fi-global-search-ctn {
+                        flex: 1 1 auto !important;
+                        min-width: 130px !important;
+                        max-width: 320px !important;
+                    }
+                    .fi-global-search,
+                    .fi-global-search-field,
+                    .fi-global-search-field .fi-input-wrp,
+                    .fi-global-search-field .fi-input-wrp-content-ctn {
+                        width: 100% !important;
+                        min-width: 0 !important;
+                    }
+                    .fi-global-search-field .fi-input-wrp,
+                    .fi-ta-search-field .fi-input-wrp {
+                        cursor: text !important;
+                    }
+                    .fi-global-search-field .fi-input-wrp-prefix,
+                    .fi-ta-search-field .fi-input-wrp-prefix {
+                        pointer-events: none !important;
+                    }
+                    .fi-global-search-field .fi-input {
+                        width: 100% !important;
+                        min-width: 85px !important;
+                        cursor: text !important;
+                        pointer-events: auto !important;
+                    }
+                    .fi-ta-search-field {
+                        flex: 1 1 180px !important;
+                        min-width: 140px !important;
+                    }
+                    .fi-ta-search-field .fi-input {
+                        width: 100% !important;
+                        min-width: 95px !important;
+                        cursor: text !important;
+                        pointer-events: auto !important;
                     }
 
                     /* 1b. Live Store & Quick Action Header Buttons */
@@ -605,11 +651,13 @@ class AdminPanelProvider extends PanelProvider
 
                     /* 7. Inputs, Selects & Buttons */
                     .fi-input-wrp {
-                        min-width: 0 !important;
                         border-radius: 0.55rem !important;
                     }
-                    .fi-input {
+                    .fi-fo-field-wrp .fi-input-wrp,
+                    .fi-fo-field-wrp .fi-input {
                         min-width: 0 !important;
+                    }
+                    .fi-input {
                         font-size: 0.875rem !important;
                     }
                     .fi-btn {
@@ -762,13 +810,61 @@ class AdminPanelProvider extends PanelProvider
                         }
                     }
                     @media (max-width: 768px) {
-                        .fi-topbar nav {
-                            padding-left: 0.5rem !important;
-                            padding-right: 0.5rem !important;
+                        .smt-hide-mobile {
+                            display: none !important;
+                        }
+                        .fi-topbar {
+                            padding-inline: 0.5rem !important;
                             gap: 0.35rem !important;
+                            min-height: 3.35rem !important;
+                        }
+                        .fi-topbar-open-sidebar-btn,
+                        .fi-topbar-close-sidebar-btn {
+                            margin-inline-end: 0.15rem !important;
+                            flex-shrink: 0 !important;
+                        }
+                        .fi-topbar-end {
+                            flex: 1 1 auto !important;
+                            min-width: 0 !important;
+                            column-gap: 0.35rem !important;
+                            justify-content: flex-end !important;
+                        }
+                        .fi-global-search-ctn {
+                            flex: 1 1 auto !important;
+                            min-width: 115px !important;
+                            max-width: 100% !important;
+                        }
+                        .fi-global-search-field .fi-input,
+                        .fi-ta-search-field .fi-input {
+                            font-size: 16px !important;
+                            padding-top: 0.35rem !important;
+                            padding-bottom: 0.35rem !important;
+                            padding-inline-start: 0.35rem !important;
+                            padding-inline-end: 0.5rem !important;
+                        }
+                        .fi-topbar .fi-global-search-results-ctn {
+                            position: fixed !important;
+                            top: 56px !important;
+                            left: 0.5rem !important;
+                            right: 0.5rem !important;
+                            width: auto !important;
+                            max-width: none !important;
+                            z-index: 9999 !important;
                         }
                         .smt-topbar-actions {
                             gap: 0.25rem !important;
+                            flex-shrink: 0 !important;
+                        }
+                        .fi-live-store-btn {
+                            width: 34px !important;
+                            height: 34px !important;
+                            padding: 0 !important;
+                            justify-content: center !important;
+                            border-radius: 0.55rem !important;
+                        }
+                        .smt-bell-btn {
+                            width: 34px !important;
+                            height: 34px !important;
                         }
                         .fi-main {
                             padding-left: 0.5rem !important;
@@ -855,16 +951,24 @@ class AdminPanelProvider extends PanelProvider
                             justify-content: center !important;
                             font-size: 0.76rem !important;
                         }
-                        .fi-live-store-btn {
-                            padding: 0.3rem 0.42rem !important;
-                        }
+                        .fi-live-store-btn,
                         .smt-bell-btn {
-                            width: 30px !important;
-                            height: 30px !important;
+                            width: 32px !important;
+                            height: 32px !important;
+                            padding: 0 !important;
                         }
                     }
                 </style>
                 <script>
+                    document.addEventListener("click", function (e) {
+                        const wrp = e.target.closest(".fi-global-search-field .fi-input-wrp, .fi-ta-search-field .fi-input-wrp");
+                        if (wrp && e.target.tagName !== "INPUT" && !e.target.closest("button")) {
+                            const input = wrp.querySelector("input");
+                            if (input) {
+                                input.focus();
+                            }
+                        }
+                    });
                     document.addEventListener("livewire:init", function () {
                         if (window.Livewire && typeof window.Livewire.interceptRequest === "function") {
                             window.Livewire.interceptRequest(({ onRedirect, onError }) => {
