@@ -29,6 +29,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\HtmlString;
 use Throwable;
 use UnitEnum;
@@ -66,7 +67,7 @@ class SupplierOrderResource extends Resource
 
         $failed = app()->runningUnitTests()
             ? $fetch()
-            : (int) \Illuminate\Support\Facades\Cache::remember('smt_admin_nav_vendor_orders', 12, $fetch);
+            : (int) Cache::remember('smt_admin_nav_vendor_orders', 12, $fetch);
 
         return $failed > 0 ? (string) $failed : null;
     }
@@ -81,49 +82,58 @@ class SupplierOrderResource extends Resource
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query->with(['supplier', 'supplierProduct', 'orderItem.order']))
             ->defaultSort('created_at', 'desc')
+            ->paginated([15, 25, 50, 100])
+            ->defaultPaginationPageOption(25)
             ->columns([
                 TextColumn::make('id')
                     ->label('#')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('orderItem.order.number')
-                    ->label('Customer Order')
+                    ->label('Order #')
                     ->searchable()
                     ->weight('bold')
+                    ->color('primary')
                     ->url(fn (SupplierOrder $r): ?string => $r->orderItem?->order
                         ? OrderResource::getUrl('view', ['record' => $r->orderItem->order])
                         : null)
-                    ->placeholder('Direct Test'),
+                    ->placeholder('Direct Buy')
+                    ->description(fn (SupplierOrder $r): string => $r->created_at?->diffForHumans(short: true) ?? ''),
                 TextColumn::make('supplier.name')
-                    ->label('Vendor / Supplier')
+                    ->label('Vendor')
+                    ->badge()
+                    ->color('info')
                     ->sortable(),
                 TextColumn::make('supplierProduct.name')
                     ->label('Vendor Product')
                     ->searchable()
-                    ->wrap()
-                    ->description(fn (SupplierOrder $r): string => 'Qty: '.$r->quantity.' · Req ID: '.$r->request_id),
-                TextColumn::make('external_order_id')
-                    ->label('Vendor Order ID')
-                    ->searchable()
-                    ->copyable()
-                    ->placeholder('-'),
+                    ->limit(32)
+                    ->tooltip(fn (SupplierOrder $r): string => (string) ($r->supplierProduct?->name ?? ''))
+                    ->description(fn (SupplierOrder $r): string => 'Qty: '.$r->quantity.($r->external_order_id ? ' · ID: '.$r->external_order_id : '')),
                 TextColumn::make('cost')
                     ->label('Cost')
+                    ->weight('bold')
                     ->formatStateUsing(fn ($state, SupplierOrder $r): string => $state !== null
                         ? Money::currency($state, $r->supplier?->currency ?? 'USDT')
                         : '-')
+                    ->description(fn ($state, SupplierOrder $r): ?string => ($state !== null && $r->supplier)
+                        ? Money::pkr(round($r->supplier->toPkr((float) $state), 0))
+                        : null)
                     ->sortable(),
                 TextColumn::make('status')
                     ->badge()
                     ->color(fn (SupplierOrderStatus $state): string => $state->color()),
                 TextColumn::make('error')
                     ->label('Error / Info')
-                    ->limit(45)
+                    ->limit(30)
+                    ->tooltip(fn (SupplierOrder $r): ?string => $r->error ?: null)
                     ->color('danger')
                     ->placeholder('-'),
                 TextColumn::make('created_at')
                     ->label('Time')
                     ->since()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('supplier_id')
@@ -143,6 +153,8 @@ class SupplierOrderResource extends Resource
                     ->label('Details')
                     ->icon(Heroicon::OutlinedEye)
                     ->color('gray')
+                    ->button()
+                    ->size('xs')
                     ->modalHeading(fn (SupplierOrder $r): string => 'Vendor Order #'.$r->id.' ('.$r->request_id.')')
                     ->modalSubmitAction(false)
                     ->schema(fn (SupplierOrder $r): array => [
@@ -178,9 +190,11 @@ class SupplierOrderResource extends Resource
                             ]),
                     ]),
                 Action::make('retryOrder')
-                    ->label('Retry Order')
+                    ->label('Retry')
                     ->icon(Heroicon::OutlinedArrowPath)
                     ->color('warning')
+                    ->button()
+                    ->size('xs')
                     ->requiresConfirmation()
                     ->visible(fn (SupplierOrder $r): bool => $r->status === SupplierOrderStatus::Failed && $r->orderItem?->order !== null)
                     ->action(function (SupplierOrder $r): void {

@@ -4,12 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
+use App\Exceptions\StoreException;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Setting;
+use App\Models\SupplierProduct;
 use App\Services\AutoPaymentVerifier;
 use App\Services\FulfillmentService;
+use App\Services\OrderService;
 use App\Services\PaymentService;
 use App\Services\TelegramNotifier;
 use Illuminate\Contracts\View\View;
@@ -216,7 +219,7 @@ class PaymentWebhookController extends Controller
     public function quickOrder(Request $request, Order $order, PaymentService $payments, FulfillmentService $fulfillment): View|RedirectResponse
     {
         $do = strtolower((string) ($request->input('do') ?? $request->query('do') ?? 'approve'));
-        if (! in_array($do, ['approve', 'reject', 'retry', 'manual_deliver', 'whatsapp_delivered'], true)) {
+        if (! in_array($do, ['approve', 'reject', 'retry', 'manual_deliver', 'whatsapp_delivered', 'fulfill_supplier'], true)) {
             $do = 'approve';
         }
 
@@ -236,7 +239,7 @@ class PaymentWebhookController extends Controller
             $isUnlockedByCookie = true;
         }
 
-        $order->load(['items.deliveries', 'items.product', 'paymentMethod', 'latestPayment']);
+        $order->load(['items.deliveries', 'items.product.sources.supplier', 'items.product.activeSources.supplier', 'paymentMethod', 'latestPayment']);
         $payment = $order->latestPayment;
 
         // If not unlocked by Secret Key cookie yet, show the Secret Key + Approve/Decline screen
@@ -273,13 +276,39 @@ class PaymentWebhookController extends Controller
                     ? max(0.0, (float) $request->input('manual_cost'))
                     : null;
 
-                if (in_array($do, ['approve', 'retry', 'manual_deliver'], true)) {
+                if ($do === 'fulfill_supplier') {
+                    $item = $order->items()->find((int) $request->input('order_item_id')) ?? $order->items()->first();
+                    $source = SupplierProduct::with('supplier')->findOrFail((int) $request->input('supplier_product_id'));
+                    if (! $item) {
+                        throw new StoreException('Order item not found.');
+                    }
+
+                    if ($payment && $payment->status === PaymentStatus::Pending) {
+                        $payment->update([
+                            'status' => PaymentStatus::Approved,
+                            'reviewed_at' => now(),
+                        ]);
+                        $order->update(['paid_at' => $order->paid_at ?? now()]);
+                    }
+
+                    $order = $fulfillment->fulfillFromSpecificSupplier($order, $item, $source);
+                    $order->load(['items.deliveries', 'items.product.sources.supplier', 'items.product.activeSources.supplier', 'paymentMethod', 'latestPayment']);
+                    $payment = $order->latestPayment;
+
+                    if ($order->status === OrderStatus::Completed) {
+                        $actionResult = 'approve';
+                        $message = "✅ Order {$order->number} Delivered via {$source->supplier?->name}!";
+                    } else {
+                        $actionResult = 'needs_attention';
+                        $message = "⚠️ {$source->supplier?->name} could not deliver: ".($order->admin_note ?: 'Check supplier balance or try another supplier.');
+                    }
+                } elseif (in_array($do, ['approve', 'retry', 'manual_deliver'], true)) {
                     $customCredentials = trim((string) $request->input('credentials', ''));
                     if ($do === 'manual_deliver' && $customCredentials === '') {
-                        throw new \App\Exceptions\StoreException('Please paste the manual credentials before clicking Deliver Manually.');
+                        throw new StoreException('Please paste the manual credentials before clicking Deliver Manually.');
                     }
                     $order = $this->approveAndFulfill($order, $payment, $payments, $fulfillment, $customCredentials, $manualCost);
-                    $order->load(['items.deliveries', 'items.product', 'paymentMethod', 'latestPayment']);
+                    $order->load(['items.deliveries', 'items.product.sources.supplier', 'items.product.activeSources.supplier', 'paymentMethod', 'latestPayment']);
                     $payment = $order->latestPayment;
 
                     if ($order->status === OrderStatus::Completed) {
@@ -299,7 +328,7 @@ class PaymentWebhookController extends Controller
                         $order->update(['paid_at' => $order->paid_at ?? now()]);
                     }
                     $order = $fulfillment->markDeliveredViaWhatsApp($order, $customNote ?: null, $manualCost);
-                    $order->load(['items.deliveries', 'items.product', 'paymentMethod', 'latestPayment']);
+                    $order->load(['items.deliveries', 'items.product.sources.supplier', 'items.product.activeSources.supplier', 'paymentMethod', 'latestPayment']);
                     $payment = $order->latestPayment;
                     $actionResult = 'approve';
                     $message = "✅ Order {$order->number} Marked as Delivered via WhatsApp!";
@@ -308,12 +337,12 @@ class PaymentWebhookController extends Controller
                         $payments->reject($payment, 'Please check your Transaction ID (TID) and submit a valid payment reference.', $request->user());
                         $message = "❌ Order {$order->number} payment has been Declined.";
                     } else {
-                        $res = app(\App\Services\OrderService::class)->cancelAndRefund($order, OrderStatus::Cancelled, 'Cancelled by Admin via 1-Tap Control', $request->user()?->id);
+                        $res = app(OrderService::class)->cancelAndRefund($order, OrderStatus::Cancelled, 'Cancelled by Admin via 1-Tap Control', $request->user()?->id);
                         $message = $res['refunded']
                             ? "❌ Order {$order->number} Cancelled & Rs {$res['amount']} automatically refunded to customer Wallet!"
                             : "❌ Order {$order->number} has been Cancelled.";
                     }
-                    $order->refresh()->load(['items.deliveries', 'items.product', 'paymentMethod', 'latestPayment']);
+                    $order->refresh()->load(['items.deliveries', 'items.product.sources.supplier', 'items.product.activeSources.supplier', 'paymentMethod', 'latestPayment']);
                     $payment = $order->latestPayment;
                     $actionResult = 'reject';
                 }

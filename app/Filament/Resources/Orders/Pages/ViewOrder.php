@@ -5,9 +5,11 @@ namespace App\Filament\Resources\Orders\Pages;
 use App\Enums\OrderStatus;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\Payments\Actions\PaymentActions;
+use App\Filament\Support\Money;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Payment;
+use App\Models\SupplierProduct;
 use App\Services\FulfillmentService;
 use App\Services\OrderService;
 use Filament\Actions\Action;
@@ -42,6 +44,7 @@ class ViewOrder extends ViewRecord
                 ->label('Reject Payment')
                 ->after(fn () => $this->refreshRecord()),
             $this->retryFulfillmentAction(),
+            $this->fulfillViaBackupSupplierAction(),
             $this->deliverManuallyAction(),
             $this->markWhatsappDeliveredAction(),
             $this->chatCustomerWhatsappAction(),
@@ -80,12 +83,12 @@ class ViewOrder extends ViewRecord
     protected function retryFulfillmentAction(): Action
     {
         return Action::make('retryFulfillment')
-            ->label('Retry Supplier / Stock')
+            ->label('Retry 1st Supplier')
             ->icon(Heroicon::OutlinedArrowPath)
             ->color('primary')
             ->visible(fn (): bool => in_array($this->record->status, [OrderStatus::Processing, OrderStatus::NeedsAttention], true))
             ->requiresConfirmation()
-            ->modalDescription('Tries own .TXT stock vault first, then calls Supplier APIs (cheapest first) for every undelivered unit.')
+            ->modalDescription('Tries own .TXT stock vault first, then calls the 1st-priority (cheapest) Supplier API.')
             ->action(function (): void {
                 $order = $this->record;
 
@@ -104,6 +107,79 @@ class ViewOrder extends ViewRecord
                 }
 
                 $this->notifyStatus($order, 'Fulfillment finished');
+                $this->refreshRecord();
+            });
+    }
+
+    protected function fulfillViaBackupSupplierAction(): Action
+    {
+        return Action::make('fulfillViaBackupSupplier')
+            ->label('Other Suppliers')
+            ->icon(Heroicon::OutlinedBolt)
+            ->color('warning')
+            ->visible(function (): bool {
+                if (! in_array($this->record->status, [OrderStatus::Processing, OrderStatus::NeedsAttention], true)) {
+                    return false;
+                }
+                $firstItem = $this->record->items()->with('product.sources')->get()->first(fn (OrderItem $i): bool => $i->remainingQty() > 0);
+
+                return $firstItem && $firstItem->product && $firstItem->product->sources->count() > 1;
+            })
+            ->modalHeading('Deliver via Backup / Other Supplier')
+            ->modalDescription(fn (): string => 'Customer Paid: '.Money::pkr($this->record->total).' · Select a supplier below to buy & deliver immediately.')
+            ->schema(function (): array {
+                $firstItem = $this->record->items()->with('product.sources.supplier')->get()->first(fn (OrderItem $i): bool => $i->remainingQty() > 0)
+                    ?? $this->record->items()->with('product.sources.supplier')->first();
+                $needQty = max(1, (int) ($firstItem?->remainingQty() ?: 1));
+                $paidTotal = round((float) ($firstItem?->line_total ?? $this->record->total), 0);
+
+                $sources = ($firstItem?->product?->sources ?? collect())
+                    ->filter(fn (SupplierProduct $sp): bool => (bool) ($sp->supplier?->is_active ?? false))
+                    ->sortBy(fn (SupplierProduct $sp): float => $sp->costPkr())
+                    ->values();
+
+                $options = [];
+                foreach ($sources as $idx => $sp) {
+                    $costPkr = round($sp->costPkr() * $needQty, 0);
+                    $profit = $paidTotal - $costPkr;
+                    $profitPct = $costPkr > 0 ? round(($profit / $costPkr) * 100, 0) : 0;
+                    $stockStr = $sp->unlimited_stock ? '∞' : (string) (int) $sp->stock;
+                    $priority = $idx === 0 ? '1st Priority' : ($idx === 1 ? '2nd Priority' : ($idx + 1).'th Priority');
+                    $profitSign = $profit >= 0 ? "+Rs {$profit} (+{$profitPct}%)" : '-Rs '.abs($profit)." ({$profitPct}%)";
+
+                    $options[$sp->id] = "[{$priority}] {$sp->supplier?->name} — Cost: Rs {$costPkr} (\${$sp->cost}) · Profit: {$profitSign} · Stock: {$stockStr}";
+                }
+
+                $defaultId = $sources->get(1)?->id ?? $sources->first()?->id;
+
+                return [
+                    Select::make('supplier_product_id')
+                        ->label('Choose Supplier (Shows Cost & Net Profit)')
+                        ->options($options)
+                        ->default($defaultId)
+                        ->required(),
+                ];
+            })
+            ->action(function (array $data): void {
+                $item = $this->record->items()->get()->first(fn (OrderItem $i): bool => $i->remainingQty() > 0) ?? $this->record->items()->first();
+                $source = SupplierProduct::with('supplier')->find($data['supplier_product_id'] ?? null);
+                if (! $item || ! $source) {
+                    Notification::make()->title('Supplier or item not found')->danger()->send();
+
+                    return;
+                }
+
+                try {
+                    $order = app(FulfillmentService::class)->fulfillFromSpecificSupplier($this->record, $item, $source);
+                } catch (Throwable $e) {
+                    report($e);
+                    Notification::make()->title('Supplier order failed')->body($e->getMessage())->danger()->send();
+                    $this->refreshRecord();
+
+                    return;
+                }
+
+                $this->notifyStatus($order, "Fulfillment via {$source->supplier?->name}");
                 $this->refreshRecord();
             });
     }

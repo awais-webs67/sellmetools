@@ -131,7 +131,7 @@ class ProductSeoOptimizer
         $brand = $product->brandName();
         $categoryName = trim((string) ($product->category?->name ?: 'Digital Subscription'));
 
-        $rawSummary = Product::normalizeUnicodeText((string) ($product->short_description ?: $product->description));
+        $rawSummary = $product->cleanSummaryText();
         $rawSummary = static::cleanRawSupplierText($rawSummary);
 
         $shortDesc = $rawSummary !== ''

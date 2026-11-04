@@ -6,7 +6,6 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\StockStatus;
 use App\Enums\SupplierOrderStatus;
-use App\Exceptions\StoreException;
 use App\Models\Order;
 use App\Models\SupplierOrder;
 use App\Services\FulfillmentService;
@@ -103,23 +102,29 @@ class OrderFlowTest extends TestCase
             && $r->header('x-api-key')[0] === $supplier->api_key);
     }
 
-    public function test_out_of_stock_supplier_fails_over_to_next_cheapest(): void
+    public function test_primary_supplier_failure_holds_order_for_admin_and_allows_explicit_backup_supplier_fulfillment(): void
     {
-        $cheap = $this->supplierProduct($this->supplier(['base_url' => 'https://cheap.test/api']), ['cost' => 1.0]);
-        $backup = $this->supplierProduct($this->supplier(['base_url' => 'https://backup.test/api']), ['cost' => 1.2]);
+        $cheap = $this->supplierProduct($this->supplier(['name' => 'PrimaryVendor', 'base_url' => 'https://cheap.test/api']), ['cost' => 1.0]);
+        $backup = $this->supplierProduct($this->supplier(['name' => 'BackupVendor', 'base_url' => 'https://backup.test/api']), ['cost' => 1.2]);
         $product = $this->listing([$cheap, $backup]);
 
         Http::fake([
-            'cheap.test/*' => Http::response(['ok' => false, 'error' => 'Out of stock'], 409),
+            'cheap.test/*' => Http::response(['ok' => false, 'error' => 'Insufficient balance'], 402),
             'backup.test/*' => Http::response(['ok' => true, 'order' => ['order_id' => 'B1', 'total' => 1.2, 'items' => ['backup-item']]]),
         ]);
 
         $order = app(OrderService::class)->create($product, 1, $this->customer(), $this->paymentMethod());
         $order = app(PaymentService::class)->approve(app(PaymentService::class)->submit($order, 'TID1', '0300'));
 
+        // Does NOT auto-buy from 2nd supplier; holds order on NeedsAttention for Admin decision
+        $this->assertSame(OrderStatus::NeedsAttention, $order->status);
+        Http::assertNotSent(fn (Request $r) => str_contains($r->url(), 'backup.test'));
+
+        // Admin explicitly chooses BackupVendor from the Other Suppliers popup
+        $order = app(FulfillmentService::class)->fulfillFromSpecificSupplier($order, $order->items()->first(), $backup);
+
         $this->assertSame(OrderStatus::Completed, $order->status);
         $this->assertSame('backup-item', $order->deliveries()->first()->content);
-        $this->assertFalse($cheap->refresh()->is_available);
         $this->assertSame(360.0, (float) $order->total_cost);
     }
 

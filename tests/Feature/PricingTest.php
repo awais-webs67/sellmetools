@@ -51,6 +51,40 @@ class PricingTest extends TestCase
         $this->assertSame(300.0, (float) $product->cost_price);
     }
 
+    public function test_per_supplier_custom_profit_percentage_uses_cheapest_cost_supplier_first(): void
+    {
+        // Supplier 1: cost $1.00 = Rs 300, Overall product markup = 20% -> Rs 360
+        // Supplier 2: cost $0.80 = Rs 240, Custom supplier markup = 30% -> Rs 240 * 1.30 = Rs 312 -> ceil to 10 = Rs 320
+        $sup1 = $this->supplierProduct($this->supplier(['name' => 'Sup1']), ['cost' => 1.00, 'stock' => 5]);
+        $sup2 = $this->supplierProduct($this->supplier(['name' => 'Sup2']), ['cost' => 0.80, 'stock' => 5]);
+
+        $product = $this->listing([$sup1, $sup2], [
+            'pricing_mode' => PricingMode::MarkupPercent,
+            'markup_value' => 20,
+        ]);
+
+        // Set custom 30% markup on Supplier 2 (the cheaper supplier)
+        $product->sources()->updateExistingPivot($sup2->id, [
+            'pricing_mode' => PricingMode::MarkupPercent->value,
+            'markup_value' => 30,
+        ]);
+
+        app(PriceCalculator::class)->refresh($product->refresh());
+        $product->refresh();
+
+        // Cheapest supplier (Sup2: Rs 240) wins, and its custom 30% margin is used -> Rs 320
+        $this->assertSame(240.0, (float) $product->cost_price);
+        $this->assertSame(320.0, (float) $product->price);
+
+        // When Sup2 goes out of stock, Sup1 (Rs 300) becomes active and uses Product overall 20% margin -> Rs 360
+        $sup2->update(['stock' => 0]);
+        app(PriceCalculator::class)->refresh($product->refresh());
+        $product->refresh();
+
+        $this->assertSame(300.0, (float) $product->cost_price);
+        $this->assertSame(360.0, (float) $product->price);
+    }
+
     public function test_fixed_price_product_is_auto_disabled_when_cost_exceeds_price_and_reenabled_later(): void
     {
         $sp = $this->supplierProduct($this->supplier(), ['cost' => 1.0]);

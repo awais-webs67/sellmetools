@@ -13,6 +13,22 @@
     $deliveredLines = $order->items->flatMap(fn ($item) => $item->deliveries->pluck('content'))->all();
     $itemsSummary = $order->items->map(fn ($i) => "{$i->product_name} x{$i->quantity}")->implode(', ');
 
+    $targetItem = $order->items->first(fn ($i) => $i->remainingQty() > 0) ?? $order->items->first();
+    $rankedAllSources = collect();
+    $primarySourceId = null;
+    if ($targetItem && $targetItem->product) {
+        $rankedAllSources = $targetItem->product->sources
+            ->filter(fn ($sp) => (bool) ($sp->supplier?->is_active ?? false))
+            ->sortBy([
+                fn ($a, $b) => (int) ($b->pivot?->is_active ?? false) <=> (int) ($a->pivot?->is_active ?? false),
+                fn ($a, $b) => $a->costPkr() <=> $b->costPkr(),
+                fn ($a, $b) => ($a->supplier->priority ?? 999) <=> ($b->supplier->priority ?? 999),
+            ])
+            ->values();
+        $primarySourceId = $rankedAllSources->first()?->id;
+    }
+    $backupSuppliersCount = max(0, $rankedAllSources->count() - 1);
+
     if ($isCompleted) {
         $customerWaText = "Assalam o Alaikum! ✅ Your Order *{$order->number}* ({$itemsSummary}) is confirmed & delivered!\n\n"
             .($deliveredLines !== [] ? "🔑 *Credentials:*\n".implode("\n---\n", $deliveredLines)."\n\n" : '')
@@ -122,7 +138,7 @@
                         <form method="post"
                               action="{{ route('webhooks.order.quick', ['order' => $order->number]) }}"
                               class="space-y-3.5"
-                              x-data="{ manualMode: {{ $openManualByDefault ? 'true' : 'false' }} }">
+                              x-data="{ manualMode: {{ $openManualByDefault ? 'true' : 'false' }}, showSuppliersPopup: false }">
                             @csrf
 
                             @if ($needsPin)
@@ -207,10 +223,23 @@
 
                                 @if ($isNeedsAttention)
                                     <div class="grid grid-cols-1 gap-2">
-                                        <button type="submit" name="do" value="retry" class="btn bg-success text-white hover:opacity-95 py-3 text-xs sm:text-sm font-bold">
-                                            🔄 Deliver / Retry Supplier
-                                        </button>
-                                        <button type="submit" name="do" value="whatsapp_delivered" class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] py-3 text-xs sm:text-sm font-bold">
+                                        @if ($rankedAllSources->count() > 1)
+                                            <div class="grid grid-cols-2 gap-2">
+                                                <button type="submit" name="do" value="retry" class="btn bg-success text-white hover:opacity-95 py-2.5 px-2 text-xs font-bold">
+                                                    🔄 Deliver / Retry
+                                                </button>
+                                                <button type="button"
+                                                        @click="showSuppliersPopup = true"
+                                                        class="btn bg-ink text-white hover:opacity-95 py-2.5 px-2 text-xs font-bold">
+                                                    ⚡ Other Suppliers ({{ $backupSuppliersCount }})
+                                                </button>
+                                            </div>
+                                        @else
+                                            <button type="submit" name="do" value="retry" class="btn bg-success text-white hover:opacity-95 py-3 text-xs sm:text-sm font-bold">
+                                                🔄 Deliver / Retry Supplier
+                                            </button>
+                                        @endif
+                                        <button type="submit" name="do" value="whatsapp_delivered" class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] py-2.5 text-xs sm:text-sm font-bold">
                                             📲 Mark Delivered on WhatsApp
                                         </button>
                                     </div>
@@ -222,6 +251,86 @@
                                     </div>
                                 @endif
                             </div>
+
+                            {{-- Compact Other Suppliers Popup Modal (Only opens when tapped) --}}
+                            @if ($isNeedsAttention && $rankedAllSources->isNotEmpty() && $targetItem)
+                                <div x-show="showSuppliersPopup"
+                                     x-cloak
+                                     @keydown.escape.window="showSuppliersPopup = false"
+                                     class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+                                    <div @click.outside="showSuppliersPopup = false"
+                                         class="w-full max-w-md rounded-2xl border border-line bg-white shadow-2xl overflow-hidden">
+                                        <div class="flex items-center justify-between bg-ink px-4 py-3 text-white">
+                                            <div>
+                                                <h3 class="text-sm font-bold text-white">⚡ Deliver via Backup / Other Supplier</h3>
+                                                <p class="text-[11px] text-white/70">Customer Paid: Rs {{ number_format((float) $order->total, 0) }} · Choose supplier below</p>
+                                            </div>
+                                            <button type="button" @click="showSuppliersPopup = false" class="rounded-lg bg-white/15 px-2.5 py-1 text-xs font-bold text-white hover:bg-white/25">✕</button>
+                                        </div>
+
+                                        <div class="max-h-[70vh] overflow-y-auto p-3.5 space-y-2.5">
+                                            @foreach ($rankedAllSources as $idx => $sp)
+                                                @php
+                                                    $needQty = max(1, $targetItem->remainingQty());
+                                                    $spCostPkr = round($sp->costPkr() * $needQty, 0);
+                                                    $spCostUsd = number_format((float) $sp->cost * $needQty, 2);
+                                                    $paidTotal = round((float) $targetItem->line_total, 0);
+                                                    $netProfit = $paidTotal - $spCostPkr;
+                                                    $profitPct = $spCostPkr > 0 ? round(($netProfit / $spCostPkr) * 100, 0) : 0;
+                                                    $priorityNum = $idx + 1;
+                                                    $priorityLabel = $priorityNum === 1 ? '1st Priority (Primary)' : ($priorityNum === 2 ? '2nd Priority (Backup)' : "{$priorityNum}th Priority");
+                                                    $hasStock = $sp->unlimited_stock || (int) $sp->stock > 0;
+                                                @endphp
+                                                <div class="rounded-xl border {{ $priorityNum === 2 ? 'border-ink bg-grey-soft/80' : 'border-line bg-grey-soft/40' }} p-3 space-y-2">
+                                                    <div class="flex items-start justify-between gap-2">
+                                                        <div class="min-w-0">
+                                                            <div class="flex flex-wrap items-center gap-1.5">
+                                                                <span class="rounded bg-ink px-1.5 py-0.5 text-[10px] font-bold text-white">{{ $priorityLabel }}</span>
+                                                                <span class="text-xs font-bold text-ink">{{ $sp->supplier?->name }}</span>
+                                                            </div>
+                                                            <p class="mt-0.5 text-[11px] text-muted truncate">{{ $sp->name }}</p>
+                                                        </div>
+                                                        <span class="shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold {{ $hasStock ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-700' }}">
+                                                            Stock: {{ $sp->unlimited_stock ? '∞' : (int) $sp->stock }}
+                                                        </span>
+                                                    </div>
+
+                                                    <div class="grid grid-cols-3 gap-1.5 rounded-lg bg-white p-2 text-center border border-line text-[11px]">
+                                                        <div>
+                                                            <span class="block text-[9px] uppercase text-muted">Cost</span>
+                                                            <strong class="font-mono text-ink">Rs {{ number_format($spCostPkr, 0) }}</strong>
+                                                            <span class="block text-[9px] text-muted">${{ $spCostUsd }}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span class="block text-[9px] uppercase text-muted">Your Profit</span>
+                                                            <strong class="font-mono {{ $netProfit >= 0 ? 'text-emerald-700' : 'text-danger' }}">
+                                                                {{ $netProfit >= 0 ? '+' : '' }}Rs {{ number_format($netProfit, 0) }}
+                                                            </strong>
+                                                            <span class="block text-[9px] {{ $netProfit >= 0 ? 'text-emerald-600' : 'text-danger' }}">{{ $netProfit >= 0 ? '+' : '' }}{{ $profitPct }}%</span>
+                                                        </div>
+                                                        <div>
+                                                            <span class="block text-[9px] uppercase text-muted">Wallet Bal</span>
+                                                            <strong class="font-mono text-ink">${{ number_format((float) ($sp->supplier?->balance ?? 0), 2) }}</strong>
+                                                            <span class="block text-[9px] text-muted">{{ $sp->supplier?->currency ?? 'USDT' }}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <button type="submit"
+                                                            name="do"
+                                                            value="fulfill_supplier"
+                                                            onclick="document.getElementById('chosen_sp_id').value='{{ $sp->id }}'; document.getElementById('chosen_item_id').value='{{ $targetItem->id }}';"
+                                                            class="btn w-full py-2 text-xs font-bold {{ $priorityNum === 2 ? 'bg-success text-white hover:opacity-95' : 'bg-ink text-white hover:opacity-95' }}">
+                                                        ⚡ Buy &amp; Deliver from {{ $sp->supplier?->name }} (Rs {{ number_format($spCostPkr, 0) }})
+                                                    </button>
+                                                </div>
+                                            @endforeach
+                                        </div>
+
+                                        <input type="hidden" id="chosen_sp_id" name="supplier_product_id" value="">
+                                        <input type="hidden" id="chosen_item_id" name="order_item_id" value="{{ $targetItem->id }}">
+                                    </div>
+                                </div>
+                            @endif
                         </form>
                     @endif
 

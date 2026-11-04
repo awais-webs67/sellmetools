@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\ImageOptimizer;
 use App\Services\Suppliers\SupplierManager;
@@ -10,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
@@ -64,26 +66,26 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        $readyFlag = storage_path('framework/schema_v5_ready.flag');
+        $readyFlag = storage_path('framework/schema_v6_ready.flag');
         if (is_file($readyFlag)) {
             return;
         }
 
         try {
-            if ((string) \App\Models\Setting::get('schema_v5_ready', '') === '1') {
+            if ((string) Setting::get('schema_v6_ready', '') === '1') {
                 @file_put_contents($readyFlag, '1');
 
                 return;
             }
 
-            \Illuminate\Support\Facades\Cache::forget('smt_active_categories_v1');
+            Cache::forget('smt_active_categories_v1');
 
             $files = glob(database_path('migrations/*.php')) ?: [];
-            $hash = md5('v5|'.implode('|', array_map('basename', $files)));
+            $hash = md5('v6|'.implode('|', array_map('basename', $files)));
             $stampFile = storage_path('framework/migration_hash.txt');
 
             if (is_file($stampFile) && trim((string) @file_get_contents($stampFile)) === $hash) {
-                \App\Models\Setting::set('schema_v5_ready', '1');
+                Setting::set('schema_v6_ready', '1');
                 @file_put_contents($readyFlag, '1');
 
                 return;
@@ -92,7 +94,7 @@ class AppServiceProvider extends ServiceProvider
             // Write stamp file and setting IMMEDIATELY before running migrations so concurrent page refreshes never collide!
             @file_put_contents($stampFile, $hash);
             @file_put_contents($readyFlag, '1');
-            \App\Models\Setting::set('schema_v5_ready', '1');
+            Setting::set('schema_v6_ready', '1');
 
             $this->ensureRequiredSchemaColumns();
 
@@ -148,6 +150,19 @@ class AppServiceProvider extends ServiceProvider
             Schema::table('orders', function (Blueprint $table): void {
                 $table->text('customer_input')->nullable()->after('notes');
             });
+        }
+
+        if (Schema::hasTable('product_sources')) {
+            if (! Schema::hasColumn('product_sources', 'pricing_mode')) {
+                Schema::table('product_sources', function (Blueprint $table): void {
+                    $table->string('pricing_mode', 20)->nullable()->after('is_active');
+                });
+            }
+            if (! Schema::hasColumn('product_sources', 'markup_value')) {
+                Schema::table('product_sources', function (Blueprint $table): void {
+                    $table->decimal('markup_value', 12, 2)->nullable()->after('pricing_mode');
+                });
+            }
         }
     }
 }

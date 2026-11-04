@@ -4,7 +4,9 @@ namespace App\Models;
 
 use App\Enums\PricingMode;
 use App\Enums\StockStatus;
+use App\Http\Controllers\SeoController;
 use App\Services\InventoryService;
+use App\Services\ProductSeoOptimizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -153,7 +155,7 @@ class Product extends Model
         static::saving(function (Product $product) {
             static::ensureFreeAndStockColumnsExist();
 
-            $product->name = preg_replace('/\s+/u', ' ', trim(\App\Services\ProductSeoOptimizer::stripEmDashes((string) $product->name))) ?: $product->name;
+            $product->name = preg_replace('/\s+/u', ' ', trim(ProductSeoOptimizer::stripEmDashes((string) $product->name))) ?: $product->name;
 
             if (blank($product->slug)) {
                 $product->slug = static::uniqueSlug((string) $product->name);
@@ -164,7 +166,7 @@ class Product extends Model
             }
 
             if (blank($product->meta_title) || blank($product->meta_description) || blank($product->meta_keywords) || blank($product->short_description)) {
-                $autoSeo = \App\Services\ProductSeoOptimizer::buildDynamicSeoFields($product);
+                $autoSeo = ProductSeoOptimizer::buildDynamicSeoFields($product);
                 if (blank($product->short_description)) {
                     $product->short_description = $autoSeo['short_description'];
                 }
@@ -187,7 +189,7 @@ class Product extends Model
 
             foreach (['short_description', 'description', 'warranty', 'meta_title', 'meta_description', 'meta_keywords'] as $seoField) {
                 if (filled($product->{$seoField})) {
-                    $product->{$seoField} = \App\Services\ProductSeoOptimizer::stripEmDashes((string) $product->{$seoField});
+                    $product->{$seoField} = ProductSeoOptimizer::stripEmDashes((string) $product->{$seoField});
                 }
             }
         });
@@ -228,7 +230,7 @@ class Product extends Model
                     if ($product->category) {
                         $urls[] = route('categories.show', $product->category);
                     }
-                    \App\Http\Controllers\SeoController::submitUrlsToIndexNow($urls);
+                    SeoController::submitUrlsToIndexNow($urls);
                 });
             }
         });
@@ -250,7 +252,7 @@ class Product extends Model
         }
         $checked = true;
 
-        if (! app()->runningUnitTests() && is_file(storage_path('framework/schema_v5_ready.flag'))) {
+        if (! app()->runningUnitTests() && is_file(storage_path('framework/schema_v6_ready.flag'))) {
             return;
         }
 
@@ -279,6 +281,18 @@ class Product extends Model
                 Schema::table('orders', function (Blueprint $table): void {
                     $table->text('customer_input')->nullable()->after('admin_note');
                 });
+            }
+            if (Schema::hasTable('product_sources')) {
+                if (! Schema::hasColumn('product_sources', 'pricing_mode')) {
+                    Schema::table('product_sources', function (Blueprint $table): void {
+                        $table->string('pricing_mode', 20)->nullable()->after('is_active');
+                    });
+                }
+                if (! Schema::hasColumn('product_sources', 'markup_value')) {
+                    Schema::table('product_sources', function (Blueprint $table): void {
+                        $table->decimal('markup_value', 12, 2)->nullable()->after('pricing_mode');
+                    });
+                }
             }
         } catch (\Throwable $e) {
             report($e);
@@ -311,7 +325,7 @@ class Product extends Model
     public function sources(): BelongsToMany
     {
         return $this->belongsToMany(SupplierProduct::class, 'product_sources')
-            ->withPivot('is_active')
+            ->withPivot(['is_active', 'pricing_mode', 'markup_value'])
             ->withTimestamps();
     }
 

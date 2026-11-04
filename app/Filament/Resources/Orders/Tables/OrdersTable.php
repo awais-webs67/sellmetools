@@ -8,6 +8,7 @@ use App\Filament\Resources\Payments\Actions\PaymentActions;
 use App\Filament\Support\Money;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\SupplierProduct;
 use App\Services\FulfillmentService;
 use App\Services\OrderService;
 use Filament\Actions\Action;
@@ -44,42 +45,50 @@ class OrdersTable
                     ->copyable()
                     ->weight('bold')
                     ->color('primary')
-                    ->description(fn (Order $record): string => $record->created_at?->diffForHumans() ?? ''),
+                    ->description(fn (Order $record): string => $record->created_at?->diffForHumans(short: true) ?? ''),
                 TextColumn::make('email')
                     ->label('Customer')
                     ->searchable(['email', 'customer_name', 'phone'])
                     ->copyable()
-                    ->description(fn (Order $record): ?string => trim(($record->customer_name ? $record->customer_name.' · ' : '').($record->phone ?? ''), ' ·') ?: null),
+                    ->limit(22)
+                    ->tooltip(fn (Order $record): string => trim($record->email.' '.($record->customer_name ? "({$record->customer_name})" : '')))
+                    ->description(fn (Order $record): ?string => $record->phone ?: null),
                 TextColumn::make('items_summary')
-                    ->label('Products')
+                    ->label('Product')
                     ->state(fn (Order $record): string => $record->items
                         ->map(fn (OrderItem $item): string => "{$item->quantity}× {$item->product_name}")
                         ->implode(', '))
                     ->description(fn (Order $record): ?string => filled($record->customer_input)
-                        ? '📝 '.mb_strimwidth((string) $record->customer_input, 0, 45, '…')
+                        ? '📝 '.mb_strimwidth((string) $record->customer_input, 0, 28, '…')
                         : null)
-                    ->limit(48)
-                    ->wrap(),
+                    ->limit(30)
+                    ->tooltip(fn (Order $record): string => $record->items
+                        ->map(fn (OrderItem $item): string => "{$item->quantity}× {$item->product_name}")
+                        ->implode(', ')),
                 TextColumn::make('supplier_badge')
-                    ->label('Supplier / Source')
+                    ->label('Source')
                     ->badge()
                     ->color('info')
                     ->state(fn (Order $record): string => $record->adminSupplierSummary(false)),
                 TextColumn::make('total')
-                    ->label('Total / Profit')
+                    ->label('Sale / Profit')
                     ->weight('bold')
                     ->formatStateUsing(fn ($state): string => Money::pkr($state))
                     ->description(function (Order $record): ?string {
                         $profit = $record->profit();
 
-                        return $profit !== null ? 'Profit: '.Money::pkr($profit) : null;
+                        return $profit !== null ? '+'.Money::pkr($profit) : null;
                     })
                     ->sortable(),
                 TextColumn::make('paymentMethod.name')
-                    ->label('Payment / TID')
+                    ->label('Gateway / TID')
                     ->placeholder('Unpaid')
                     ->weight('medium')
+                    ->limit(16)
                     ->description(fn (Order $record): ?string => $record->latestPayment?->transaction_id
+                        ? mb_strimwidth((string) $record->latestPayment->transaction_id, 0, 16, '…')
+                        : null)
+                    ->tooltip(fn (Order $record): ?string => $record->latestPayment?->transaction_id
                         ? 'TID: '.$record->latestPayment->transaction_id
                         : null),
                 TextColumn::make('status')
@@ -88,9 +97,9 @@ class OrdersTable
                     ->color(fn (OrderStatus $state): string => $state->color()),
                 TextColumn::make('created_at')
                     ->label('Date')
-                    ->dateTime('d M Y, h:i A')
+                    ->dateTime('d M, h:i A')
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filtersLayout(FiltersLayout::AboveContentCollapsible)
             ->filtersFormColumns([
@@ -147,15 +156,92 @@ class OrdersTable
             ->recordActions([
                 PaymentActions::approve()->button()->size('xs'),
                 PaymentActions::reject()->button()->size('xs'),
+                self::quickBackupSupplierAction(),
                 self::quickDeliverAction(),
                 PaymentActions::screenshot()->iconButton()->tooltip('View Payment Screenshot'),
-                ViewAction::make()->button()->size('xs')->color('gray'),
+                ViewAction::make()->iconButton()->tooltip('View Order Details')->color('gray'),
                 ActionGroup::make([
                     self::quickWhatsappDeliveredAction(),
                     self::quickCancelAction(),
                     self::quickRefundAction(),
                 ])->icon(Heroicon::OutlinedEllipsisVertical)->color('gray'),
             ]);
+    }
+
+    protected static function quickBackupSupplierAction(): Action
+    {
+        return Action::make('quickBackupSupplier')
+            ->label('Other Suppliers')
+            ->icon(Heroicon::OutlinedBolt)
+            ->color('warning')
+            ->button()
+            ->size('xs')
+            ->visible(function (Order $record): bool {
+                if (! in_array($record->status, [OrderStatus::NeedsAttention, OrderStatus::Processing], true)) {
+                    return false;
+                }
+                $firstItem = $record->items->first(fn (OrderItem $i): bool => $i->remainingQty() > 0) ?? $record->items->first();
+
+                return $firstItem && $firstItem->product && $firstItem->product->sources->count() > 1;
+            })
+            ->modalHeading(fn (Order $record): string => "Deliver {$record->number} via Backup Supplier")
+            ->modalDescription(fn (Order $record): string => 'Customer Paid: '.Money::pkr($record->total).' · Select a supplier below to buy & deliver immediately.')
+            ->schema(function (Order $record): array {
+                $firstItem = $record->items->first(fn (OrderItem $i): bool => $i->remainingQty() > 0) ?? $record->items->first();
+                $needQty = max(1, (int) ($firstItem?->remainingQty() ?: 1));
+                $paidTotal = round((float) ($firstItem?->line_total ?? $record->total), 0);
+
+                $sources = ($firstItem?->product?->sources ?? collect())
+                    ->filter(fn (SupplierProduct $sp): bool => (bool) ($sp->supplier?->is_active ?? false))
+                    ->sortBy(fn (SupplierProduct $sp): float => $sp->costPkr())
+                    ->values();
+
+                $options = [];
+                foreach ($sources as $idx => $sp) {
+                    $costPkr = round($sp->costPkr() * $needQty, 0);
+                    $profit = $paidTotal - $costPkr;
+                    $profitPct = $costPkr > 0 ? round(($profit / $costPkr) * 100, 0) : 0;
+                    $stockStr = $sp->unlimited_stock ? '∞' : (string) (int) $sp->stock;
+                    $priority = $idx === 0 ? '1st Priority' : ($idx === 1 ? '2nd Priority' : ($idx + 1).'th Priority');
+                    $profitSign = $profit >= 0 ? "+Rs {$profit} (+{$profitPct}%)" : '-Rs '.abs($profit)." ({$profitPct}%)";
+
+                    $options[$sp->id] = "[{$priority}] {$sp->supplier?->name} — Cost: Rs {$costPkr} (\${$sp->cost}) · Profit: {$profitSign} · Stock: {$stockStr}";
+                }
+
+                $defaultId = $sources->get(1)?->id ?? $sources->first()?->id;
+
+                return [
+                    Select::make('supplier_product_id')
+                        ->label('Choose Supplier (Shows Cost & Net Profit)')
+                        ->options($options)
+                        ->default($defaultId)
+                        ->required(),
+                ];
+            })
+            ->action(function (Order $record, array $data): void {
+                $item = $record->items()->get()->first(fn (OrderItem $i): bool => $i->remainingQty() > 0) ?? $record->items()->first();
+                $source = SupplierProduct::with('supplier')->find($data['supplier_product_id'] ?? null);
+                if (! $item || ! $source) {
+                    Notification::make()->title('Supplier or item not found')->danger()->send();
+
+                    return;
+                }
+
+                try {
+                    $order = app(FulfillmentService::class)->fulfillFromSpecificSupplier($record, $item, $source);
+                    if ($order->status === OrderStatus::Completed) {
+                        Notification::make()->title("Delivered via {$source->supplier?->name}!")->success()->send();
+                    } else {
+                        Notification::make()
+                            ->title("{$source->supplier?->name} could not deliver")
+                            ->body((string) $order->admin_note)
+                            ->warning()
+                            ->send();
+                    }
+                } catch (Throwable $e) {
+                    Notification::make()->title('Supplier order failed')->body($e->getMessage())->danger()->send();
+                }
+            });
     }
 
     protected static function quickDeliverAction(): Action

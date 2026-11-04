@@ -110,28 +110,22 @@ class FulfillmentService
             return ['Order confirmed, awaiting Admin course/resource link in product stock vault.'];
         }
 
-        // 3: suppliers (for 'auto' products).
-        foreach ($this->pricing->rankedSources($item->product) as $source) {
-            if ($item->remainingQty() === 0) {
-                break;
-            }
+        // 3: suppliers (for 'auto' products) — only attempt the 1st priority (cheapest active) supplier automatically.
+        // If the 1st supplier has an error (insufficient balance, out of stock, etc.), hold for Admin 1-Tap backup selection.
+        /** @var SupplierProduct|null $primarySource */
+        $primarySource = $this->pricing->rankedSources($item->product)->first();
 
-            /** @var SupplierProduct $source */
-            if ($source->costPkr() > (float) $item->unit_price) {
-                $problems[] = "Skipped {$source->supplier->name}: cost Rs ".round($source->costPkr(), 2)." > sold at Rs {$item->unit_price}";
+        if ($primarySource && $item->remainingQty() > 0) {
+            if ($primarySource->costPkr() > (float) $item->unit_price) {
+                $problems[] = "Skipped {$primarySource->supplier->name}: cost Rs ".round($primarySource->costPkr(), 2)." > sold at Rs {$item->unit_price}";
+            } else {
+                $outcome = $this->orderFromSupplier($order, $item, $primarySource);
 
-                continue;
-            }
-
-            $outcome = $this->orderFromSupplier($order, $item, $source);
-
-            if ($outcome === 'unknown') {
-                $problems[] = "Unknown result from {$source->supplier->name}, check supplier panel before retrying.";
-                break;
-            }
-
-            if ($outcome !== 'ok') {
-                $problems[] = "{$source->supplier->name}: {$outcome}";
+                if ($outcome === 'unknown') {
+                    $problems[] = "Unknown result from {$primarySource->supplier->name}, check supplier panel before retrying.";
+                } elseif ($outcome !== 'ok') {
+                    $problems[] = "{$primarySource->supplier->name}: {$outcome}";
+                }
             }
         }
 
@@ -140,6 +134,46 @@ class FulfillmentService
         }
 
         return $problems;
+    }
+
+    /**
+     * Explicit Admin 1-Tap action: fulfills an OrderItem from a specific chosen SupplierProduct
+     * (e.g., 2nd or 3rd priority backup supplier selected by Admin from the Other Suppliers popup).
+     */
+    public function fulfillFromSpecificSupplier(Order $order, OrderItem $item, SupplierProduct $source): Order
+    {
+        $lock = Cache::lock("fulfill-order-{$order->id}", 300);
+
+        if (! $lock->get()) {
+            return $order;
+        }
+
+        try {
+            $order->refresh();
+            $item->refresh()->loadMissing('product');
+            $source->loadMissing('supplier');
+
+            if ($order->status === OrderStatus::Completed || $item->remainingQty() <= 0) {
+                return $order;
+            }
+
+            if (! $source->supplier || ! $source->supplier->is_active) {
+                throw new StoreException('Selected supplier is currently disabled.');
+            }
+
+            $problems = [];
+            $outcome = $this->orderFromSupplier($order, $item, $source);
+
+            if ($outcome === 'unknown') {
+                $problems[] = "Unknown result from {$source->supplier->name}, check supplier panel before retrying.";
+            } elseif ($outcome !== 'ok') {
+                $problems[] = "{$source->supplier->name}: {$outcome}";
+            }
+
+            return $this->finalize($order->refresh(), $problems);
+        } finally {
+            $lock->release();
+        }
     }
 
     protected function deliverOwnStock(OrderItem $item): void
@@ -414,54 +448,79 @@ class FulfillmentService
                     continue;
                 }
 
-                foreach ($this->pricing->rankedSources($item->product) as $source) {
-                    /** @var SupplierProduct $source */
-                    $supplier = $source->supplier;
-                    if (! $supplier || ! $supplier->is_active) {
-                        continue;
+                $latestAttempt = SupplierOrder::with('supplierProduct.supplier')
+                    ->where('order_item_id', $item->id)
+                    ->latest('id')
+                    ->first();
+
+                $candidateSource = null;
+                $allowAboveUnitPrice = false;
+
+                if ($latestAttempt && $latestAttempt->supplierProduct) {
+                    $errLower = strtolower((string) $latestAttempt->error);
+                    $isBridgeableError = str_contains($errLower, 'cooldown')
+                        || str_contains($errLower, 'timed out')
+                        || str_contains($errLower, 'connection error')
+                        || str_contains($errLower, 'failed to connect');
+
+                    if ($latestAttempt->status !== SupplierOrderStatus::Success && $isBridgeableError) {
+                        $candidateSource = $latestAttempt->supplierProduct;
+                        $allowAboveUnitPrice = true;
                     }
-
-                    $driver = $this->suppliers->driver($supplier);
-                    if (! method_exists($driver, 'isRailwayHost') || ! $driver->isRailwayHost()) {
-                        continue;
-                    }
-
-                    if ($source->costPkr() > (float) $item->unit_price) {
-                        continue;
-                    }
-
-                    $previous = SupplierOrder::where('order_item_id', $item->id)
-                        ->where('supplier_product_id', $source->id)
-                        ->get();
-
-                    if ($previous->contains(fn ($a) => $a->status === SupplierOrderStatus::Success)) {
-                        continue;
-                    }
-
-                    $units = $source->availableUnits();
-                    $qty = $units === null ? $need : min($need, $units);
-                    if ($qty < 1) {
-                        continue;
-                    }
-
-                    $attemptNo = $previous->count() + 1;
-                    $requestId = "{$order->number}-{$item->id}-{$source->id}-{$attemptNo}";
-
-                    $jobs[] = [
-                        'order_id' => $order->id,
-                        'order_number' => $order->number,
-                        'order_item_id' => $item->id,
-                        'supplier_id' => $supplier->id,
-                        'supplier_product_id' => $source->id,
-                        'base_url' => method_exists($driver, 'getNormalizedBaseUrl') ? $driver->getNormalizedBaseUrl() : rtrim(trim((string) $supplier->base_url), '/'),
-                        'api_key' => trim((string) $supplier->api_key),
-                        'external_id' => (string) $source->external_id,
-                        'external_id_normalized' => is_numeric($source->external_id) ? (int) $source->external_id : (string) $source->external_id,
-                        'quantity' => $qty,
-                        'request_id' => $requestId,
-                    ];
-                    break;
+                } else {
+                    $candidateSource = $this->pricing->rankedSources($item->product)->first();
                 }
+
+                if (! $candidateSource) {
+                    continue;
+                }
+
+                /** @var SupplierProduct $source */
+                $source = $candidateSource;
+                $supplier = $source->supplier;
+                if (! $supplier || ! $supplier->is_active) {
+                    continue;
+                }
+
+                $driver = $this->suppliers->driver($supplier);
+                if (! method_exists($driver, 'isRailwayHost') || ! $driver->isRailwayHost()) {
+                    continue;
+                }
+
+                if (! $allowAboveUnitPrice && $source->costPkr() > (float) $item->unit_price) {
+                    continue;
+                }
+
+                $previous = SupplierOrder::where('order_item_id', $item->id)
+                    ->where('supplier_product_id', $source->id)
+                    ->get();
+
+                if ($previous->contains(fn ($a) => $a->status === SupplierOrderStatus::Success)) {
+                    continue;
+                }
+
+                $units = $source->availableUnits();
+                $qty = $units === null ? $need : min($need, $units);
+                if ($qty < 1) {
+                    continue;
+                }
+
+                $attemptNo = $previous->count() + 1;
+                $requestId = "{$order->number}-{$item->id}-{$source->id}-{$attemptNo}";
+
+                $jobs[] = [
+                    'order_id' => $order->id,
+                    'order_number' => $order->number,
+                    'order_item_id' => $item->id,
+                    'supplier_id' => $supplier->id,
+                    'supplier_product_id' => $source->id,
+                    'base_url' => method_exists($driver, 'getNormalizedBaseUrl') ? $driver->getNormalizedBaseUrl() : rtrim(trim((string) $supplier->base_url), '/'),
+                    'api_key' => trim((string) $supplier->api_key),
+                    'external_id' => (string) $source->external_id,
+                    'external_id_normalized' => is_numeric($source->external_id) ? (int) $source->external_id : (string) $source->external_id,
+                    'quantity' => $qty,
+                    'request_id' => $requestId,
+                ];
             }
         }
 

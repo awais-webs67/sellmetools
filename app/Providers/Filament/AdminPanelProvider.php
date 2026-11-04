@@ -316,7 +316,7 @@ class AdminPanelProvider extends PanelProvider
                         font-weight: 600 !important;
                     }
 
-                    /* 8. Tables — Clean Density & Smooth Horizontal Scroll */
+                    /* 8. Tables — Ultra-Compact High-Density Rows & Smooth Scroll */
                     .fi-ta-content-ctn,
                     .fi-ta-content {
                         overflow-x: auto !important;
@@ -324,17 +324,44 @@ class AdminPanelProvider extends PanelProvider
                         max-width: 100% !important;
                     }
                     .fi-ta-header-cell {
-                        font-size: 0.75rem !important;
+                        font-size: 0.7rem !important;
                         text-transform: uppercase !important;
                         letter-spacing: 0.04em !important;
-                        padding-top: 0.7rem !important;
-                        padding-bottom: 0.7rem !important;
+                        padding: 0.45rem 0.6rem !important;
                         white-space: nowrap !important;
                     }
                     .fi-ta-cell {
-                        padding-top: 0.65rem !important;
-                        padding-bottom: 0.65rem !important;
+                        padding: 0.32rem 0.6rem !important;
                         vertical-align: middle !important;
+                    }
+                    .fi-ta-text {
+                        padding: 0.15rem 0.25rem !important;
+                        gap: 0.1rem !important;
+                    }
+                    .fi-ta-text-item-label {
+                        font-size: 0.8rem !important;
+                        line-height: 1.25 !important;
+                    }
+                    .fi-ta-text-item-description {
+                        font-size: 0.7rem !important;
+                        line-height: 1.15 !important;
+                        margin-top: 1px !important;
+                    }
+                    .fi-ta-cell .fi-badge {
+                        font-size: 0.68rem !important;
+                        padding: 0.12rem 0.42rem !important;
+                    }
+                    .fi-ta-actions {
+                        gap: 0.25rem !important;
+                        flex-wrap: nowrap !important;
+                    }
+                    .fi-ta-actions .fi-btn {
+                        padding: 0.22rem 0.48rem !important;
+                        font-size: 0.72rem !important;
+                        line-height: 1.15 !important;
+                    }
+                    .fi-ta-header-toolbar {
+                        padding: 0.55rem 0.85rem !important;
                     }
 
                     /* 9. Scrollable Navigation & Filter Tabs */
@@ -365,28 +392,36 @@ class AdminPanelProvider extends PanelProvider
                     }
                     @media (max-width: 768px) {
                         .fi-main {
-                            padding-left: 0.75rem !important;
-                            padding-right: 0.75rem !important;
-                            padding-top: 0.85rem !important;
+                            padding-left: 0.5rem !important;
+                            padding-right: 0.5rem !important;
+                            padding-top: 0.65rem !important;
                         }
                         .fi-section-header {
-                            padding: 0.85rem 1rem !important;
+                            padding: 0.65rem 0.85rem !important;
                         }
                         .fi-section-content {
-                            padding: 0.95rem !important;
+                            padding: 0.75rem !important;
                         }
                         .fi-wi-stats-overview-stat {
-                            padding: 0.9rem 1rem !important;
+                            padding: 0.7rem 0.85rem !important;
                         }
                         .fi-wi-stats-overview-stat-value {
-                            font-size: 1.25rem !important;
+                            font-size: 1.15rem !important;
                         }
                         .fi-header-heading {
-                            font-size: 1.25rem !important;
+                            font-size: 1.15rem !important;
                         }
                         .fi-ta-cell, .fi-ta-header-cell {
-                            padding-left: 0.65rem !important;
-                            padding-right: 0.65rem !important;
+                            padding: 0.28rem 0.42rem !important;
+                        }
+                        .fi-ta-text {
+                            padding: 0.1rem 0.15rem !important;
+                        }
+                        .fi-ta-text-item-label {
+                            font-size: 0.75rem !important;
+                        }
+                        .fi-ta-text-item-description {
+                            font-size: 0.66rem !important;
                         }
                         .fi-simple-main {
                             padding: 1.5rem 1.25rem !important;
