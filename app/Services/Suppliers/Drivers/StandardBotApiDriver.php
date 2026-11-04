@@ -38,8 +38,10 @@ class StandardBotApiDriver implements SupplierDriver
     {
         return [
             'x-api-key' => $this->supplier->api_key,
+            'X-API-Key' => $this->supplier->api_key,
             'x-buyer-key' => $this->supplier->api_key,
             'Authorization' => 'Bearer '.$this->supplier->api_key,
+            'User-Agent' => 'SellMeTools/2.0 (+https://sellmetools.com)',
         ];
     }
 
@@ -51,6 +53,18 @@ class StandardBotApiDriver implements SupplierDriver
 
         if ((str_contains($lower, 'canboso.com') || str_starts_with($apiKey, 'tgb_')) && ! str_ends_with($lower, '/api/v2/telegram-buyer')) {
             return 'https://canboso.com/api/v2/telegram-buyer';
+        }
+
+        if ((str_contains($lower, 'bunaistore.shop') || str_starts_with($apiKey, 'shop:')) && ! str_ends_with($lower, '/v1')) {
+            return 'https://api.bunaistore.shop/v1';
+        }
+
+        if ((str_contains($lower, 'prodseller.com') || str_starts_with($apiKey, 'psk_')) && ! str_ends_with($lower, '/v1')) {
+            return 'https://prodseller.com/v1';
+        }
+
+        if ((str_contains($lower, 'qamify.site') || str_starts_with($apiKey, 'qamify_')) && ! str_ends_with($lower, '/v1')) {
+            return 'https://api.qamify.site/v1';
         }
 
         return $url;
@@ -66,17 +80,44 @@ class StandardBotApiDriver implements SupplierDriver
         return '/products';
     }
 
-    protected function http(int $timeout = 12): PendingRequest
+    protected function balanceEndpoint(): string
+    {
+        $baseUrl = strtolower($this->normalizedBaseUrl());
+        $apiKey = (string) $this->supplier->api_key;
+        if (str_contains($baseUrl, 'bunaistore') || str_starts_with($apiKey, 'shop:')) {
+            return '/me';
+        }
+
+        return '/balance';
+    }
+
+    protected function curlOptions(): array
+    {
+        $opts = [
+            'verify' => false,
+        ];
+
+        if (defined('CURLOPT_IPRESOLVE') && defined('CURL_IPRESOLVE_V4')) {
+            $opts['curl'] = [
+                CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+            ];
+        }
+
+        return $opts;
+    }
+
+    protected function http(int $timeout = 25): PendingRequest
     {
         return Http::baseUrl($this->normalizedBaseUrl())
+            ->withOptions($this->curlOptions())
             ->withHeaders($this->defaultHeaders())
             ->acceptJson()
             ->timeout($timeout)
-            ->connectTimeout(5);
+            ->connectTimeout(15);
     }
 
     /**
-     * Fetches /products and /balance in parallel using Http::pool for 2x faster live sync.
+     * Fetches /products and /balance in parallel using Http::pool, with automatic sequential retry if pool connection times out.
      *
      * @return array{products: SupplierProductData[], balance: ?SupplierBalance}
      */
@@ -85,17 +126,26 @@ class StandardBotApiDriver implements SupplierDriver
         $baseUrl = $this->normalizedBaseUrl();
         $headers = $this->defaultHeaders();
         $productsPath = $this->productsEndpoint();
+        $balancePath = $this->balanceEndpoint();
+        $options = $this->curlOptions();
 
         $responses = Http::pool(fn (Pool $pool) => [
-            $pool->as('products')->baseUrl($baseUrl)->withHeaders($headers)->acceptJson()->connectTimeout(5)->timeout(10)->get($productsPath),
-            $pool->as('balance')->baseUrl($baseUrl)->withHeaders($headers)->acceptJson()->connectTimeout(5)->timeout(8)->get('/balance'),
+            $pool->as('products')->baseUrl($baseUrl)->withOptions($options)->withHeaders($headers)->acceptJson()->connectTimeout(15)->timeout(25)->get($productsPath),
+            $pool->as('balance')->baseUrl($baseUrl)->withOptions($options)->withHeaders($headers)->acceptJson()->connectTimeout(15)->timeout(15)->get($balancePath),
         ]);
 
         $prodResponse = $responses['products'] ?? null;
         $balResponse = $responses['balance'] ?? null;
+
+        // If parallel pool failed to connect (e.g. Railway cold start), retry /products sequentially with a generous timeout
         if (! $prodResponse instanceof Response) {
-            throw new SupplierException('Could not connect to supplier /products endpoint.');
+            try {
+                $prodResponse = $this->http(30)->get($productsPath);
+            } catch (ConnectionException $e) {
+                throw new SupplierException('Could not connect to supplier /products endpoint: '.$e->getMessage(), previous: $e);
+            }
         }
+
         $this->guard($prodResponse);
 
         $products = $this->parseProductsResponse($prodResponse);
@@ -103,13 +153,21 @@ class StandardBotApiDriver implements SupplierDriver
         $balanceObj = $this->extractBalanceFromResponse($balResponse)
             ?? $this->extractBalanceFromResponse($prodResponse);
 
-        // Fallback for suppliers like BunaiStore where balance is on GET /me instead of /balance
-        if ($balanceObj === null && $balResponse instanceof Response && $balResponse->status() === 404) {
-            try {
-                $meResponse = $this->http(6)->get('/me');
-                $balanceObj = $this->extractBalanceFromResponse($meResponse);
-            } catch (\Throwable) {
-                // Ignore if /me is also unavailable
+        // Fallback across common balance/profile endpoints if primary balance endpoint failed or didn't include balance
+        if ($balanceObj === null) {
+            foreach (['/me', '/developer/me', '/wallet', '/user', '/profile'] as $altPath) {
+                if ($altPath === $balancePath && $balResponse instanceof Response && $balResponse->successful()) {
+                    continue;
+                }
+                try {
+                    $altResponse = $this->http(10)->get($altPath);
+                    $balanceObj = $this->extractBalanceFromResponse($altResponse);
+                    if ($balanceObj !== null) {
+                        break;
+                    }
+                } catch (\Throwable) {
+                    // Try next fallback endpoint
+                }
             }
         }
 
@@ -119,28 +177,113 @@ class StandardBotApiDriver implements SupplierDriver
         ];
     }
 
+    protected function parseNumericValue(mixed $val): ?float
+    {
+        if (is_int($val) || is_float($val)) {
+            return (float) $val;
+        }
+
+        if (is_string($val)) {
+            $trimmed = trim($val);
+            if ($trimmed === '') {
+                return null;
+            }
+            if (is_numeric($trimmed)) {
+                return (float) $trimmed;
+            }
+            $normalized = str_replace(',', '', $trimmed);
+            if (preg_match('/(-?\d+(?:\.\d+)?)/', $normalized, $m)) {
+                return (float) $m[1];
+            }
+        }
+
+        if (is_array($val)) {
+            foreach (['balance_usdt', 'usdt', 'usd', 'amount', 'balance', 'available', 'value', 'total', 'text'] as $subKey) {
+                if (array_key_exists($subKey, $val)) {
+                    $parsed = $this->parseNumericValue($val[$subKey]);
+                    if ($parsed !== null) {
+                        return $parsed;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
     protected function extractBalanceFromResponse(?Response $response): ?SupplierBalance
     {
         if (! $response instanceof Response || ! $response->successful() || $response->json('ok') === false || $response->json('success') === false) {
             return null;
         }
 
-        $rawBal = $response->json('balance')
-            ?? $response->json('balance_usdt')
-            ?? $response->json('balanceUsd')
-            ?? $response->json('usdtBalance')
-            ?? $response->json('data.balance')
-            ?? $response->json('data.balance_usdt')
-            ?? $response->json('user.balance')
-            ?? $response->json('wallet')
-            ?? $response->json('credits');
+        $candidatePaths = [
+            'balance_usdt',
+            'usdtBalance',
+            'balanceUsd',
+            'balance_usd',
+            'usd_balance',
+            'usdt_balance',
+            'balance',
+            'wallet_balance',
+            'walletBalance',
+            'available_balance',
+            'availableBalance',
+            'user_balance',
+            'userBalance',
+            'account_balance',
+            'data.balance_usdt',
+            'data.usdtBalance',
+            'data.balanceUsd',
+            'data.balance',
+            'data.wallet_balance',
+            'data.wallet',
+            'data.user.balance',
+            'data.user.wallet_balance',
+            'user.balance_usdt',
+            'user.balance',
+            'user.wallet_balance',
+            'user.wallet',
+            'wallet.balance',
+            'wallet.amount',
+            'wallet.usdt',
+            'wallet',
+            'account.balance',
+            'profile.balance',
+            'reseller.balance',
+            'requester.balance',
+            'credits',
+            'credit',
+            'funds',
+            'balanceText',
+        ];
 
-        if ($rawBal === null || ! is_numeric($rawBal)) {
+        $foundValues = [];
+        foreach ($candidatePaths as $path) {
+            $raw = $response->json($path);
+            if ($raw === null) {
+                continue;
+            }
+            $parsed = $this->parseNumericValue($raw);
+            if ($parsed !== null) {
+                $foundValues[] = $parsed;
+            }
+        }
+
+        if ($foundValues === [] && is_numeric($response->json('balance_cents'))) {
+            $foundValues[] = ((float) $response->json('balance_cents')) / 100.0;
+        }
+
+        if ($foundValues === []) {
             return null;
         }
 
+        // Prefer a positive (> 0) balance if multiple fields exist (e.g., balance: 0 vs balance_usdt: 1.50)
+        $positive = array_values(array_filter($foundValues, fn (float $v): bool => $v > 0));
+        $finalBalance = $positive !== [] ? $positive[0] : $foundValues[0];
+
         return new SupplierBalance(
-            balance: (float) $rawBal,
+            balance: $finalBalance,
             currency: (string) ($response->json('currency') ?? $response->json('walletCurrency') ?? $response->json('data.currency') ?? $this->supplier->currency),
             raw: $response->json() ?? [],
         );
@@ -148,7 +291,7 @@ class StandardBotApiDriver implements SupplierDriver
 
     public function products(): array
     {
-        $response = $this->send(fn () => $this->http(10)->get($this->productsEndpoint()));
+        $response = $this->send(fn () => $this->http(25)->get($this->productsEndpoint()));
         $this->guard($response);
 
         return $this->parseProductsResponse($response);
@@ -228,25 +371,37 @@ class StandardBotApiDriver implements SupplierDriver
 
     public function balance(): SupplierBalance
     {
-        $response = $this->send(fn () => $this->http(8)->get('/balance'));
-        if ($response->status() === 404) {
-            $response = $this->send(fn () => $this->http(8)->get('/me'));
+        $primaryPath = $this->balanceEndpoint();
+        $response = $this->send(fn () => $this->http(15)->get($primaryPath));
+
+        $extracted = $this->extractBalanceFromResponse($response);
+        if ($extracted !== null) {
+            return $extracted;
         }
+
+        if (in_array($response->status(), [401, 403], true)) {
+            $this->guard($response);
+        }
+
+        foreach (['/me', '/developer/me', '/wallet', '/user', '/profile', '/products'] as $altPath) {
+            if ($altPath === $primaryPath) {
+                continue;
+            }
+            try {
+                $altResponse = $this->http(12)->get($altPath);
+                $altExtracted = $this->extractBalanceFromResponse($altResponse);
+                if ($altExtracted !== null) {
+                    return $altExtracted;
+                }
+            } catch (\Throwable) {
+                // Continue trying fallback balance paths
+            }
+        }
+
         $this->guard($response);
 
-        $rawBal = $response->json('balance')
-            ?? $response->json('balance_usdt')
-            ?? $response->json('balanceUsd')
-            ?? $response->json('usdtBalance')
-            ?? $response->json('data.balance')
-            ?? $response->json('data.balance_usdt')
-            ?? $response->json('user.balance')
-            ?? $response->json('wallet')
-            ?? $response->json('credits')
-            ?? 0;
-
         return new SupplierBalance(
-            balance: (float) $rawBal,
+            balance: 0.0,
             currency: (string) ($response->json('currency') ?? $response->json('walletCurrency') ?? $response->json('data.currency') ?? $this->supplier->currency),
             raw: $response->json() ?? [],
         );
@@ -265,66 +420,101 @@ class StandardBotApiDriver implements SupplierDriver
         $isTunvn = str_contains($baseUrl, 'tunvnmmo');
         $isCanboso = str_contains($baseUrl, 'canboso') || str_starts_with($apiKey, 'tgb_');
 
-        try {
+        $executeOrderRequest = function () use ($isProdSeller, $isBunai, $isQamify, $isTunvn, $isCanboso, $externalProductId, $normalizedId, $quantity, $requestId, $idempotencyKey, $apiKey): Response {
             if ($isProdSeller) {
-                $response = $this->http(60)
+                return $this->http(60)
                     ->withHeaders(['Idempotency-Key' => $idempotencyKey])
                     ->post('/orders', [
                         'productId' => (string) $externalProductId,
                         'quantity' => $quantity,
                     ]);
-            } elseif ($isBunai) {
-                $response = $this->http(60)
+            }
+            if ($isBunai) {
+                return $this->http(60)
                     ->withHeaders(['Idempotency-Key' => $idempotencyKey])
                     ->post('/orders', [
                         'product_id' => (string) $externalProductId,
                         'qty' => $quantity,
                         'include_after_note' => true,
                     ]);
-            } elseif ($isQamify) {
-                $response = $this->http(60)
+            }
+            if ($isQamify) {
+                return $this->http(60)
                     ->withHeaders(['Idempotency-Key' => $idempotencyKey])
                     ->post('/orders', [
                         'product_id' => $normalizedId,
                         'qty' => $quantity,
                     ]);
-            } elseif ($isTunvn) {
-                $response = $this->http(60)->post('/buy', [
+            }
+            if ($isTunvn) {
+                return $this->http(60)->post('/buy', [
                     'product_id' => $normalizedId,
                     'quantity' => $quantity,
                     'currency' => strtolower($this->supplier->currency ?: 'usdt'),
                 ]);
-            } elseif ($isCanboso) {
-                $response = $this->http(60)
+            }
+            if ($isCanboso) {
+                return $this->http(60)
                     ->withHeaders(['Idempotency-Key' => $idempotencyKey])
                     ->post('/purchase', [
                         'key' => $apiKey,
                         'product_id' => (string) $externalProductId,
                         'quantity' => $quantity,
                     ]);
-            } else {
-                // Default / Standard Bot / EliteToolz
-                $response = $this->http(60)->post('/order', [
-                    'product_id' => $normalizedId,
-                    'productId' => (string) $externalProductId,
-                    'quantity' => $quantity,
-                    'request_id' => $requestId,
-                ]);
-
-                // Safe 404 fallback (route does not exist -> nothing was charged)
-                if ($response->status() === 404) {
-                    $response = $this->http(60)
-                        ->withHeaders(['Idempotency-Key' => $idempotencyKey])
-                        ->post('/orders', [
-                            'product_id' => $normalizedId,
-                            'productId' => (string) $externalProductId,
-                            'qty' => $quantity,
-                            'quantity' => $quantity,
-                        ]);
-                }
             }
+
+            // Default / Standard Bot / EliteToolz
+            $resp = $this->http(60)->post('/order', [
+                'product_id' => $normalizedId,
+                'productId' => (string) $externalProductId,
+                'quantity' => $quantity,
+                'request_id' => $requestId,
+            ]);
+
+            // Safe 404 fallback (route does not exist -> nothing was charged)
+            if ($resp->status() === 404) {
+                $resp = $this->http(60)
+                    ->withHeaders(['Idempotency-Key' => $idempotencyKey])
+                    ->post('/orders', [
+                        'product_id' => $normalizedId,
+                        'productId' => (string) $externalProductId,
+                        'qty' => $quantity,
+                        'quantity' => $quantity,
+                    ]);
+            }
+
+            return $resp;
+        };
+
+        try {
+            $response = $executeOrderRequest();
         } catch (ConnectionException $e) {
-            throw SupplierUnknownResultException::withContext('Connection error while placing order: '.$e->getMessage());
+            $errLower = Str::lower($e->getMessage());
+            $isConnectPhaseTimeout = Str::contains($errLower, [
+                'connection timed out',
+                'failed to connect',
+                'could not resolve host',
+                'ssl connection timeout',
+            ]);
+
+            if ($isConnectPhaseTimeout) {
+                if (! app()->runningUnitTests()) {
+                    usleep(800000);
+                    try {
+                        $response = $executeOrderRequest();
+                    } catch (ConnectionException $retryEx) {
+                        $retryLower = Str::lower($retryEx->getMessage());
+                        if (Str::contains($retryLower, ['connection timed out', 'failed to connect', 'could not resolve host', 'ssl connection timeout'])) {
+                            throw SupplierException::withContext('Could not connect to supplier while placing order: '.$retryEx->getMessage());
+                        }
+                        throw SupplierUnknownResultException::withContext('Connection error while placing order: '.$retryEx->getMessage());
+                    }
+                } else {
+                    throw SupplierException::withContext('Could not connect to supplier while placing order: '.$e->getMessage());
+                }
+            } else {
+                throw SupplierUnknownResultException::withContext('Connection error while placing order: '.$e->getMessage());
+            }
         }
 
         if ($response->serverError()) {

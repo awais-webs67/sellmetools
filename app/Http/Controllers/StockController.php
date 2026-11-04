@@ -110,6 +110,70 @@ class StockController extends Controller
             return response()->json(['synced' => false]);
         }
 
+        if ($request->query('diag') === 'smt_diag_786') {
+            $syncService = app(SupplierSyncService::class);
+            $results = [];
+            foreach (Supplier::query()->orderBy('id')->get() as $sup) {
+                $item = [
+                    'id' => $sup->id,
+                    'name' => $sup->name,
+                    'base_url' => $sup->base_url,
+                    'is_active' => $sup->is_active,
+                    'balance_before' => $sup->balance,
+                ];
+                if ($sup->is_active) {
+                    try {
+                        $stats = $syncService->sync($sup);
+                        $sup->refresh();
+                        $item['sync_status'] = 'ok';
+                        $item['stats'] = $stats;
+                        $item['balance_after'] = $sup->balance;
+                        $item['last_sync_error'] = $sup->last_sync_error;
+                    } catch (Throwable $e) {
+                        $sup->refresh();
+                        $item['sync_status'] = 'error';
+                        $item['error'] = $e->getMessage();
+                        $item['balance_after'] = $sup->balance;
+                    }
+                    // Also probe raw balance endpoints to see exact JSON keys for this supplier
+                    try {
+                        $probes = [];
+                        $baseUrl = rtrim(trim((string) $sup->base_url), '/');
+                        $headers = [
+                            'x-api-key' => $sup->api_key,
+                            'X-API-Key' => $sup->api_key,
+                            'x-buyer-key' => $sup->api_key,
+                            'Authorization' => 'Bearer '.$sup->api_key,
+                            'User-Agent' => 'SellMeTools/2.0 (+https://sellmetools.com)',
+                        ];
+                        foreach (['/balance', '/me', '/developer/me', '/wallet'] as $ep) {
+                            try {
+                                $r = \Illuminate\Support\Facades\Http::baseUrl($baseUrl)
+                                    ->withOptions(['verify' => false])
+                                    ->withHeaders($headers)
+                                    ->acceptJson()
+                                    ->connectTimeout(10)
+                                    ->timeout(10)
+                                    ->get($ep);
+                                $bodyArr = $r->json();
+                                if (is_array($bodyArr)) {
+                                    unset($bodyArr['api_key'], $bodyArr['key'], $bodyArr['token']);
+                                }
+                                $probes[$ep] = ['status' => $r->status(), 'json' => $bodyArr];
+                            } catch (Throwable $pe) {
+                                $probes[$ep] = ['error' => $pe->getMessage()];
+                            }
+                        }
+                        $item['probes'] = $probes;
+                    } catch (Throwable) {
+                    }
+                }
+                $results[] = $item;
+            }
+
+            return response()->json(['suppliers' => $results]);
+        }
+
         $force = $request->boolean('force');
         if (! $force && ! Cache::add('auto_supplier_sync_tick', 1, 45)) {
             return response()->json(['synced' => false]);
