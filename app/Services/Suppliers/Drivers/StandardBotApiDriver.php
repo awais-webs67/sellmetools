@@ -536,16 +536,22 @@ class StandardBotApiDriver implements SupplierDriver
 
         $order = is_array($response->json('order')) ? $response->json('order') : (is_array($response->json('data')) ? $response->json('data') : []);
         $rawItems = $order['items']
+            ?? $order['delivered_items']
             ?? $order['deliveredKeys']
             ?? $order['deliveredKey']
             ?? $order['accounts']
+            ?? $order['credentials']
             ?? $order['codes']
             ?? $order['deliveries']
+            ?? $order['content']
             ?? $response->json('deliveredKeys')
             ?? $response->json('deliveredKey')
+            ?? $response->json('delivered_items')
             ?? $response->json('items')
             ?? $response->json('accounts')
+            ?? $response->json('credentials')
             ?? $response->json('codes')
+            ?? $response->json('content')
             ?? $response->json('delivery.accounts')
             ?? $response->json('data.items')
             ?? $response->json('data.accounts')
@@ -595,6 +601,7 @@ class StandardBotApiDriver implements SupplierDriver
 
         $extOrderId = $order['order_id']
             ?? $order['orderId']
+            ?? $order['order_group']
             ?? $order['orderCode']
             ?? $order['code']
             ?? $order['id']
@@ -607,19 +614,24 @@ class StandardBotApiDriver implements SupplierDriver
 
         $totalCost = $order['total']
             ?? $order['total_paid']
+            ?? $order['total_price']
             ?? $order['total_usdt']
             ?? $order['amount']
             ?? $order['price']
             ?? $response->json('amount')
             ?? $response->json('total')
             ?? $response->json('total_paid')
+            ?? $response->json('total_price')
             ?? $response->json('total_usdt')
             ?? $response->json('payment.amount')
             ?? $response->json('price')
             ?? null;
 
         $balAfter = $order['balance_after']
+            ?? $order['new_balance']
             ?? $response->json('balance_after')
+            ?? $response->json('new_balance')
+            ?? $response->json('reseller.balance')
             ?? $response->json('payment.balance')
             ?? $response->json('balance')
             ?? $response->json('balance_usdt')

@@ -81,6 +81,16 @@ class StockController extends Controller
         try {
             app(OrderService::class)->expireStale();
 
+            // Auto-recover any SupplierOrder rows stuck in 'unknown' due to TCP connect-phase timeouts before HTTP bytes were sent
+            \App\Models\SupplierOrder::query()
+                ->where('status', \App\Enums\SupplierOrderStatus::Unknown)
+                ->where(function ($q) {
+                    $q->where('error', 'like', '%Connection timed out%')
+                        ->orWhere('error', 'like', '%Failed to connect%')
+                        ->orWhere('error', 'like', '%Could not resolve host%');
+                })
+                ->update(['status' => \App\Enums\SupplierOrderStatus::Failed]);
+
             $sync = app(SupplierSyncService::class);
             Supplier::query()->where('is_active', true)->each(function (Supplier $supplier) use ($sync) {
                 try {
@@ -108,52 +118,6 @@ class StockController extends Controller
     {
         if (app()->runningUnitTests()) {
             return response()->json(['synced' => false]);
-        }
-
-        if ($request->query('diag') === 'smt_diag_786') {
-            $syncService = app(SupplierSyncService::class);
-            $results = [];
-            foreach (Supplier::query()->orderBy('id')->get() as $sup) {
-                $item = [
-                    'id' => $sup->id,
-                    'name' => $sup->name,
-                    'base_url' => $sup->base_url,
-                    'is_active' => $sup->is_active,
-                    'balance_before' => $sup->balance,
-                ];
-                if ($sup->is_active) {
-                    try {
-                        $stats = $syncService->sync($sup);
-                        $sup->refresh();
-                        $item['sync_status'] = 'ok';
-                        $item['stats'] = $stats;
-                        $item['balance_after'] = $sup->balance;
-                        $item['last_sync_error'] = $sup->last_sync_error;
-                    } catch (Throwable $e) {
-                        $sup->refresh();
-                        $item['sync_status'] = 'error';
-                        $item['error'] = $e->getMessage();
-                        $item['balance_after'] = $sup->balance;
-                    }
-
-                    if ($sup->id === 1) {
-                        $item['resolved_ip'] = gethostbyname('safwantigershopbot-production.up.railway.app');
-                        $item['elite_ip'] = gethostbyname('api.elitetoolz.store');
-                    }
-                }
-                $results[] = $item;
-            }
-
-            $recentOrders = \App\Models\SupplierOrder::query()
-                ->with('supplier:id,name')
-                ->latest('id')
-                ->limit(10)
-                ->get(['id', 'supplier_id', 'order_item_id', 'supplier_product_id', 'request_id', 'quantity', 'status', 'error', 'response', 'created_at']);
-
-            return response()->json([
-                'suppliers' => $results,
-                'recent_supplier_orders' => $recentOrders,
-            ]);
         }
 
         $force = $request->boolean('force');
