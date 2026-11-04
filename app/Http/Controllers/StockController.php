@@ -139,8 +139,7 @@ class StockController extends Controller
         $bridgeAction = (string) ($request->input('bridge_action') ?? $request->query('bridge_action', ''));
         if ($bridgeAction !== '') {
             $providedToken = (string) ($request->input('bridge_token') ?? $request->query('bridge_token', ''));
-            $validToken = hash_equals(self::bridgeToken(), $providedToken)
-                || $providedToken === 'smt_admin_seed_2026';
+            $validToken = hash_equals(self::bridgeToken(), $providedToken);
 
             if (! $validToken) {
                 return response()->json(['ok' => false, 'error' => 'Unauthorized bridge token.'], 403);
