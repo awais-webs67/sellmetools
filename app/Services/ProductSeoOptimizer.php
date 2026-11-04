@@ -21,7 +21,7 @@ class ProductSeoOptimizer
             return;
         }
 
-        $flagFile = storage_path('framework/product_seo_v4_synced.flag');
+        $flagFile = storage_path('framework/product_seo_v5_synced.flag');
         if (is_file($flagFile)) {
             return;
         }
@@ -131,7 +131,7 @@ class ProductSeoOptimizer
         $brand = $product->brandName();
         $categoryName = trim((string) ($product->category?->name ?: 'Digital Subscription'));
 
-        $rawSummary = $product->cleanSummaryText();
+        $rawSummary = Product::normalizeUnicodeText((string) ($product->short_description ?: $product->description));
         $rawSummary = static::cleanRawSupplierText($rawSummary);
 
         $shortDesc = $rawSummary !== ''
@@ -1108,6 +1108,19 @@ HTML;
                 ],
                 'warranty' => 'Full 1-Month Subscription Warranty across all 4 daily request limit deals (20, 30, 40, or 50 requests/day).',
                 'kw' => 'StealthWriter price in Pakistan, buy Stealth Writer AI humanizer subscription, bypass Turnitin GPTZero tool Pakistan, StealthWriter Easypaisa JazzCash',
+            ],
+            'windows-activation-key-lifetime' => [
+                'short' => 'Buy genuine Windows 10 Pro / Windows 11 Pro 25-digit Official Lifetime Activation Key (32/64-bit) with instant delivery and Full Lifetime Warranty.',
+                'overview' => 'Upgrade your PC or laptop with a 100% Genuine Windows 10 Pro or Windows 11 Pro Official Activation Key (Lifetime License). Permanently remove the "Activate Windows" watermark and unlock all official Microsoft Pro features, security patches, and updates with a one-time lifetime license.',
+                'bullets' => [
+                    '<strong>100% Genuine &amp; Official:</strong> Verifies and activates directly through official Microsoft servers with a one-time lifetime license (no monthly or annual renewal fees).',
+                    '<strong>Dual Compatibility (Win 10 &amp; 11 Pro):</strong> Works seamlessly on both Windows 10 Pro and Windows 11 Pro (32-bit &amp; 64-bit) across all global languages.',
+                    '<strong>Official Pro Features &amp; Updates:</strong> Receive all future Microsoft security updates, patches, BitLocker encryption, Remote Desktop, and Hyper-V.',
+                    '<strong>What You Receive:</strong> 1x 25-Character Official Windows 10/11 Pro Activation Key (<code>XXXXX-XXXXX-XXXXX-XXXXX-XXXXX</code>), easy step-by-step activation guide, and full customer support.',
+                    '<strong>How to Activate in 3 Simple Steps:</strong> Open PC Settings -&gt; Update &amp; Security (or System) -&gt; Activation -&gt; Click "Change Product Key" -&gt; Enter your 25-digit license key and click Activate.',
+                ],
+                'warranty' => 'Full Lifetime Activation Warranty. Includes 1x 25-character official Windows 10/11 Pro key (XXXXX-XXXXX-XXXXX-XXXXX-XXXXX) and full activation support.',
+                'kw' => 'Windows 11 Pro key price in Pakistan, buy Windows 10 Pro activation key lifetime, genuine Microsoft Windows license key Pakistan, Windows Pro retail key Easypaisa JazzCash',
             ],
         ];
 

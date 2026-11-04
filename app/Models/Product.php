@@ -163,13 +163,22 @@ class Product extends Model
                 $product->price = 0;
             }
 
-            if (blank($product->meta_title) || blank($product->meta_keywords) || blank($product->short_description)) {
+            if (blank($product->meta_title) || blank($product->meta_description) || blank($product->meta_keywords) || blank($product->short_description)) {
                 $autoSeo = \App\Services\ProductSeoOptimizer::buildDynamicSeoFields($product);
-                if (blank($product->short_description) && filled($product->description)) {
+                if (blank($product->short_description)) {
                     $product->short_description = $autoSeo['short_description'];
+                }
+                if (blank($product->description)) {
+                    $product->description = $autoSeo['description'];
+                }
+                if (blank($product->warranty)) {
+                    $product->warranty = $autoSeo['warranty'];
                 }
                 if (blank($product->meta_title)) {
                     $product->meta_title = $autoSeo['meta_title'];
+                }
+                if (blank($product->meta_description)) {
+                    $product->meta_description = $autoSeo['meta_description'];
                 }
                 if (blank($product->meta_keywords)) {
                     $product->meta_keywords = $autoSeo['meta_keywords'];
@@ -524,6 +533,7 @@ class Product extends Model
             'outlook' => 'Microsoft',
             'hotmail' => 'Microsoft',
             'microsoft' => 'Microsoft',
+            'windows' => 'Microsoft',
             'office 365' => 'Microsoft',
             'office365' => 'Microsoft',
             'ms365' => 'Microsoft',
@@ -713,7 +723,7 @@ class Product extends Model
             return;
         }
 
-        $flagFile = storage_path('framework/reviews_v5_seeded.flag');
+        $flagFile = storage_path('framework/reviews_v6_seeded.flag');
         if (is_file($flagFile)) {
             return;
         }

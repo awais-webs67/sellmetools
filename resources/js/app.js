@@ -73,37 +73,65 @@ Alpine.store('stock', {
     syncing: false,
     justSynced: false,
     hiddenAt: null,
+    lastPollAt: Date.now(),
     lastActiveAt: Date.now(),
 
-    start(intervalMs = 45000) {
+    start(intervalMs = 8000) {
         const markActive = () => {
             this.lastActiveAt = Date.now();
         };
-        ['pointerdown', 'keydown'].forEach((ev) =>
+        ['pointerdown', 'keydown', 'scroll', 'touchstart', 'mousemove'].forEach((ev) =>
             window.addEventListener(ev, markActive, { passive: true })
         );
 
+        const markHidden = () => {
+            if (!this.hiddenAt) {
+                this.hiddenAt = Date.now();
+            }
+        };
+
+        const handleResume = (ev) => {
+            if (document.hidden) return;
+            const now = Date.now();
+            this.lastActiveAt = now;
+            const fromHidden = this.hiddenAt ? now - this.hiddenAt : 0;
+            const fromLastPoll = now - (this.lastPollAt || now);
+            const awayMs = Math.max(fromHidden, fromLastPoll);
+            this.hiddenAt = null;
+
+            // Show the reload/refresh popup whenever the user returns from Recent Apps / background tab after 15+ seconds or bfcache
+            if (ev?.persisted || awayMs >= 15000) {
+                this.stale = true;
+                this.poll(true);
+            } else if (awayMs >= 4000) {
+                this.poll(false);
+            }
+        };
+
+        // Initial background poll right after page load so prices/stock are always 100% fresh
+        setTimeout(() => {
+            if (!document.hidden) {
+                this.poll(false);
+            }
+        }, 1200);
+
         clearInterval(this.timer);
         this.timer = setInterval(() => {
-            if (document.hidden || Date.now() - this.lastActiveAt > 120000) return;
-            this.poll();
+            if (document.hidden || Date.now() - this.lastActiveAt > 300000) return;
+            this.poll(false);
         }, intervalMs);
 
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
-                this.hiddenAt = Date.now();
+                markHidden();
             } else {
-                this.lastActiveAt = Date.now();
-                const awayMs = this.hiddenAt ? Date.now() - this.hiddenAt : 0;
-                this.hiddenAt = null;
-                if (awayMs > 900000) {
-                    this.stale = true;
-                }
-                if (awayMs > 30000) {
-                    this.poll(false);
-                }
+                handleResume();
             }
         });
+        window.addEventListener('pagehide', markHidden, { passive: true });
+        window.addEventListener('blur', markHidden, { passive: true });
+        window.addEventListener('pageshow', (ev) => handleResume(ev), { passive: true });
+        window.addEventListener('focus', () => handleResume(), { passive: true });
     },
 
     async manualSync() {
@@ -122,6 +150,7 @@ Alpine.store('stock', {
     },
 
     async poll(forceSupplierSync = false) {
+        this.lastPollAt = Date.now();
         const ids = [...new Set([...document.querySelectorAll('[data-stock-id]')].map((el) => el.dataset.stockId))];
 
         if (forceSupplierSync && window.SMT?.syncUrl) {
@@ -131,8 +160,9 @@ Alpine.store('stock', {
         if (!ids.length) return;
 
         try {
-            const url = new URL(window.SMT.stockUrl);
+            const url = new URL(window.SMT.stockUrl, window.location.origin);
             url.searchParams.set('ids', ids.join(','));
+            url.searchParams.set('_t', String(Date.now()));
             const res = await fetch(url, { headers: { Accept: 'application/json' }, cache: 'no-store' });
             if (res.ok) {
                 const payload = await res.json();
@@ -144,6 +174,7 @@ Alpine.store('stock', {
                         prev.qty !== next.qty ||
                         prev.in_stock !== next.in_stock ||
                         prev.price !== next.price ||
+                        prev.retail_price !== next.retail_price ||
                         prev.unlimited !== next.unlimited
                     ) {
                         this.items[id] = next;
@@ -161,14 +192,18 @@ Alpine.store('stock', {
 });
 
 /** Product card / page / checkout stock & price badge. Initial values come from server render. */
-Alpine.data('stockBadge', (id, initialQty, initialUnlimited, initialPriceFormatted = null, initialPriceNum = 0) => ({
+Alpine.data('stockBadge', (id, initialQty, initialUnlimited, initialPriceFormatted = null, initialPriceNum = 0, initialRetailNum = null) => ({
     id: String(id),
+    qty: 1,
+    max: 10,
+    walletBal: 0,
     get data() {
         return this.$store.stock.get(this.id) ?? {
             qty: initialQty,
             unlimited: initialUnlimited,
             in_stock: initialUnlimited || initialQty > 0,
             price: initialPriceNum,
+            retail_price: initialRetailNum ?? initialPriceNum,
             price_formatted: initialPriceFormatted,
         };
     },
@@ -177,6 +212,17 @@ Alpine.data('stockBadge', (id, initialQty, initialUnlimited, initialPriceFormatt
     },
     get unitPrice() {
         return Number(this.data.price ?? initialPriceNum);
+    },
+    get retailPrice() {
+        return Number(this.data.retail_price ?? initialRetailNum ?? this.unitPrice);
+    },
+    get savingAmount() {
+        return Math.max(0, this.retailPrice - this.unitPrice);
+    },
+    get savingPct() {
+        return this.retailPrice > 0 && this.savingAmount > 0
+            ? Math.round((this.savingAmount / this.retailPrice) * 100)
+            : 0;
     },
     get priceText() {
         if (this.unitPrice > 0 && this.$store.currency) {
@@ -424,7 +470,7 @@ Alpine.data('loadMoreGrid', (initialNextUrl, initialShown, totalCount) => ({
 
 window.Alpine = Alpine;
 Alpine.start();
-Alpine.store('stock').start(60000);
+Alpine.store('stock').start(8000);
 
 /**
  * Instant 0ms Tactile Click Progress Bar & Single-Link Pointerdown Prefetch.

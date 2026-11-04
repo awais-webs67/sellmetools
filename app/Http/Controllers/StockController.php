@@ -21,7 +21,7 @@ class StockController extends Controller
             ->map(fn ($id) => (int) $id)
             ->filter()
             ->unique()
-            ->take(60);
+            ->take(250);
 
         $reseller = $request->filled('reseller')
             ? User::query()->where('is_reseller', true)->with('resellerProductPrices')->find((int) $request->query('reseller'))
@@ -39,6 +39,7 @@ class StockController extends Controller
                     'unlimited' => $p->is_active && $p->stock_unlimited,
                     'in_stock' => $p->is_active && $p->inStock(),
                     'price' => (float) $effectivePrice,
+                    'retail_price' => (float) $p->price,
                     'price_formatted' => $isFree ? 'FREE' : money($effectivePrice),
                 ]];
             });
@@ -48,14 +49,14 @@ class StockController extends Controller
         }
 
         return response()
-            ->json(['items' => $stock, 'need_sync' => false])
-            ->header('Cache-Control', 'no-store')
+            ->json(['items' => $stock, 'need_sync' => false, 'ts' => now()->timestamp])
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Session-Driver', 'none');
     }
 
     public static function deferBackgroundSync(): void
     {
-        if (app()->runningUnitTests() || ! Cache::add('auto_supplier_sync_tick', 1, 180)) {
+        if (app()->runningUnitTests() || ! Cache::add('auto_supplier_sync_tick', 1, 30)) {
             return;
         }
 

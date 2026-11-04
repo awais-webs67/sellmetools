@@ -513,7 +513,10 @@
                         <div class="divide-y divide-line">
                             @forelse ($products->getCollection()->take(8) as $p)
                                 @php $dirPrice = (float) $p->priceFor(auth()->user()); @endphp
-                                <a href="{{ route('products.show', $p) }}" class="group flex items-center justify-between gap-3 px-5 py-3.5 transition hover:bg-brand-tint/40">
+                                <a href="{{ route('products.show', $p) }}"
+                                   x-data="stockBadge({{ $p->id }}, {{ (int) $p->available_stock }}, {{ $p->stock_unlimited ? 'true' : 'false' }}, @js($p->isFree() ? 'FREE' : money($dirPrice)), {{ $dirPrice }})"
+                                   data-stock-id="{{ $p->id }}"
+                                   class="group flex items-center justify-between gap-3 px-5 py-3.5 transition hover:bg-brand-tint/40">
                                     <div class="min-w-0">
                                         <p class="truncate text-xs sm:text-sm font-bold text-ink group-hover:text-brand">
                                             {{ $p->name }} <span class="font-normal text-muted">price in Pakistan</span>
@@ -523,7 +526,7 @@
                                                 <span class="font-semibold text-brand">{{ $p->category->name }}</span>
                                                 <span>·</span>
                                             @endif
-                                            <span class="{{ $p->inStock() ? 'text-success font-medium' : 'text-danger' }}">
+                                            <span :class="inStock ? 'text-success font-medium' : 'text-danger'" x-text="inStock ? 'In Stock' : 'Out of Stock'">
                                                 {{ $p->inStock() ? 'In Stock' : 'Out of Stock' }}
                                             </span>
                                         </div>
@@ -533,13 +536,14 @@
                                             <span class="rounded-lg bg-success/10 px-2.5 py-1 text-xs sm:text-sm font-bold text-success group-hover:bg-brand group-hover:text-white transition">
                                                 🎁 FREE
                                             </span>
-                                        @elseif ($dirPrice > 0)
-                                            <span class="rounded-lg bg-grey-soft px-2.5 py-1 text-xs sm:text-sm font-bold text-ink group-hover:bg-brand group-hover:text-white transition"
-                                                  x-text="$store.currency.format({{ $dirPrice }})">
-                                                {{ money($dirPrice) }}
-                                            </span>
                                         @else
-                                            <span class="rounded-lg bg-grey-soft px-2.5 py-1 text-xs font-semibold text-muted group-hover:bg-brand group-hover:text-white transition">
+                                            <span x-show="unitPrice > 0"
+                                                  class="rounded-lg bg-grey-soft px-2.5 py-1 text-xs sm:text-sm font-bold text-ink group-hover:bg-brand group-hover:text-white transition"
+                                                  x-text="priceText">
+                                                {{ $dirPrice > 0 ? money($dirPrice) : 'View Plan' }}
+                                            </span>
+                                            <span x-show="unitPrice <= 0" x-cloak
+                                                  class="rounded-lg bg-grey-soft px-2.5 py-1 text-xs font-semibold text-muted group-hover:bg-brand group-hover:text-white transition">
                                                 View Plan
                                             </span>
                                         @endif
