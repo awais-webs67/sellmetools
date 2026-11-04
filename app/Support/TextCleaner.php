@@ -17,6 +17,7 @@ class TextCleaner
         }
 
         $text = preg_replace('/\{\{ce:\d+\|[^}]*\}\}/u', '', $text) ?? $text;
+        $text = preg_replace('/\{(?:pe|ce):\d+(?:\|[^}]*)?\}/u', '', $text) ?? $text;
         $text = preg_replace('/<\s*br\s*\/?>/i', "\n", $text) ?? $text;
         $text = preg_replace('/<\/(p|div|blockquote|li)>/i', "\n", $text) ?? $text;
         $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');

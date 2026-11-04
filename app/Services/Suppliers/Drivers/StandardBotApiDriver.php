@@ -93,17 +93,10 @@ class StandardBotApiDriver implements SupplierDriver
 
     protected function curlOptions(): array
     {
-        $opts = [
+        return [
             'verify' => false,
+            'force_ip_resolve' => 'v4',
         ];
-
-        if (defined('CURLOPT_IPRESOLVE') && defined('CURL_IPRESOLVE_V4')) {
-            $opts['curl'] = [
-                CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
-            ];
-        }
-
-        return $opts;
     }
 
     protected function http(int $timeout = 25): PendingRequest

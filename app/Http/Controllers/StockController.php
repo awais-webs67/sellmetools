@@ -135,43 +135,43 @@ class StockController extends Controller
                         $item['error'] = $e->getMessage();
                         $item['balance_after'] = $sup->balance;
                     }
-                    // Also probe raw balance endpoints to see exact JSON keys for this supplier
-                    try {
-                        $probes = [];
-                        $baseUrl = rtrim(trim((string) $sup->base_url), '/');
+
+                    if (str_contains(strtolower((string) $sup->base_url), 'ssondigitalworks')) {
                         $headers = [
                             'x-api-key' => $sup->api_key,
                             'X-API-Key' => $sup->api_key,
-                            'x-buyer-key' => $sup->api_key,
                             'Authorization' => 'Bearer '.$sup->api_key,
-                            'User-Agent' => 'SellMeTools/2.0 (+https://sellmetools.com)',
                         ];
-                        foreach (['/balance', '/me', '/developer/me', '/wallet'] as $ep) {
+                        $orderProbes = [];
+                        foreach (['/order', '/orders', '/buy', '/purchase'] as $op) {
                             try {
-                                $r = \Illuminate\Support\Facades\Http::baseUrl($baseUrl)
-                                    ->withOptions(['verify' => false])
+                                $or = \Illuminate\Support\Facades\Http::baseUrl(rtrim((string) $sup->base_url, '/'))
+                                    ->withOptions(['verify' => false, 'force_ip_resolve' => 'v4'])
                                     ->withHeaders($headers)
                                     ->acceptJson()
-                                    ->connectTimeout(10)
-                                    ->timeout(10)
-                                    ->get($ep);
-                                $bodyArr = $r->json();
-                                if (is_array($bodyArr)) {
-                                    unset($bodyArr['api_key'], $bodyArr['key'], $bodyArr['token']);
-                                }
-                                $probes[$ep] = ['status' => $r->status(), 'json' => $bodyArr];
-                            } catch (Throwable $pe) {
-                                $probes[$ep] = ['error' => $pe->getMessage()];
+                                    ->timeout(8)
+                                    ->post($op, ['product_id' => -1, 'quantity' => 0]);
+                                $orderProbes[$op] = ['status' => $or->status(), 'body' => $or->json() ?? $or->body()];
+                            } catch (Throwable $oe) {
+                                $orderProbes[$op] = ['error' => $oe->getMessage()];
                             }
                         }
-                        $item['probes'] = $probes;
-                    } catch (Throwable) {
+                        $item['order_probes'] = $orderProbes;
                     }
                 }
                 $results[] = $item;
             }
 
-            return response()->json(['suppliers' => $results]);
+            $recentOrders = \App\Models\SupplierOrder::query()
+                ->with('supplier:id,name')
+                ->latest('id')
+                ->limit(10)
+                ->get(['id', 'supplier_id', 'order_item_id', 'supplier_product_id', 'request_id', 'quantity', 'status', 'error', 'response', 'created_at']);
+
+            return response()->json([
+                'suppliers' => $results,
+                'recent_supplier_orders' => $recentOrders,
+            ]);
         }
 
         $force = $request->boolean('force');
