@@ -37,10 +37,10 @@ class Product extends Model
     public static function deliveryTypeOptions(): array
     {
         return [
-            'auto' => '⚡ Auto Delivery: Unique Accounts from .TXT Stock Vault or Supplier API (1 Unit Consumed Per Order)',
-            'instant_link' => '🔗 Reusable Course / Resource Link: Same Link or Text Auto-Delivered to Every Customer (Unlimited Stock)',
-            'manual_admin' => '👨‍💻 Admin Manual Delivery: Admin Delivers Credentials After Order Confirmed',
-            'whatsapp_handover' => '📲 Direct WhatsApp Delivery: Show WhatsApp Claim Button After Order Confirmed',
+            'auto' => 'Auto Delivery — Unique Accounts from .TXT Stock Vault or Supplier API (1 Unit Consumed Per Order)',
+            'instant_link' => 'Reusable Resource Link — Same Link or Text Auto-Delivered to Every Customer (Unlimited Stock)',
+            'manual_admin' => 'Admin Manual Delivery — Admin Delivers Credentials After Order Confirmed',
+            'whatsapp_handover' => 'Direct WhatsApp Delivery — Show WhatsApp Claim Button After Order Confirmed',
         ];
     }
 

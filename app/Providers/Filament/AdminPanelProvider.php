@@ -55,25 +55,71 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::USER_MENU_BEFORE,
                 fn (): HtmlString => new HtmlString(
-                    '<div style="display:inline-flex;align-items:center;gap:0.4rem;">'
-                    .'<a href="'.e(url('/admin/sales-statement')).'" class="fi-live-store-btn">'
-                    .'<svg style="width:13px;height:13px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 17v-6m3 6V7m3 10v-4M5 21h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2Z"/></svg>'
-                    .'<span>Sales Reports</span>'
+                    '<div class="smt-topbar-actions">'
+                    .'<a href="'.e(url('/admin/sales-statement')).'" class="fi-live-store-btn" title="Sales & Profit Reports">'
+                    .'<svg style="width:14px;height:14px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 17v-6m3 6V7m3 10v-4M5 21h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2Z"/></svg>'
+                    .'<span class="smt-btn-text">Reports</span>'
                     .'</a>'
-                    .'<a href="'.e(url('/admin/vendor-orders')).'" class="fi-live-store-btn">'
-                    .'<svg style="width:13px;height:13px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>'
-                    .'<span>Vendor Orders</span>'
+                    .'<a href="'.e(url('/admin/vendor-orders')).'" class="fi-live-store-btn" title="Direct & Vendor Orders">'
+                    .'<svg style="width:14px;height:14px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>'
+                    .'<span class="smt-btn-text">Vendor</span>'
                     .'</a>'
-                    .'<a href="'.e(url('/')).'" target="_blank" rel="noopener" class="fi-live-store-btn">'
-                    .'<svg style="width:13px;height:13px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
-                    .'<span>Live Store</span>'
+                    .'<a href="'.e(url('/')).'" target="_blank" rel="noopener" class="fi-live-store-btn" title="Open Live Storefront">'
+                    .'<svg style="width:14px;height:14px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
+                    .'<span class="smt-btn-text">Store</span>'
                     .'</a>'
+                    .'<button type="button" id="smt-admin-install-btn" class="fi-live-store-btn smt-install-app-btn" style="display:none;" title="Install Admin Dashboard as App">'
+                    .'<svg style="width:14px;height:14px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
+                    .'<span>Install App</span>'
+                    .'</button>'
+                    .'<div class="smt-bell-container" id="smt-order-bell-wrap">'
+                    .'<button type="button" id="smt-order-bell-btn" class="smt-bell-btn" aria-label="Order Notifications" title="Live Order Notifications">'
+                    .'<svg style="width:18px;height:18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>'
+                    .'<span id="smt-bell-badge" class="smt-bell-badge" style="display:none;">0</span>'
+                    .'</button>'
+                    .'<div id="smt-bell-dropdown" class="smt-bell-dropdown" style="display:none;">'
+                    .'<div class="smt-bell-header">'
+                    .'<div>'
+                    .'<div class="smt-bell-title">Live Order Notifications</div>'
+                    .'<div class="smt-bell-subtitle" id="smt-bell-summary">Checking live queue...</div>'
+                    .'</div>'
+                    .'<div style="display:flex;align-items:center;gap:0.35rem;">'
+                    .'<button type="button" id="smt-bell-sound-btn" class="smt-bell-mini-btn" title="Toggle Sound & Browser Alerts">Alerts: ON</button>'
+                    .'<button type="button" id="smt-bell-mark-read" class="smt-bell-mini-btn" title="Mark current notifications as seen">Clear Badge</button>'
+                    .'</div>'
+                    .'</div>'
+                    .'<div class="smt-bell-queues">'
+                    .'<a href="'.e(url('/admin/orders?activeTab=review')).'" class="smt-queue-pill smt-queue-amber">'
+                    .'<span>Payment Review</span>'
+                    .'<strong id="smt-q-review">0</strong>'
+                    .'</a>'
+                    .'<a href="'.e(url('/admin/orders?activeTab=attention')).'" class="smt-queue-pill smt-queue-rose">'
+                    .'<span>Needs Attention</span>'
+                    .'<strong id="smt-q-attention">0</strong>'
+                    .'</a>'
+                    .'</div>'
+                    .'<div id="smt-bell-list" class="smt-bell-list">'
+                    .'<div class="smt-bell-empty">Loading recent orders...</div>'
+                    .'</div>'
+                    .'<div class="smt-bell-footer">'
+                    .'<a href="'.e(url('/admin/orders')).'" class="smt-bell-view-all">View All Orders →</a>'
+                    .'</div>'
+                    .'</div>'
+                    .'</div>'
                     .'</div>'
                 )
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): HtmlString => new HtmlString('<style>
+                fn (): HtmlString => new HtmlString('
+                <link rel="manifest" href="/admin-manifest.json">
+                <meta name="theme-color" content="#0f172a">
+                <meta name="mobile-web-app-capable" content="yes">
+                <meta name="apple-mobile-web-app-capable" content="yes">
+                <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+                <meta name="apple-mobile-web-app-title" content="SMT Admin">
+                <link rel="apple-touch-icon" href="/images/pwa-icon-192.png">
+                <style>
                     /* ==========================================================================
                        SellMeTools Executive E-Commerce Admin UI/UX Design System (Filament 5)
                        ========================================================================== */
@@ -84,6 +130,225 @@ class AdminPanelProvider extends PanelProvider
                     }
                     .dark .fi-body {
                         background-color: #020617 !important;
+                    }
+
+                    /* Topbar Actions, Install App Button & Live Notification Bell */
+                    .smt-topbar-actions {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 0.38rem;
+                    }
+                    .smt-install-app-btn {
+                        background: #0f172a !important;
+                        color: #ffffff !important;
+                        border-color: #0f172a !important;
+                        cursor: pointer;
+                    }
+                    .smt-install-app-btn:hover {
+                        background: #1e293b !important;
+                    }
+                    .dark .smt-install-app-btn {
+                        background: #4f46e5 !important;
+                        border-color: #6366f1 !important;
+                    }
+                    .smt-bell-container {
+                        position: relative;
+                        display: inline-flex;
+                        align-items: center;
+                    }
+                    .smt-bell-btn {
+                        position: relative;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 34px;
+                        height: 34px;
+                        border-radius: 0.55rem;
+                        border: 1px solid #cbd5e1;
+                        background: #ffffff;
+                        color: #334155;
+                        cursor: pointer;
+                        transition: all 0.15s ease;
+                    }
+                    .smt-bell-btn:hover {
+                        background: #f8fafc;
+                        border-color: #94a3b8;
+                        color: #0f172a;
+                    }
+                    .dark .smt-bell-btn {
+                        background: #1e293b;
+                        border-color: #334155;
+                        color: #e2e8f0;
+                    }
+                    .smt-bell-badge {
+                        position: absolute;
+                        top: -5px;
+                        right: -5px;
+                        min-width: 18px;
+                        height: 18px;
+                        padding: 0 5px;
+                        border-radius: 9999px;
+                        background: #e11d48;
+                        color: #ffffff;
+                        font-size: 0.65rem;
+                        font-weight: 800;
+                        line-height: 18px;
+                        text-align: center;
+                        box-shadow: 0 0 0 2px #ffffff;
+                    }
+                    .dark .smt-bell-badge {
+                        box-shadow: 0 0 0 2px #0f172a;
+                    }
+                    .smt-bell-dropdown {
+                        position: absolute;
+                        top: calc(100% + 8px);
+                        right: 0;
+                        width: 360px;
+                        max-width: calc(100vw - 1.25rem);
+                        background: #ffffff;
+                        border: 1px solid #cbd5e1;
+                        border-radius: 0.85rem;
+                        box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.14), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
+                        z-index: 9999;
+                        overflow: hidden;
+                    }
+                    .dark .smt-bell-dropdown {
+                        background: #0f172a;
+                        border-color: #334155;
+                        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+                    }
+                    .smt-bell-header {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 0.5rem;
+                        padding: 0.75rem 0.9rem;
+                        border-bottom: 1px solid #e2e8f0;
+                        background: #f8fafc;
+                    }
+                    .dark .smt-bell-header {
+                        background: #1e293b;
+                        border-bottom-color: #334155;
+                    }
+                    .smt-bell-title {
+                        font-size: 0.8rem;
+                        font-weight: 700;
+                        color: #0f172a;
+                    }
+                    .dark .smt-bell-title {
+                        color: #f8fafc;
+                    }
+                    .smt-bell-subtitle {
+                        font-size: 0.68rem;
+                        color: #64748b;
+                    }
+                    .smt-bell-mini-btn {
+                        padding: 0.22rem 0.48rem;
+                        font-size: 0.65rem;
+                        font-weight: 600;
+                        border-radius: 0.38rem;
+                        border: 1px solid #cbd5e1;
+                        background: #ffffff;
+                        color: #475569;
+                        cursor: pointer;
+                    }
+                    .smt-bell-mini-btn:hover {
+                        background: #f1f5f9;
+                        color: #0f172a;
+                    }
+                    .dark .smt-bell-mini-btn {
+                        background: #0f172a;
+                        border-color: #334155;
+                        color: #cbd5e1;
+                    }
+                    .smt-bell-queues {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 0.45rem;
+                        padding: 0.55rem 0.9rem;
+                        border-bottom: 1px solid #f1f5f9;
+                        background: #ffffff;
+                    }
+                    .dark .smt-bell-queues {
+                        background: #0f172a;
+                        border-bottom-color: #1e293b;
+                    }
+                    .smt-queue-pill {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        padding: 0.35rem 0.6rem;
+                        border-radius: 0.5rem;
+                        font-size: 0.7rem;
+                        font-weight: 600;
+                        text-decoration: none;
+                    }
+                    .smt-queue-amber {
+                        background: #fffbeb;
+                        color: #92400e;
+                        border: 1px solid #fde68a;
+                    }
+                    .smt-queue-rose {
+                        background: #fff1f2;
+                        color: #9f1239;
+                        border: 1px solid #fecdd3;
+                    }
+                    .smt-bell-list {
+                        max-height: 330px;
+                        overflow-y: auto;
+                    }
+                    .smt-bell-item {
+                        display: block;
+                        padding: 0.65rem 0.9rem;
+                        border-bottom: 1px solid #f1f5f9;
+                        text-decoration: none;
+                        transition: background 0.12s ease;
+                    }
+                    .smt-bell-item:hover {
+                        background: #f8fafc;
+                    }
+                    .dark .smt-bell-item {
+                        border-bottom-color: #1e293b;
+                    }
+                    .dark .smt-bell-item:hover {
+                        background: #1e293b;
+                    }
+                    .smt-bell-item.is-actionable {
+                        background: rgba(254, 243, 199, 0.25);
+                    }
+                    .smt-bell-empty {
+                        padding: 1.5rem 1rem;
+                        text-align: center;
+                        font-size: 0.75rem;
+                        color: #64748b;
+                    }
+                    .smt-bell-footer {
+                        padding: 0.55rem 0.9rem;
+                        text-align: center;
+                        background: #f8fafc;
+                        border-top: 1px solid #e2e8f0;
+                    }
+                    .dark .smt-bell-footer {
+                        background: #1e293b;
+                        border-top-color: #334155;
+                    }
+                    .smt-bell-view-all {
+                        font-size: 0.74rem;
+                        font-weight: 700;
+                        color: #4f46e5;
+                        text-decoration: none;
+                    }
+                    @media (max-width: 640px) {
+                        .smt-btn-text {
+                            display: none;
+                        }
+                        .smt-bell-dropdown {
+                            position: fixed;
+                            top: 58px;
+                            left: 0.5rem;
+                            right: 0.5rem;
+                            width: auto;
+                        }
                     }
 
                     /* 1. Executive Dark Sidebar & Sleek Topbar */
@@ -523,15 +788,286 @@ class AdminPanelProvider extends PanelProvider
                     $token = StockController::bridgeToken();
                     $syncUrl = route('stock.sync', [], false);
 
-                    return new HtmlString('<script>
+                    return new HtmlString('
+                    <div id="smt-pwa-help-modal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.65);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:1rem;">
+                        <div style="background:#ffffff;border:1px solid #cbd5e1;border-radius:1rem;max-width:400px;width:100%;padding:1.35rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.85rem;">
+                                <div style="display:flex;align-items:center;gap:0.6rem;">
+                                    <img src="/images/pwa-icon-192.png" alt="SMT Admin" style="width:36px;height:36px;border-radius:0.55rem;" />
+                                    <div>
+                                        <div style="font-size:0.92rem;font-weight:800;color:#0f172a;">Install SMT Admin App</div>
+                                        <div style="font-size:0.72rem;color:#64748b;">Add to your phone or desktop home screen</div>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="document.getElementById(\'smt-pwa-help-modal\').style.display=\'none\'" style="border:1px solid #e2e8f0;background:#f8fafc;border-radius:0.45rem;width:28px;height:28px;cursor:pointer;color:#475569;font-weight:700;">✕</button>
+                            </div>
+                            <div style="font-size:0.78rem;color:#334155;line-height:1.55;display:flex;flex-direction:column;gap:0.6rem;">
+                                <div style="padding:0.65rem 0.75rem;border-radius:0.6rem;background:#f8fafc;border:1px solid #e2e8f0;">
+                                    <strong style="color:#0f172a;display:block;margin-bottom:0.2rem;">On Android / Chrome / Edge:</strong>
+                                    Tap the browser menu <strong>(⋮)</strong> at the top right and select <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.
+                                </div>
+                                <div style="padding:0.65rem 0.75rem;border-radius:0.6rem;background:#f8fafc;border:1px solid #e2e8f0;">
+                                    <strong style="color:#0f172a;display:block;margin-bottom:0.2rem;">On iPhone / iPad (Safari):</strong>
+                                    Tap the <strong>Share</strong> button at the bottom of Safari and tap <strong>"Add to Home Screen"</strong>.
+                                </div>
+                            </div>
+                            <button type="button" onclick="document.getElementById(\'smt-pwa-help-modal\').style.display=\'none\'" style="margin-top:0.9rem;width:100%;padding:0.55rem;border-radius:0.55rem;border:none;background:#0f172a;color:#ffffff;font-size:0.78rem;font-weight:700;cursor:pointer;">Got It</button>
+                        </div>
+                    </div>
+                    <div id="smt-live-toast" style="display:none;position:fixed;bottom:1.25rem;right:1.25rem;z-index:99998;max-width:340px;width:calc(100vw - 2.5rem);background:#0f172a;color:#ffffff;border:1px solid #334155;border-radius:0.85rem;padding:0.85rem 1rem;box-shadow:0 20px 25px -5px rgba(15,23,42,0.35);">
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.6rem;">
+                            <div>
+                                <div id="smt-toast-title" style="font-size:0.8rem;font-weight:800;color:#f8fafc;">New Order Alert</div>
+                                <div id="smt-toast-body" style="margin-top:0.2rem;font-size:0.72rem;color:#cbd5e1;line-height:1.4;"></div>
+                                <a id="smt-toast-link" href="/admin/orders" style="margin-top:0.5rem;display:inline-flex;align-items:center;gap:0.3rem;padding:0.28rem 0.65rem;border-radius:0.4rem;background:#4f46e5;color:#ffffff;font-size:0.7rem;font-weight:700;text-decoration:none;">Open Order →</a>
+                            </div>
+                            <button type="button" onclick="document.getElementById(\'smt-live-toast\').style.display=\'none\'" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:0.85rem;">✕</button>
+                        </div>
+                    </div>
+                    <script>
                         (function () {
                             if (window.__smtSupplierBridgeInit) return;
                             window.__smtSupplierBridgeInit = true;
                             const BRIDGE_TOKEN = '.json_encode($token).';
                             const SYNC_URL = '.json_encode($syncUrl).';
                             let running = false;
+                            let deferredPwaPrompt = null;
+
+                            // Register Service Worker for Admin PWA & Notifications
+                            if ("serviceWorker" in navigator) {
+                                navigator.serviceWorker.register("/sw.js").catch(() => {});
+                            }
+
+                            function isStandaloneApp() {
+                                return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
+                            }
+
+                            function syncInstallButton() {
+                                const btn = document.getElementById("smt-admin-install-btn");
+                                if (!btn) return;
+                                btn.style.display = isStandaloneApp() ? "none" : "inline-flex";
+                                if (!btn.__bound) {
+                                    btn.__bound = true;
+                                    btn.addEventListener("click", async () => {
+                                        if (deferredPwaPrompt) {
+                                            deferredPwaPrompt.prompt();
+                                            const choice = await deferredPwaPrompt.userChoice.catch(() => null);
+                                            deferredPwaPrompt = null;
+                                            if (choice && choice.outcome === "accepted") {
+                                                btn.style.display = "none";
+                                            }
+                                        } else {
+                                            const modal = document.getElementById("smt-pwa-help-modal");
+                                            if (modal) modal.style.display = "flex";
+                                        }
+                                    });
+                                }
+                            }
+
+                            window.addEventListener("beforeinstallprompt", (e) => {
+                                e.preventDefault();
+                                deferredPwaPrompt = e;
+                                syncInstallButton();
+                            });
+                            window.addEventListener("appinstalled", () => {
+                                deferredPwaPrompt = null;
+                                syncInstallButton();
+                            });
+
+                            function isSoundEnabled() {
+                                return localStorage.getItem("smt_admin_alerts_muted") !== "1";
+                            }
+
+                            function playOrderChime() {
+                                if (!isSoundEnabled()) return;
+                                try {
+                                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                                    if (!AudioCtx) return;
+                                    const ctx = new AudioCtx();
+                                    const now = ctx.currentTime;
+                                    [587.33, 880].forEach((freq, idx) => {
+                                        const osc = ctx.createOscillator();
+                                        const gain = ctx.createGain();
+                                        osc.type = "sine";
+                                        osc.frequency.setValueAtTime(freq, now + idx * 0.14);
+                                        gain.gain.setValueAtTime(0.001, now + idx * 0.14);
+                                        gain.gain.exponentialRampToValueAtTime(0.16, now + idx * 0.14 + 0.02);
+                                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.14 + 0.26);
+                                        osc.connect(gain);
+                                        gain.connect(ctx.destination);
+                                        osc.start(now + idx * 0.14);
+                                        osc.stop(now + idx * 0.14 + 0.28);
+                                    });
+                                } catch (e) {}
+                            }
+
+                            function showLiveOrderAlert(title, body, url) {
+                                playOrderChime();
+                                const toast = document.getElementById("smt-live-toast");
+                                const tTitle = document.getElementById("smt-toast-title");
+                                const tBody = document.getElementById("smt-toast-body");
+                                const tLink = document.getElementById("smt-toast-link");
+                                if (toast && tTitle && tBody && tLink) {
+                                    tTitle.textContent = title;
+                                    tBody.textContent = body;
+                                    tLink.href = url || "/admin/orders";
+                                    toast.style.display = "block";
+                                }
+                                if (isSoundEnabled() && "Notification" in window && Notification.permission === "granted") {
+                                    try {
+                                        new Notification(title, { body: body, icon: "/images/pwa-icon-192.png", data: { url: url || "/admin/orders" } });
+                                    } catch (e) {}
+                                }
+                            }
+
+                            function escapeHtml(str) {
+                                return String(str || "").replace(/[&<>"\']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "\'": "&#39;" }[c]));
+                            }
+
+                            function renderNotifications(notif) {
+                                if (!notif) return;
+                                const badge = document.getElementById("smt-bell-badge");
+                                const summary = document.getElementById("smt-bell-summary");
+                                const qReview = document.getElementById("smt-q-review");
+                                const qAttention = document.getElementById("smt-q-attention");
+                                const list = document.getElementById("smt-bell-list");
+
+                                const prevOrderId = parseInt(localStorage.getItem("smt_seen_order_id") || "0", 10);
+                                const prevPaymentId = parseInt(localStorage.getItem("smt_seen_payment_id") || "0", 10);
+                                const latestOrderId = parseInt(notif.latest_order_id || 0, 10);
+                                const latestPaymentId = parseInt(notif.latest_payment_id || 0, 10);
+
+                                if (prevOrderId === 0 && latestOrderId > 0) {
+                                    localStorage.setItem("smt_seen_order_id", String(latestOrderId));
+                                } else if (latestOrderId > prevOrderId) {
+                                    localStorage.setItem("smt_seen_order_id", String(latestOrderId));
+                                    const newest = Array.isArray(notif.items) && notif.items.length > 0 ? notif.items[0] : null;
+                                    if (newest) {
+                                        showLiveOrderAlert(
+                                            "New Order " + newest.number + " (" + newest.total + ")",
+                                            newest.product + " · " + newest.customer,
+                                            newest.url
+                                        );
+                                    }
+                                }
+
+                                if (prevPaymentId === 0 && latestPaymentId > 0) {
+                                    localStorage.setItem("smt_seen_payment_id", String(latestPaymentId));
+                                } else if (latestPaymentId > prevPaymentId) {
+                                    localStorage.setItem("smt_seen_payment_id", String(latestPaymentId));
+                                    const reviewItem = Array.isArray(notif.items) ? notif.items.find(i => i.status === "payment_review") || notif.items[0] : null;
+                                    if (reviewItem && latestOrderId <= prevOrderId) {
+                                        showLiveOrderAlert(
+                                            "Payment Submitted: " + reviewItem.number,
+                                            reviewItem.total + " via " + reviewItem.gateway + (reviewItem.tid ? " (TID: " + reviewItem.tid + ")" : ""),
+                                            reviewItem.url
+                                        );
+                                    }
+                                }
+
+                                const dismissedOrder = parseInt(localStorage.getItem("smt_cleared_order_id") || "0", 10);
+                                const unreadNew = latestOrderId > dismissedOrder ? 1 : 0;
+                                const badgeCount = Math.max(parseInt(notif.actionable_count || 0, 10), unreadNew);
+
+                                if (badge) {
+                                    if (badgeCount > 0) {
+                                        badge.textContent = badgeCount > 99 ? "99+" : String(badgeCount);
+                                        badge.style.display = "inline-block";
+                                    } else {
+                                        badge.style.display = "none";
+                                    }
+                                }
+                                if (qReview) qReview.textContent = String(notif.review_count || 0);
+                                if (qAttention) qAttention.textContent = String(notif.attention_count || 0);
+                                if (summary) {
+                                    summary.textContent = (notif.actionable_count || 0) > 0
+                                        ? notif.actionable_count + " order(s) awaiting action"
+                                        : "All orders verified & up to date";
+                                }
+
+                                if (list && Array.isArray(notif.items)) {
+                                    if (notif.items.length === 0) {
+                                        list.innerHTML = "<div class=\"smt-bell-empty\">No recent orders yet.</div>";
+                                    } else {
+                                        list.innerHTML = notif.items.map((item) => {
+                                            const badgeBg = item.status === "completed" ? "#ecfdf5" : (item.status === "payment_review" ? "#fffbeb" : (item.status === "needs_attention" ? "#fff1f2" : "#f1f5f9"));
+                                            const badgeCol = item.status === "completed" ? "#047857" : (item.status === "payment_review" ? "#b45309" : (item.status === "needs_attention" ? "#be123c" : "#475569"));
+                                            return `<a href="${escapeHtml(item.url)}" class="smt-bell-item ${item.is_actionable ? "is-actionable" : ""}">
+                                                <div style="display:flex;align-items:center;justify-content:space-between;gap:0.4rem;">
+                                                    <span style="font-family:monospace;font-size:0.75rem;font-weight:800;color:#4f46e5;">${escapeHtml(item.number)}</span>
+                                                    <span style="padding:0.1rem 0.42rem;border-radius:9999px;font-size:0.63rem;font-weight:700;background:${badgeBg};color:${badgeCol};">${escapeHtml(item.status_label)}</span>
+                                                </div>
+                                                <div style="margin-top:0.2rem;font-size:0.74rem;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.product)}</div>
+                                                <div style="margin-top:0.18rem;display:flex;align-items:center;justify-content:space-between;font-size:0.68rem;color:#64748b;">
+                                                    <span>${escapeHtml(item.customer)} · ${escapeHtml(item.gateway)}</span>
+                                                    <strong style="color:#0f172a;font-family:monospace;">${escapeHtml(item.total)} · ${escapeHtml(item.time_ago)}</strong>
+                                                </div>
+                                            </a>`;
+                                        }).join("");
+                                    }
+                                }
+                            }
+
+                            function bindBellEvents() {
+                                syncInstallButton();
+                                const bellBtn = document.getElementById("smt-order-bell-btn");
+                                const dropdown = document.getElementById("smt-bell-dropdown");
+                                const soundBtn = document.getElementById("smt-bell-sound-btn");
+                                const markReadBtn = document.getElementById("smt-bell-mark-read");
+
+                                if (soundBtn) {
+                                    soundBtn.textContent = isSoundEnabled() ? "Alerts: ON" : "Alerts: Muted";
+                                    if (!soundBtn.__bound) {
+                                        soundBtn.__bound = true;
+                                        soundBtn.addEventListener("click", (e) => {
+                                            e.stopPropagation();
+                                            const muted = localStorage.getItem("smt_admin_alerts_muted") === "1";
+                                            localStorage.setItem("smt_admin_alerts_muted", muted ? "0" : "1");
+                                            soundBtn.textContent = isSoundEnabled() ? "Alerts: ON" : "Alerts: Muted";
+                                            if (isSoundEnabled()) {
+                                                playOrderChime();
+                                                if ("Notification" in window && Notification.permission === "default") {
+                                                    Notification.requestPermission().catch(() => {});
+                                                }
+                                            }
+                                        });
+                                    }
+                                }
+
+                                if (markReadBtn && !markReadBtn.__bound) {
+                                    markReadBtn.__bound = true;
+                                    markReadBtn.addEventListener("click", (e) => {
+                                        e.stopPropagation();
+                                        const latest = localStorage.getItem("smt_seen_order_id") || "0";
+                                        localStorage.setItem("smt_cleared_order_id", latest);
+                                        const badge = document.getElementById("smt-bell-badge");
+                                        if (badge) badge.style.display = "none";
+                                    });
+                                }
+
+                                if (bellBtn && dropdown && !bellBtn.__bound) {
+                                    bellBtn.__bound = true;
+                                    bellBtn.addEventListener("click", (e) => {
+                                        e.stopPropagation();
+                                        const isOpen = dropdown.style.display === "block";
+                                        dropdown.style.display = isOpen ? "none" : "block";
+                                        if (!isOpen && "Notification" in window && Notification.permission === "default") {
+                                            Notification.requestPermission().catch(() => {});
+                                        }
+                                    });
+                                }
+                            }
+
+                            document.addEventListener("click", (e) => {
+                                const wrap = document.getElementById("smt-order-bell-wrap");
+                                const dropdown = document.getElementById("smt-bell-dropdown");
+                                if (dropdown && dropdown.style.display === "block" && wrap && !wrap.contains(e.target)) {
+                                    dropdown.style.display = "none";
+                                }
+                            });
 
                             async function runSupplierBridge() {
+                                bindBellEvents();
                                 if (running || document.hidden) return;
                                 running = true;
                                 try {
@@ -543,6 +1079,10 @@ class AdminPanelProvider extends PanelProvider
                                     if (!res.ok) return;
                                     const data = await res.json();
                                     if (!data || !data.ok) return;
+
+                                    if (data.notifications) {
+                                        renderNotifications(data.notifications);
+                                    }
 
                                     // 1. Relay pending Railway order fulfillments immediately
                                     if (Array.isArray(data.order_jobs) && data.order_jobs.length > 0) {
@@ -619,9 +1159,9 @@ class AdminPanelProvider extends PanelProvider
                                 }
                             }
 
-                            setTimeout(runSupplierBridge, 400);
-                            setInterval(runSupplierBridge, 30000);
-                            document.addEventListener("livewire:navigated", () => setTimeout(runSupplierBridge, 300));
+                            setTimeout(runSupplierBridge, 250);
+                            setInterval(runSupplierBridge, 12000);
+                            document.addEventListener("livewire:navigated", () => setTimeout(runSupplierBridge, 250));
                             document.addEventListener("click", (e) => {
                                 if (e.target && e.target.closest && e.target.closest("button, .fi-ac-Action")) {
                                     setTimeout(runSupplierBridge, 1200);

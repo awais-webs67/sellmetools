@@ -119,7 +119,7 @@ class SupplierProductsTable
     protected static function quickBuyDirectAction(): Action
     {
         return Action::make('quickBuyDirect')
-            ->label('⚡ Buy Direct')
+            ->label('Buy Direct')
             ->icon(Heroicon::OutlinedShoppingBag)
             ->color('success')
             ->button()

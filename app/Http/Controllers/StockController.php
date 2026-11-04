@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\OrderStatus;
 use App\Enums\SupplierOrderStatus;
+use App\Models\Order;
+use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\SupplierOrder;
@@ -172,10 +175,49 @@ class StockController extends Controller
                     }
                 }
 
+                $reviewCount = Order::query()->where('status', OrderStatus::PaymentReview)->count();
+                $attentionCount = Order::query()->where('status', OrderStatus::NeedsAttention)->count();
+                $processingCount = Order::query()->where('status', OrderStatus::Processing)->count();
+                $latestOrderId = (int) (Order::query()->max('id') ?? 0);
+                $latestPaymentId = (int) (Payment::query()->max('id') ?? 0);
+
+                $recentOrders = Order::query()
+                    ->with(['items', 'paymentMethod', 'latestPayment'])
+                    ->orderByRaw("CASE WHEN status IN ('payment_review', 'needs_attention', 'processing') THEN 0 ELSE 1 END ASC")
+                    ->latest('id')
+                    ->limit(12)
+                    ->get()
+                    ->map(fn (Order $o): array => [
+                        'id' => $o->id,
+                        'number' => $o->number,
+                        'status' => $o->status->value,
+                        'status_label' => $o->status->label(),
+                        'status_color' => $o->status->color(),
+                        'total' => money($o->total),
+                        'customer' => $o->customer_name ?: $o->email,
+                        'product' => $o->items->map(fn ($i) => $i->quantity.'× '.$i->product_name)->implode(', '),
+                        'gateway' => $o->paymentMethod?->name ?? 'Instant',
+                        'tid' => $o->latestPayment?->transaction_id,
+                        'time_ago' => $o->created_at?->diffForHumans(short: true) ?? 'now',
+                        'url' => url('/admin/orders/'.$o->id),
+                        'is_actionable' => in_array($o->status, [OrderStatus::PaymentReview, OrderStatus::NeedsAttention, OrderStatus::Processing], true),
+                    ])
+                    ->values()
+                    ->all();
+
                 return response()->json([
                     'ok' => true,
                     'suppliers' => $railwaySuppliers,
                     'order_jobs' => $fulfillment->getPendingBridgeOrderJobs(),
+                    'notifications' => [
+                        'actionable_count' => $reviewCount + $attentionCount + $processingCount,
+                        'review_count' => $reviewCount,
+                        'attention_count' => $attentionCount,
+                        'processing_count' => $processingCount,
+                        'latest_order_id' => $latestOrderId,
+                        'latest_payment_id' => $latestPaymentId,
+                        'items' => $recentOrders,
+                    ],
                 ]);
             }
 

@@ -4,9 +4,12 @@ namespace App\Filament\Pages;
 
 use App\Filament\Support\GalleryPicker;
 use App\Filament\Support\Listings;
+use App\Http\Controllers\SeoController;
+use App\Models\Product;
 use App\Models\Setting;
 use App\Services\DatabaseBackupService;
 use App\Services\EmailNotifier;
+use App\Services\OrderService;
 use App\Services\TelegramNotifier;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -42,6 +45,7 @@ class StoreSettings extends Page
     /** Keys managed by this page (all live in Setting::DEFAULTS). */
     protected const KEYS = [
         'store_name', 'store_tagline', 'store_logo', 'store_theme', 'shop_default_sort', 'home_default_sort', 'announcement', 'currency_symbol',
+        'promo_popup_enabled', 'promo_popup_type', 'promo_popup_badge', 'promo_popup_title', 'promo_popup_body', 'promo_popup_image', 'promo_popup_cta_text', 'promo_popup_cta_url', 'promo_popup_version',
         'home_hero_badge', 'home_hero_title', 'home_hero_subtitle', 'home_about_heading', 'home_guide_heading', 'home_seo_content',
         'shop_seo_title', 'shop_seo_description',
         'usdt_rate', 'price_rounding', 'order_expiry_minutes',
@@ -60,6 +64,7 @@ class StoreSettings extends Page
     /** Keys that the SEO & Content Specialist role is allowed to save. */
     protected const SEO_STAFF_KEYS = [
         'store_name', 'store_tagline', 'store_logo', 'store_theme', 'shop_default_sort', 'home_default_sort', 'announcement',
+        'promo_popup_enabled', 'promo_popup_type', 'promo_popup_badge', 'promo_popup_title', 'promo_popup_body', 'promo_popup_image', 'promo_popup_cta_text', 'promo_popup_cta_url', 'promo_popup_version',
         'home_hero_badge', 'home_hero_title', 'home_hero_subtitle', 'home_about_heading', 'home_guide_heading', 'home_seo_content',
         'shop_seo_title', 'shop_seo_description',
         'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id',
@@ -91,14 +96,14 @@ class StoreSettings extends Page
     public ?array $data = [];
 
     /** Boolean toggles, stored as '1' / '0' strings. */
-    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered', 'telegram_store_bot_enabled', 'backup_enabled'];
+    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered', 'telegram_store_bot_enabled', 'backup_enabled', 'promo_popup_enabled'];
 
     public function mount(): void
     {
         $values = array_intersect_key(Setting::values(), array_flip(self::KEYS));
 
         foreach (self::TOGGLE_KEYS as $key) {
-            $default = $key === 'backup_enabled' ? '0' : '1';
+            $default = in_array($key, ['backup_enabled', 'promo_popup_enabled'], true) ? '0' : '1';
             $values[$key] = (string) ($values[$key] ?? $default) === '1';
         }
 
@@ -117,7 +122,7 @@ class StoreSettings extends Page
         if (auth()->user()?->isSeoStaff()) {
             return [
                 Action::make('clearSeoCache')
-                    ->label('🔄 Clear SEO & Site Cache')
+                    ->label('Clear SEO & Site Cache')
                     ->icon(Heroicon::OutlinedArrowPath)
                     ->color('primary')
                     ->action(function (): void {
@@ -128,7 +133,7 @@ class StoreSettings extends Page
                         }
 
                         Notification::make()
-                            ->title('✅ SEO & Site Content Cache Cleared!')
+                            ->title('SEO & Site Content Cache Cleared!')
                             ->body('All updated titles, meta tags, sitemaps, and page content are now live.')
                             ->success()
                             ->send();
@@ -142,12 +147,12 @@ class StoreSettings extends Page
 
         return [
             Action::make('downloadBackupHeader')
-                ->label('📥 Download SQL Backup')
+                ->label('Download SQL Backup')
                 ->icon(Heroicon::OutlinedArrowDownTray)
                 ->color('gray')
                 ->action(fn (): StreamedResponse => $this->downloadDatabaseBackup()),
             Action::make('syncServerUpdate')
-                ->label('🔄 Update Site, Migrate DB & Clear Cache')
+                ->label('Update Site, Migrate DB & Clear Cache')
                 ->icon(Heroicon::OutlinedArrowPath)
                 ->color('primary')
                 ->action(function (): void {
@@ -165,8 +170,8 @@ class StoreSettings extends Page
                         Artisan::call('view:clear');
                         Artisan::call('cache:clear');
                         Artisan::call('route:clear');
-                        app(\App\Services\OrderService::class)->expireStale();
-                        \App\Models\Product::query()->each(fn (\App\Models\Product $p) => Listings::refresh($p));
+                        app(OrderService::class)->expireStale();
+                        Product::query()->each(fn (Product $p) => Listings::refresh($p));
                         if ($tgToken = (string) Setting::get('telegram_bot_token', '')) {
                             app(TelegramNotifier::class)->registerWebhook($tgToken);
                         }
@@ -181,7 +186,7 @@ class StoreSettings extends Page
                     }
 
                     Notification::make()
-                        ->title('✅ Database Migrated & Cache Cleared!')
+                        ->title('Database Migrated & Cache Cleared!')
                         ->body($gitOutput !== '' ? "Git: {$gitOutput}" : 'All new database tables/columns and views are now live.')
                         ->success()
                         ->send();
@@ -215,8 +220,8 @@ class StoreSettings extends Page
                                         Select::make('store_theme')
                                             ->label('Website Color Theme')
                                             ->options([
-                                                'black' => '⚫ Pure Black & White (#000000)',
-                                                'crimson' => '🔴 Original Wine Red (#9B1B30)',
+                                                'black' => 'Pure Black & White (#000000)',
+                                                'crimson' => 'Original Wine Red (#9B1B30)',
                                             ])
                                             ->default('black')
                                             ->native(false)
@@ -224,11 +229,11 @@ class StoreSettings extends Page
                                         Select::make('shop_default_sort')
                                             ->label('Shop Page (/shop) Default Product Order')
                                             ->options([
-                                                'alpha' => '🔤 Alphabetical Order (A to Z)',
-                                                'random' => '🎲 Random Order (Changes on Refresh)',
-                                                'popular' => '🔥 Best Selling First',
-                                                'price_asc' => '💰 Price: Low to High',
-                                                'newest' => '🆕 Newest Products First',
+                                                'alpha' => 'Alphabetical Order (A to Z)',
+                                                'random' => 'Random Order (Changes on Refresh)',
+                                                'popular' => 'Best Selling First',
+                                                'price_asc' => 'Price: Low to High',
+                                                'newest' => 'Newest Products First',
                                             ])
                                             ->default('alpha')
                                             ->native(false)
@@ -237,10 +242,10 @@ class StoreSettings extends Page
                                         Select::make('home_default_sort')
                                             ->label('Homepage (/) Default Product Order')
                                             ->options([
-                                                'random' => '🎲 Random Order (Changes on Refresh)',
-                                                'alpha' => '🔤 Alphabetical Order (A to Z)',
-                                                'popular' => '🔥 Best Selling First',
-                                                'newest' => '🆕 Newest Products First',
+                                                'random' => 'Random Order (Changes on Refresh)',
+                                                'alpha' => 'Alphabetical Order (A to Z)',
+                                                'popular' => 'Best Selling First',
+                                                'newest' => 'Newest Products First',
                                             ])
                                             ->default('random')
                                             ->native(false)
@@ -266,6 +271,69 @@ class StoreSettings extends Page
                                                 ->icon(Heroicon::OutlinedCheck)
                                                 ->color('primary')
                                                 ->action(fn () => $this->saveKeys(['store_name', 'store_theme', 'shop_default_sort', 'home_default_sort', 'currency_symbol', 'store_tagline', 'store_logo', 'announcement'], 'Branding, theme & product sorting saved')),
+                                        ])->columnSpanFull(),
+                                    ]),
+
+                                Section::make('Promotional Welcome Popup / First-Time Visitor Banner')
+                                    ->description('Display a promotional banner (image, text, or both) with a custom link (e.g. your WhatsApp/Telegram channel or special offer) when visitors open your store. Visitors can click "Don\'t show again" to dismiss it permanently.')
+                                    ->icon(Heroicon::OutlinedMegaphone)
+                                    ->columns(['default' => 1, 'sm' => 2])
+                                    ->schema([
+                                        Toggle::make('promo_popup_enabled')
+                                            ->label('Enable Promotional Welcome Popup on Storefront')
+                                            ->helperText('Turn ON to show this promotional popup to visitors on the storefront.')
+                                            ->default(false)
+                                            ->columnSpanFull(),
+                                        Select::make('promo_popup_type')
+                                            ->label('Banner Display Mode')
+                                            ->options([
+                                                'both' => 'Image + Text & CTA Button',
+                                                'image' => 'Image Banner + CTA Button Only',
+                                                'text' => 'Text Announcement + CTA Button Only',
+                                            ])
+                                            ->default('both')
+                                            ->native(false)
+                                            ->required(),
+                                        TextInput::make('promo_popup_version')
+                                            ->label('Campaign Version / Reset Key')
+                                            ->placeholder('v1')
+                                            ->default('v1')
+                                            ->maxLength(40)
+                                            ->helperText('Change to e.g. v2 or v3 when starting a new promotion so visitors who dismissed an older banner see the new one.'),
+                                        TextInput::make('promo_popup_badge')
+                                            ->label('Top Eyebrow Badge (Optional)')
+                                            ->placeholder('OFFICIAL CHANNEL & UPDATES')
+                                            ->maxLength(80),
+                                        TextInput::make('promo_popup_title')
+                                            ->label('Popup Title / Heading')
+                                            ->placeholder('Join Our Official WhatsApp Channel for Exclusive Discounts')
+                                            ->maxLength(180),
+                                        Textarea::make('promo_popup_body')
+                                            ->label('Promotional Message / Description')
+                                            ->placeholder('Get instant updates on restocks, flash deals, and new AI tools & digital subscriptions directly on your phone.')
+                                            ->rows(3)
+                                            ->maxLength(600)
+                                            ->columnSpanFull(),
+                                        GalleryPicker::make('promo_popup_image', 'Promotional Banner Image (Optional — Upload or Pick from Gallery)', 'gallery'),
+                                        TextInput::make('promo_popup_cta_text')
+                                            ->label('Action Button Label (Optional)')
+                                            ->placeholder('Join Official Channel')
+                                            ->maxLength(80),
+                                        TextInput::make('promo_popup_cta_url')
+                                            ->label('Action Button URL / Channel Link (Optional)')
+                                            ->placeholder('https://whatsapp.com/channel/...')
+                                            ->maxLength(500)
+                                            ->columnSpanFull(),
+                                        Actions::make([
+                                            Action::make('savePromoPopupSection')
+                                                ->label('Save Promotional Banner Settings')
+                                                ->icon(Heroicon::OutlinedCheck)
+                                                ->color('primary')
+                                                ->action(fn () => $this->saveKeys([
+                                                    'promo_popup_enabled', 'promo_popup_type', 'promo_popup_version',
+                                                    'promo_popup_badge', 'promo_popup_title', 'promo_popup_body',
+                                                    'promo_popup_image', 'promo_popup_cta_text', 'promo_popup_cta_url',
+                                                ], 'Promotional welcome banner settings saved')),
                                         ])->columnSpanFull(),
                                     ]),
 
@@ -405,15 +473,15 @@ class StoreSettings extends Page
                                                 ->color('primary')
                                                 ->action(fn () => $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id'], 'SEO settings saved')),
                                             Action::make('pingIndexNow')
-                                                ->label('⚡ Submit All Site URLs to Bing & ChatGPT (IndexNow)')
+                                                ->label('Submit All Site URLs to Bing & ChatGPT (IndexNow)')
                                                 ->icon(Heroicon::OutlinedPaperAirplane)
                                                 ->color('gray')
                                                 ->action(function (): void {
                                                     $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id'], 'SEO settings saved');
-                                                    $res = \App\Http\Controllers\SeoController::submitAllToIndexNow();
+                                                    $res = SeoController::submitAllToIndexNow();
                                                     if ($res['success']) {
                                                         Notification::make()
-                                                            ->title('🚀 IndexNow Batch Submitted!')
+                                                            ->title('IndexNow Batch Submitted!')
                                                             ->body($res['message'])
                                                             ->success()
                                                             ->send();
@@ -556,7 +624,7 @@ class StoreSettings extends Page
                                     ->columns(['default' => 1, 'sm' => 3])
                                     ->schema([
                                         Toggle::make('backup_enabled')
-                                            ->label('📦 Enable Automated Email Backups')
+                                            ->label('Enable Automated Email Backups')
                                             ->default(false)
                                             ->helperText(fn () => Setting::get('backup_last_sent_at')
                                                 ? 'Last backup sent: '.Setting::get('backup_last_sent_at')
@@ -565,9 +633,9 @@ class StoreSettings extends Page
                                         Select::make('backup_frequency')
                                             ->label('Backup Schedule')
                                             ->options([
-                                                'weekly' => '📅 Every Week (Recommended)',
-                                                'monthly' => '🗓️ Every Month',
-                                                'daily' => '⚡ Every Day',
+                                                'weekly' => 'Every Week (Recommended)',
+                                                'monthly' => 'Every Month',
+                                                'daily' => 'Every Day',
                                             ])
                                             ->default('weekly')
                                             ->native(false),
@@ -584,7 +652,7 @@ class StoreSettings extends Page
                                                 ->color('primary')
                                                 ->action(fn () => $this->saveKeys(['backup_enabled', 'backup_frequency', 'backup_email'], 'Automated backup settings saved')),
                                             Action::make('sendBackupEmailNow')
-                                                ->label('📧 Send Backup to Email Now')
+                                                ->label('Send Backup to Email Now')
                                                 ->icon(Heroicon::OutlinedPaperAirplane)
                                                 ->color('success')
                                                 ->action(function (): void {
@@ -593,13 +661,13 @@ class StoreSettings extends Page
                                                     $recipient = trim((string) ($overrides['backup_email'] ?? ''));
                                                     $res = app(DatabaseBackupService::class)->sendBackupEmail($recipient, $overrides);
                                                     if ($res['success']) {
-                                                        Notification::make()->title('✅ Database Backup Emailed!')->body($res['message'])->success()->send();
+                                                        Notification::make()->title('Database Backup Emailed!')->body($res['message'])->success()->send();
                                                     } else {
                                                         Notification::make()->title('Backup Email Failed')->body($res['message'])->danger()->persistent()->send();
                                                     }
                                                 }),
                                             Action::make('downloadSqlBackupNow')
-                                                ->label('📥 Download SQL Backup File')
+                                                ->label('Download SQL Backup File')
                                                 ->icon(Heroicon::OutlinedArrowDownTray)
                                                 ->color('gray')
                                                 ->action(fn (): StreamedResponse => $this->downloadDatabaseBackup()),
@@ -888,7 +956,7 @@ class StoreSettings extends Page
 
         $storeName = TelegramNotifier::e((string) ($this->data['store_name'] ?? Setting::get('store_name', 'SellMeTools')));
         $testHtml = "✅ <b>{$storeName} — Admin 1-Tap Notifications Active!</b>\n"
-            ."You will receive instant payment &amp; order alerts with 1-Tap Approve/Decline buttons here.";
+            .'You will receive instant payment &amp; order alerts with 1-Tap Approve/Decline buttons here.';
         $sent = $notifier->send($token, $chatId, $testHtml);
 
         if (! $sent) {

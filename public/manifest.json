@@ -1,0 +1,27 @@
+{
+    "id": "sellmetools-store",
+    "name": "SellMeTools — AI Tools & Digital Subscriptions",
+    "short_name": "SellMeTools",
+    "description": "Buy genuine AI tools, digital subscriptions, creative software and cloud accounts with instant worldwide delivery.",
+    "start_url": "/?pwa=store",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "background_color": "#ffffff",
+    "theme_color": "#0f172a",
+    "icons": [
+        {
+            "src": "/images/pwa-icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/images/pwa-icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}
+

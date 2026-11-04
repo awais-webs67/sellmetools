@@ -132,7 +132,7 @@ class SupplierOrderResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('order_type')
                     ->label('Order Type / #')
-                    ->state(fn (SupplierOrder $r): string => $r->orderItem?->order?->number ?: '⚡ Direct Buy')
+                    ->state(fn (SupplierOrder $r): string => $r->orderItem?->order?->number ?: 'Direct Buy')
                     ->badge(fn (SupplierOrder $r): bool => $r->order_item_id === null)
                     ->color(fn (SupplierOrder $r): string => $r->order_item_id === null ? 'warning' : 'primary')
                     ->weight('bold')

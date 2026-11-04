@@ -1,0 +1,27 @@
+{
+    "id": "sellmetools-admin",
+    "name": "SellMeTools Admin Center",
+    "short_name": "SMT Admin",
+    "description": "SellMeTools Admin Command Center — Real-Time Orders, Payments, Stock Vault & Supplier API Controls.",
+    "start_url": "/admin?pwa=admin",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "any",
+    "background_color": "#0f172a",
+    "theme_color": "#0f172a",
+    "icons": [
+        {
+            "src": "/images/pwa-icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/images/pwa-icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}
+

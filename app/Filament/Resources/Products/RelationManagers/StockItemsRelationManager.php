@@ -85,11 +85,11 @@ class StockItemsRelationManager extends RelationManager
                         Select::make('separator_mode')
                             ->label('How Are Single Units (1 PC) Separated?')
                             ->options([
-                                'auto' => '✨ Smart Auto-Detect (Splits by --- or === if present, otherwise 1 Line = 1 PC)',
-                                'separator' => '✂️ Multi-Line Credentials Separated by --- or === (Best for multi-line accounts)',
-                                'blank_line' => '📄 Multi-Line Credentials Separated by a Blank Empty Line',
-                                'line' => '📏 Single-Line Credentials (1 Line = 1 PC, e.g. email:password)',
-                                'custom' => '🔧 Custom Separator (e.g. ### or ***)',
+                                'auto' => 'Auto-Detect — Splits by --- or === if present, otherwise 1 line per unit',
+                                'separator' => 'Multi-Line — Credentials separated by --- or === (Best for multi-line accounts)',
+                                'blank_line' => 'Multi-Line — Credentials separated by a blank empty line',
+                                'line' => 'Single-Line — 1 line per unit (e.g. email:password)',
+                                'custom' => 'Custom Separator (e.g. ### or ***)',
                             ])
                             ->default('auto')
                             ->live()

@@ -71,7 +71,7 @@ class SourcesRelationManager extends RelationManager
                     ->description(function (SupplierProduct $record): string {
                         $winning = app(PriceCalculator::class)->winningSource($this->owner());
                         if ($winning && (int) $winning->id === (int) $record->id) {
-                            return '⭐ Active on Store (Lowest Cost)';
+                            return 'Active on Store (Lowest Cost)';
                         }
 
                         return $record->pivot?->is_active ? 'Standby Backup' : 'Disabled';
@@ -120,8 +120,8 @@ class SourcesRelationManager extends RelationManager
             ->headerActions([
                 Action::make('toggleOverallMarkup')
                     ->label(fn (): string => ($this->owner()->use_overall_supplier_markup ?? true)
-                        ? '🟢 Overall Profit on All Suppliers: ON (Click to Turn OFF)'
-                        : '⚡ Custom Profit Per Supplier: ON (Click to Use Overall)')
+                        ? 'Overall Profit on All Suppliers: ON (Click to Turn OFF)'
+                        : 'Custom Profit Per Supplier: ON (Click to Use Overall)')
                     ->icon(fn (): Heroicon => ($this->owner()->use_overall_supplier_markup ?? true)
                         ? Heroicon::OutlinedLockClosed
                         : Heroicon::OutlinedAdjustmentsHorizontal)
@@ -184,7 +184,7 @@ class SourcesRelationManager extends RelationManager
             ])
             ->recordActions([
                 Action::make('setMargin')
-                    ->label(fn (): string => ($this->owner()->use_overall_supplier_markup ?? true) ? '🔒 Overall ON' : 'Set Profit / Price')
+                    ->label(fn (): string => ($this->owner()->use_overall_supplier_markup ?? true) ? 'Overall ON' : 'Set Profit / Price')
                     ->tooltip(fn (): string => ($this->owner()->use_overall_supplier_markup ?? true)
                         ? 'Turn OFF "Overall Profit on All Suppliers" button above to set custom profit for this supplier'
                         : 'Set Profit % or Total Sell Price for this supplier (2-way live calculator)')

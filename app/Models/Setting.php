@@ -70,6 +70,16 @@ class Setting extends Model
         'backup_frequency' => 'weekly',
         'backup_email' => '',
         'backup_last_sent_at' => '',
+        // Promotional Welcome Popup / Banner for First-Time Visitors:
+        'promo_popup_enabled' => '0',
+        'promo_popup_type' => 'both',
+        'promo_popup_badge' => 'OFFICIAL CHANNEL & UPDATES',
+        'promo_popup_title' => 'Join Our Official WhatsApp Channel for Exclusive Discounts',
+        'promo_popup_body' => 'Get instant updates on restocks, flash deals, and new AI tools & digital subscriptions directly on your phone.',
+        'promo_popup_image' => '',
+        'promo_popup_cta_text' => 'Join Official Channel',
+        'promo_popup_cta_url' => '',
+        'promo_popup_version' => 'v1',
     ];
 
     public static function values(): array

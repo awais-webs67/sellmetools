@@ -134,6 +134,11 @@
     <link rel="icon" href="{{ asset('favicon.svg') }}?v=8" type="image/svg+xml">
     <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v=8">
     <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}?v=8">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="{{ $storeName }}">
     <link rel="sitemap" type="application/xml" title="Sitemap" href="{{ route('sitemap') }}">
     <link rel="alternate" type="text/plain" title="LLMs.txt" href="{{ route('llms') }}">
 
@@ -272,8 +277,15 @@
                 @endauth
             </nav>
 
-            {{-- PKR / USDT Currency Switcher + Mobile Menu Trigger --}}
+            {{-- PKR / USDT Currency Switcher + Install App + Mobile Menu Trigger --}}
             <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <button type="button"
+                        style="display:none;"
+                        class="js-smt-install-app hidden sm:inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer"
+                        title="Install {{ $storeName }} App on your device">
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span>Install App</span>
+                </button>
                 <div class="inline-flex items-center rounded-full border border-line-strong bg-grey-soft p-0.5 shadow-2xs"
                      role="group"
                      aria-label="Switch currency between PKR and USDT"
@@ -338,6 +350,10 @@
                     <a href="{{ route('orders.track') }}" @class(['py-2.5 hover:text-brand', 'text-brand font-bold' => request()->routeIs('orders.track')])>Track Order</a>
                     <a href="{{ route('pages.show', 'about') }}" @class(['py-2.5 hover:text-brand', 'text-brand font-bold' => request()->fullUrlIs(route('pages.show', 'about'))])>About</a>
                     <a href="{{ route('pages.show', 'contact') }}" @class(['py-2.5 hover:text-brand', 'text-brand font-bold' => request()->fullUrlIs(route('pages.show', 'contact'))])>Contact</a>
+                    <button type="button" style="display:none;" class="js-smt-install-app py-2.5 text-left font-bold text-slate-900 flex items-center gap-2 cursor-pointer">
+                        <svg class="h-4 w-4 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        <span>Download &amp; Install Store App</span>
+                    </button>
                     @auth
                         @if (auth()->user()->is_reseller && filled(auth()->user()->reseller_slug))
                             <a href="{{ route('reseller.portal', auth()->user()->reseller_slug) }}" class="py-2.5 font-bold text-brand">★ Reseller Portal</a>
@@ -405,6 +421,12 @@
                     <li><a class="hover:text-white" href="{{ route('pages.show', 'about') }}">About {{ $storeName }}</a></li>
                     <li><a class="hover:text-white" href="{{ route('pages.show', 'faq') }}">FAQ &amp; help guide</a></li>
                     <li><a class="hover:text-white" href="{{ route('pages.show', 'contact') }}">Contact &amp; support</a></li>
+                    <li>
+                        <button type="button" style="display:none;" class="js-smt-install-app inline-flex items-center gap-1.5 text-white hover:underline font-medium cursor-pointer">
+                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            <span>Install Store App</span>
+                        </button>
+                    </li>
                 </ul>
             </div>
             <div>
@@ -430,5 +452,197 @@
             <svg class="h-7 w-7" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.03c-.25.69-1.45 1.32-2 1.37-.51.05-1 .24-3.36-.7-2.84-1.12-4.63-4.03-4.77-4.22-.14-.19-1.14-1.52-1.14-2.9 0-1.38.72-2.06.98-2.34.25-.28.55-.35.74-.35l.53.01c.17 0 .4-.06.62.48.25.6.84 2.07.92 2.22.07.15.12.32.02.51-.1.19-.15.32-.29.49-.15.17-.31.38-.44.51-.15.15-.3.3-.13.6.17.29.77 1.27 1.65 2.06 1.14 1.01 2.09 1.33 2.39 1.48.29.15.47.12.64-.07.17-.2.74-.86.94-1.16.2-.29.39-.24.66-.15.27.1 1.73.82 2.02.97.3.15.5.22.57.34.07.12.07.71-.18 1.4Z"/></svg>
         </a>
     @endif
+
+    @php
+        $promoEnabled = (string) setting('promo_popup_enabled', '0') === '1';
+        $promoType = (string) setting('promo_popup_type', 'both');
+        $promoVersion = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) setting('promo_popup_version', 'v1')) ?: 'v1';
+        $promoBadge = trim((string) setting('promo_popup_badge', ''));
+        $promoTitle = trim((string) setting('promo_popup_title', ''));
+        $promoBody = trim((string) setting('promo_popup_body', ''));
+        $promoRawImg = trim((string) setting('promo_popup_image', ''));
+        $promoImgUrl = $promoRawImg !== ''
+            ? (\Illuminate\Support\Str::startsWith($promoRawImg, ['http://', 'https://']) ? $promoRawImg : url('/media/'.ltrim($promoRawImg, '/')))
+            : '';
+        $promoCtaText = trim((string) setting('promo_popup_cta_text', 'Join Official Channel'));
+        $promoCtaUrl = trim((string) setting('promo_popup_cta_url', ''));
+        $promoVersionHash = $promoVersion.'_'.substr(md5($promoTitle.$promoImgUrl.$promoCtaUrl), 0, 6);
+    @endphp
+
+    @if ($promoEnabled && ($promoImgUrl !== '' || $promoTitle !== '' || $promoBody !== ''))
+        <div id="smt-promo-modal"
+             style="display:none;"
+             class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+            <div class="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                <button type="button"
+                        id="smt-promo-close-btn"
+                        class="absolute top-3 right-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-xs hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer"
+                        aria-label="Close promotional banner">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
+
+                @if (in_array($promoType, ['both', 'image'], true) && $promoImgUrl !== '')
+                    @if ($promoCtaUrl !== '')
+                        <a href="{{ $promoCtaUrl }}" target="_blank" rel="noopener" class="block bg-slate-100">
+                            <img src="{{ $promoImgUrl }}" alt="{{ $promoTitle ?: $storeName }}" class="max-h-64 w-full object-cover">
+                        </a>
+                    @else
+                        <div class="bg-slate-100">
+                            <img src="{{ $promoImgUrl }}" alt="{{ $promoTitle ?: $storeName }}" class="max-h-64 w-full object-cover">
+                        </div>
+                    @endif
+                @endif
+
+                <div class="p-5 sm:p-6 space-y-4">
+                    @if (in_array($promoType, ['both', 'text'], true) && ($promoBadge !== '' || $promoTitle !== '' || $promoBody !== ''))
+                        <div>
+                            @if ($promoBadge !== '')
+                                <span class="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-slate-700">
+                                    {{ $promoBadge }}
+                                </span>
+                            @endif
+                            @if ($promoTitle !== '')
+                                <h3 class="mt-2 text-lg sm:text-xl font-bold tracking-tight text-slate-900 leading-snug">
+                                    {{ $promoTitle }}
+                                </h3>
+                            @endif
+                            @if ($promoBody !== '')
+                                <p class="mt-1.5 text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-line">{{ $promoBody }}</p>
+                            @endif
+                        </div>
+                    @endif
+
+                    <div class="space-y-2.5 pt-1">
+                        @if ($promoCtaUrl !== '')
+                            <a href="{{ $promoCtaUrl }}"
+                               target="_blank"
+                               rel="noopener"
+                               id="smt-promo-cta-link"
+                               class="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-slate-800 transition">
+                                <span>{{ $promoCtaText ?: 'Open Link' }}</span>
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                            </a>
+                        @endif
+
+                        <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                            <button type="button"
+                                    id="smt-promo-dont-show-btn"
+                                    class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 transition cursor-pointer">
+                                <svg class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                <span>Don't show this again</span>
+                            </button>
+                            <button type="button"
+                                    id="smt-promo-later-btn"
+                                    class="text-xs font-semibold text-slate-600 hover:text-slate-900 transition cursor-pointer">
+                                Maybe later
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script>
+            (function () {
+                const PROMO_KEY = @json('smt_promo_dismissed_' . $promoVersionHash);
+                const SESSION_KEY = @json('smt_promo_closed_' . $promoVersionHash);
+                const modal = document.getElementById('smt-promo-modal');
+                if (!modal) return;
+                if (localStorage.getItem(PROMO_KEY) === '1' || sessionStorage.getItem(SESSION_KEY) === '1') {
+                    return;
+                }
+                setTimeout(() => {
+                    modal.style.display = 'flex';
+                }, 650);
+
+                function closeForSession() {
+                    sessionStorage.setItem(SESSION_KEY, '1');
+                    modal.style.display = 'none';
+                }
+                function dismissForever() {
+                    localStorage.setItem(PROMO_KEY, '1');
+                    sessionStorage.setItem(SESSION_KEY, '1');
+                    modal.style.display = 'none';
+                }
+
+                document.getElementById('smt-promo-close-btn')?.addEventListener('click', closeForSession);
+                document.getElementById('smt-promo-later-btn')?.addEventListener('click', closeForSession);
+                document.getElementById('smt-promo-dont-show-btn')?.addEventListener('click', dismissForever);
+                document.getElementById('smt-promo-cta-link')?.addEventListener('click', dismissForever);
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) closeForSession();
+                });
+            })();
+        </script>
+    @endif
+
+    {{-- Storefront PWA Install Modal & Service Worker --}}
+    <div id="smt-store-pwa-modal" style="display:none;" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+        <div class="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div class="flex items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2.5">
+                    <img src="/images/pwa-icon-192.png" alt="{{ $storeName }}" class="h-9 w-9 rounded-lg">
+                    <div>
+                        <p class="text-sm font-bold text-slate-900">Install {{ $storeName }} App</p>
+                        <p class="text-[11px] text-slate-500">Add to your phone or desktop home screen</p>
+                    </div>
+                </div>
+                <button type="button" onclick="document.getElementById('smt-store-pwa-modal').style.display='none'" class="h-7 w-7 rounded-lg border border-slate-200 bg-slate-50 text-xs font-bold text-slate-600 cursor-pointer">✕</button>
+            </div>
+            <div class="mt-3.5 space-y-2.5 text-xs text-slate-600 leading-relaxed">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <strong class="block text-slate-900 mb-0.5">Android / Chrome / Edge:</strong>
+                    Tap your browser menu <strong>(⋮)</strong> and choose <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <strong class="block text-slate-900 mb-0.5">iPhone / iPad (Safari):</strong>
+                    Tap the <strong>Share</strong> icon at the bottom of Safari and select <strong>"Add to Home Screen"</strong>.
+                </div>
+            </div>
+            <button type="button" onclick="document.getElementById('smt-store-pwa-modal').style.display='none'" class="mt-4 w-full rounded-xl bg-slate-900 py-2.5 text-xs font-semibold text-white cursor-pointer">Got It</button>
+        </div>
+    </div>
+    <script>
+        (function () {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js').catch(() => {});
+            }
+            let deferredPrompt = null;
+            const isStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+            const installBtns = document.querySelectorAll('.js-smt-install-app');
+
+            function updateInstallButtons() {
+                installBtns.forEach((btn) => {
+                    btn.style.display = isStandalone ? 'none' : '';
+                });
+            }
+            updateInstallButtons();
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                updateInstallButtons();
+            });
+            window.addEventListener('appinstalled', () => {
+                deferredPrompt = null;
+                installBtns.forEach((btn) => { btn.style.display = 'none'; });
+            });
+
+            installBtns.forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        const choice = await deferredPrompt.userChoice.catch(() => null);
+                        deferredPrompt = null;
+                        if (choice && choice.outcome === 'accepted') {
+                            installBtns.forEach((b) => { b.style.display = 'none'; });
+                        }
+                    } else {
+                        const helpModal = document.getElementById('smt-store-pwa-modal');
+                        if (helpModal) helpModal.style.display = 'flex';
+                    }
+                });
+            });
+        })();
+    </script>
 </body>
 </html>

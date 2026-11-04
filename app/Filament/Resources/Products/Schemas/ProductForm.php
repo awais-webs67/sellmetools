@@ -20,6 +20,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Str;
 
 class ProductForm
@@ -29,14 +30,16 @@ class ProductForm
         return $schema
             ->columns(1)
             ->components([
-                Section::make('Product & Store Status')
-                    ->columns(['default' => 1, 'sm' => 2, 'lg' => 4])
+                Section::make('Product Identity & Store Status')
+                    ->description('Set the product title, storefront category, and visibility controls.')
+                    ->icon(Heroicon::OutlinedShoppingBag)
+                    ->columns(['default' => 1, 'md' => 2])
                     ->schema([
                         TextInput::make('name')
                             ->label('Product Name')
+                            ->placeholder('e.g. ChatGPT Plus 1 Month Subscription')
                             ->required()
-                            ->maxLength(255)
-                            ->columnSpan(['default' => 1, 'sm' => 2]),
+                            ->maxLength(255),
                         Select::make('category_id')
                             ->label('Category')
                             ->relationship('category', 'name')
@@ -56,43 +59,48 @@ class ProductForm
                                     ->alphaDash()
                                     ->unique('categories', 'slug', ignoreRecord: true),
                                 TextInput::make('icon')
-                                    ->label('Icon / Emoji (Optional)')
-                                    ->placeholder('e.g. 🤖 or 🎨')
+                                    ->label('Icon Identifier (Optional)')
+                                    ->placeholder('e.g. spark or code')
                                     ->maxLength(255),
                                 Toggle::make('is_active')
                                     ->label('Active on Storefront')
                                     ->default(true),
                             ]),
-                        Grid::make(2)
+                        Grid::make(['default' => 1, 'sm' => 2])
+                            ->columnSpanFull()
                             ->schema([
                                 Toggle::make('is_active')
-                                    ->label('Live on Site')
+                                    ->label('Live on Storefront')
+                                    ->helperText('Visible and purchasable by customers on the website.')
                                     ->default(true),
                                 Toggle::make('is_featured')
-                                    ->label('Featured'),
+                                    ->label('Featured Product')
+                                    ->helperText('Highlight this product in featured & top-selling sections.'),
                             ]),
                         TextEntry::make('disabled_reason')
-                            ->label('Auto-disabled alert')
+                            ->label('Auto-Disabled Alert')
                             ->color('danger')
                             ->visible(fn (?Product $record): bool => filled($record?->disabled_reason))
                             ->columnSpanFull(),
                     ]),
 
                 Section::make('Pricing & 2-Way Profit Calculator')
+                    ->description('Configure automatic markup or type a target selling price to calculate your exact profit percentage.')
+                    ->icon(Heroicon::OutlinedCalculator)
                     ->visible(fn (): bool => ! auth()->user()?->isSeoStaff())
-                    ->columns(['default' => 1, 'sm' => 2, 'lg' => 4])
+                    ->columns(['default' => 1, 'sm' => 2, 'lg' => 3])
                     ->schema([
                         Grid::make(['default' => 1, 'md' => 2])
                             ->columnSpanFull()
                             ->schema([
                                 Toggle::make('use_overall_supplier_markup')
-                                    ->label('🟢 Apply Overall Profit % to All Suppliers')
-                                    ->helperText('ON = All linked suppliers use this overall profit. Turn OFF to set separate profit % or price for each supplier below.')
+                                    ->label('Apply Overall Profit % to All Suppliers')
+                                    ->helperText('ON = All linked suppliers use this overall profit rule. Turn OFF to set custom profit % or price per supplier below.')
                                     ->default(true)
                                     ->live(),
                                 Toggle::make('is_free')
-                                    ->label('🎁 Free Product / Giveaway (Rs 0)')
-                                    ->helperText('Turn ON to let customers claim for free without payment.')
+                                    ->label('Free Product / Giveaway (Rs 0)')
+                                    ->helperText('Turn ON to let customers claim this item for free without payment.')
                                     ->live()
                                     ->afterStateUpdated(function ($state, callable $set): void {
                                         if ($state) {
@@ -126,6 +134,7 @@ class ProductForm
                                     $set('calculated_sell_price_input', round($sell, 0));
                                 }
                             })
+                            ->helperText('Type % here to auto-calculate Sell Price.')
                             ->visible(fn (Get $get): bool => ! (bool) $get('is_free') && self::mode($get) !== PricingMode::Fixed),
                         TextInput::make('calculated_sell_price_input')
                             ->label('Total Sell Price (PKR)')
@@ -155,7 +164,7 @@ class ProductForm
                                     }
                                 }
                             })
-                            ->helperText('Type Sell Price here → Profit % updates automatically!')
+                            ->helperText('Type target Sell Price here to auto-calculate Profit %.')
                             ->visible(fn (Get $get): bool => ! (bool) $get('is_free') && self::mode($get) !== PricingMode::Fixed),
                         TextInput::make('fixed_price')
                             ->label('Fixed Selling Price (PKR)')
@@ -176,7 +185,7 @@ class ProductForm
                             ->live(debounce: 250)
                             ->visible(fn (Get $get): bool => ! (bool) $get('is_free')),
                         TextInput::make('compare_at_price')
-                            ->label('Old Strike Price (PKR - Optional)')
+                            ->label('Compare-At / Strike Price (PKR - Optional)')
                             ->prefix('Rs')
                             ->placeholder('800')
                             ->rule('numeric')
@@ -213,7 +222,9 @@ class ProductForm
                             ]),
                     ]),
 
-                Section::make('🖼️ Picture, Description & Warranty')
+                Section::make('Product Media, Description & Warranty')
+                    ->description('Upload or select a product cover image, subtitle, warranty terms, and full rich description.')
+                    ->icon(Heroicon::OutlinedPhoto)
                     ->collapsible()
                     ->collapsed(fn (?Product $record): bool => $record !== null)
                     ->columns(['default' => 1, 'md' => 2])
@@ -222,16 +233,16 @@ class ProductForm
                         Grid::make(1)
                             ->schema([
                                 TextInput::make('short_description')
-                                    ->label('Short Subtitle (optional)')
+                                    ->label('Short Subtitle (Optional)')
                                     ->placeholder('e.g. Instant Activation · Full Warranty')
                                     ->maxLength(500),
                                 TextInput::make('slug')
-                                    ->label('URL Slug (optional)')
+                                    ->label('URL Slug (Optional)')
                                     ->maxLength(255)
                                     ->alphaDash()
                                     ->unique(ignoreRecord: true)
-                                    ->helperText('Leave blank to auto-generate.'),
-                                Grid::make(2)
+                                    ->helperText('Leave blank to auto-generate from the product name.'),
+                                Grid::make(['default' => 1, 'sm' => 2])
                                     ->schema([
                                         TextInput::make('max_per_order')
                                             ->label('Max Qty Per Order')
@@ -240,7 +251,7 @@ class ProductForm
                                             ->default(5)
                                             ->required(),
                                         TextInput::make('sort')
-                                            ->label('Sort Order')
+                                            ->label('Sort Priority')
                                             ->rule('integer')
                                             ->rule('min:0')
                                             ->default(0)
@@ -256,7 +267,9 @@ class ProductForm
                             ->columnSpanFull(),
                     ]),
 
-                Section::make('📦 Delivery Method & .TXT Stock Vault (Click to Expand)')
+                Section::make('Delivery Method & Stock Vault')
+                    ->description('Choose how orders are fulfilled and optionally import .TXT stock credentials.')
+                    ->icon(Heroicon::OutlinedCube)
                     ->visible(fn (): bool => ! auth()->user()?->isSeoStaff())
                     ->collapsible()
                     ->collapsed(fn (?Product $record): bool => $record !== null)
@@ -271,7 +284,7 @@ class ProductForm
                             ->columnSpanFull(),
 
                         TextInput::make('stock_limit')
-                            ->label('Stock Limit / Max Claims (Optional — Leave Blank for Unlimited ∞)')
+                            ->label('Stock Limit / Max Claims (Optional — Leave Blank for Unlimited)')
                             ->placeholder('Leave blank for Unlimited (∞), or e.g. 50')
                             ->numeric()
                             ->minValue(0)
@@ -279,7 +292,7 @@ class ProductForm
                             ->visible(fn (Get $get): bool => in_array((string) ($get('delivery_type') ?: 'auto'), ['instant_link', 'manual_admin', 'whatsapp_handover'], true)),
 
                         TextInput::make('customer_input_label')
-                            ->label('📝 Ask Customer for Activation Data After Payment (Optional)')
+                            ->label('Ask Customer for Activation Data After Payment (Optional)')
                             ->placeholder('e.g. Enter your Email Address where we should activate your subscription')
                             ->maxLength(500)
                             ->columnSpanFull(),
@@ -287,10 +300,10 @@ class ProductForm
                         Select::make('quick_stock_separator')
                             ->label('Quick .TXT Stock Separator Mode')
                             ->options([
-                                'auto' => '✨ Smart Auto-Detect (Splits by --- or === if present, otherwise 1 Line = 1 PC)',
-                                'separator' => '✂️ Multi-Line Credentials Separated by --- or ===',
-                                'blank_line' => '📄 Multi-Line Credentials Separated by Blank Empty Line',
-                                'line' => '📏 Single-Line Credentials (1 Line = 1 PC)',
+                                'auto' => 'Auto-Detect — Splits by --- or === if present, otherwise 1 line per unit',
+                                'separator' => 'Multi-Line — Credentials separated by --- or ===',
+                                'blank_line' => 'Multi-Line — Credentials separated by blank empty line',
+                                'line' => 'Single-Line — 1 line per unit',
                             ])
                             ->default('auto')
                             ->dehydrated(false)
@@ -307,7 +320,7 @@ class ProductForm
 
                         Textarea::make('quick_stock_text')
                             ->label(fn (Get $get): string => ((string) $get('delivery_type')) === 'instant_link'
-                                ? '🔗 Paste Reusable Course Link / Download URL'
+                                ? 'Paste Reusable Course Link / Download URL'
                                 : 'Or Quick Paste Stock Credentials (Added to Vault on Save)')
                             ->rows(4)
                             ->dehydrated(false)
@@ -315,18 +328,20 @@ class ProductForm
                             ->visible(fn (Get $get): bool => in_array((string) ($get('delivery_type') ?: 'auto'), ['auto', 'instant_link'], true)),
                     ]),
 
-                Section::make('🔍 SEO & Google Search (Auto-Generated if Left Blank)')
+                Section::make('SEO & Search Engine Metadata')
+                    ->description('Custom meta title, keywords, and description. Leave blank to auto-generate high-ranking SEO tags.')
+                    ->icon(Heroicon::OutlinedMagnifyingGlass)
                     ->collapsible()
                     ->collapsed(fn (): bool => ! auth()->user()?->isSeoStaff())
                     ->columns(['default' => 1, 'md' => 2])
                     ->schema([
                         TextInput::make('meta_title')
                             ->label('Custom SEO Meta Title')
-                            ->placeholder('Auto: ChatGPT Plus Price in Pakistan | Buy Online')
+                            ->placeholder('Auto: Buy ChatGPT Plus Subscription Online | Instant Delivery')
                             ->maxLength(255),
                         TextInput::make('meta_keywords')
                             ->label('Custom SEO Keywords')
-                            ->placeholder('chatgpt plus pakistan, buy chatgpt easypaisa')
+                            ->placeholder('chatgpt plus subscription, buy chatgpt plus online')
                             ->maxLength(500),
                         Textarea::make('meta_description')
                             ->label('Custom SEO Meta Description')
