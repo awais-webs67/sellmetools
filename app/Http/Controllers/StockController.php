@@ -129,56 +129,60 @@ class StockController extends Controller
     {
         if ($request->query('diag') === 'smt_diag_1') {
             $safwan = Supplier::find(1);
-            $ifaces = function_exists('net_get_interfaces') ? @net_get_interfaces() : [];
-            $localIps = [];
-            if (is_array($ifaces)) {
-                foreach ($ifaces as $name => $info) {
-                    foreach ($info['unicast'] ?? [] as $u) {
-                        $addr = $u['address'] ?? null;
-                        if ($addr && ! str_starts_with($addr, '127.') && $addr !== '::1' && ! str_starts_with($addr, 'fe80:')) {
-                            $localIps[] = ['iface' => $name, 'ip' => $addr, 'family' => $u['family'] ?? null];
-                        }
-                    }
-                }
-            }
-
-            $ifaceTests = [];
-            foreach (array_slice($localIps, 0, 12) as $entry) {
-                $lip = $entry['ip'];
-                if (str_contains($lip, ':')) {
-                    continue; // test v4 first
-                }
+            $tests = [];
+            $v6Targets = [
+                '2607:99c0:c00::1',
+                '2607:99c0:c00::90',
+                '2607:99c0:c00::97',
+                '2607:99c0:c00::5a',
+                '2607:99c0:c00::61',
+                '2607:99c0:c00:1::1',
+            ];
+            foreach ($v6Targets as $v6) {
                 $t0 = microtime(true);
                 try {
                     $r = \Illuminate\Support\Facades\Http::withOptions([
                         'verify' => false,
-                        'force_ip_resolve' => 'v4',
+                        'force_ip_resolve' => 'v6',
                         'curl' => [
-                            CURLOPT_INTERFACE => $lip,
-                            CURLOPT_RESOLVE => ['safwantigershopbot-production.up.railway.app:443:69.46.46.90'],
+                            CURLOPT_RESOLVE => ["safwantigershopbot-production.up.railway.app:443:[{$v6}]"],
                         ],
                     ])
                         ->withHeaders(['X-API-Key' => trim((string) $safwan->api_key)])
                         ->connectTimeout(2)
                         ->timeout(4)
                         ->get('https://safwantigershopbot-production.up.railway.app/api/balance');
-                    $ifaceTests[$lip] = [
-                        'status' => $r->status(),
-                        'ms' => round((microtime(true) - $t0) * 1000),
-                        'body' => $r->json(),
-                    ];
+                    $tests[$v6] = ['status' => $r->status(), 'ms' => round((microtime(true) - $t0) * 1000), 'body' => $r->json()];
                 } catch (Throwable $e) {
-                    $ifaceTests[$lip] = [
-                        'error' => $e->getMessage(),
-                        'ms' => round((microtime(true) - $t0) * 1000),
-                    ];
+                    $tests[$v6] = ['error' => $e->getMessage(), 'ms' => round((microtime(true) - $t0) * 1000)];
                 }
             }
 
-            return response()->json([
-                'local_ips' => $localIps,
-                'iface_tests' => $ifaceTests,
-            ]);
+            $v4Targets = [
+                '152.55.188.1', '152.55.188.90', '152.55.188.97',
+                '152.55.189.1', '152.55.190.1', '152.55.191.1',
+            ];
+            foreach ($v4Targets as $v4) {
+                $t0 = microtime(true);
+                try {
+                    $r = \Illuminate\Support\Facades\Http::withOptions([
+                        'verify' => false,
+                        'force_ip_resolve' => 'v4',
+                        'curl' => [
+                            CURLOPT_RESOLVE => ["safwantigershopbot-production.up.railway.app:443:{$v4}"],
+                        ],
+                    ])
+                        ->withHeaders(['X-API-Key' => trim((string) $safwan->api_key)])
+                        ->connectTimeout(2)
+                        ->timeout(4)
+                        ->get('https://safwantigershopbot-production.up.railway.app/api/balance');
+                    $tests[$v4] = ['status' => $r->status(), 'ms' => round((microtime(true) - $t0) * 1000), 'body' => $r->json()];
+                } catch (Throwable $e) {
+                    $tests[$v4] = ['error' => $e->getMessage(), 'ms' => round((microtime(true) - $t0) * 1000)];
+                }
+            }
+
+            return response()->json(['tests' => $tests]);
         }
 
         if (app()->runningUnitTests()) {
