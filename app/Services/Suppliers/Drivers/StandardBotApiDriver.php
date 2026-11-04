@@ -36,11 +36,12 @@ class StandardBotApiDriver implements SupplierDriver
 
     protected function defaultHeaders(): array
     {
+        $key = trim((string) $this->supplier->api_key);
+
         return [
-            'x-api-key' => $this->supplier->api_key,
-            'X-API-Key' => $this->supplier->api_key,
-            'x-buyer-key' => $this->supplier->api_key,
-            'Authorization' => 'Bearer '.$this->supplier->api_key,
+            'X-API-Key' => $key,
+            'x-buyer-key' => $key,
+            'Authorization' => 'Bearer '.$key,
             'User-Agent' => 'SellMeTools/2.0 (+https://sellmetools.com)',
         ];
     }
@@ -91,12 +92,29 @@ class StandardBotApiDriver implements SupplierDriver
         return '/balance';
     }
 
-    protected function curlOptions(): array
+    protected function curlOptions(?string $overrideIp = null): array
     {
-        return [
+        $opts = [
             'verify' => false,
             'force_ip_resolve' => 'v4',
         ];
+
+        $host = parse_url($this->normalizedBaseUrl(), PHP_URL_HOST);
+        $targetIp = $overrideIp;
+        if (! $targetIp && is_string($host) && str_ends_with(strtolower($host), '.up.railway.app')) {
+            // Hostinger's route to Railway edge .97 can blackhole TCP SYN; .90 (railway-hikari edge) is reachable
+            $targetIp = '69.46.46.90';
+        }
+
+        if ($targetIp && is_string($host) && defined('CURLOPT_RESOLVE')) {
+            $opts['curl'] = [
+                CURLOPT_RESOLVE => [
+                    "{$host}:443:{$targetIp}",
+                ],
+            ];
+        }
+
+        return $opts;
     }
 
     protected function http(int $timeout = 25): PendingRequest

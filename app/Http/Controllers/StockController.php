@@ -136,27 +136,9 @@ class StockController extends Controller
                         $item['balance_after'] = $sup->balance;
                     }
 
-                    if (str_contains(strtolower((string) $sup->base_url), 'ssondigitalworks')) {
-                        $headers = [
-                            'x-api-key' => $sup->api_key,
-                            'X-API-Key' => $sup->api_key,
-                            'Authorization' => 'Bearer '.$sup->api_key,
-                        ];
-                        $orderProbes = [];
-                        foreach (['/order', '/orders', '/buy', '/purchase'] as $op) {
-                            try {
-                                $or = \Illuminate\Support\Facades\Http::baseUrl(rtrim((string) $sup->base_url, '/'))
-                                    ->withOptions(['verify' => false, 'force_ip_resolve' => 'v4'])
-                                    ->withHeaders($headers)
-                                    ->acceptJson()
-                                    ->timeout(8)
-                                    ->post($op, ['product_id' => -1, 'quantity' => 0]);
-                                $orderProbes[$op] = ['status' => $or->status(), 'body' => $or->json() ?? $or->body()];
-                            } catch (Throwable $oe) {
-                                $orderProbes[$op] = ['error' => $oe->getMessage()];
-                            }
-                        }
-                        $item['order_probes'] = $orderProbes;
+                    if ($sup->id === 1) {
+                        $item['resolved_ip'] = gethostbyname('safwantigershopbot-production.up.railway.app');
+                        $item['elite_ip'] = gethostbyname('api.elitetoolz.store');
                     }
                 }
                 $results[] = $item;
