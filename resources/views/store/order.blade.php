@@ -418,7 +418,7 @@
                                                 <span class="text-[11px] text-slate-300">{{ $deliveredTime }}</span>
                                             @endif
                                         </div>
-                                        <h2 class="mt-1 text-base sm:text-lg font-extrabold text-white tracking-tight">Delivered Access Credentials</h2>
+                                        <h2 class="mt-1 text-base sm:text-lg font-extrabold text-white tracking-tight">Your Digital Access &amp; Credentials</h2>
                                         <p class="text-xs text-slate-300">Copy your login details or open your activation link directly below.</p>
                                     </div>
                                 </div>

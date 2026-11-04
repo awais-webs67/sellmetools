@@ -22,9 +22,11 @@ class SupplierBalances extends TableWidget
 
     protected static ?string $heading = 'Supplier Balances';
 
+    protected static bool $isDiscovered = false;
+
     public static function canView(): bool
     {
-        return (bool) auth()->user()?->isSuperAdmin();
+        return false;
     }
 
     public function table(Table $table): Table

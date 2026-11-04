@@ -8,6 +8,7 @@ use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Support\Money;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Services\PaymentService;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -22,11 +23,11 @@ class StatsOverview extends StatsOverviewWidget
 
     protected ?string $pollingInterval = null;
 
+    protected static bool $isDiscovered = false;
+
     public static function canView(): bool
     {
-        $user = auth()->user();
-
-        return (bool) ($user?->isSuperAdmin() || $user?->isSalesStaff());
+        return false;
     }
 
     /** Paid orders that were not reversed. */
@@ -34,7 +35,7 @@ class StatsOverview extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        \App\Services\PaymentService::syncOrphanedPendingPayments();
+        PaymentService::syncOrphanedPendingPayments();
 
         $todayAgg = Order::query()
             ->whereIn('status', self::PAID_STATUSES)
