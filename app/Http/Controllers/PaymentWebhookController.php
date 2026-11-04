@@ -216,7 +216,7 @@ class PaymentWebhookController extends Controller
     public function quickOrder(Request $request, Order $order, PaymentService $payments, FulfillmentService $fulfillment): View|RedirectResponse
     {
         $do = strtolower((string) ($request->input('do') ?? $request->query('do') ?? 'approve'));
-        if (! in_array($do, ['approve', 'reject', 'retry', 'whatsapp_delivered'], true)) {
+        if (! in_array($do, ['approve', 'reject', 'retry', 'manual_deliver', 'whatsapp_delivered'], true)) {
             $do = 'approve';
         }
 
@@ -362,17 +362,37 @@ class PaymentWebhookController extends Controller
             $order->update(['status' => OrderStatus::PaymentReview]);
         }
 
-        // If Admin explicitly pasted custom credentials on the 1-Tap screen, deliver those units first!
+        // If Admin explicitly pasted custom credentials on the 1-Tap screen, deliver the full text in its exact format!
         if ($customCredentials !== '') {
-            $units = Product::parseStockText($customCredentials, 'auto');
-            if ($units !== [] && ($firstItem = $order->items()->first())) {
-                foreach (array_slice($units, 0, max(1, $firstItem->remainingQty())) as $unitContent) {
-                    $firstItem->deliveries()->create(['content' => $unitContent, 'source' => 'manual']);
-                    $firstItem->delivered_qty++;
+            $normalized = str_replace(["\r\n", "\r"], "\n", trim($customCredentials));
+            if ($normalized !== '' && ($firstItem = $order->items()->first())) {
+                $need = max(1, $firstItem->remainingQty());
+                $hasExplicitSeparator = (bool) preg_match('/^\s*(?:-{3,}|={3,})\s*$/m', $normalized);
+
+                if ($hasExplicitSeparator && $need > 1) {
+                    $units = Product::parseStockText($normalized, 'separator');
+                    if (count($units) > $need) {
+                        $head = array_slice($units, 0, $need - 1);
+                        $tail = implode("\n---\n", array_slice($units, $need - 1));
+                        $units = [...$head, $tail];
+                    }
+                } else {
+                    // Deliver the entire multi-line text block as-is without cutting off after line 1
+                    $units = [$normalized];
                 }
-                $firstItem->reserved_supplier_qty = max(0, $firstItem->quantity - $firstItem->delivered_qty);
-                $firstItem->cost = round($manualCost ?? 0.0, 2);
-                $firstItem->status = $firstItem->delivered_qty >= $firstItem->quantity ? 'delivered' : 'partial';
+
+                foreach ($units as $unitContent) {
+                    $firstItem->deliveries()->create(['content' => $unitContent, 'source' => 'manual']);
+                }
+
+                $firstItem->delivered_qty = max($firstItem->delivered_qty + count($units), (int) $firstItem->quantity);
+                $firstItem->reserved_supplier_qty = 0;
+                if ($manualCost !== null) {
+                    $firstItem->cost = round($manualCost, 2);
+                } elseif ((float) $firstItem->cost <= 0 && $firstItem->product?->cost_price !== null) {
+                    $firstItem->cost = round((float) $firstItem->product->cost_price * $firstItem->quantity, 2);
+                }
+                $firstItem->status = 'delivered';
                 $firstItem->save();
             }
         }

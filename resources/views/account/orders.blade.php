@@ -239,7 +239,7 @@
                                                             <div class="surface-dark-solid flex flex-col gap-2 rounded-xl border border-line p-3 text-white sm:flex-row sm:items-center sm:justify-between" x-data="copy(@js(trim($delivery->content)))">
                                                                 <div class="min-w-0">
                                                                     <span class="block text-[10px] font-bold uppercase tracking-wider text-[#ff8fa3]">🔑 Delivered Credential</span>
-                                                                    <code class="mt-0.5 block font-mono text-xs sm:text-sm font-semibold break-all text-[#4ade80]">{{ trim($delivery->content) }}</code>
+                                                                    <code class="mt-0.5 block font-mono text-xs sm:text-sm font-semibold break-all whitespace-pre-wrap text-[#4ade80]">{{ trim($delivery->content) }}</code>
                                                                 </div>
                                                                 <button type="button"
                                                                         class="btn bg-brand text-white hover:bg-brand-hover shrink-0 px-3.5 py-1.5 text-xs font-bold"

@@ -691,7 +691,7 @@
                                     @foreach ($order->items as $item)
                                         @foreach ($item->deliveries as $delivery)
                                             <div class="surface-dark-solid flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-white" x-data="copy(@js(trim($delivery->content)))">
-                                                <code class="font-mono text-xs text-[#4ade80] truncate">{{ $item->product_name }}: {{ trim($delivery->content) }}</code>
+                                                <code class="font-mono text-xs text-[#4ade80] whitespace-pre-wrap break-all">{{ $item->product_name }}: {{ trim($delivery->content) }}</code>
                                                 <button type="button" @click="copy" class="shrink-0 rounded bg-white/15 hover:bg-white/25 px-2.5 py-1 text-[10px] font-bold text-white cursor-pointer" x-text="copied ? 'Copied!' : 'Copy'"></button>
                                             </div>
                                         @endforeach

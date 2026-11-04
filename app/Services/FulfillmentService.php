@@ -398,11 +398,14 @@ class FulfillmentService
 
         foreach ($items as $item) {
             // Ensure delivered_qty matches actual non-empty delivery records so an empty order can NEVER be marked delivered!
-            $validDeliveriesCount = $item->deliveries
-                ->filter(fn ($d): bool => trim((string) $d->content) !== '')
-                ->count();
+            $validDeliveries = $item->deliveries
+                ->filter(fn ($d): bool => trim((string) $d->content) !== '');
+            $validDeliveriesCount = $validDeliveries->count();
+            $hasManualDelivery = $validDeliveries->contains(fn ($d): bool => in_array($d->source, ['manual', 'whatsapp'], true));
 
-            if ($item->delivered_qty > $validDeliveriesCount) {
+            if ($validDeliveriesCount === 0) {
+                $item->delivered_qty = 0;
+            } elseif (! $hasManualDelivery && $item->delivered_qty > $validDeliveriesCount) {
                 $item->delivered_qty = $validDeliveriesCount;
             }
 
@@ -508,27 +511,55 @@ class FulfillmentService
      */
     public function deliverManually(OrderItem $item, array|string $lines, string $separatorMode = 'auto', ?float $manualCost = null): Order
     {
+        $rawText = null;
         if (is_string($lines)) {
-            $units = Product::parseStockText($lines, $separatorMode);
-        } else {
-            // If a single string element contains `---` separator, parse it with parseStockText
-            if (count($lines) === 1 && is_string($lines[0] ?? null)) {
-                $units = Product::parseStockText($lines[0], $separatorMode);
+            $rawText = $lines;
+        } elseif (count($lines) === 1 && is_string($lines[0] ?? null)) {
+            $rawText = $lines[0];
+        }
+
+        if ($rawText !== null) {
+            $normalized = str_replace(["\r\n", "\r"], "\n", trim($rawText));
+            if ($normalized === '') {
+                $units = [];
+            } elseif ($separatorMode === 'line') {
+                $units = Product::parseStockText($normalized, 'line');
             } else {
-                $units = array_values(array_filter(array_map(fn ($l): string => trim((string) $l), $lines), fn (string $l): bool => $l !== ''));
+                $hasExplicitSeparator = (bool) preg_match('/^\s*(?:-{3,}|={3,})\s*$/m', $normalized);
+                $units = $hasExplicitSeparator
+                    ? Product::parseStockText($normalized, 'separator')
+                    : [$normalized];
             }
+        } else {
+            $units = array_values(array_filter(array_map(fn ($l): string => trim((string) $l), $lines), fn (string $l): bool => $l !== ''));
         }
 
         if ($units === []) {
             throw new StoreException('Please provide valid non-empty credentials before delivering.');
         }
 
-        DB::transaction(function () use ($item, $units, $manualCost) {
+        DB::transaction(function () use ($item, $units, $separatorMode, $manualCost) {
             $item->refresh()->loadMissing('product');
-            foreach (array_slice($units, 0, max(1, $item->remainingQty())) as $unitContent) {
+            $need = max(1, $item->remainingQty());
+
+            if (count($units) > $need) {
+                $joinGlue = $separatorMode === 'line' ? "\n" : "\n---\n";
+                $head = array_slice($units, 0, $need - 1);
+                $tail = implode($joinGlue, array_slice($units, $need - 1));
+                $unitsToDeliver = [...$head, $tail];
+            } else {
+                $unitsToDeliver = $units;
+            }
+
+            foreach ($unitsToDeliver as $unitContent) {
                 $item->deliveries()->create(['content' => $unitContent, 'source' => 'manual']);
                 $item->delivered_qty++;
             }
+
+            if ($separatorMode !== 'line') {
+                $item->delivered_qty = max($item->delivered_qty, (int) $item->quantity);
+            }
+
             $item->reserved_supplier_qty = max(0, $item->quantity - $item->delivered_qty - $item->stockItems()->where('status', StockStatus::Reserved)->count());
             if ($manualCost !== null) {
                 $item->cost = round(max(0.0, $manualCost), 2);

@@ -177,9 +177,12 @@
                                     <textarea id="credentials"
                                               x-ref="credsInput"
                                               name="credentials"
-                                              rows="2"
+                                              rows="4"
                                               class="input font-mono text-xs bg-white"
-                                              placeholder="email:password (or activation link)">{{ old('credentials') }}</textarea>
+                                              placeholder="Paste full credentials, multi-line details, or activation link here...">{{ old('credentials') }}</textarea>
+                                    <p class="mt-1 text-[10px] text-muted">
+                                        All lines &amp; formatting pasted here will be delivered in full to the customer.
+                                    </p>
                                 </div>
 
                                 <div>

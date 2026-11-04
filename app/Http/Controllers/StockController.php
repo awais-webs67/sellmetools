@@ -56,17 +56,20 @@ class StockController extends Controller
 
     public static function deferBackgroundSync(): void
     {
-        if (app()->runningUnitTests() || ! Cache::add('auto_supplier_sync_tick', 1, 30)) {
+        if (app()->runningUnitTests() || ! Cache::add('auto_supplier_sync_tick', 1, 20)) {
             return;
         }
 
         defer(function (): void {
-            self::executeSync();
+            self::executeSync(false);
         });
     }
 
-    protected static function executeSync(): void
+    protected static function executeSync(bool $all = false): void
     {
+        @ignore_user_abort(true);
+        @set_time_limit(120);
+
         if (function_exists('fastcgi_finish_request')) {
             @fastcgi_finish_request();
         } elseif (function_exists('litespeed_finish_request')) {
@@ -92,13 +95,21 @@ class StockController extends Controller
                 ->update(['status' => \App\Enums\SupplierOrderStatus::Failed]);
 
             $sync = app(SupplierSyncService::class);
-            Supplier::query()->where('is_active', true)->each(function (Supplier $supplier) use ($sync) {
+            $query = Supplier::query()
+                ->where('is_active', true)
+                ->orderByRaw('last_synced_at IS NOT NULL, last_synced_at ASC');
+
+            if (! $all) {
+                $query->limit(3);
+            }
+
+            foreach ($query->get() as $supplier) {
                 try {
                     $sync->sync($supplier);
                 } catch (Throwable $e) {
                     report($e);
                 }
-            });
+            }
 
             try {
                 app(\App\Services\DatabaseBackupService::class)->checkAndRunScheduledBackup();
@@ -121,14 +132,14 @@ class StockController extends Controller
         }
 
         $force = $request->boolean('force');
-        if (! $force && ! Cache::add('auto_supplier_sync_tick', 1, 45)) {
+        if (! $force && ! Cache::add('auto_supplier_sync_tick', 1, 20)) {
             return response()->json(['synced' => false]);
         }
         if ($force) {
-            Cache::put('auto_supplier_sync_tick', 1, 45);
-            self::executeSync();
+            Cache::put('auto_supplier_sync_tick', 1, 20);
+            self::executeSync(true);
         } else {
-            defer(fn () => self::executeSync());
+            defer(fn () => self::executeSync(false));
         }
 
         return response()->json(['synced' => true, 'at' => now()->toIso8601String()]);

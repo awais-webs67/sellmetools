@@ -189,7 +189,7 @@ class OrdersTable
                 Select::make('separator_mode')
                     ->label('How Are Multiple Units Separated?')
                     ->options([
-                        'auto' => '✨ Smart Auto-Detect (Splits by --- or === if present, otherwise 1 Line = 1 PC)',
+                        'auto' => '✨ Deliver Full Pasted Text as 1 Block (or split by --- for multiple pcs)',
                         'separator' => '✂️ Multi-Line Credentials Separated by --- or ===',
                         'line' => '📏 Single-Line Credentials (1 Line = 1 PC)',
                     ])

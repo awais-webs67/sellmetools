@@ -18,7 +18,12 @@ class SuppliersTable
 {
     public static function configure(Table $table): Table
     {
+        if (! app()->runningUnitTests()) {
+            \App\Http\Controllers\StockController::deferBackgroundSync();
+        }
+
         return $table
+            ->poll('20s')
             ->defaultSort('priority')
             ->columns([
                 TextColumn::make('name')
