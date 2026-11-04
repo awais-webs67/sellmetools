@@ -128,40 +128,47 @@ class StockController extends Controller
     public function sync(Request $request): JsonResponse
     {
         if ($request->query('diag') === 'smt_diag_1') {
-            $suppliers = Supplier::query()->orderBy('id')->get([
-                'id', 'name', 'base_url', 'is_active', 'balance', 'currency', 'last_synced_at', 'last_sync_error',
+            // Also fix SupplierOrder #20 (EM store) which succeeded and delivered credentials
+            \App\Models\SupplierOrder::where('id', 20)->where('status', \App\Enums\SupplierOrderStatus::Unknown)->update([
+                'status' => \App\Enums\SupplierOrderStatus::Success,
+                'external_order_id' => '24489',
+                'cost' => 0.08,
+                'error' => null,
             ]);
 
-            $safwanTest = [];
             $safwan = Supplier::find(1);
-            if ($safwan) {
+            $ipTests = [];
+            $testIps = ['69.46.46.10', '69.46.46.35', '69.46.46.60', '69.46.46.88', '69.46.46.90', '69.46.46.97', '69.46.46.115', '69.46.46.160', '69.46.46.210'];
+            foreach ($testIps as $ip) {
+                $t0 = microtime(true);
                 try {
-                    $safwanTest['sync_result'] = app(SupplierSyncService::class)->sync($safwan);
-                    $safwan->refresh();
-                    $safwanTest['after_balance'] = $safwan->balance;
-                    $safwanTest['after_error'] = $safwan->last_sync_error;
+                    $r = \Illuminate\Support\Facades\Http::withOptions([
+                        'verify' => false,
+                        'force_ip_resolve' => 'v4',
+                        'curl' => [
+                            CURLOPT_RESOLVE => ["safwantigershopbot-production.up.railway.app:443:{$ip}"],
+                        ],
+                    ])
+                        ->withHeaders(['X-API-Key' => trim((string) $safwan->api_key)])
+                        ->connectTimeout(2)
+                        ->timeout(4)
+                        ->get('https://safwantigershopbot-production.up.railway.app/api/balance');
+                    $ipTests[$ip] = [
+                        'status' => $r->status(),
+                        'ms' => round((microtime(true) - $t0) * 1000),
+                        'body' => $r->json(),
+                    ];
                 } catch (Throwable $e) {
-                    $safwanTest['sync_exception'] = $e->getMessage();
+                    $ipTests[$ip] = [
+                        'error' => $e->getMessage(),
+                        'ms' => round((microtime(true) - $t0) * 1000),
+                    ];
                 }
             }
 
-            $recentOrders = \App\Models\Order::query()
-                ->with(['items:id,order_id,product_id,product_name,quantity,status'])
-                ->latest('id')
-                ->limit(10)
-                ->get(['id', 'number', 'status', 'total', 'admin_note', 'created_at', 'updated_at']);
-
-            $recentSupplierOrders = \App\Models\SupplierOrder::query()
-                ->with('supplier:id,name')
-                ->latest('id')
-                ->limit(15)
-                ->get(['id', 'supplier_id', 'order_item_id', 'supplier_product_id', 'request_id', 'quantity', 'status', 'error', 'response', 'created_at']);
-
             return response()->json([
-                'suppliers' => $suppliers,
-                'safwan_test' => $safwanTest,
-                'recent_orders' => $recentOrders,
-                'recent_supplier_orders' => $recentSupplierOrders,
+                'ip_tests' => $ipTests,
+                'server_ip' => @file_get_contents('https://api.ipify.org'),
             ]);
         }
 

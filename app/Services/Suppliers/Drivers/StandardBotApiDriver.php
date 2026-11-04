@@ -537,6 +537,8 @@ class StandardBotApiDriver implements SupplierDriver
         $order = is_array($response->json('order')) ? $response->json('order') : (is_array($response->json('data')) ? $response->json('data') : []);
         $rawItems = $order['items']
             ?? $order['delivered_items']
+            ?? $order['delivery_items']
+            ?? $order['deliveryItems']
             ?? $order['deliveredKeys']
             ?? $order['deliveredKey']
             ?? $order['accounts']
@@ -547,13 +549,18 @@ class StandardBotApiDriver implements SupplierDriver
             ?? $response->json('deliveredKeys')
             ?? $response->json('deliveredKey')
             ?? $response->json('delivered_items')
+            ?? $response->json('delivery_items')
+            ?? $response->json('deliveryItems')
             ?? $response->json('items')
             ?? $response->json('accounts')
             ?? $response->json('credentials')
             ?? $response->json('codes')
             ?? $response->json('content')
             ?? $response->json('delivery.accounts')
+            ?? $response->json('delivery.items')
             ?? $response->json('data.items')
+            ?? $response->json('data.delivery_items')
+            ?? $response->json('data.delivered_items')
             ?? $response->json('data.accounts')
             ?? [];
 
