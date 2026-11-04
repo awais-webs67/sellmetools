@@ -11,75 +11,83 @@
                 <div class="flex flex-wrap items-center gap-2">
                     <span class="eyebrow">Customer Control Panel</span>
                     @if ($user->is_reseller)
-                        <span class="badge badge-brand">★ VIP Reseller Account ({{ (float) $user->reseller_discount_percent > 0 ? number_format((float) $user->reseller_discount_percent, 0).'% Global Discount' : 'Custom Pricing' }})</span>
+                        <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-900 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                            <svg class="h-3 w-3 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                            <span>VIP Reseller Account ({{ (float) $user->reseller_discount_percent > 0 ? number_format((float) $user->reseller_discount_percent, 0).'% Global Discount' : 'Custom Pricing' }})</span>
+                        </span>
                     @endif
                 </div>
-                <h1 class="display mt-1.5 text-3xl sm:text-5xl">Welcome, {{ $user->name }}</h1>
-                <p class="mt-1 text-xs sm:text-sm text-muted">
+                <h1 class="mt-1.5 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Welcome, {{ $user->name }}</h1>
+                <p class="mt-1 text-xs sm:text-sm text-slate-500">
                     {{ $user->email }}
-                    @if ($user->phone) · WhatsApp: <span class="font-mono font-semibold text-ink">+{{ $user->phone }}</span> @endif
+                    @if ($user->phone) · WhatsApp: <span class="font-mono font-semibold text-slate-900">+{{ $user->phone }}</span> @endif
                 </p>
             </div>
             <div class="flex flex-wrap items-center gap-2.5">
                 @if ($user->is_reseller && filled($user->reseller_slug))
-                    <a href="{{ route('reseller.portal', $user->reseller_slug) }}" class="btn btn-dark text-xs sm:text-sm">
-                        ⚡ Open My Reseller Portal (/{{ $user->reseller_slug }})
+                    <a href="{{ route('reseller.portal', $user->reseller_slug) }}" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-slate-800 transition">
+                        <svg class="h-3.5 w-3.5 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        <span>Open Reseller Portal (/{{ $user->reseller_slug }})</span>
                     </a>
                 @endif
-                <a href="{{ route('home') }}#products" class="btn btn-primary text-xs sm:text-sm">Browse Tools →</a>
+                <a href="{{ route('home') }}#products" class="btn btn-primary text-xs sm:text-sm inline-flex items-center gap-1.5">
+                    <span>Browse Tools</span>
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </a>
             </div>
         </div>
 
         {{-- Wallet & Complete Purchasing Stats Grid --}}
         <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <div class="card border-2 border-brand/25 bg-ink p-4 sm:p-5 text-white">
+            <div class="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5 text-white shadow-xs">
                 <div class="flex items-center justify-between">
-                    <span class="text-[11px] font-bold tracking-wider text-[#ff8fa3] uppercase">Wallet Balance</span>
-                    <span class="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white">Instant Pay</span>
+                    <span class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">Wallet Balance</span>
+                    <span class="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-slate-200">Instant Pay</span>
                 </div>
-                <p class="display mt-2 text-2xl sm:text-3xl text-white">{{ money($user->wallet_balance) }}</p>
+                <p class="mt-2 font-mono text-2xl font-bold tracking-tight text-white tabular-nums">{{ money($user->wallet_balance) }}</p>
                 @if ($waAdmin !== '')
                     <a href="https://wa.me/{{ $waAdmin }}?text={{ urlencode('Assalam o Alaikum! I want to top-up my SellMeTools Wallet Balance for account: '.$user->email) }}"
                        target="_blank"
                        rel="noopener"
-                       class="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-[#4ade80] hover:underline">
-                        ➕ Top-Up Wallet →
+                       class="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 hover:underline">
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                        <span>Top-Up Wallet</span>
                     </a>
                 @endif
             </div>
 
-            <div class="card p-4 sm:p-5">
-                <span class="text-xs font-semibold uppercase tracking-wider text-muted">Total Spent</span>
-                <p class="display mt-2 text-2xl sm:text-3xl text-ink">{{ money($stats['total_spent'] ?? 0) }}</p>
-                <p class="mt-1 text-[11px] text-muted">
-                    ≈ {{ money_usd($stats['total_spent'] ?? 0) }} · This month: <strong class="text-ink">{{ money($stats['this_month_spent'] ?? 0) }}</strong>
+            <div class="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs">
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Total Spent</span>
+                <p class="mt-2 font-mono text-2xl font-bold tracking-tight text-slate-900 tabular-nums">{{ money($stats['total_spent'] ?? 0) }}</p>
+                <p class="mt-1 text-[11px] text-slate-500">
+                    ≈ {{ money_usd($stats['total_spent'] ?? 0) }} · This month: <strong class="text-slate-900">{{ money($stats['this_month_spent'] ?? 0) }}</strong>
                 </p>
             </div>
 
-            <div class="card p-4 sm:p-5">
-                <span class="text-xs font-semibold uppercase tracking-wider text-muted">Total Orders</span>
-                <p class="display mt-2 text-2xl sm:text-3xl text-ink">{{ number_format($stats['total']) }}</p>
-                <p class="mt-1 text-[11px] text-muted">
-                    <strong class="text-ink">{{ number_format($stats['total_items'] ?? 0) }}</strong> tools &amp; licenses purchased
+            <div class="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs">
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Total Orders</span>
+                <p class="mt-2 font-mono text-2xl font-bold tracking-tight text-slate-900 tabular-nums">{{ number_format($stats['total']) }}</p>
+                <p class="mt-1 text-[11px] text-slate-500">
+                    <strong class="text-slate-900">{{ number_format($stats['total_items'] ?? 0) }}</strong> tools &amp; licenses purchased
                 </p>
             </div>
 
-            <div class="card p-4 sm:p-5">
-                <span class="text-xs font-semibold uppercase tracking-wider text-success">Delivered &amp; Active</span>
-                <p class="display mt-2 text-2xl sm:text-3xl text-ink">{{ number_format($stats['completed']) }}</p>
-                <p class="mt-1 text-[11px] text-muted">
+            <div class="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs">
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-emerald-600">Delivered &amp; Active</span>
+                <p class="mt-2 font-mono text-2xl font-bold tracking-tight text-slate-900 tabular-nums">{{ number_format($stats['completed']) }}</p>
+                <p class="mt-1 text-[11px] text-slate-500">
                     {{ number_format($stats['pending']) }} in progress · Instant vault
                 </p>
             </div>
 
-            <div class="card p-4 sm:p-5" x-data="{ editingProfile: false }">
+            <div class="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs" x-data="{ editingProfile: false }">
                 <div class="flex items-center justify-between">
-                    <span class="text-xs font-semibold uppercase tracking-wider text-muted">WhatsApp Profile</span>
-                    <button type="button" @click="editingProfile = !editingProfile" class="text-xs font-bold text-brand hover:underline" x-text="editingProfile ? 'Cancel' : 'Edit'"></button>
+                    <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">WhatsApp Profile</span>
+                    <button type="button" @click="editingProfile = !editingProfile" class="text-xs font-semibold text-brand hover:underline" x-text="editingProfile ? 'Cancel' : 'Edit'"></button>
                 </div>
                 <div x-show="!editingProfile" class="mt-2">
-                    <p class="font-mono text-base font-bold text-ink">{{ $user->phone ?: 'Not set' }}</p>
-                    <p class="mt-1 text-[11px] text-muted">Exact format: <code>923XXXXXXXXX</code></p>
+                    <p class="font-mono text-base font-bold text-slate-900">{{ $user->phone ?: 'Not set' }}</p>
+                    <p class="mt-1 text-[11px] text-slate-500">Exact format: <code>923XXXXXXXXX</code></p>
                 </div>
                 <form x-show="editingProfile" x-cloak method="post" action="{{ route('account.profile.update') }}" class="mt-2 space-y-2">
                     @csrf
@@ -200,25 +208,30 @@
                                         </div>
 
                                         <div class="flex flex-wrap items-center gap-2">
-                                            <span class="display text-2xl text-ink mr-1">{{ money($order->total) }}</span>
+                                            <span class="font-mono text-lg sm:text-xl font-bold text-slate-900 tabular-nums mr-1">{{ money($order->total) }}</span>
                                             <a href="{{ route('orders.receipt', ['order' => $order->number, 'token' => $order->access_token]) }}"
                                                target="_blank"
-                                               class="btn btn-outline px-3 py-1.5 text-xs font-semibold">
-                                                🧾 View Receipt
+                                               class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition">
+                                                <svg class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                                <span>View Receipt</span>
                                             </a>
                                             <a href="{{ route('orders.receipt', ['order' => $order->number, 'token' => $order->access_token, 'download' => 'pdf']) }}"
-                                               class="btn btn-outline px-3 py-1.5 text-xs font-semibold">
-                                                📥 PDF
+                                               class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition">
+                                                <svg class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                                <span>PDF</span>
                                             </a>
                                             @if ($order->status === OrderStatus::PendingPayment)
-                                                <a href="{{ $order->customerUrl() }}" class="btn btn-primary px-3.5 py-1.5 text-xs">Pay Now →</a>
+                                                <a href="{{ $order->customerUrl() }}" class="btn btn-primary px-3.5 py-1.5 text-xs">Pay Now</a>
                                                 <form method="post" action="{{ route('orders.cancel', $order) }}" onsubmit="return confirm('Cancel this unpaid order?')">
                                                     @csrf
                                                     <input type="hidden" name="token" value="{{ $order->access_token }}">
                                                     <button type="submit" class="btn btn-outline px-3 py-1.5 text-xs text-danger hover:border-danger">Cancel</button>
                                                 </form>
                                             @else
-                                                <a href="{{ $order->customerUrl() }}" class="btn btn-primary px-3.5 py-1.5 text-xs">Order Vault →</a>
+                                                <a href="{{ $order->customerUrl() }}" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition">
+                                                    <span>Order Details</span>
+                                                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                                                </a>
                                             @endif
                                         </div>
                                     </div>
@@ -227,25 +240,28 @@
                                         @foreach ($order->items as $item)
                                             <div>
                                                 <div class="flex items-center justify-between gap-2">
-                                                    <p class="text-xs sm:text-sm font-bold text-ink">
-                                                        {{ $item->product_name }} <span class="font-normal text-muted">× {{ $item->quantity }}</span>
+                                                    <p class="text-xs sm:text-sm font-bold text-slate-900">
+                                                        {{ $item->product_name }} <span class="font-normal text-slate-500">× {{ $item->quantity }}</span>
                                                     </p>
-                                                    <span class="text-xs text-muted">{{ money($item->unit_price) }} each</span>
+                                                    <span class="font-mono text-xs text-slate-500">{{ money($item->unit_price) }} each</span>
                                                 </div>
 
                                                 @if ($item->deliveries->isNotEmpty())
                                                     <div class="mt-2.5 grid gap-2">
                                                         @foreach ($item->deliveries as $delivery)
-                                                            <div class="surface-dark-solid flex flex-col gap-2 rounded-xl border border-line p-3 text-white sm:flex-row sm:items-center sm:justify-between" x-data="copy(@js(trim($delivery->content)))">
+                                                            <div class="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3.5 sm:flex-row sm:items-center sm:justify-between" x-data="copy(@js(trim($delivery->content)))">
                                                                 <div class="min-w-0">
-                                                                    <span class="block text-[10px] font-bold uppercase tracking-wider text-[#ff8fa3]">🔑 Delivered Credential</span>
-                                                                    <code class="mt-0.5 block font-mono text-xs sm:text-sm font-semibold break-all whitespace-pre-wrap text-[#4ade80]">{{ trim($delivery->content) }}</code>
+                                                                    <div class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                                                                        <svg class="h-3 w-3 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                                                        <span>Delivered Credential</span>
+                                                                    </div>
+                                                                    <code class="mt-1 block font-mono text-xs sm:text-sm font-semibold break-all whitespace-pre-wrap text-slate-900">{{ trim($delivery->content) }}</code>
                                                                 </div>
                                                                 <button type="button"
-                                                                        class="btn bg-brand text-white hover:bg-brand-hover shrink-0 px-3.5 py-1.5 text-xs font-bold"
-                                                                        @click="copy"
-                                                                        x-text="copied ? '✓ Copied!' : 'Copy Credential'">
-                                                                    Copy Credential
+                                                                        class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white shrink-0 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition"
+                                                                        @click="copy">
+                                                                    <svg class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                                                    <span x-text="copied ? 'Copied' : 'Copy Credential'">Copy Credential</span>
                                                                 </button>
                                                             </div>
                                                         @endforeach

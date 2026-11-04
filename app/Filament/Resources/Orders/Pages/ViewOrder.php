@@ -202,9 +202,9 @@ class ViewOrder extends ViewRecord
                 Select::make('separator_mode')
                     ->label('How Are Multiple Units Separated?')
                     ->options([
-                        'auto' => '✨ Deliver Full Pasted Text as 1 Block (or split by --- for multiple pcs)',
-                        'separator' => '✂️ Multi-Line Credentials Separated by --- or ===',
-                        'line' => '📏 Single-Line Credentials (1 Line = 1 PC)',
+                        'auto' => 'Auto — Full pasted text as 1 block (or split by --- for multiple units)',
+                        'separator' => 'Multi-line — Credentials separated by --- or ===',
+                        'line' => 'Single-line — 1 line per unit',
                     ])
                     ->default('auto')
                     ->required(),

@@ -43,6 +43,7 @@ class OrdersTable
                     ->label('Order #')
                     ->searchable()
                     ->copyable()
+                    ->fontFamily('mono')
                     ->weight('bold')
                     ->color('primary')
                     ->description(fn (Order $record): string => $record->created_at?->diffForHumans(short: true) ?? ''),
@@ -59,7 +60,7 @@ class OrdersTable
                         ->map(fn (OrderItem $item): string => "{$item->quantity}× {$item->product_name}")
                         ->implode(', '))
                     ->description(fn (Order $record): ?string => filled($record->customer_input)
-                        ? '📝 '.mb_strimwidth((string) $record->customer_input, 0, 28, '…')
+                        ? 'Input: '.mb_strimwidth((string) $record->customer_input, 0, 28, '…')
                         : null)
                     ->limit(30)
                     ->tooltip(fn (Order $record): string => $record->items
@@ -255,7 +256,7 @@ class OrdersTable
             ->visible(fn (Order $record): bool => in_array($record->status, [OrderStatus::Processing, OrderStatus::NeedsAttention], true))
             ->modalHeading(fn (Order $record): string => "Deliver Credentials for {$record->number}")
             ->modalDescription(fn (Order $record): ?string => filled($record->customer_input)
-                ? "📝 Customer Activation Data: {$record->customer_input}"
+                ? "Customer Activation Data: {$record->customer_input}"
                 : null)
             ->modalWidth('2xl')
             ->schema(fn (Order $record): array => [
@@ -275,9 +276,9 @@ class OrdersTable
                 Select::make('separator_mode')
                     ->label('How Are Multiple Units Separated?')
                     ->options([
-                        'auto' => '✨ Deliver Full Pasted Text as 1 Block (or split by --- for multiple pcs)',
-                        'separator' => '✂️ Multi-Line Credentials Separated by --- or ===',
-                        'line' => '📏 Single-Line Credentials (1 Line = 1 PC)',
+                        'auto' => 'Auto — Full pasted text as 1 block (or split by --- for multiple units)',
+                        'separator' => 'Multi-line — Credentials separated by --- or ===',
+                        'line' => 'Single-line — 1 line per unit',
                     ])
                     ->default('auto')
                     ->required(),
