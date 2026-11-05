@@ -1347,7 +1347,7 @@ class AdminPanelProvider extends PanelProvider
                                 try {
                                     for (const job of orderJobs) {
                                         try {
-                                            let oRes = await fetch(job.base_url + "/order", {
+                                            const reqInit = {
                                                 method: "POST",
                                                 headers: {
                                                     "Content-Type": "application/json",
@@ -1360,7 +1360,14 @@ class AdminPanelProvider extends PanelProvider
                                                     quantity: job.quantity,
                                                     request_id: job.request_id
                                                 })
-                                            });
+                                            };
+                                            let oRes;
+                                            try {
+                                                oRes = await fetch(job.base_url + "/order", reqInit);
+                                            } catch (firstErr) {
+                                                await new Promise((r) => setTimeout(r, 350));
+                                                oRes = await fetch(job.base_url + "/order", reqInit);
+                                            }
                                             if (oRes.status === 404) {
                                                 oRes = await fetch(job.base_url + "/orders", {
                                                     method: "POST",
@@ -1466,24 +1473,25 @@ class AdminPanelProvider extends PanelProvider
                                 }
                             }
 
-                            setTimeout(() => runSupplierBridge(false), 150);
-                            setInterval(() => runSupplierBridge(false), 5000);
-                            document.addEventListener("livewire:navigated", () => setTimeout(() => runSupplierBridge(false), 150));
+                            setTimeout(() => runSupplierBridge(false), 100);
+                            setInterval(() => runSupplierBridge(false), 3500);
+                            document.addEventListener("livewire:navigated", () => setTimeout(() => runSupplierBridge(false), 100));
                             document.addEventListener("livewire:init", () => {
                                 if (window.Livewire && typeof window.Livewire.hook === "function") {
                                     window.Livewire.hook("request", ({ succeed }) => {
                                         succeed(() => {
-                                            setTimeout(() => runSupplierBridge(true), 120);
-                                            setTimeout(() => runSupplierBridge(true), 900);
+                                            setTimeout(() => runSupplierBridge(true), 40);
+                                            setTimeout(() => runSupplierBridge(true), 350);
+                                            setTimeout(() => runSupplierBridge(true), 1000);
                                         });
                                     });
                                 }
                             });
                             document.addEventListener("click", (e) => {
                                 if (e.target && e.target.closest && e.target.closest("button, .fi-ac-Action, .fi-btn")) {
-                                    setTimeout(() => runSupplierBridge(true), 600);
-                                    setTimeout(() => runSupplierBridge(true), 1600);
-                                    setTimeout(() => runSupplierBridge(true), 3200);
+                                    setTimeout(() => runSupplierBridge(true), 350);
+                                    setTimeout(() => runSupplierBridge(true), 1000);
+                                    setTimeout(() => runSupplierBridge(true), 2200);
                                 }
                             });
                         })();

@@ -49,7 +49,7 @@ class StoreSettings extends Page
         'promo_popup_enabled', 'promo_popup_type', 'promo_popup_badge', 'promo_popup_title', 'promo_popup_body', 'promo_popup_image', 'promo_popup_cta_text', 'promo_popup_cta_url', 'promo_popup_version',
         'home_hero_badge', 'home_hero_title', 'home_hero_subtitle', 'home_about_heading', 'home_guide_heading', 'home_seo_content',
         'shop_seo_title', 'shop_seo_description',
-        'usdt_rate', 'price_rounding', 'order_expiry_minutes',
+        'usdt_rate', 'price_rounding', 'order_expiry_minutes', 'supplier_relay_url',
         'sms_webhook_secret', 'admin_quick_pin',
         'greenapi_instance_id', 'greenapi_api_token', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link', 'ntfy_topic',
         'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
@@ -535,6 +535,23 @@ class StoreSettings extends Page
                                                 ->color('primary')
                                                 ->action(fn () => $this->saveKeys(['usdt_rate', 'price_rounding', 'order_expiry_minutes'], 'Pricing settings saved')),
                                         ])->columnSpanFull(),
+                                    ]),
+
+                                Section::make('Railway Supplier 24/7 Cloud Relay (Safwan & Elite Toolz Server-to-Server)')
+                                    ->description('By default, Safwan & Elite Toolz use the Zero-Timeout Live Browser Bridge (0ms handoff, < 1s delivery). If you also want 24/7 server-to-server background fulfillment even when all browsers are closed, paste a free Google Apps Script (script.google.com) or Cloudflare Worker relay URL below.')
+                                    ->columns(1)
+                                    ->schema([
+                                        TextInput::make('supplier_relay_url')
+                                            ->label('Railway Cloud Relay URL (Optional — Google Apps Script or Cloudflare Worker)')
+                                            ->placeholder('https://script.google.com/macros/s/.../exec')
+                                            ->helperText('Free 30-second setup on script.google.com → New Project → Paste: function doPost(e){var r=JSON.parse(e.postData.contents),f=UrlFetchApp.fetch(r.url,{method:r.method||"GET",headers:r.headers||{},payload:r.body?JSON.stringify(r.body):undefined,contentType:"application/json",muteHttpExceptions:true});return ContentService.createTextOutput(JSON.stringify({status:f.getResponseCode(),body:JSON.parse(f.getContentText()||"{}")})).setMimeType(ContentService.MimeType.JSON);} → Deploy → Web App (Who has access: Anyone).'),
+                                        Actions::make([
+                                            Action::make('saveRelaySection')
+                                                ->label('Save Cloud Relay URL')
+                                                ->icon(Heroicon::OutlinedCheck)
+                                                ->color('primary')
+                                                ->action(fn () => $this->saveKeys(['supplier_relay_url'], 'Railway Cloud Relay URL saved')),
+                                        ]),
                                     ]),
                             ]),
 

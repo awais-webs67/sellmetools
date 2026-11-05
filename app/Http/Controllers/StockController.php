@@ -153,6 +153,26 @@ class StockController extends Controller
             $fulfillment = app(FulfillmentService::class);
 
             if ($bridgeAction === 'status') {
+                if (Cache::add('smt_clean_stale_bridge_rows', 1, 60)) {
+                    try {
+                        SupplierOrder::with('orderItem.order')
+                            ->whereIn('status', [SupplierOrderStatus::Failed, SupplierOrderStatus::Pending, SupplierOrderStatus::Unknown])
+                            ->whereNotNull('order_item_id')
+                            ->where('created_at', '>=', now()->subDays(7))
+                            ->get()
+                            ->each(function (SupplierOrder $so): void {
+                                if (! FulfillmentService::isBridgeHandoffError($so->error) && $so->status !== SupplierOrderStatus::Pending) {
+                                    return;
+                                }
+                                $order = $so->orderItem?->order;
+                                if ($order && $order->status === OrderStatus::Completed) {
+                                    $so->delete();
+                                }
+                            });
+                    } catch (Throwable) {
+                    }
+                }
+
                 $railwaySuppliers = [];
                 foreach (Supplier::query()->where('is_active', true)->orderBy('id')->get() as $sup) {
                     $driver = $manager->driver($sup);

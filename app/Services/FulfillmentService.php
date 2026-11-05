@@ -14,6 +14,7 @@ use App\Models\StockItem;
 use App\Models\SupplierOrder;
 use App\Models\SupplierProduct;
 use App\Services\Suppliers\Exceptions\SupplierAuthException;
+use App\Services\Suppliers\Exceptions\SupplierBridgePendingException;
 use App\Services\Suppliers\Exceptions\SupplierException;
 use App\Services\Suppliers\Exceptions\SupplierInsufficientBalanceException;
 use App\Services\Suppliers\Exceptions\SupplierOutOfStockException;
@@ -278,28 +279,38 @@ class FulfillmentService
             ->where('supplier_product_id', $source->id)
             ->get();
 
-        // Auto-recover any previous 'unknown' rows that were actually TCP connect-phase timeouts (before any HTTP request was sent)
+        $reusableBridgeAttempt = null;
+
+        // Auto-recover any previous 'unknown' or bridge-handoff rows that were never sent over TCP from the server
         foreach ($previous as $prevAttempt) {
             if ($prevAttempt->status === SupplierOrderStatus::Unknown) {
                 if (self::isBridgeHandoffError($prevAttempt->error) || str_contains(strtolower((string) $prevAttempt->error), 'could not resolve host')) {
                     $prevAttempt->update(['status' => SupplierOrderStatus::Failed]);
                 }
             }
+            if (in_array($prevAttempt->status, [SupplierOrderStatus::Pending, SupplierOrderStatus::Failed], true)
+                && ($prevAttempt->status === SupplierOrderStatus::Pending || self::isBridgeHandoffError($prevAttempt->error))) {
+                $reusableBridgeAttempt = $prevAttempt;
+            }
         }
 
-        // Never send again while an earlier request has an unclear outcome.
-        if ($previous->contains(fn ($a) => in_array($a->status, [SupplierOrderStatus::Unknown, SupplierOrderStatus::Pending], true))) {
+        // Never send again while an earlier non-bridge request has an unclear outcome.
+        if ($previous->contains(fn ($a) => $a->status === SupplierOrderStatus::Unknown || ($a->status === SupplierOrderStatus::Pending && ! self::isBridgeHandoffError($a->error) && $a->error !== null))) {
             return 'unknown';
         }
-
-        // Deterministic id: retries after a definitive failure get a new attempt number.
-        $attemptNo = $previous->count() + 1;
-        $requestId = "{$order->number}-{$item->id}-{$source->id}-{$attemptNo}";
 
         $units = $source->availableUnits();
         $qty = $units === null ? $item->remainingQty() : min($item->remainingQty(), $units);
         if ($qty < 1) {
             return 'out of stock';
+        }
+
+        if ($reusableBridgeAttempt) {
+            $requestId = $reusableBridgeAttempt->request_id;
+        } else {
+            // Deterministic id: retries after a definitive failure get a new attempt number.
+            $attemptNo = $previous->count() + 1;
+            $requestId = "{$order->number}-{$item->id}-{$source->id}-{$attemptNo}";
         }
 
         $neededCost = round((float) $source->cost * $qty, 4);
@@ -333,17 +344,33 @@ class FulfillmentService
             return 'insufficient supplier balance';
         }
 
-        $attempt = SupplierOrder::create([
-            'supplier_id' => $supplier->id,
-            'order_item_id' => $item->id,
-            'supplier_product_id' => $source->id,
-            'request_id' => $requestId,
-            'quantity' => $qty,
-            'status' => SupplierOrderStatus::Pending,
-        ]);
+        if ($reusableBridgeAttempt) {
+            $reusableBridgeAttempt->update([
+                'quantity' => $qty,
+                'status' => SupplierOrderStatus::Pending,
+                'error' => null,
+            ]);
+            $attempt = $reusableBridgeAttempt;
+        } else {
+            $attempt = SupplierOrder::create([
+                'supplier_id' => $supplier->id,
+                'order_item_id' => $item->id,
+                'supplier_product_id' => $source->id,
+                'request_id' => $requestId,
+                'quantity' => $qty,
+                'status' => SupplierOrderStatus::Pending,
+            ]);
+        }
 
         try {
             $result = $this->suppliers->driver($supplier)->placeOrder($source->external_id, $qty, $requestId);
+        } catch (SupplierBridgePendingException $e) {
+            $attempt->update([
+                'status' => SupplierOrderStatus::Pending,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $e->getMessage();
         } catch (SupplierUnknownResultException $e) {
             $attempt->update(['status' => SupplierOrderStatus::Unknown, 'error' => $e->getMessage(), 'response' => $e->context]);
 
@@ -432,7 +459,9 @@ class FulfillmentService
             return false;
         }
 
-        return str_contains($errLower, 'railway edge')
+        return str_contains($errLower, 'supplier bridge')
+            || str_contains($errLower, 'railway bridge')
+            || str_contains($errLower, 'railway edge')
             || str_contains($errLower, 'browser bridge')
             || str_contains($errLower, 'could not connect')
             || str_contains($errLower, 'cooldown')
@@ -452,7 +481,7 @@ class FulfillmentService
         $jobs = [];
         $orders = Order::query()
             ->whereIn('status', [OrderStatus::Processing, OrderStatus::NeedsAttention])
-            ->where('updated_at', '>=', now()->subHours(12))
+            ->where('updated_at', '>=', now()->subHours(24))
             ->with(['items.product.activeSources.supplier'])
             ->get();
 
@@ -472,7 +501,8 @@ class FulfillmentService
                 $allowAboveUnitPrice = false;
 
                 if ($latestAttempt && $latestAttempt->supplierProduct) {
-                    if ($latestAttempt->status !== SupplierOrderStatus::Success && self::isBridgeHandoffError($latestAttempt->error)) {
+                    if ($latestAttempt->status === SupplierOrderStatus::Pending
+                        || ($latestAttempt->status !== SupplierOrderStatus::Success && self::isBridgeHandoffError($latestAttempt->error))) {
                         $candidateSource = $latestAttempt->supplierProduct;
                         $allowAboveUnitPrice = true;
                     }
@@ -514,7 +544,7 @@ class FulfillmentService
                     continue;
                 }
 
-                if ($latestAttempt && (int) $latestAttempt->supplier_product_id === (int) $source->id && $latestAttempt->status !== SupplierOrderStatus::Success && self::isBridgeHandoffError($latestAttempt->error)) {
+                if ($latestAttempt && (int) $latestAttempt->supplier_product_id === (int) $source->id && $latestAttempt->status !== SupplierOrderStatus::Success && ($latestAttempt->status === SupplierOrderStatus::Pending || self::isBridgeHandoffError($latestAttempt->error))) {
                     $requestId = $latestAttempt->request_id;
                 } else {
                     $attemptNo = $previous->count() + 1;
@@ -540,11 +570,15 @@ class FulfillmentService
         // Also include any pending Direct Admin Vendor Buys (order_item_id IS NULL) for Railway-hosted suppliers
         $directOrders = SupplierOrder::with(['supplier', 'supplierProduct'])
             ->whereNull('order_item_id')
-            ->where('status', SupplierOrderStatus::Pending)
-            ->where('created_at', '>=', now()->subMinutes(15))
+            ->whereIn('status', [SupplierOrderStatus::Pending, SupplierOrderStatus::Failed])
+            ->where('created_at', '>=', now()->subMinutes(60))
             ->get();
 
         foreach ($directOrders as $dOrder) {
+            if ($dOrder->status === SupplierOrderStatus::Failed && ! self::isBridgeHandoffError($dOrder->error)) {
+                continue;
+            }
+
             $supplier = $dOrder->supplier;
             $source = $dOrder->supplierProduct;
             if (! $supplier || ! $supplier->is_active || ! $source) {
@@ -749,6 +783,16 @@ class FulfillmentService
                 $item->reserved_supplier_qty = max(0, $item->reserved_supplier_qty - count($delivered));
                 $item->cost = round((float) $item->cost + $supplier->toPkr($cost), 2);
                 $item->save();
+
+                SupplierOrder::where('order_item_id', $item->id)
+                    ->where('id', '!=', $attempt->id)
+                    ->whereIn('status', [SupplierOrderStatus::Pending, SupplierOrderStatus::Failed, SupplierOrderStatus::Unknown])
+                    ->get()
+                    ->each(function (SupplierOrder $old): void {
+                        if ($old->status === SupplierOrderStatus::Pending || self::isBridgeHandoffError($old->error)) {
+                            $old->delete();
+                        }
+                    });
             });
 
             if ($result->balanceAfter !== null) {

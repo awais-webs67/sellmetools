@@ -2,17 +2,20 @@
 
 namespace App\Services\Suppliers\Drivers;
 
+use App\Models\Setting;
 use App\Models\Supplier;
 use App\Services\Suppliers\Contracts\SupplierDriver;
 use App\Services\Suppliers\Data\SupplierBalance;
 use App\Services\Suppliers\Data\SupplierOrderResult;
 use App\Services\Suppliers\Data\SupplierProductData;
 use App\Services\Suppliers\Exceptions\SupplierAuthException;
+use App\Services\Suppliers\Exceptions\SupplierBridgePendingException;
 use App\Services\Suppliers\Exceptions\SupplierException;
 use App\Services\Suppliers\Exceptions\SupplierInsufficientBalanceException;
 use App\Services\Suppliers\Exceptions\SupplierOutOfStockException;
 use App\Services\Suppliers\Exceptions\SupplierUnknownResultException;
 use App\Support\TextCleaner;
+use GuzzleHttp\Psr7\Response as Psr7Response;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Pool;
@@ -151,6 +154,60 @@ class StandardBotApiDriver implements SupplierDriver
             ->connectTimeout($connectTimeout);
     }
 
+    public function cloudRelayUrl(): string
+    {
+        try {
+            return trim((string) Setting::get('supplier_relay_url', ''));
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
+    /**
+     * Routes a supplier API request through the configured 24/7 Cloud Relay (Google Apps Script / Cloudflare Worker)
+     * so Hostinger's server can communicate with Railway-hosted suppliers (Safwan, Elite Toolz) server-to-server in < 500ms.
+     */
+    public function sendViaCloudRelay(string $method, string $path, ?array $payload = null, int $timeout = 25): Response
+    {
+        $relayUrl = $this->cloudRelayUrl();
+        if ($relayUrl === '') {
+            throw new ConnectionException('No supplier cloud relay URL configured.');
+        }
+
+        $targetUrl = rtrim($this->normalizedBaseUrl(), '/').'/'.ltrim($path, '/');
+        $headers = array_merge($this->defaultHeaders(), [
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ]);
+
+        $relayResponse = Http::withOptions(['verify' => false])
+            ->acceptJson()
+            ->connectTimeout(6)
+            ->timeout($timeout)
+            ->post($relayUrl, [
+                'url' => $targetUrl,
+                'method' => strtoupper($method),
+                'headers' => $headers,
+                'body' => $payload,
+            ]);
+
+        if (! $relayResponse->successful()) {
+            throw new ConnectionException('Cloud relay HTTP '.$relayResponse->status());
+        }
+
+        $envelope = $relayResponse->json();
+        if (is_array($envelope) && array_key_exists('status', $envelope) && array_key_exists('body', $envelope)) {
+            $innerStatus = (int) ($envelope['status'] ?: 200);
+            $innerBody = is_string($envelope['body'])
+                ? $envelope['body']
+                : (string) json_encode($envelope['body'] ?? []);
+
+            return new Response(new Psr7Response($innerStatus, ['Content-Type' => 'application/json'], $innerBody));
+        }
+
+        return $relayResponse;
+    }
+
     /**
      * Fetches /products and /balance in parallel using Http::pool, with automatic sequential retry if pool connection times out.
      *
@@ -164,46 +221,42 @@ class StandardBotApiDriver implements SupplierDriver
         $balancePath = $this->balanceEndpoint();
 
         if (! app()->runningUnitTests() && $this->isRailwayHost()) {
-            $cooldownKey = 'railway_direct_cooldown_'.$this->supplier->id;
-            if (Cache::has($cooldownKey)) {
-                Cache::put('supplier_needs_bridge_sync_'.$this->supplier->id, true, 600);
+            if ($this->cloudRelayUrl() !== '') {
+                try {
+                    $prodResponse = $this->sendViaCloudRelay('GET', $productsPath, null, 15);
+                    $this->guard($prodResponse);
+                    $products = $this->parseProductsResponse($prodResponse);
 
-                return $this->railwayFallbackProductsAndBalance();
-            }
-
-            try {
-                $prodResponse = $this->http(8, 3)->get($productsPath);
-                $this->guard($prodResponse);
-                $products = $this->parseProductsResponse($prodResponse);
-
-                $balanceObj = $this->extractBalanceFromResponse($prodResponse);
-                $balJson = null;
-                if ($balanceObj === null) {
-                    try {
-                        $balResponse = $this->http(6, 3)->get($balancePath);
-                        $balJson = $balResponse->json();
-                        $balanceObj = $this->extractBalanceFromResponse($balResponse);
-                    } catch (\Throwable) {
-                        // Use existing balance if balance endpoint fails
+                    $balanceObj = $this->extractBalanceFromResponse($prodResponse);
+                    $balJson = null;
+                    if ($balanceObj === null) {
+                        try {
+                            $balResponse = $this->sendViaCloudRelay('GET', $balancePath, null, 10);
+                            $balJson = $balResponse->json();
+                            $balanceObj = $this->extractBalanceFromResponse($balResponse);
+                        } catch (\Throwable) {
+                            // Use existing balance if balance endpoint fails
+                        }
                     }
+
+                    Cache::put('supplier_raw_cache_'.$this->supplier->id, [
+                        'products' => $prodResponse->json(),
+                        'balance' => $balJson ?? $prodResponse->json(),
+                        'at' => now()->timestamp,
+                    ], 86400);
+
+                    return [
+                        'products' => $products,
+                        'balance' => $balanceObj,
+                    ];
+                } catch (\Throwable) {
+                    // Fall back immediately to cached catalog + browser bridge sync below
                 }
-
-                Cache::put('supplier_raw_cache_'.$this->supplier->id, [
-                    'products' => $prodResponse->json(),
-                    'balance' => $balJson ?? $prodResponse->json(),
-                    'at' => now()->timestamp,
-                ], 86400);
-
-                return [
-                    'products' => $products,
-                    'balance' => $balanceObj,
-                ];
-            } catch (ConnectionException $e) {
-                Cache::put($cooldownKey, true, 600);
-                Cache::put('supplier_needs_bridge_sync_'.$this->supplier->id, true, 600);
-
-                return $this->railwayFallbackProductsAndBalance($e);
             }
+
+            Cache::put('supplier_needs_bridge_sync_'.$this->supplier->id, true, 600);
+
+            return $this->railwayFallbackProductsAndBalance();
         }
 
         $options = $this->curlOptions();
@@ -433,6 +486,10 @@ class StandardBotApiDriver implements SupplierDriver
 
     public function products(): array
     {
+        if (! app()->runningUnitTests() && $this->isRailwayHost()) {
+            return $this->productsAndBalance()['products'];
+        }
+
         $response = $this->send(fn () => $this->http(25)->get($this->productsEndpoint()));
         $this->guard($response);
 
@@ -529,40 +586,32 @@ class StandardBotApiDriver implements SupplierDriver
         $primaryPath = $this->balanceEndpoint();
 
         if (! app()->runningUnitTests() && $this->isRailwayHost()) {
-            $cooldownKey = 'railway_direct_cooldown_'.$this->supplier->id;
-            if (Cache::has($cooldownKey)) {
-                Cache::put('supplier_needs_bridge_sync_'.$this->supplier->id, true, 600);
-                $cached = Cache::get('supplier_raw_cache_'.$this->supplier->id);
-                if (is_array($cached) && is_array($cached['balance'] ?? null)) {
-                    $ext = $this->extractBalanceFromPayloadArray($cached['balance']);
-                    if ($ext !== null) {
-                        return $ext;
+            if ($this->cloudRelayUrl() !== '') {
+                try {
+                    $response = $this->sendViaCloudRelay('GET', $primaryPath, null, 10);
+                    $extracted = $this->extractBalanceFromResponse($response);
+                    if ($extracted !== null) {
+                        return $extracted;
                     }
+                } catch (\Throwable) {
+                    // Fall back immediately to cached balance + browser bridge sync
                 }
-
-                return new SupplierBalance(
-                    balance: (float) ($this->supplier->balance ?? 0.0),
-                    currency: (string) ($this->supplier->currency ?: 'USDT'),
-                    raw: ['cached' => true],
-                );
             }
 
-            try {
-                $response = $this->http(6, 3)->get($primaryPath);
-                $extracted = $this->extractBalanceFromResponse($response);
-                if ($extracted !== null) {
-                    return $extracted;
+            Cache::put('supplier_needs_bridge_sync_'.$this->supplier->id, true, 600);
+            $cached = Cache::get('supplier_raw_cache_'.$this->supplier->id);
+            if (is_array($cached) && is_array($cached['balance'] ?? null)) {
+                $ext = $this->extractBalanceFromPayloadArray($cached['balance']);
+                if ($ext !== null) {
+                    return $ext;
                 }
-            } catch (ConnectionException) {
-                Cache::put($cooldownKey, true, 600);
-                Cache::put('supplier_needs_bridge_sync_'.$this->supplier->id, true, 600);
-
-                return new SupplierBalance(
-                    balance: (float) ($this->supplier->balance ?? 0.0),
-                    currency: (string) ($this->supplier->currency ?: 'USDT'),
-                    raw: ['cached' => true],
-                );
             }
+
+            return new SupplierBalance(
+                balance: (float) ($this->supplier->balance ?? 0.0),
+                currency: (string) ($this->supplier->currency ?: 'USDT'),
+                raw: ['cached' => true],
+            );
         }
 
         $response = $this->send(fn () => $this->http(15)->get($primaryPath));
@@ -614,11 +663,41 @@ class StandardBotApiDriver implements SupplierDriver
         $isCanboso = str_contains($baseUrl, 'canboso') || str_starts_with($apiKey, 'tgb_');
         $isRailway = ! app()->runningUnitTests() && $this->isRailwayHost();
 
-        if ($isRailway && Cache::has('railway_direct_cooldown_'.$this->supplier->id)) {
-            throw SupplierException::withContext('Could not connect directly to Railway edge (queued for instant browser bridge / alternate supplier).');
+        if ($isRailway) {
+            if ($this->cloudRelayUrl() !== '') {
+                try {
+                    $relayResp = $this->sendViaCloudRelay('POST', '/order', [
+                        'product_id' => $normalizedId,
+                        'productId' => (string) $externalProductId,
+                        'quantity' => $quantity,
+                        'request_id' => $requestId,
+                    ], 30);
+
+                    if ($relayResp->status() === 404) {
+                        $relayResp = $this->sendViaCloudRelay('POST', '/orders', [
+                            'product_id' => $normalizedId,
+                            'productId' => (string) $externalProductId,
+                            'qty' => $quantity,
+                            'quantity' => $quantity,
+                        ], 30);
+                    }
+
+                    if ($relayResp->serverError()) {
+                        throw SupplierUnknownResultException::withContext('Supplier server error '.$relayResp->status(), ['body' => $relayResp->body()]);
+                    }
+
+                    $this->guard($relayResp);
+
+                    return $this->parseOrderPayloadArray($relayResp->status(), $relayResp->json() ?? []);
+                } catch (ConnectionException) {
+                    // If cloud relay is unreachable, hand off immediately to the live browser bridge in 0ms
+                }
+            }
+
+            throw SupplierBridgePendingException::withContext('Dispatching via live supplier bridge...');
         }
 
-        $connTimeout = $isRailway ? 2 : 15;
+        $connTimeout = 15;
 
         $executeOrderRequest = function () use ($isProdSeller, $isBunai, $isQamify, $isTunvn, $isCanboso, $externalProductId, $normalizedId, $quantity, $requestId, $idempotencyKey, $apiKey, $connTimeout): Response {
             if ($isProdSeller) {

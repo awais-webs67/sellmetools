@@ -101,7 +101,7 @@ class SupplierOrderResource extends Resource
     }
 
     /**
-     * Returns true ONLY when this supplier order failed/timed out AND the customer order is STILL unfulfilled.
+     * Returns true ONLY when this supplier order failed/timed out AND the order is STILL unfulfilled.
      */
     public static function isStillUnfulfilled(SupplierOrder $r): bool
     {
@@ -110,7 +110,7 @@ class SupplierOrderResource extends Resource
         }
 
         if ($r->order_item_id === null) {
-            return false;
+            return true;
         }
 
         return ! self::isOrderAlreadyResolved($r);
@@ -290,15 +290,37 @@ class SupplierOrderResource extends Resource
                     ->requiresConfirmation()
                     ->visible(fn (SupplierOrder $r): bool => self::isStillUnfulfilled($r))
                     ->action(function (SupplierOrder $r): void {
+                        if ($r->order_item_id === null) {
+                            $r->update([
+                                'status' => SupplierOrderStatus::Pending,
+                                'error' => 'Dispatching via live supplier bridge...',
+                                'created_at' => now(),
+                            ]);
+
+                            Notification::make()
+                                ->title('Direct Vendor Order Queued for Instant Delivery')
+                                ->body('Delivering via live supplier bridge now (1-2 seconds)...')
+                                ->info()
+                                ->send();
+
+                            return;
+                        }
+
                         $order = $r->orderItem->order;
                         if ($order->status === OrderStatus::NeedsAttention) {
                             $order->update(['status' => OrderStatus::Processing]);
                         }
-                        $order = app(FulfillmentService::class)->fulfill($order);
 
+                        if ($r->supplierProduct) {
+                            $order = app(FulfillmentService::class)->fulfillFromSpecificSupplier($order, $r->orderItem, $r->supplierProduct);
+                        } else {
+                            $order = app(FulfillmentService::class)->fulfill($order);
+                        }
+
+                        $isBridge = $order->status === OrderStatus::Processing && str_contains((string) $order->admin_note, 'bridge');
                         Notification::make()
-                            ->title('Fulfillment retried: Order is now '.$order->status->label())
-                            ->color($order->status === OrderStatus::Completed ? 'success' : 'warning')
+                            ->title($isBridge ? 'Delivering via Live Supplier Bridge (1-2s)...' : 'Fulfillment retried: Order is now '.$order->status->label())
+                            ->color($order->status === OrderStatus::Completed ? 'success' : ($isBridge ? 'info' : 'warning'))
                             ->send();
                     }),
             ]);
@@ -468,22 +490,16 @@ class SupplierOrderResource extends Resource
                 try {
                     $res = app(SupplierManager::class)->driver($supplier)->placeOrder($sp->external_id, $qty, $reqId);
                 } catch (Throwable $e) {
-                    $errLower = strtolower($e->getMessage());
-                    $isBridgeable = str_contains($errLower, 'cooldown')
-                        || str_contains($errLower, 'timed out')
-                        || str_contains($errLower, 'connection error')
-                        || str_contains($errLower, 'failed to connect');
-
-                    if ($isBridgeable) {
+                    if (FulfillmentService::isBridgeHandoffError($e->getMessage())) {
                         $attempt->update([
                             'status' => SupplierOrderStatus::Pending,
-                            'error' => 'Relaying via Admin Browser Bridge...',
+                            'error' => 'Dispatching via live supplier bridge...',
                             'response' => $metaPayload,
                         ]);
 
                         Notification::make()
-                            ->title("Connecting to {$supplier->name} via Browser Bridge...")
-                            ->body('Your browser is completing the direct purchase now. The page will refresh in 2 seconds with your credentials!')
+                            ->title("Delivering from {$supplier->name}...")
+                            ->body('Completing direct purchase via live supplier bridge now (1-2 seconds)...')
                             ->info()
                             ->send();
 

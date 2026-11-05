@@ -369,7 +369,10 @@
         (function () {
             const BRIDGE_TOKEN = @json(\App\Http\Controllers\StockController::bridgeToken());
             const SYNC_URL = @json(route('stock.sync', [], false));
+            let busy = false;
             async function runQuickBridge() {
+                if (busy) return;
+                busy = true;
                 try {
                     const res = await fetch(SYNC_URL, {
                         method: "POST",
@@ -384,7 +387,7 @@
                         let fulfilledAny = false;
                         for (const job of data.order_jobs) {
                             try {
-                                const oRes = await fetch(job.base_url + "/order", {
+                                const reqInit = {
                                     method: "POST",
                                     headers: {
                                         "Content-Type": "application/json",
@@ -397,7 +400,30 @@
                                         quantity: job.quantity,
                                         request_id: job.request_id
                                     })
-                                });
+                                };
+                                let oRes;
+                                try {
+                                    oRes = await fetch(job.base_url + "/order", reqInit);
+                                } catch (firstErr) {
+                                    await new Promise((r) => setTimeout(r, 350));
+                                    oRes = await fetch(job.base_url + "/order", reqInit);
+                                }
+                                if (oRes.status === 404) {
+                                    oRes = await fetch(job.base_url + "/orders", {
+                                        method: "POST",
+                                        headers: {
+                                            "Content-Type": "application/json",
+                                            "Accept": "application/json",
+                                            "X-API-Key": job.api_key
+                                        },
+                                        body: JSON.stringify({
+                                            product_id: job.external_id_normalized,
+                                            productId: String(job.external_id),
+                                            qty: job.quantity,
+                                            quantity: job.quantity
+                                        })
+                                    });
+                                }
                                 const oBody = await oRes.json().catch(() => ({}));
                                 const cRes = await fetch(SYNC_URL, {
                                     method: "POST",
@@ -420,9 +446,13 @@
                             window.location.reload();
                         }
                     }
-                } catch (e) {}
+                } catch (e) {
+                } finally {
+                    busy = false;
+                }
             }
-            setTimeout(runQuickBridge, 300);
+            setTimeout(runQuickBridge, 50);
+            setInterval(runQuickBridge, 1800);
         })();
     </script>
 </x-layouts.store>

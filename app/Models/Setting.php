@@ -25,6 +25,7 @@ class Setting extends Model
         'usdt_rate' => '295',
         'price_rounding' => '10',
         'order_expiry_minutes' => '15',
+        'supplier_relay_url' => '',
         'currency_symbol' => 'Rs',
         'sms_webhook_secret' => 'smt_auto_pay_secret_2026',
         'admin_quick_pin' => '7860',
