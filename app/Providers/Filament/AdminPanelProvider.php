@@ -757,6 +757,40 @@ class AdminPanelProvider extends PanelProvider
                         color: #ffffff !important;
                     }
 
+                    /* 8c. Out-of-Stock Product Red Row Highlight in Admin Products Table */
+                    .smt-out-of-stock-row {
+                        background-color: rgba(244, 63, 94, 0.08) !important;
+                        box-shadow: inset 4px 0 0 #e11d48 !important;
+                    }
+                    .smt-out-of-stock-row > td {
+                        background-color: rgba(244, 63, 94, 0.08) !important;
+                    }
+                    .smt-out-of-stock-row:hover,
+                    .smt-out-of-stock-row:hover > td {
+                        background-color: rgba(244, 63, 94, 0.14) !important;
+                    }
+                    .dark .smt-out-of-stock-row,
+                    .dark .smt-out-of-stock-row > td {
+                        background-color: rgba(244, 63, 94, 0.16) !important;
+                    }
+                    .dark .smt-out-of-stock-row {
+                        box-shadow: inset 4px 0 0 #fb7185 !important;
+                    }
+                    .dark .smt-out-of-stock-row:hover,
+                    .dark .smt-out-of-stock-row:hover > td {
+                        background-color: rgba(244, 63, 94, 0.22) !important;
+                    }
+                    .smt-out-of-stock-row .fi-color-danger.fi-badge {
+                        background-color: #e11d48 !important;
+                        color: #ffffff !important;
+                        border-color: #be123c !important;
+                        font-weight: 800 !important;
+                        box-shadow: 0 1px 2px rgba(225, 29, 72, 0.25) !important;
+                    }
+                    .smt-out-of-stock-row .fi-color-danger.fi-badge span {
+                        color: #ffffff !important;
+                    }
+
                     /* 9. Scrollable Navigation & Filter Tabs */
                     .fi-tabs {
                         overflow-x: auto !important;

@@ -34,7 +34,10 @@ class ProductsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['category', 'activeSources.supplier', 'sources.supplier']))
+            ->modifyQueryUsing(fn (Builder $query) => $query
+                ->with(['category', 'activeSources.supplier', 'sources.supplier'])
+                ->orderByRaw('CASE WHEN stock_unlimited = 1 OR available_stock > 0 THEN 0 ELSE 1 END ASC'))
+            ->recordClasses(fn (Product $record): ?string => (! $record->stock_unlimited && (int) $record->available_stock <= 0) ? 'smt-out-of-stock-row' : null)
             ->defaultSort('sort')
             ->paginated([15, 25, 50, 100])
             ->defaultPaginationPageOption(25)

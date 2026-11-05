@@ -30,6 +30,7 @@ class Setting extends Model
         'admin_quick_pin' => '7860',
         'greenapi_instance_id' => '',
         'greenapi_api_token' => '',
+        'whatsapp_send_customer_receipt' => '0',
         'ntfy_topic' => '',
         'whatsapp_callmebot_apikey' => '',
         'whatsapp_admin_webhook_url' => '',

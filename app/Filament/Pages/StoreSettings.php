@@ -51,7 +51,7 @@ class StoreSettings extends Page
         'shop_seo_title', 'shop_seo_description',
         'usdt_rate', 'price_rounding', 'order_expiry_minutes',
         'sms_webhook_secret', 'admin_quick_pin',
-        'greenapi_instance_id', 'greenapi_api_token', 'ntfy_topic',
+        'greenapi_instance_id', 'greenapi_api_token', 'whatsapp_send_customer_receipt', 'ntfy_topic',
         'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
         'telegram_bot_token', 'telegram_admin_chat_id', 'telegram_store_bot_enabled',
         'support_whatsapp', 'support_telegram', 'support_email',
@@ -97,14 +97,14 @@ class StoreSettings extends Page
     public ?array $data = [];
 
     /** Boolean toggles, stored as '1' / '0' strings. */
-    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered', 'telegram_store_bot_enabled', 'backup_enabled', 'promo_popup_enabled'];
+    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered', 'telegram_store_bot_enabled', 'backup_enabled', 'promo_popup_enabled', 'whatsapp_send_customer_receipt'];
 
     public function mount(): void
     {
         $values = array_intersect_key(Setting::values(), array_flip(self::KEYS));
 
         foreach (self::TOGGLE_KEYS as $key) {
-            $default = in_array($key, ['backup_enabled', 'promo_popup_enabled'], true) ? '0' : '1';
+            $default = in_array($key, ['backup_enabled', 'promo_popup_enabled', 'whatsapp_send_customer_receipt'], true) ? '0' : '1';
             $values[$key] = (string) ($values[$key] ?? $default) === '1';
         }
 
@@ -571,9 +571,14 @@ class StoreSettings extends Page
                                     ]),
 
                                 Section::make('1-Tap WhatsApp, Customer Auto-WhatsApp (Green-API), ntfy Push & SMS Webhook')
-                                    ->description('To automatically send order receipts & credentials to customers on WhatsApp, connect a free Green-API instance (green-api.com → scan WhatsApp QR code → paste Instance ID & Token below) or a custom WhatsApp webhook URL.')
+                                    ->description('Receive instant Admin 1-Tap Approve/Decline & Order Alerts on WhatsApp via Green-API. Turn ON the Customer Receipt toggle below whenever you upgrade your Green-API plan to also auto-send invoices & credentials to customers.')
                                     ->columns(['default' => 1, 'sm' => 2])
                                     ->schema([
+                                        Toggle::make('whatsapp_send_customer_receipt')
+                                            ->label('Auto-Send Invoice / Order Receipt to Customer via WhatsApp')
+                                            ->helperText('Keep OFF on Green-API Free Plan (3-number limit) so Admin 1-Tap & Order Alerts work without interruption. Turn ON when you upgrade your Green-API plan to auto-send receipts & credentials to every customer.')
+                                            ->default(false)
+                                            ->columnSpanFull(),
                                         TextInput::make('support_whatsapp')
                                             ->label('Admin WhatsApp Number (Exact Format: 923XXXXXXXXX)')
                                             ->placeholder('923001234567'),
@@ -583,11 +588,11 @@ class StoreSettings extends Page
                                             ->maxLength(20)
                                             ->helperText('Protects 1-tap WhatsApp/Telegram manual delivery links.'),
                                         TextInput::make('greenapi_instance_id')
-                                            ->label('Green-API Instance ID (For Auto Customer WhatsApp Receipts)')
+                                            ->label('Green-API Instance ID')
                                             ->placeholder('e.g. 7103948576')
-                                            ->helperText('Get free from console.green-api.com after scanning QR with your WhatsApp.'),
+                                            ->helperText('Get from console.green-api.com after scanning QR with your WhatsApp.'),
                                         TextInput::make('greenapi_api_token')
-                                            ->label('Green-API API Token (For Auto Customer WhatsApp Receipts)')
+                                            ->label('Green-API API Token')
                                             ->placeholder('Paste your apiTokenInstance from Green-API')
                                             ->autocomplete(false),
                                         TextInput::make('ntfy_topic')
@@ -602,16 +607,18 @@ class StoreSettings extends Page
                                                 ->icon(Heroicon::OutlinedCheck)
                                                 ->color('primary')
                                                 ->action(fn () => $this->saveKeys([
+                                                    'whatsapp_send_customer_receipt',
                                                     'support_whatsapp', 'admin_quick_pin', 'ntfy_topic', 'sms_webhook_secret',
                                                     'greenapi_instance_id', 'greenapi_api_token',
                                                     'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
                                                 ], 'Mobile & WhatsApp settings saved')),
                                             Action::make('testWhatsappAuto')
-                                                ->label('Save & Test WhatsApp Auto-Delivery')
+                                                ->label('Save & Test WhatsApp Connection')
                                                 ->icon(Heroicon::OutlinedPaperAirplane)
                                                 ->color('success')
                                                 ->action(function (): void {
                                                     $this->saveKeys([
+                                                        'whatsapp_send_customer_receipt',
                                                         'support_whatsapp', 'admin_quick_pin', 'ntfy_topic', 'sms_webhook_secret',
                                                         'greenapi_instance_id', 'greenapi_api_token',
                                                         'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',

@@ -27,6 +27,10 @@ class WhatsAppNotifier
 
     public function hasCustomerWhatsAppGateway(): bool
     {
+        if ((string) Setting::get('whatsapp_send_customer_receipt', '0') !== '1') {
+            return false;
+        }
+
         $greenId = trim((string) Setting::get('greenapi_instance_id', ''));
         $greenToken = trim((string) Setting::get('greenapi_api_token', ''));
         $webhookUrl = trim((string) Setting::get('whatsapp_admin_webhook_url', ''));
@@ -197,44 +201,50 @@ class WhatsAppNotifier
 
         $customerWaStatusLine = '';
         $oneTapCustomerWaUrl = '';
+        $autoSendCustomerReceipt = (string) Setting::get('whatsapp_send_customer_receipt', '0') === '1';
 
-        // 1. Send Customer WhatsApp Receipt FIRST so Green-API never rate-limits the customer message!
+        // 1. Customer WhatsApp Receipt (Only auto-sent when whatsapp_send_customer_receipt toggle is ON)
         if ($customerPhone !== '') {
             $customerMsg = self::buildCustomerReceiptMessage($order);
             $oneTapCustomerWaUrl = "https://wa.me/{$customerPhone}?text=".urlencode($customerMsg);
-            $sentToCustomer = false;
 
-            if ($greenId !== '' && $greenToken !== '') {
-                $sentToCustomer = $this->sendGreenApi($greenId, $greenToken, $customerPhone, $customerMsg);
-                if ($sentToCustomer) {
-                    $customerWaStatusLine = "\n*Customer WhatsApp:* Sent to +{$customerPhone}";
-                } elseif ($this->lastHttpStatus === 466) {
-                    $customerWaStatusLine = "\n*Customer WhatsApp:* Green-API Free Plan Limit (HTTP 466 — Free plan only messages 3 numbers/month).\n*1-Tap Send to Customer:* {$oneTapCustomerWaUrl}";
-                } else {
-                    $errDetail = $this->lastError ? " ({$this->lastError})" : '';
-                    $customerWaStatusLine = "\n*Customer WhatsApp:* Could not auto-send to +{$customerPhone}{$errDetail}.\n*1-Tap Send to Customer:* {$oneTapCustomerWaUrl}";
+            if ($autoSendCustomerReceipt) {
+                $sentToCustomer = false;
+
+                if ($greenId !== '' && $greenToken !== '') {
+                    $sentToCustomer = $this->sendGreenApi($greenId, $greenToken, $customerPhone, $customerMsg);
+                    if ($sentToCustomer) {
+                        $customerWaStatusLine = "\n*Customer WhatsApp:* Sent to +{$customerPhone}";
+                    } elseif ($this->lastHttpStatus === 466) {
+                        $customerWaStatusLine = "\n*Customer WhatsApp:* Green-API Free Plan Limit (HTTP 466 — Free plan only messages 3 numbers/month).\n*1-Tap Send to Customer:* {$oneTapCustomerWaUrl}";
+                    } else {
+                        $errDetail = $this->lastError ? " ({$this->lastError})" : '';
+                        $customerWaStatusLine = "\n*Customer WhatsApp:* Could not auto-send to +{$customerPhone}{$errDetail}.\n*1-Tap Send to Customer:* {$oneTapCustomerWaUrl}";
+                    }
+
+                    // Pause 750ms before sending Admin alert so Green-API's 1-req/sec rate limit is respected
+                    if (! app()->runningUnitTests()) {
+                        usleep(750000);
+                    }
                 }
 
-                // Pause 750ms before sending Admin alert so Green-API's 1-req/sec rate limit is respected
-                if (! app()->runningUnitTests()) {
-                    usleep(750000);
+                if ($webhookUrl !== '') {
+                    try {
+                        Http::timeout(5)->post($webhookUrl, [
+                            'event' => 'order_delivered',
+                            'phone' => $customerPhone,
+                            'order_number' => $order->number,
+                            'product' => $items,
+                            'credentials' => $creds,
+                            'order_url' => $order->customerUrl(),
+                            'message' => $customerMsg,
+                        ]);
+                    } catch (Throwable $e) {
+                        Log::warning('Custom WhatsApp customer delivery webhook error: '.$e->getMessage());
+                    }
                 }
-            }
-
-            if ($webhookUrl !== '') {
-                try {
-                    Http::timeout(5)->post($webhookUrl, [
-                        'event' => 'order_delivered',
-                        'phone' => $customerPhone,
-                        'order_number' => $order->number,
-                        'product' => $items,
-                        'credentials' => $creds,
-                        'order_url' => $order->customerUrl(),
-                        'message' => $customerMsg,
-                    ]);
-                } catch (Throwable $e) {
-                    Log::warning('Custom WhatsApp customer delivery webhook error: '.$e->getMessage());
-                }
+            } else {
+                $customerWaStatusLine = "\n*1-Tap Send Receipt to Customer:*\n{$oneTapCustomerWaUrl}";
             }
         }
 
