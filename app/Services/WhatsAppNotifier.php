@@ -16,6 +16,10 @@ use Throwable;
  */
 class WhatsAppNotifier
 {
+    public ?string $lastError = null;
+
+    public ?int $lastHttpStatus = null;
+
     public static function formatPhone(string $raw): string
     {
         return format_whatsapp($raw);
@@ -191,35 +195,30 @@ class WhatsAppNotifier
             }
         }
 
-        $adminMsg = "*ORDER DELIVERED SUCCESSFULLY*\n"
-            ."━━━━━━━━━━━━━━━━━━\n"
-            ."*Order:* `{$order->number}`\n"
-            ."*Product:* {$items}\n"
-            ."*Supplier:* {$supplierSummary}\n"
-            ."*Method:* {$methodName}\n"
-            ."*Sale:* Rs {$order->total} | *Profit:* Rs {$profit}\n"
-            ."*Customer:* {$order->email}".($customerPhone !== '' ? " (+{$customerPhone})" : '');
+        $customerWaStatusLine = '';
+        $oneTapCustomerWaUrl = '';
 
-        if ($greenId !== '' && $greenToken !== '' && $adminPhone !== '') {
-            $this->sendGreenApi($greenId, $greenToken, $adminPhone, $adminMsg);
-        }
-
-        if ($callMeBotKey !== '' && $adminPhone !== '') {
-            try {
-                Http::timeout(5)->get('https://api.callmebot.com/whatsapp.php', [
-                    'phone' => $adminPhone,
-                    'text' => $adminMsg,
-                    'apikey' => $callMeBotKey,
-                ]);
-            } catch (Throwable) {
-            }
-        }
-
+        // 1. Send Customer WhatsApp Receipt FIRST so Green-API never rate-limits the customer message!
         if ($customerPhone !== '') {
             $customerMsg = self::buildCustomerReceiptMessage($order);
+            $oneTapCustomerWaUrl = "https://wa.me/{$customerPhone}?text=".urlencode($customerMsg);
+            $sentToCustomer = false;
 
             if ($greenId !== '' && $greenToken !== '') {
-                $this->sendGreenApi($greenId, $greenToken, $customerPhone, $customerMsg);
+                $sentToCustomer = $this->sendGreenApi($greenId, $greenToken, $customerPhone, $customerMsg);
+                if ($sentToCustomer) {
+                    $customerWaStatusLine = "\n*Customer WhatsApp:* Sent to +{$customerPhone}";
+                } elseif ($this->lastHttpStatus === 466) {
+                    $customerWaStatusLine = "\n*Customer WhatsApp:* Green-API Free Plan Limit (HTTP 466 — Free plan only messages 3 numbers/month).\n*1-Tap Send to Customer:* {$oneTapCustomerWaUrl}";
+                } else {
+                    $errDetail = $this->lastError ? " ({$this->lastError})" : '';
+                    $customerWaStatusLine = "\n*Customer WhatsApp:* Could not auto-send to +{$customerPhone}{$errDetail}.\n*1-Tap Send to Customer:* {$oneTapCustomerWaUrl}";
+                }
+
+                // Pause 750ms before sending Admin alert so Green-API's 1-req/sec rate limit is respected
+                if (! app()->runningUnitTests()) {
+                    usleep(750000);
+                }
             }
 
             if ($webhookUrl !== '') {
@@ -236,6 +235,32 @@ class WhatsAppNotifier
                 } catch (Throwable $e) {
                     Log::warning('Custom WhatsApp customer delivery webhook error: '.$e->getMessage());
                 }
+            }
+        }
+
+        // 2. Send Admin Summary Alert
+        $adminMsg = "*ORDER DELIVERED SUCCESSFULLY*\n"
+            ."━━━━━━━━━━━━━━━━━━\n"
+            ."*Order:* `{$order->number}`\n"
+            ."*Product:* {$items}\n"
+            ."*Supplier:* {$supplierSummary}\n"
+            ."*Method:* {$methodName}\n"
+            ."*Sale:* Rs {$order->total} | *Profit:* Rs {$profit}\n"
+            ."*Customer:* {$order->email}".($customerPhone !== '' ? " (+{$customerPhone})" : '')
+            .$customerWaStatusLine;
+
+        if ($greenId !== '' && $greenToken !== '' && $adminPhone !== '') {
+            $this->sendGreenApi($greenId, $greenToken, $adminPhone, $adminMsg);
+        }
+
+        if ($callMeBotKey !== '' && $adminPhone !== '') {
+            try {
+                Http::timeout(5)->get('https://api.callmebot.com/whatsapp.php', [
+                    'phone' => $adminPhone,
+                    'text' => $adminMsg,
+                    'apikey' => $callMeBotKey,
+                ]);
+            } catch (Throwable) {
             }
         }
     }
@@ -414,8 +439,13 @@ class WhatsAppNotifier
 
     public function sendGreenApi(string $instanceId, string $apiToken, string $phoneDigits, string $message): bool
     {
+        $this->lastError = null;
+        $this->lastHttpStatus = null;
+
         $cleanDigits = self::formatPhone($phoneDigits);
         if ($cleanDigits === '') {
+            $this->lastError = 'Empty phone number';
+
             return false;
         }
 
@@ -429,7 +459,7 @@ class WhatsAppNotifier
 
         foreach ($hosts as $host) {
             try {
-                $response = Http::timeout(6)->post(
+                $response = Http::timeout(8)->post(
                     "{$host}/waInstance{$instanceId}/sendMessage/{$apiToken}",
                     [
                         'chatId' => "{$cleanDigits}@c.us",
@@ -437,10 +467,22 @@ class WhatsAppNotifier
                     ]
                 );
 
+                $this->lastHttpStatus = $response->status();
+
                 if ($response->successful()) {
                     return true;
                 }
+
+                $bodyStr = mb_strimwidth(trim($response->body()), 0, 180, '...');
+                $this->lastError = "HTTP {$response->status()} {$bodyStr}";
+                Log::warning("Green-API non-200 ({$host}) to {$cleanDigits}: ".$this->lastError);
+
+                // If 466 (Quota Exceeded) or 400 (Bad Request) or 401/403 (Auth), don't retry the same call on fallback host
+                if (in_array($response->status(), [400, 401, 403, 466], true)) {
+                    return false;
+                }
             } catch (Throwable $e) {
+                $this->lastError = $e->getMessage();
                 Log::warning("Green-API WhatsApp error ({$host}): ".$e->getMessage());
             }
         }
@@ -490,9 +532,16 @@ class WhatsAppNotifier
                 ];
             }
 
+            if ($this->lastHttpStatus === 466) {
+                return [
+                    'success' => false,
+                    'message' => "Green-API Free Developer Plan Limit (HTTP 466): Green-API's free plan only allows messaging 3 phone numbers per month (which is why Admin alerts work, but new customer numbers get blocked). Upgrade your Green-API instance or use the 1-Tap Send Receipt on WhatsApp button.",
+                ];
+            }
+
             return [
                 'success' => false,
-                'message' => 'Green-API rejected the request. Check that your Instance ID & Token are correct and your instance status is "Authorized" (QR code scanned) in green-api.com.',
+                'message' => 'Green-API error: '.($this->lastError ?: 'Check that your Instance ID & Token are correct and your instance is Authorized in green-api.com.'),
             ];
         }
 

@@ -67,6 +67,16 @@ if (! function_exists('format_whatsapp')) {
             return '92'.substr($digits, 3);
         }
 
+        // Saudi 05XXXXXXXX (10 digits) -> 9665XXXXXXXX
+        if (strlen($digits) === 10 && str_starts_with($digits, '05')) {
+            return '966'.substr($digits, 1);
+        }
+
+        // Saudi 96605XXXXXXXX (13 digits) -> 9665XXXXXXXX
+        if (strlen($digits) === 13 && str_starts_with($digits, '96605')) {
+            return '966'.substr($digits, 4);
+        }
+
         return $digits;
     }
 }
