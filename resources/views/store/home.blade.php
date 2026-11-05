@@ -61,28 +61,20 @@
 
     $faqs = [
         [
-            'q' => 'How to buy ChatGPT Plus, CapCut Pro, and Canva Pro in Pakistan with Easypaisa or JazzCash?',
-            'a' => 'On SellMeTools, select your desired ChatGPT Plus, CapCut Pro, or Canva Pro plan, click Buy Now, choose Easypaisa, JazzCash, NayaPay, SadaPay, Raast, or Binance Pay (USDT), and receive your verified login credentials or invite link directly on your private order page.',
+            'q' => 'How can I buy AI tools, premium software, and digital subscriptions in Pakistan without a credit card?',
+            'a' => 'On SellMeTools, choose any AI tool, SEO software, creative suite, VPN, or streaming plan, click Buy Now, and pay directly in PKR via Easypaisa, JazzCash, NayaPay, SadaPay, or Raast (or globally in USDT via Binance Pay) with instant automated delivery.',
         ],
         [
-            'q' => 'What is the price of ChatGPT Plus, CapCut Pro, Canva Pro, and LinkedIn Premium in Pakistan?',
-            'a' => 'All live Pakistani Rupee (PKR) and USDT prices are displayed upfront on each product card. You can buy affordable monthly, 6-month, and 1-year subscriptions for ChatGPT Plus, CapCut Pro, Canva Edu Pro, and LinkedIn Premium without international card taxes.',
-        ],
-        [
-            'q' => 'Where can I buy genuine Ahrefs, Semrush, and SEO tools bundles in Pakistan?',
-            'a' => 'You can order the Ahrefs 1 Month + 30 Free SEO Tools Bundle (including Semrush, Moz Pro, Ubersuggest, QuillBot, Grammarly, and Envato Elements) on SellMeTools with 99.9% uptime and Full Warranty.',
-        ],
-        [
-            'q' => 'Can I buy LinkedIn Premium Career, Business, and Sales Navigator vouchers in Pakistan without a credit card?',
-            'a' => 'Yes. We offer official LinkedIn Career, LinkedIn Business, and LinkedIn Sales Navigator (Core & Advanced) 2-month, 3-month, and 12-month vouchers and direct login upgrades payable via local PKR wallets or USDT.',
+            'q' => 'What types of digital subscriptions and software licenses are available on SellMeTools?',
+            'a' => 'We offer 75+ verified subscriptions across 10 categories: AI Assistants & Coding Tools, Video Editing & Design Suites, SEO & Marketing Bundles, LinkedIn Career/Business/Sales Navigator Vouchers, VPNs, Cloud & Developer Tools, E-Learning Courses, and Streaming Accounts.',
         ],
         [
             'q' => 'How fast will I receive my digital tool or subscription order?',
-            'a' => 'In-stock subscriptions and accounts are delivered automatically on your private order page as soon as your payment is verified. You can order from anywhere in Pakistan or worldwide 24/7.',
+            'a' => 'In-stock subscriptions, invite links, vouchers, and accounts are delivered automatically on your private order page as soon as your payment is verified. You can order from anywhere in Pakistan or worldwide 24/7.',
         ],
         [
             'q' => 'Which global and local payment methods do you accept?',
-            'a' => 'Customers in Pakistan can pay in PKR using Easypaisa, JazzCash, NayaPay, SadaPay, or Bank Transfer (Raast). Worldwide customers can pay in USDT via Binance Pay or TRC20.',
+            'a' => 'Customers in Pakistan can pay in PKR using Easypaisa, JazzCash, NayaPay, SadaPay, or Bank Transfer (Raast) with zero international card tax. Worldwide customers can pay in USDT via Binance Pay or TRC20.',
         ],
         [
             'q' => 'Where do I get my login credentials or activation link after buying?',
@@ -496,34 +488,34 @@
                                     Finding genuine digital subscriptions and cheap AI tool plans online in Pakistan or anywhere in the world at fair prices should not require risky social media deals or international credit cards. On <strong>{{ $storeName }}</strong>, every product page shows the exact price in PKR and USDT, real-time stock count, delivery format, and warranty terms before you place an order.
                                 </p>
                                 <p>
-                                    Whether you are searching for <strong>ChatGPT Plus price in Pakistan</strong>, <strong>CapCut Pro 1 Month / 6 Months / 1 Year Full Warranty</strong>, <strong>Canva Pro Education</strong>, <strong>LinkedIn Premium Career, Business &amp; Sales Navigator vouchers</strong>, or <strong>Ahrefs &amp; Semrush SEO group buy bundles</strong>, you can order 24/7 with instant automated delivery on your private order page.
+                                    Whether you need <strong>AI assistants &amp; coding companions</strong>, <strong>video editing &amp; graphic design suites</strong>, <strong>all-in-one SEO &amp; marketing tools</strong>, <strong>professional career &amp; B2B vouchers</strong>, <strong>high-speed VPNs</strong>, <strong>cloud developer credits</strong>, or <strong>4K streaming memberships</strong>, you can order 24/7 with instant automated delivery on your private order page.
                                 </p>
                             @endif
                         </div>
 
                         <div class="mt-6 grid gap-4 sm:grid-cols-2">
                             <div class="rounded-xl border border-line bg-grey-soft/60 p-4 sm:p-5">
-                                <h3 class="text-sm sm:text-base font-bold text-ink">ChatGPT Plus, Claude, Gemini &amp; AI Coding</h3>
+                                <h3 class="text-sm sm:text-base font-bold text-ink">AI Assistants, Coding &amp; Automation Tools</h3>
                                 <p class="mt-1.5 text-xs sm:text-sm leading-relaxed text-body">
-                                    Buy <strong>ChatGPT Plus</strong>, <strong>Claude API &amp; Pro</strong>, <strong>Google Gemini Advanced</strong>, <strong>Cursor Pro</strong>, <strong>Lovable Pro</strong>, <strong>HeyGen Creator</strong>, <strong>Kling AI</strong>, and <strong>ElevenLabs</strong> in Pakistan at local PKR rates.
+                                    Access flagship AI assistants, AI code editors, developer APIs, voice generators, and workflow automation tools with verified private accounts and instant delivery.
                                 </p>
                             </div>
                             <div class="rounded-xl border border-line bg-grey-soft/60 p-4 sm:p-5">
-                                <h3 class="text-sm sm:text-base font-bold text-ink">CapCut Pro, Canva Pro, Figma &amp; Envato</h3>
+                                <h3 class="text-sm sm:text-base font-bold text-ink">Design, Video Editing &amp; Creative Suites</h3>
                                 <p class="mt-1.5 text-xs sm:text-sm leading-relaxed text-body">
-                                    Unlock 4K video editing and graphic design with <strong>CapCut Pro Full Warranty</strong>, <strong>Canva Edu Pro</strong>, <strong>Figma Education</strong>, <strong>Freepik Premium</strong>, <strong>Veed Pro</strong>, and <strong>Adobe Express</strong>.
+                                    Unlock 4K video editing, UI/UX design workspaces, stock assets, and creative studio subscriptions for freelancers, creators, and agencies.
                                 </p>
                             </div>
                             <div class="rounded-xl border border-line bg-grey-soft/60 p-4 sm:p-5">
-                                <h3 class="text-sm sm:text-base font-bold text-ink">LinkedIn Premium, Ahrefs SEO &amp; VPNs</h3>
+                                <h3 class="text-sm sm:text-base font-bold text-ink">SEO Tools, Career &amp; B2B Growth Subscriptions</h3>
                                 <p class="mt-1.5 text-xs sm:text-sm leading-relaxed text-body">
-                                    Get official <strong>LinkedIn Career, Business &amp; Sales Navigator vouchers</strong>, <strong>Ahrefs + Semrush 30-in-1 SEO bundles</strong>, <strong>Surfshark VPN</strong>, <strong>ExpressVPN</strong>, and <strong>NordVPN</strong>.
+                                    Scale your digital marketing and outreach with all-in-one SEO tool bundles, professional career/business upgrades, and B2B lead generation plans.
                                 </p>
                             </div>
                             <div class="rounded-xl border border-line bg-grey-soft/60 p-4 sm:p-5">
-                                <h3 class="text-sm sm:text-base font-bold text-ink">Coursera, Turnitin, Streaming &amp; PKR Checkout</h3>
+                                <h3 class="text-sm sm:text-base font-bold text-ink">Streaming, VPNs, Education &amp; Cloud Licenses</h3>
                                 <p class="mt-1.5 text-xs sm:text-sm leading-relaxed text-body">
-                                    Order <strong>Coursera Plus</strong>, <strong>Grammarly Pro</strong>, <strong>StealthWriter AI</strong>, <strong>YouTube Premium</strong>, <strong>Amazon Prime Video</strong>, and <strong>Windows 11 Pro Keys</strong> via <strong>Easypaisa, JazzCash, NayaPay, SadaPay</strong>, or <strong>USDT</strong>.
+                                    Order verified streaming memberships, high-speed VPNs, e-learning courses, academic writing tools, and official OS keys via <strong>Easypaisa, JazzCash, NayaPay, SadaPay</strong>, or <strong>USDT</strong>.
                                 </p>
                             </div>
                         </div>

@@ -22,7 +22,7 @@ class ProductSeoOptimizer
             return;
         }
 
-        $flagFile = storage_path('framework/product_seo_v11_synced.flag');
+        $flagFile = storage_path('framework/product_seo_v12_synced.flag');
         if (is_file($flagFile)) {
             return;
         }

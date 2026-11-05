@@ -52,11 +52,11 @@ class Setting extends Model
         'home_about_heading' => 'Pakistan’s Trusted Marketplace for AI Tools & Subscriptions',
         'home_guide_heading' => 'Buy AI Tools & Digital Subscriptions Online — USDT & Local PKR Prices',
         'home_seo_content' => '',
-        'shop_seo_title' => 'Shop AI Tools, SEO Tools & Digital Subscriptions in Pakistan',
-        'shop_seo_description' => 'Compare live PKR & USDT prices for 75+ genuine AI tools, ChatGPT Plus, CapCut Pro, Canva Pro, LinkedIn Premium & SEO tools. Instant delivery via Easypaisa, JazzCash & USDT.',
+        'shop_seo_title' => 'Shop All AI Tools, Premium Software & Digital Subscriptions',
+        'shop_seo_description' => 'Browse 75+ genuine AI tools, SEO software, design suites, VPNs & streaming subscriptions at best prices in Pakistan & worldwide. Instant delivery via PKR or USDT.',
         // General store-wide SEO targets for global + local digital tools & subscriptions marketplace:
-        'seo_title' => 'Buy ChatGPT Plus, CapCut Pro, Canva Pro & AI Tools in Pakistan',
-        'seo_description' => 'Buy genuine ChatGPT Plus, CapCut Pro, Canva Pro, LinkedIn Premium, Ahrefs, Semrush & AI tools in Pakistan & worldwide. Instant delivery via Easypaisa, JazzCash & USDT.',
+        'seo_title' => 'Buy AI Tools, Premium Software & Digital Subscriptions Online',
+        'seo_description' => 'Trusted marketplace to buy genuine AI tools, SEO software, creative suites, VPNs, cloud & streaming subscriptions in Pakistan & worldwide. Instant delivery via PKR & USDT.',
         'seo_keywords' => 'buy ai tools in pakistan, chatgpt plus price in pakistan, capcut pro price in pakistan, canva pro price in pakistan, buy linkedin premium pakistan, ahrefs semrush bundle pakistan, claude pro price in pakistan, gemini pro subscription pakistan, surfshark vpn price in pakistan, expressvpn price in pakistan, youtube premium price in pakistan, envato elements pakistan, cursor pro pakistan, cheap digital subscriptions easypaisa jazzcash, buy tools without credit card pakistan, binance usdt digital store, sellmetools',
         'google_site_verification' => '',
         'bing_site_verification' => '',
@@ -98,7 +98,10 @@ class Setting extends Model
             $out = self::DEFAULTS;
             foreach ($db as $k => $v) {
                 if ($v !== null && $v !== '') {
-                    if ($k === 'seo_title' && $v === 'Buy AI Tools & Cheap Digital Subscriptions Online') {
+                    if ($k === 'seo_title' && in_array($v, [
+                        'Buy AI Tools & Cheap Digital Subscriptions Online',
+                        'Buy ChatGPT Plus, CapCut Pro, Canva Pro & AI Tools in Pakistan',
+                    ], true)) {
                         continue;
                     }
                     $out[$k] = $v;
