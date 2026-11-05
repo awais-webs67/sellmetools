@@ -151,12 +151,20 @@ class Product extends Model
         ];
     }
 
+    public function getNameAttribute(?string $value): string
+    {
+        return ProductSeoOptimizer::cleanProductTitle((string) $value);
+    }
+
     protected static function booted(): void
     {
         static::saving(function (Product $product) {
             static::ensureFreeAndStockColumnsExist();
 
             $product->name = ProductSeoOptimizer::cleanProductTitle((string) $product->name) ?: $product->name;
+            if (filled($product->meta_title)) {
+                $product->meta_title = ProductSeoOptimizer::cleanProductTitle((string) $product->meta_title);
+            }
 
             if (blank($product->slug)) {
                 $product->slug = static::uniqueSlug((string) $product->name);

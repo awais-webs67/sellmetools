@@ -11,6 +11,7 @@ use App\Models\Voucher;
 use App\Services\InventoryService;
 use App\Services\OrderService;
 use App\Services\PaymentService;
+use App\Services\ProductSeoOptimizer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
@@ -485,5 +486,36 @@ class StorefrontTest extends TestCase
         $this->actingAs($admin)->get('/admin/orders/'.$order->id)->assertOk();
         $this->actingAs($admin)->get('/admin/vouchers')->assertOk()->assertSee('SAVE25');
         $this->actingAs($admin)->get('/admin/vouchers/'.$voucher->id.'/edit')->assertOk()->assertSee($order->number);
+    }
+
+    public function test_product_title_and_seo_title_expand_shorthand_durations_and_strip_bot_codes(): void
+    {
+        $cases = [
+            'Surfshark 2M Acc' => 'Surfshark 2 Months Account',
+            'Surfshark VPN 2M Coupon' => 'Surfshark VPN 2 Months Coupon',
+            'Lovable Pro 2M Link' => 'Lovable Pro 2 Months Link',
+            'Freepik Premium 1 M Acc' => 'Freepik Premium 1 Month Account',
+            'CapCut Pro 6Months FW' => 'CapCut Pro 6 Months',
+            'Chatgpt Plus 1m 1hw' => 'ChatGPT Plus 1 Month',
+            'HeyGen Creator 1Month 20DW' => 'HeyGen Creator 1 Month',
+            'Higgsfield Creator 1M 6000 Credits W25D' => 'Higgsfield Creator 1 Month 6000 Credits',
+            'Kling Standard 1Month 1000 CreditsW1D' => 'Kling Standard 1 Month 1000 Credits',
+            'Claude API 10M Token 3D' => 'Claude API 10M Token 3 Days',
+            'Claude API 100Million Token 3D' => 'Claude API 100 Million Token 3 Days',
+            'Super Duolingo 12M Link' => 'Super Duolingo 12 Months Link',
+            'Figma Edu 2Year 1MW' => 'Figma Edu 2 Years',
+        ];
+
+        foreach ($cases as $raw => $expected) {
+            $this->assertSame($expected, ProductSeoOptimizer::cleanProductTitle($raw));
+        }
+
+        $product = $this->listing([], [
+            'name' => 'Surfshark 2M Acc (FW)',
+            'meta_title' => 'Buy Surfshark 2m Acc | Best Price in Pakistan',
+        ]);
+
+        $this->assertSame('Surfshark 2 Months Account', $product->name);
+        $this->assertSame('Buy Surfshark 2 Months Account | Best Price in Pakistan', $product->seoTitle());
     }
 }

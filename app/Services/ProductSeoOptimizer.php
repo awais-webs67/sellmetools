@@ -21,7 +21,7 @@ class ProductSeoOptimizer
             return;
         }
 
-        $flagFile = storage_path('framework/product_seo_v8_synced.flag');
+        $flagFile = storage_path('framework/product_seo_v9_synced.flag');
         if (is_file($flagFile)) {
             return;
         }
@@ -68,10 +68,7 @@ class ProductSeoOptimizer
                 $product->name = $cleanName;
                 $updates = $catalog[$slug] ?? static::buildDynamicSeoFields($product);
 
-                $customMetaTitle = static::cleanProductTitle((string) ($updates['meta_title'] ?? "Buy {$cleanName} | Best Price in Pakistan"));
-                if (! str_starts_with(strtolower($customMetaTitle), 'buy ')) {
-                    $customMetaTitle = "Buy {$cleanName} | Best Price in Pakistan";
-                }
+                $customMetaTitle = "Buy {$cleanName} | Best Price in Pakistan";
                 if (mb_strlen($customMetaTitle) > 60) {
                     $customMetaTitle = "Buy {$cleanName} | Instant Delivery";
                 }
@@ -114,43 +111,69 @@ class ProductSeoOptimizer
     }
 
     /**
-     * Strips internal supplier bot abbreviations (FW, 1HW, 5DW, 1DW, 1MW, NW, etc.)
-     * and expands shorthand durations (1M -> 1 Month, 6Months -> 6 Months) so product titles
-     * look 100% professional and rank for real Google search queries.
+     * Strips internal supplier bot abbreviations (FW, 1HW, 5DW, 1DW, 20DW, 1MW, NW, W1D, W25D, etc.)
+     * and expands shorthand durations (1M -> 1 Month, 2M -> 2 Months, 6Months -> 6 Months, 3D -> 3 Days, 1Y -> 1 Year)
+     * so product titles look 100% professional and rank for real Google search queries.
      */
     public static function cleanProductTitle(string $rawTitle): string
     {
         $title = Product::normalizeUnicodeText($rawTitle);
         $title = static::stripEmDashes($title);
 
-        // 1. Remove parenthesized or bracketed supplier warranty codes like (FW), (1HW), (5DW), (1DW), (1MW), (NW)
-        $title = preg_replace('/[\(\[\{]\s*(?:FW|NW|1HW|24HW|1DW|5DW|7DW|1MW|3MW|6MW|12MW|Full\s+Warranty|Non\s+Warranty)\s*[\)\]\}]/iu', ' ', $title) ?? $title;
+        // 1. Separate concatenated supplier warranty/duration codes attached to words (e.g., CreditsW1D, 100Million)
+        $title = preg_replace('/([a-z])(w\d+[dhmyw]|\d+[dhmy]w)\b/iu', '$1 $2', $title) ?? $title;
+        $title = preg_replace('/\b(\d+)(Million|Billion)\b/iu', '$1 $2', $title) ?? $title;
 
-        // 2. Remove standalone supplier bot codes (FW, NW, 1HW, 5DW, 1DW, 7DW, 1MW, 3MW, 6MW, 12MW)
-        $title = preg_replace('/\b(?:FW|NW|1HW|24HW|1DW|5DW|7DW|1MW|3MW|6MW|12MW)\b/iu', ' ', $title) ?? $title;
+        // 2. Remove parenthesized or bracketed supplier warranty codes like (FW), (1HW), (5DW), (20DW), (W25D), (NW)
+        $title = preg_replace('/[\(\[\{]\s*(?:FW|NW|\d+\s*[HDMWY]W|W\d+\s*[HDMWY]|Full\s+Warranty|Non?\s+Warranty)\s*[\)\]\}]/iu', ' ', $title) ?? $title;
 
-        // 3. Expand concatenated duration tokens into clean search-friendly English
+        // 3. Remove standalone supplier bot codes (FW, NW, 1HW, 24HW, 1DW, 5DW, 7DW, 20DW, 1MW, 3MW, 6MW, 12MW, W1D, W25D)
+        $title = preg_replace('/\b(?:FW|NW|\d+[HDMWY]W|W\d+[HDMWY])\b/iu', ' ', $title) ?? $title;
+
+        // 4. Expand abbreviated duration tokens into clean, search-friendly English keywords
         $durationPatterns = [
             '/\b1\s*Months?\b/iu' => '1 Month',
-            '/\b1M\b/u' => '1 Month',
-            '/\b3\s*Months?\b/iu' => '3 Months',
-            '/\b3M\b/u' => '3 Months',
-            '/\b6\s*Months?\b/iu' => '6 Months',
-            '/\b6M\b/u' => '6 Months',
-            '/\b12\s*Months?\b/iu' => '12 Months',
-            '/\b12M\b/u' => '12 Months',
+            '/\b([2-9]|[12]\d|3[06])\s*Months?\b/iu' => '$1 Months',
+            '/\b1\s*M\b(?!\s*(?:Tokens?|Billion|Million)\b)/iu' => '1 Month',
+            '/\b(2|3|4|5|6|9|12|18|24|36)\s*M\b(?!\s*(?:Tokens?|Billion|Million)\b)/iu' => '$1 Months',
             '/\b1\s*Years?\b/iu' => '1 Year',
-            '/\b1Y\b/u' => '1 Year',
-            '/\b2\s*Years?\b/iu' => '2 Years',
-            '/\b2Y\b/u' => '2 Years',
-            '/\b7\s*Days?\b/iu' => '7 Days',
-            '/\b7D\b/u' => '7 Days',
+            '/\b([2-9]|10)\s*Years?\b/iu' => '$1 Years',
+            '/\b1\s*Y(?:rs?)?\b/iu' => '1 Year',
+            '/\b([2-9]|10)\s*Y(?:rs?)?\b/iu' => '$1 Years',
+            '/\b1\s*Days?\b/iu' => '1 Day',
+            '/\b([2-9]|[1-9]\d|[1-3]\d{2})\s*Days?\b/iu' => '$1 Days',
+            '/\b1\s*D\b/iu' => '1 Day',
+            '/\b(2|3|5|7|10|14|15|20|25|28|30|45|60|90|180|365)\s*D\b(?!\s*(?:Model|Render|Design|Animation|Print|Studio|Max|Object|Asset|Graphics))/iu' => '$1 Days',
         ];
         foreach ($durationPatterns as $pattern => $replacement) {
             $title = preg_replace($pattern, $replacement, $title) ?? $title;
         }
 
-        // 4. Clean up empty parentheses, trailing dashes/pipes, and multiple spaces
+        // 5. Expand supplier shorthand words and normalize brand/acronym casing
+        $brandNormalizations = [
+            '/\bAcc\b/iu' => 'Account',
+            '/\bChatgpt\b/iu' => 'ChatGPT',
+            '/\bGpt\b/iu' => 'GPT',
+            '/\bOpenai\b/iu' => 'OpenAI',
+            '/\bVpn\b/iu' => 'VPN',
+            '/\bApi\b/iu' => 'API',
+            '/\bAi\b/iu' => 'AI',
+            '/\bIdm\b/iu' => 'IDM',
+            '/\bRdp\b/iu' => 'RDP',
+            '/\bSeo\b/iu' => 'SEO',
+            '/\bYoutube\b/iu' => 'YouTube',
+            '/\bLinkedin\b/iu' => 'LinkedIn',
+            '/\bCapcut\b/iu' => 'CapCut',
+            '/\bElevenlabs\b/iu' => 'ElevenLabs',
+            '/\bHeygen\b/iu' => 'HeyGen',
+            '/\bQuillbot\b/iu' => 'QuillBot',
+            '/\bN8n\b/iu' => 'n8n',
+        ];
+        foreach ($brandNormalizations as $pattern => $replacement) {
+            $title = preg_replace($pattern, $replacement, $title) ?? $title;
+        }
+
+        // 6. Clean up empty parentheses, trailing dashes/pipes, and multiple spaces
         $title = preg_replace('/\(\s*\)|\[\s*\]/', ' ', $title) ?? $title;
         $title = preg_replace('/\s+[-|\/]\s*$/u', '', $title) ?? $title;
         $title = preg_replace('/\s+/u', ' ', trim($title)) ?? trim($title);
@@ -159,12 +182,12 @@ class ProductSeoOptimizer
     }
 
     /**
-     * Removes parenthesized bot codes like "(FW)", "(1HW)", "(5DW)", "(NW)" from public SEO snippets.
+     * Removes parenthesized bot codes like "(FW)", "(1HW)", "(5DW)", "(20DW)", "(NW)" from public SEO snippets.
      */
     public static function stripBotCodesFromCopy(string $text): string
     {
-        $clean = preg_replace('/\s*\((?:FW|NW|1HW|5DW|1DW|7DW|1MW)\)/iu', '', $text) ?? $text;
-        $clean = preg_replace('/\b(?:1HW|5DW|1DW|1MW|NW)\b/u', '', $clean) ?? $clean;
+        $clean = preg_replace('/\s*\((?:FW|NW|\d+[HDMWY]W|W\d+[HDMWY])\)/iu', '', $text) ?? $text;
+        $clean = preg_replace('/\b(?:1HW|24HW|48HW|1DW|3DW|5DW|7DW|14DW|20DW|25DW|30DW|1MW|3MW|6MW|12MW|NW|W\d+[HDMWY])\b/iu', '', $clean) ?? $clean;
 
         return preg_replace('/\s+/u', ' ', trim($clean)) ?: trim($text);
     }
