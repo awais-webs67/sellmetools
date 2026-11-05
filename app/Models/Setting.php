@@ -61,7 +61,7 @@ class Setting extends Model
         'google_site_verification' => '',
         'bing_site_verification' => '',
         'indexnow_key' => 'a7f9c2e4b8d106359a2c4e6f8b0d2e4a',
-        'google_analytics_id' => '',
+        'google_analytics_id' => 'G-CFGVMHWE3G',
         'mail_enabled' => '1',
         'mail_send_order_delivered' => '1',
         'mail_host' => '',

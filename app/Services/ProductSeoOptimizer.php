@@ -22,7 +22,7 @@ class ProductSeoOptimizer
             return;
         }
 
-        $flagFile = storage_path('framework/product_seo_v12_synced.flag');
+        $flagFile = storage_path('framework/product_seo_v13_synced.flag');
         if (is_file($flagFile)) {
             return;
         }
@@ -31,7 +31,7 @@ class ProductSeoOptimizer
 
         try {
             if (Schema::hasTable('settings')) {
-                foreach (['seo_title', 'seo_description', 'seo_keywords', 'shop_seo_title', 'shop_seo_description'] as $seoKey) {
+                foreach (['seo_title', 'seo_description', 'seo_keywords', 'shop_seo_title', 'shop_seo_description', 'google_analytics_id'] as $seoKey) {
                     if (isset(Setting::DEFAULTS[$seoKey])) {
                         Setting::set($seoKey, Setting::DEFAULTS[$seoKey]);
                     }

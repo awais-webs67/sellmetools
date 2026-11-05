@@ -35,7 +35,8 @@
     $googleVerify = preg_match('/content=["\']([^"\']+)["\']/i', $rawGoogleVerify, $m) ? trim($m[1]) : $rawGoogleVerify;
     $rawBingVerify = trim((string) setting('bing_site_verification'));
     $bingVerify = preg_match('/content=["\']([^"\']+)["\']/i', $rawBingVerify, $bm) ? trim($bm[1]) : $rawBingVerify;
-    $gaId = setting('google_analytics_id');
+    $rawGaId = trim((string) setting('google_analytics_id', 'G-CFGVMHWE3G'));
+    $gaId = preg_match('/\b(G-[A-Z0-9]+|UA-[0-9-]+|GT-[A-Z0-9]+)\b/i', $rawGaId, $gaMatch) ? strtoupper($gaMatch[1]) : $rawGaId;
     $storeTheme = (string) setting('store_theme', 'black');
     $themeColorHex = $storeTheme === 'crimson' ? '#9B1B30' : '#000000';
 
