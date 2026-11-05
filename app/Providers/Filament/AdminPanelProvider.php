@@ -68,10 +68,6 @@ class AdminPanelProvider extends PanelProvider
                     .'<svg style="width:14px;height:14px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
                     .'<span class="smt-btn-text">Store</span>'
                     .'</a>'
-                    .'<button type="button" id="smt-admin-install-btn" class="fi-live-store-btn smt-install-app-btn" style="display:none;" title="Install Admin Dashboard as App">'
-                    .'<svg style="width:14px;height:14px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
-                    .'<span class="smt-btn-text">Install App</span>'
-                    .'</button>'
                     .'<div class="smt-bell-container" id="smt-order-bell-wrap">'
                     .'<button type="button" id="smt-order-bell-btn" class="smt-bell-btn" aria-label="Order Notifications" title="Live Order Notifications">'
                     .'<svg style="width:18px;height:18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>'
@@ -1031,29 +1027,19 @@ class AdminPanelProvider extends PanelProvider
                     $syncUrl = route('stock.sync', [], false);
 
                     return new HtmlString('
-                    <div id="smt-pwa-help-modal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.65);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:1rem;">
-                        <div style="background:#ffffff;border:1px solid #cbd5e1;border-radius:1rem;max-width:400px;width:100%;padding:1.35rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
-                            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.85rem;">
-                                <div style="display:flex;align-items:center;gap:0.6rem;">
-                                    <img src="/images/pwa-icon-192.png" alt="SMT Admin" style="width:36px;height:36px;border-radius:0.55rem;" />
-                                    <div>
-                                        <div style="font-size:0.92rem;font-weight:800;color:#0f172a;">Install SMT Admin App</div>
-                                        <div style="font-size:0.72rem;color:#64748b;">Add to your phone or desktop home screen</div>
-                                    </div>
-                                </div>
-                                <button type="button" onclick="document.getElementById(\'smt-pwa-help-modal\').style.display=\'none\'" style="border:1px solid #e2e8f0;background:#f8fafc;border-radius:0.45rem;width:28px;height:28px;cursor:pointer;color:#475569;font-weight:700;">✕</button>
-                            </div>
-                            <div style="font-size:0.78rem;color:#334155;line-height:1.55;display:flex;flex-direction:column;gap:0.6rem;">
-                                <div style="padding:0.65rem 0.75rem;border-radius:0.6rem;background:#f8fafc;border:1px solid #e2e8f0;">
-                                    <strong style="color:#0f172a;display:block;margin-bottom:0.2rem;">On Android / Chrome / Edge:</strong>
-                                    Tap the browser menu <strong>(⋮)</strong> at the top right and select <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.
-                                </div>
-                                <div style="padding:0.65rem 0.75rem;border-radius:0.6rem;background:#f8fafc;border:1px solid #e2e8f0;">
-                                    <strong style="color:#0f172a;display:block;margin-bottom:0.2rem;">On iPhone / iPad (Safari):</strong>
-                                    Tap the <strong>Share</strong> button at the bottom of Safari and tap <strong>"Add to Home Screen"</strong>.
+                    <div id="smt-admin-chrome-install-popup" style="display:none;position:fixed;top:0.75rem;left:50%;transform:translateX(-50%);z-index:99999;max-width:410px;width:calc(100vw - 1.5rem);background:#ffffff;border:1px solid #cbd5e1;border-radius:1rem;padding:0.75rem 1rem;box-shadow:0 20px 25px -5px rgba(15,23,42,0.18),0 8px 10px -6px rgba(15,23,42,0.08);">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;">
+                            <div style="display:flex;align-items:center;gap:0.65rem;min-width:0;">
+                                <img src="/images/pwa-icon-192.png" alt="SMT Admin" style="width:38px;height:38px;border-radius:0.65rem;border:1px solid #e2e8f0;flex-shrink:0;" />
+                                <div style="min-width:0;">
+                                    <div style="font-size:0.84rem;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Install SMT Admin App</div>
+                                    <div style="font-size:0.7rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Add dashboard to your Home screen</div>
                                 </div>
                             </div>
-                            <button type="button" onclick="document.getElementById(\'smt-pwa-help-modal\').style.display=\'none\'" style="margin-top:0.9rem;width:100%;padding:0.55rem;border-radius:0.55rem;border:none;background:#0f172a;color:#ffffff;font-size:0.78rem;font-weight:700;cursor:pointer;">Got It</button>
+                            <div style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0;">
+                                <button type="button" id="smt-admin-pwa-accept" style="border:none;background:#0f172a;color:#ffffff;font-size:0.74rem;font-weight:700;padding:0.4rem 0.85rem;border-radius:0.5rem;cursor:pointer;">Install</button>
+                                <button type="button" id="smt-admin-pwa-dismiss" style="border:none;background:#f1f5f9;color:#64748b;width:28px;height:28px;border-radius:0.45rem;cursor:pointer;font-size:0.8rem;font-weight:700;">✕</button>
+                            </div>
                         </div>
                     </div>
                     <div id="smt-live-toast" style="display:none;position:fixed;bottom:1.25rem;right:1.25rem;z-index:99998;max-width:340px;width:calc(100vw - 2.5rem);background:#0f172a;color:#ffffff;border:1px solid #334155;border-radius:0.85rem;padding:0.85rem 1rem;box-shadow:0 20px 25px -5px rgba(15,23,42,0.35);">
@@ -1072,6 +1058,7 @@ class AdminPanelProvider extends PanelProvider
                             window.__smtSupplierBridgeInit = true;
                             const BRIDGE_TOKEN = '.json_encode($token).';
                             const SYNC_URL = '.json_encode($syncUrl).';
+                            const ADMIN_PWA_DISMISS_KEY = "smt_admin_pwa_dismissed";
                             let running = false;
                             let deferredPwaPrompt = null;
 
@@ -1085,29 +1072,38 @@ class AdminPanelProvider extends PanelProvider
                             }
 
                             function syncInstallButton() {
-                                const btn = document.getElementById("smt-admin-install-btn");
-                                if (!btn) return;
-                                btn.style.display = isStandaloneApp() ? "none" : "inline-flex";
-                                if (!btn.__bound) {
-                                    btn.__bound = true;
-                                    btn.addEventListener("click", async () => {
-                                        if (deferredPwaPrompt) {
-                                            deferredPwaPrompt.prompt();
-                                            const choice = await deferredPwaPrompt.userChoice.catch(() => null);
-                                            deferredPwaPrompt = null;
-                                            if (choice && choice.outcome === "accepted") {
-                                                btn.style.display = "none";
-                                            }
-                                        } else {
-                                            const modal = document.getElementById("smt-pwa-help-modal");
-                                            if (modal) modal.style.display = "flex";
+                                const popup = document.getElementById("smt-admin-chrome-install-popup");
+                                const acceptBtn = document.getElementById("smt-admin-pwa-accept");
+                                const dismissBtn = document.getElementById("smt-admin-pwa-dismiss");
+                                if (!popup) return;
+                                if (isStandaloneApp() || localStorage.getItem(ADMIN_PWA_DISMISS_KEY) === "1" || !deferredPwaPrompt) {
+                                    popup.style.display = "none";
+                                    return;
+                                }
+                                popup.style.display = "block";
+                                if (acceptBtn && !acceptBtn.__bound) {
+                                    acceptBtn.__bound = true;
+                                    acceptBtn.addEventListener("click", async () => {
+                                        if (!deferredPwaPrompt) return;
+                                        deferredPwaPrompt.prompt();
+                                        const choice = await deferredPwaPrompt.userChoice.catch(() => null);
+                                        deferredPwaPrompt = null;
+                                        popup.style.display = "none";
+                                        if (choice && choice.outcome === "dismissed") {
+                                            localStorage.setItem(ADMIN_PWA_DISMISS_KEY, "1");
                                         }
+                                    });
+                                }
+                                if (dismissBtn && !dismissBtn.__bound) {
+                                    dismissBtn.__bound = true;
+                                    dismissBtn.addEventListener("click", () => {
+                                        localStorage.setItem(ADMIN_PWA_DISMISS_KEY, "1");
+                                        popup.style.display = "none";
                                     });
                                 }
                             }
 
                             window.addEventListener("beforeinstallprompt", (e) => {
-                                e.preventDefault();
                                 deferredPwaPrompt = e;
                                 syncInstallButton();
                             });

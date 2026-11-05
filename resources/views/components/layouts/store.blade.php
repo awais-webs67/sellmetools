@@ -277,15 +277,8 @@
                 @endauth
             </nav>
 
-            {{-- PKR / USDT Currency Switcher + Install App + Mobile Menu Trigger --}}
+            {{-- PKR / USDT Currency Switcher + Mobile Menu Trigger --}}
             <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <button type="button"
-                        style="display:none;"
-                        class="js-smt-install-app hidden sm:inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer"
-                        title="Install {{ $storeName }} App on your device">
-                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    <span>Install App</span>
-                </button>
                 <div class="inline-flex items-center rounded-full border border-line-strong bg-grey-soft p-0.5 shadow-2xs"
                      role="group"
                      aria-label="Switch currency between PKR and USDT"
@@ -350,10 +343,6 @@
                     <a href="{{ route('orders.track') }}" @class(['py-2.5 hover:text-brand', 'text-brand font-bold' => request()->routeIs('orders.track')])>Track Order</a>
                     <a href="{{ route('pages.show', 'about') }}" @class(['py-2.5 hover:text-brand', 'text-brand font-bold' => request()->fullUrlIs(route('pages.show', 'about'))])>About</a>
                     <a href="{{ route('pages.show', 'contact') }}" @class(['py-2.5 hover:text-brand', 'text-brand font-bold' => request()->fullUrlIs(route('pages.show', 'contact'))])>Contact</a>
-                    <button type="button" style="display:none;" class="js-smt-install-app py-2.5 text-left font-bold text-slate-900 flex items-center gap-2 cursor-pointer">
-                        <svg class="h-4 w-4 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        <span>Download &amp; Install Store App</span>
-                    </button>
                     @auth
                         @if (auth()->user()->is_reseller && filled(auth()->user()->reseller_slug))
                             <a href="{{ route('reseller.portal', auth()->user()->reseller_slug) }}" class="py-2.5 font-bold text-brand">★ Reseller Portal</a>
@@ -421,12 +410,6 @@
                     <li><a class="hover:text-white" href="{{ route('pages.show', 'about') }}">About {{ $storeName }}</a></li>
                     <li><a class="hover:text-white" href="{{ route('pages.show', 'faq') }}">FAQ &amp; help guide</a></li>
                     <li><a class="hover:text-white" href="{{ route('pages.show', 'contact') }}">Contact &amp; support</a></li>
-                    <li>
-                        <button type="button" style="display:none;" class="js-smt-install-app inline-flex items-center gap-1.5 text-white hover:underline font-medium cursor-pointer">
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            <span>Install Store App</span>
-                        </button>
-                    </li>
                 </ul>
             </div>
             <div>
@@ -575,30 +558,31 @@
         </script>
     @endif
 
-    {{-- Storefront PWA Install Modal & Service Worker --}}
-    <div id="smt-store-pwa-modal" style="display:none;" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-        <div class="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
-            <div class="flex items-center justify-between gap-3 pb-3 border-b border-slate-100">
-                <div class="flex items-center gap-2.5">
-                    <img src="/images/pwa-icon-192.png" alt="{{ $storeName }}" class="h-9 w-9 rounded-lg">
-                    <div>
-                        <p class="text-sm font-bold text-slate-900">Install {{ $storeName }} App</p>
-                        <p class="text-[11px] text-slate-500">Add to your phone or desktop home screen</p>
-                    </div>
-                </div>
-                <button type="button" onclick="document.getElementById('smt-store-pwa-modal').style.display='none'" class="h-7 w-7 rounded-lg border border-slate-200 bg-slate-50 text-xs font-bold text-slate-600 cursor-pointer">✕</button>
-            </div>
-            <div class="mt-3.5 space-y-2.5 text-xs text-slate-600 leading-relaxed">
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                    <strong class="block text-slate-900 mb-0.5">Android / Chrome / Edge:</strong>
-                    Tap your browser menu <strong>(⋮)</strong> and choose <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                    <strong class="block text-slate-900 mb-0.5">iPhone / iPad (Safari):</strong>
-                    Tap the <strong>Share</strong> icon at the bottom of Safari and select <strong>"Add to Home Screen"</strong>.
+    {{-- Chrome-Style Top PWA Install Popup & Service Worker --}}
+    <div id="smt-chrome-install-popup"
+         style="display:none;"
+         class="fixed top-3 left-1/2 -translate-x-1/2 z-50 w-[calc(100vw-1.5rem)] max-w-md rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-2xl">
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+                <img src="/images/pwa-icon-192.png" alt="{{ $storeName }}" class="h-10 w-10 rounded-xl border border-slate-200 shrink-0">
+                <div class="min-w-0">
+                    <p class="text-xs sm:text-sm font-bold text-slate-900 truncate">Install {{ $storeName }}</p>
+                    <p class="text-[11px] text-slate-500 truncate">{{ request()->getHost() }} · Add to Home screen</p>
                 </div>
             </div>
-            <button type="button" onclick="document.getElementById('smt-store-pwa-modal').style.display='none'" class="mt-4 w-full rounded-xl bg-slate-900 py-2.5 text-xs font-semibold text-white cursor-pointer">Got It</button>
+            <div class="flex items-center gap-1.5 shrink-0">
+                <button type="button"
+                        id="smt-chrome-install-accept"
+                        class="rounded-lg bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer">
+                    Install
+                </button>
+                <button type="button"
+                        id="smt-chrome-install-dismiss"
+                        aria-label="Dismiss install prompt"
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
+            </div>
         </div>
     </div>
     <script>
@@ -607,40 +591,40 @@
                 navigator.serviceWorker.register('/sw.js').catch(() => {});
             }
             let deferredPrompt = null;
+            const DISMISS_KEY = 'smt_store_pwa_dismissed';
             const isStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
-            const installBtns = document.querySelectorAll('.js-smt-install-app');
+            const popup = document.getElementById('smt-chrome-install-popup');
+            const acceptBtn = document.getElementById('smt-chrome-install-accept');
+            const dismissBtn = document.getElementById('smt-chrome-install-dismiss');
 
-            function updateInstallButtons() {
-                installBtns.forEach((btn) => {
-                    btn.style.display = isStandalone ? 'none' : '';
-                });
-            }
-            updateInstallButtons();
+            if (isStandalone) return;
 
             window.addEventListener('beforeinstallprompt', (e) => {
-                e.preventDefault();
                 deferredPrompt = e;
-                updateInstallButtons();
-            });
-            window.addEventListener('appinstalled', () => {
-                deferredPrompt = null;
-                installBtns.forEach((btn) => { btn.style.display = 'none'; });
+                if (localStorage.getItem(DISMISS_KEY) !== '1' && popup) {
+                    popup.style.display = 'block';
+                }
             });
 
-            installBtns.forEach((btn) => {
-                btn.addEventListener('click', async () => {
-                    if (deferredPrompt) {
-                        deferredPrompt.prompt();
-                        const choice = await deferredPrompt.userChoice.catch(() => null);
-                        deferredPrompt = null;
-                        if (choice && choice.outcome === 'accepted') {
-                            installBtns.forEach((b) => { b.style.display = 'none'; });
-                        }
-                    } else {
-                        const helpModal = document.getElementById('smt-store-pwa-modal');
-                        if (helpModal) helpModal.style.display = 'flex';
-                    }
-                });
+            window.addEventListener('appinstalled', () => {
+                deferredPrompt = null;
+                if (popup) popup.style.display = 'none';
+            });
+
+            acceptBtn?.addEventListener('click', async () => {
+                if (!deferredPrompt) return;
+                deferredPrompt.prompt();
+                const choice = await deferredPrompt.userChoice.catch(() => null);
+                deferredPrompt = null;
+                if (popup) popup.style.display = 'none';
+                if (choice && choice.outcome === 'dismissed') {
+                    localStorage.setItem(DISMISS_KEY, '1');
+                }
+            });
+
+            dismissBtn?.addEventListener('click', () => {
+                localStorage.setItem(DISMISS_KEY, '1');
+                if (popup) popup.style.display = 'none';
             });
         })();
     </script>
