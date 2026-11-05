@@ -996,6 +996,26 @@ class AdminPanelProvider extends PanelProvider
                             max-width: calc(100vw - 1rem) !important;
                             margin: 0.5rem !important;
                         }
+                        .fi-no {
+                            left: 0.65rem !important;
+                            right: 0.65rem !important;
+                            top: 0.65rem !important;
+                            width: auto !important;
+                            max-width: calc(100vw - 1.3rem) !important;
+                        }
+                        .fi-no-notification {
+                            width: 100% !important;
+                            max-width: 100% !important;
+                            box-sizing: border-box !important;
+                            word-break: break-word !important;
+                        }
+                        #smt-live-toast {
+                            left: 0.75rem !important;
+                            right: 0.75rem !important;
+                            bottom: 0.85rem !important;
+                            width: auto !important;
+                            max-width: calc(100vw - 1.5rem) !important;
+                        }
                         .fi-fo-actions, .fi-ac {
                             flex-wrap: wrap !important;
                             gap: 0.45rem !important;
@@ -1096,9 +1116,30 @@ class AdminPanelProvider extends PanelProvider
                             let running = false;
                             let deferredPwaPrompt = null;
 
-                            // Register Service Worker for Admin PWA & Notifications
+                            // Register Service Worker for Admin PWA & Background Notifications
                             if ("serviceWorker" in navigator) {
-                                navigator.serviceWorker.register("/sw.js").catch(() => {});
+                                navigator.serviceWorker.register("/sw.js").then(async (reg) => {
+                                    try {
+                                        if ("periodicSync" in reg) {
+                                            await reg.periodicSync.register("smt-order-check", { minInterval: 60000 });
+                                        }
+                                    } catch (e) {}
+                                }).catch(() => {});
+                            }
+
+                            function syncServiceWorkerState() {
+                                try {
+                                    if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+                                        navigator.serviceWorker.controller.postMessage({
+                                            type: "SMT_SYNC_CONFIG",
+                                            syncUrl: SYNC_URL,
+                                            bridgeToken: BRIDGE_TOKEN,
+                                            seenOrderId: parseInt(localStorage.getItem("smt_seen_order_id") || "0", 10),
+                                            seenPaymentId: parseInt(localStorage.getItem("smt_seen_payment_id") || "0", 10),
+                                            muted: !isSoundEnabled()
+                                        });
+                                    }
+                                } catch (e) {}
                             }
 
                             function isStandaloneApp() {
@@ -1186,9 +1227,26 @@ class AdminPanelProvider extends PanelProvider
                                     toast.style.display = "block";
                                 }
                                 if (isSoundEnabled() && "Notification" in window && Notification.permission === "granted") {
-                                    try {
-                                        new Notification(title, { body: body, icon: "/images/pwa-icon-192.png", data: { url: url || "/admin/orders" } });
-                                    } catch (e) {}
+                                    const targetUrl = url || "/admin/orders";
+                                    const notifOpts = {
+                                        body: body,
+                                        icon: "/images/pwa-icon-192.png",
+                                        badge: "/images/pwa-icon-192.png",
+                                        tag: "smt-alert-" + Date.now(),
+                                        renotify: true,
+                                        requireInteraction: true,
+                                        vibrate: [250, 120, 250],
+                                        data: { url: targetUrl }
+                                    };
+                                    if ("serviceWorker" in navigator) {
+                                        navigator.serviceWorker.ready.then((reg) => {
+                                            return reg.showNotification(title, notifOpts);
+                                        }).catch(() => {
+                                            try { new Notification(title, notifOpts); } catch (e) {}
+                                        });
+                                    } else {
+                                        try { new Notification(title, notifOpts); } catch (e) {}
+                                    }
                                 }
                             }
 
@@ -1428,6 +1486,7 @@ class AdminPanelProvider extends PanelProvider
 
                                     if (data.notifications) {
                                         renderNotifications(data.notifications);
+                                        syncServiceWorkerState();
                                     }
 
                                     // 1. Relay pending Railway order fulfillments immediately (never blocked by sync or tab visibility)
@@ -1475,6 +1534,38 @@ class AdminPanelProvider extends PanelProvider
 
                             setTimeout(() => runSupplierBridge(false), 100);
                             setInterval(() => runSupplierBridge(false), 3500);
+
+                            // Unthrottled Web Worker timer so background / minimized PWA continues receiving instant order notifications
+                            try {
+                                const workerBlob = new Blob([
+                                    "setInterval(function(){ postMessage(1); }, 4500);"
+                                ], { type: "application/javascript" });
+                                const bgWorker = new Worker(URL.createObjectURL(workerBlob));
+                                bgWorker.onmessage = function () {
+                                    if (document.hidden) {
+                                        runSupplierBridge(false);
+                                    }
+                                };
+                            } catch (e) {}
+
+                            document.addEventListener("visibilitychange", () => {
+                                if (!document.hidden) {
+                                    runSupplierBridge(false);
+                                } else {
+                                    syncServiceWorkerState();
+                                }
+                            });
+                            window.addEventListener("focus", () => runSupplierBridge(false));
+                            window.addEventListener("online", () => runSupplierBridge(false));
+
+                            // Auto-request notification permission on first admin interaction if not yet decided
+                            document.addEventListener("click", function requestNotifOnce() {
+                                if (isSoundEnabled() && "Notification" in window && Notification.permission === "default") {
+                                    Notification.requestPermission().catch(() => {});
+                                }
+                                document.removeEventListener("click", requestNotifOnce);
+                            }, { once: true });
+
                             document.addEventListener("livewire:navigated", () => setTimeout(() => runSupplierBridge(false), 100));
                             document.addEventListener("livewire:init", () => {
                                 if (window.Livewire && typeof window.Livewire.hook === "function") {

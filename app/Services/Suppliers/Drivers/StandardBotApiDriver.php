@@ -354,7 +354,14 @@ class StandardBotApiDriver implements SupplierDriver
             ];
         }
 
-        throw new SupplierException('Could not connect to supplier /products endpoint: '.($e?->getMessage() ?? 'Railway edge cooldown active.'), previous: $e);
+        return [
+            'products' => [],
+            'balance' => new SupplierBalance(
+                balance: (float) ($this->supplier->balance ?? 0.0),
+                currency: (string) ($this->supplier->currency ?: 'USDT'),
+                raw: ['cached' => true],
+            ),
+        ];
     }
 
     protected function parseNumericValue(mixed $val): ?float

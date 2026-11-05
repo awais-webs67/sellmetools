@@ -220,17 +220,19 @@
         </div>
     </div>
 
-    {{-- Floating Success Toast when synced --}}
+    {{-- Floating Success Toast when synced (100% Mobile-Responsive Full-Width Flex Wrapper) --}}
     <div x-data x-show="$store.stock.justSynced" x-cloak
-         class="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full border border-emerald-500/30 bg-[#0F291E] px-4 py-2 text-xs font-semibold text-[#4ade80] shadow-xl backdrop-blur"
+         class="fixed top-4 inset-x-0 z-50 flex justify-center px-3 pointer-events-none"
          x-transition:enter="transition ease-out duration-300"
          x-transition:enter-start="opacity-0 -translate-y-4"
          x-transition:enter-end="opacity-100 translate-y-0"
          x-transition:leave="transition ease-in duration-200"
          x-transition:leave-start="opacity-100 translate-y-0"
          x-transition:leave-end="opacity-0 -translate-y-4">
-        <span class="h-2 w-2 rounded-full bg-[#22c55e]"></span>
-        <span>✓ Real-time prices &amp; stock synced successfully!</span>
+        <div class="pointer-events-auto inline-flex max-w-full items-center justify-center gap-2 rounded-full border border-emerald-500/35 bg-[#0F291E]/95 px-4 py-2 text-center text-[11px] sm:text-xs font-semibold text-[#4ade80] shadow-xl backdrop-blur-md">
+            <span class="h-2 w-2 shrink-0 rounded-full bg-[#22c55e]"></span>
+            <span class="leading-snug">Real-time prices &amp; stock synced successfully!</span>
+        </div>
     </div>
 
     <header x-data="{ open: false }" class="sticky top-0 z-40 w-full max-w-full border-b border-line bg-white/95 shadow-[0_1px_2px_rgba(0,0,0,.06)] backdrop-blur">
@@ -401,6 +403,16 @@
                         <span class="rounded border border-white/15 px-2.5 py-1 text-xs font-medium text-white/80">{{ $m }}</span>
                     @endforeach
                 </div>
+                @php
+                    $footerAddressEnabled = (string) setting('footer_address_enabled', '1') === '1';
+                    $footerAddress = trim((string) setting('footer_address', 'Vilage Dongray Kalan Post Office Pindi Purbian city Zafarwal district narowal'));
+                @endphp
+                @if ($footerAddressEnabled && $footerAddress !== '')
+                    <div data-nosnippet class="mt-4 flex items-start gap-2 text-xs text-white/60 max-w-md leading-relaxed">
+                        <svg class="h-4 w-4 shrink-0 text-white/50 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                        <span>{{ $footerAddress }}</span>
+                    </div>
+                @endif
             </div>
             <div>
                 <p class="text-sm font-semibold tracking-wider text-white uppercase">Store</p>
@@ -561,7 +573,7 @@
     {{-- Chrome-Style Top PWA Install Popup & Service Worker --}}
     <div id="smt-chrome-install-popup"
          style="display:none;"
-         class="fixed top-3 left-1/2 -translate-x-1/2 z-50 w-[calc(100vw-1.5rem)] max-w-md rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-2xl">
+         class="fixed top-3 inset-x-3 mx-auto z-50 max-w-md rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-2xl">
         <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-3 min-w-0">
                 <img src="/images/pwa-icon-192.png" alt="{{ $storeName }}" class="h-10 w-10 rounded-xl border border-slate-200 shrink-0">

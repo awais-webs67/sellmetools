@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Review;
+use App\Services\ProductSeoOptimizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -113,17 +114,17 @@ class ProductController extends Controller
 
     private function activeCategories()
     {
-        return Category::query()
+        return Cache::remember('store.active_categories.v2', 60, fn () => Category::query()
             ->where('is_active', true)
             ->withCount(['products' => fn ($q) => $q->visible()])
             ->orderBy('sort')
             ->orderBy('name')
-            ->get();
+            ->get());
     }
 
     private function catalogQuery(?Category $activeCategory, string $search, string $sort = 'featured', bool $inStockOnly = false, ?int $seed = null)
     {
-        \App\Services\ProductSeoOptimizer::syncCatalogOnce();
+        ProductSeoOptimizer::syncCatalogOnce();
         Product::seedInitialReviewsOnce();
 
         $tokens = collect(preg_split('/\s+/u', $search, -1, PREG_SPLIT_NO_EMPTY))
@@ -176,16 +177,20 @@ class ProductController extends Controller
     {
         abort_unless($product->is_active, 404);
 
-        \App\Services\ProductSeoOptimizer::syncCatalogOnce();
+        ProductSeoOptimizer::syncCatalogOnce();
         Product::seedInitialReviewsOnce();
-        $product->ensureInitialReviewsSeeded();
-        $product->refresh();
 
         if ($request->user()?->is_reseller) {
             $request->user()->loadMissing('resellerProductPrices');
         }
 
-        $product->load(['category', 'approvedReviews'])->loadCount('approvedReviews')->loadAvg('approvedReviews', 'rating');
+        $product->load(['category', 'approvedReviews']);
+        if ($product->approvedReviews->count() < 25) {
+            $product->ensureInitialReviewsSeeded();
+            $product->load('approvedReviews');
+        }
+        $product->setAttribute('approved_reviews_count', $product->approvedReviews->count());
+        $product->setAttribute('approved_reviews_avg_rating', round((float) ($product->approvedReviews->avg('rating') ?? 5.0), 2));
 
         $related = Product::query()
             ->select(self::CARD_COLUMNS)

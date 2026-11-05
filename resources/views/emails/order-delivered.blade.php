@@ -1,88 +1,136 @@
 @php
-    $logoUrl = asset('images/email-logo.png');
+    $storeName = $storeName ?? (string) setting('store_name', 'SellMeTools');
+    $logoUrl = asset('images/email-logo-dark.png') . '?v=4';
     $waNumber = function_exists('admin_whatsapp_number') ? admin_whatsapp_number() : '';
+    $orderUrl = $orderUrl ?? $order->customerUrl();
     $receiptUrl = route('orders.receipt', ['order' => $order->number, 'token' => $order->access_token]);
     $pdfReceiptUrl = route('orders.receipt', ['order' => $order->number, 'token' => $order->access_token, 'download' => 'pdf']);
     $itemsToDisplay = isset($deliveredItems) && $deliveredItems->isNotEmpty() ? $deliveredItems : $order->items;
     $totalFormatted = (float) $order->total <= 0 ? 'Rs 0 (Free)' : money($order->total);
+    $supportEmail = (string) setting('support_email', 'contact@sellmetools.com');
 @endphp
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="dark light">
-    <meta name="supported-color-schemes" content="dark light">
+    <meta name="x-apple-disable-message-reformatting">
+    <meta name="color-scheme" content="dark">
+    <meta name="supported-color-schemes" content="dark">
     <title>Order #{{ $order->number }} Delivered - {{ $storeName }}</title>
+    <style>
+        body, table, td, p, a, h1, h2, h3 {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+        table, td {
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+            border-collapse: collapse;
+        }
+        img {
+            -ms-interpolation-mode: bicubic;
+            border: 0;
+            outline: none;
+            text-decoration: none;
+        }
+        @media only screen and (max-width: 600px) {
+            .email-wrapper {
+                padding: 12px 8px !important;
+            }
+            .email-card {
+                border-radius: 14px !important;
+            }
+            .hero-pad {
+                padding: 26px 18px 22px 18px !important;
+            }
+            .body-pad {
+                padding: 20px 16px !important;
+            }
+            .hero-title {
+                font-size: 21px !important;
+                line-height: 1.25 !important;
+            }
+            .cred-box {
+                font-size: 12.5px !important;
+                padding: 14px !important;
+            }
+            .stack-btn {
+                display: block !important;
+                width: 100% !important;
+                padding: 0 0 8px 0 !important;
+            }
+        }
+    </style>
 </head>
-<body style="margin:0;padding:0;background-color:#060911;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#F8FAFC;line-height:1.6;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#060911;padding:32px 12px;">
+<body style="margin:0;padding:0;background-color:#09090B;color:#F4F4F5;width:100% !important;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#09090B" style="background-color:#09090B;width:100%;margin:0;padding:0;">
         <tr>
-            <td align="center">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background-color:#0D1322;border-radius:18px;border:1px solid #1E293B;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,0.6);">
+            <td align="center" class="email-wrapper" style="padding:28px 12px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-card" bgcolor="#111115" style="max-width:580px;width:100%;background-color:#111115;border:1px solid #2E151E;border-radius:16px;overflow:hidden;">
 
-                    {{-- Top Brand Accent Line --}}
+                    {{-- Top Wine-Red Hero Accent Line --}}
                     <tr>
-                        <td style="height:4px;background:linear-gradient(90deg,#9B1B30 0%,#E11D48 50%,#10B981 100%);font-size:0;line-height:0;">&nbsp;</td>
+                        <td height="4" bgcolor="#9B1B30" style="height:4px;line-height:4px;font-size:4px;background-color:#9B1B30;background-image:linear-gradient(90deg,#7D1426 0%,#E11D48 50%,#7D1426 100%);">&nbsp;</td>
                     </tr>
 
-                    {{-- Dark Luxury Brand Header with High-Contrast Logo Pill --}}
+                    {{-- Storefront Hero Banner (Wine Red #9B1B30 + Pure Black #100307) --}}
                     <tr>
-                        <td style="background-color:#090D18;padding:20px 26px;border-bottom:1px solid #1E293B;">
-                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                                <tr>
-                                    <td align="left" valign="middle">
-                                        <a href="{{ url('/') }}" style="text-decoration:none;display:inline-block;background-color:#FFFFFF;background-image:linear-gradient(#FFFFFF,#FFFFFF);padding:7px 14px;border-radius:10px;border:1px solid #E2E8F0;box-shadow:0 4px 12px rgba(0,0,0,0.35);">
-                                            <img src="{{ $logoUrl }}" alt="{{ $storeName }}" width="155" style="display:block;height:32px;width:auto;max-width:165px;border:0;">
-                                        </a>
-                                    </td>
-                                    <td align="right" valign="middle">
-                                        <span style="display:inline-block;background-color:#064E3B;border:1px solid #10B981;color:#6EE7B7;font-size:11px;font-weight:800;padding:6px 14px;border-radius:999px;letter-spacing:0.6px;text-transform:uppercase;">
-                                            &#10003; Delivered
-                                        </span>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
+                        <td align="center" bgcolor="#140409" class="hero-pad" style="padding:32px 24px 26px 24px;background-color:#140409;background-image:radial-gradient(ellipse at top, rgba(180,28,54,0.48), transparent 62%), linear-gradient(145deg, #100307 0%, #3A0916 52%, #0C0306 100%);border-bottom:1px solid #3A121E;text-align:center;">
+                            <a href="{{ url('/') }}" target="_blank" style="text-decoration:none;display:inline-block;">
+                                <img src="{{ $logoUrl }}" alt="{{ $storeName }}" width="175" height="34" style="display:block;margin:0 auto;width:175px;max-width:78%;height:auto;border:0;">
+                            </a>
 
-                    {{-- Dark Hero Banner --}}
-                    <tr>
-                        <td style="background-color:#111827;background-image:linear-gradient(180deg,#131C31 0%,#0D1322 100%);padding:30px 26px 24px;text-align:center;border-bottom:1px solid #1E293B;">
-                            <div style="display:inline-block;width:48px;height:48px;line-height:48px;border-radius:999px;background-color:#064E3B;border:2px solid #10B981;color:#34D399;font-size:22px;font-weight:800;text-align:center;">
-                                &#10003;
+                            <div style="margin-top:18px;">
+                                <span style="display:inline-block;background-color:#280812;border:1px solid #7D1426;color:#FDA4AF;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:5px 14px;border-radius:999px;">
+                                    Order Delivered
+                                </span>
                             </div>
-                            <h1 style="margin:14px 0 6px;font-size:24px;font-weight:800;letter-spacing:-0.4px;color:#FFFFFF;">
+
+                            <h1 class="hero-title" style="margin:14px 0 6px 0;font-size:24px;font-weight:800;color:#FFFFFF;letter-spacing:-0.02em;line-height:1.25;">
                                 Order Delivered Successfully
                             </h1>
-                            <p style="margin:0 0 20px;font-size:14px;color:#94A3B8;">
+                            <p style="margin:0;font-size:13.5px;color:#D4D4D8;line-height:1.55;">
                                 Please copy your product details below.
                             </p>
-
-                            {{-- Structured Dark Order Summary Strip --}}
-                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#080C16;border:1px solid #1E293B;border-radius:12px;overflow:hidden;">
-                                <tr>
-                                    <td width="34%" align="center" style="padding:12px 8px;border-right:1px solid #1E293B;">
-                                        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#64748B;">Order ID</div>
-                                        <div style="margin-top:3px;font-family:Consolas,Monaco,monospace;font-size:13px;font-weight:800;color:#F8FAFC;">#{{ $order->number }}</div>
-                                    </td>
-                                    <td width="33%" align="center" style="padding:12px 8px;border-right:1px solid #1E293B;">
-                                        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#64748B;">Total Paid</div>
-                                        <div style="margin-top:3px;font-size:13px;font-weight:800;color:#34D399;">{{ $totalFormatted }}</div>
-                                    </td>
-                                    <td width="33%" align="center" style="padding:12px 8px;">
-                                        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#64748B;">Date</div>
-                                        <div style="margin-top:3px;font-size:12px;font-weight:700;color:#CBD5E1;">{{ $order->created_at->format('d M Y') }}</div>
-                                    </td>
-                                </tr>
-                            </table>
                         </td>
                     </tr>
 
-                    {{-- Main Body: Dark Credentials Vault --}}
+                    {{-- Main Body --}}
                     <tr>
-                        <td style="padding:26px;">
-                            <div style="margin-bottom:12px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#94A3B8;">
+                        <td class="body-pad" style="padding:24px;">
+
+                            {{-- Mobile-Responsive Key-Value Order Summary Card --}}
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#171216" style="width:100%;background-color:#171216;border:1px solid #2E1821;border-radius:12px;margin-bottom:22px;">
+                                <tr>
+                                    <td style="padding:11px 16px;border-bottom:1px solid #26141C;font-size:12px;color:#A1A1AA;font-weight:600;">
+                                        Order ID
+                                    </td>
+                                    <td align="right" style="padding:11px 16px;border-bottom:1px solid #26141C;font-size:13px;color:#FFFFFF;font-weight:800;font-family:Consolas,Monaco,'Courier New',monospace;">
+                                        #{{ $order->number }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:11px 16px;border-bottom:1px solid #26141C;font-size:12px;color:#A1A1AA;font-weight:600;">
+                                        Total Paid
+                                    </td>
+                                    <td align="right" style="padding:11px 16px;border-bottom:1px solid #26141C;font-size:13px;color:#FDA4AF;font-weight:800;">
+                                        {{ $totalFormatted }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:11px 16px;font-size:12px;color:#A1A1AA;font-weight:600;">
+                                        Date
+                                    </td>
+                                    <td align="right" style="padding:11px 16px;font-size:12.5px;color:#E4E4E7;font-weight:600;">
+                                        {{ $order->created_at->format('d M Y') }}
+                                    </td>
+                                </tr>
+                            </table>
+
+                            {{-- Credentials Heading --}}
+                            <div style="margin:0 0 12px 0;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:#FDA4AF;">
                                 Delivered Access Credentials
                             </div>
 
@@ -101,67 +149,81 @@
                                         }
                                     }
                                 @endphp
-                                <div style="margin-bottom:18px;border:1px solid #1E293B;border-radius:14px;overflow:hidden;background-color:#080C16;">
-                                    <div style="background-color:#131C31;padding:13px 18px;border-bottom:1px solid #1E293B;">
-                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                                            <tr>
-                                                <td align="left" style="font-size:14.5px;font-weight:800;color:#FFFFFF;">
-                                                    {{ $item->product_name }}
-                                                </td>
-                                                <td align="right">
-                                                    <span style="display:inline-block;background-color:#1E293B;border:1px solid #334155;color:#38BDF8;font-family:Consolas,Monaco,monospace;font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:6px;">
-                                                        Qty: {{ $item->quantity }}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    </div>
-                                    <div style="background-color:#050811;padding:18px 20px;border-left:4px solid #10B981;font-family:Consolas,Monaco,'Courier New',monospace;font-size:13.5px;font-weight:600;color:#ECFDF5;white-space:pre-wrap;word-break:break-word;line-height:1.7;">{{ $lines->implode("\n\n----------------------------------------\n\n") }}</div>
-                                </div>
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#16161C" style="width:100%;background-color:#16161C;border:1px solid #2A1A22;border-radius:12px;margin-bottom:16px;overflow:hidden;">
+                                    <tr>
+                                        <td style="padding:13px 16px;background-color:#1C1217;border-bottom:1px solid #2A1A22;">
+                                            <div style="font-size:14.5px;font-weight:800;color:#FFFFFF;line-height:1.35;">
+                                                {{ $item->product_name }}
+                                            </div>
+                                            <div style="margin-top:3px;font-size:11.5px;color:#FDA4AF;font-weight:600;">
+                                                Quantity: {{ $item->quantity }}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:14px 16px;">
+                                            <div class="cred-box" style="background-color:#09090D;padding:15px 16px;border-radius:8px;border:1px solid #3A1522;border-left:3px solid #E11D48;font-family:Consolas,Monaco,'Courier New',monospace;font-size:13px;font-weight:600;color:#F8FAFC;white-space:pre-wrap;word-break:break-word;line-height:1.65;">{{ $lines->implode("\n\n----------------------------------------\n\n") }}</div>
+                                        </td>
+                                    </tr>
+                                </table>
                             @endforeach
 
-                            {{-- Primary CTA --}}
-                            <div style="text-align:center;margin:26px 0 14px;">
-                                <a href="{{ $orderUrl }}" style="display:inline-block;background-color:#10B981;color:#042F2E;font-weight:800;font-size:14px;padding:14px 30px;border-radius:10px;text-decoration:none;letter-spacing:0.2px;box-shadow:0 4px 14px rgba(16,185,129,0.3);">
-                                    Open Order &amp; Copy Details &rarr;
-                                </a>
-                            </div>
+                            {{-- Primary CTA (Wine Red Hero Button) --}}
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-top:8px;">
+                                <tr>
+                                    <td align="center" bgcolor="#9B1B30" style="border-radius:10px;background-color:#9B1B30;">
+                                        <a href="{{ $orderUrl }}" target="_blank" style="display:block;padding:14px 20px;font-size:14px;font-weight:800;color:#FFFFFF;text-decoration:none;text-align:center;border-radius:10px;background-color:#9B1B30;border:1px solid #BE123C;">
+                                            Open Order &amp; Copy Details
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
 
-                            {{-- Receipt & WhatsApp Buttons --}}
-                            <div style="text-align:center;margin:12px 0 22px;">
-                                <a href="{{ $receiptUrl }}" style="display:inline-block;background-color:#162033;border:1px solid #334155;color:#F8FAFC;font-weight:700;font-size:12.5px;padding:10px 18px;border-radius:9px;text-decoration:none;margin:4px;">
-                                    View Receipt
-                                </a>
-                                <a href="{{ $pdfReceiptUrl }}" style="display:inline-block;background-color:#162033;border:1px solid #334155;color:#F8FAFC;font-weight:700;font-size:12.5px;padding:10px 18px;border-radius:9px;text-decoration:none;margin:4px;">
-                                    Download Receipt
-                                </a>
-                                @if ($waNumber !== '')
-                                    <a href="https://wa.me/{{ $waNumber }}" style="display:inline-block;background-color:#25D366;color:#FFFFFF;font-weight:800;font-size:12.5px;padding:10px 18px;border-radius:9px;text-decoration:none;margin:4px;">
-                                        WhatsApp
-                                    </a>
-                                @endif
-                            </div>
+                            {{-- Secondary Actions (Responsive Stacked on Mobile) --}}
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-top:10px;">
+                                <tr>
+                                    <td class="stack-btn" width="{{ $waNumber !== '' ? '33.33%' : '50%' }}" style="padding-right:4px;">
+                                        <a href="{{ $receiptUrl }}" target="_blank" style="display:block;padding:11px 10px;font-size:12px;font-weight:700;color:#F4F4F5;text-decoration:none;text-align:center;border-radius:9px;background-color:#1A1A22;border:1px solid #2E2E3A;">
+                                            View Receipt
+                                        </a>
+                                    </td>
+                                    <td class="stack-btn" width="{{ $waNumber !== '' ? '33.33%' : '50%' }}" style="padding-left:4px;padding-right:{{ $waNumber !== '' ? '4px' : '0' }};">
+                                        <a href="{{ $pdfReceiptUrl }}" target="_blank" style="display:block;padding:11px 10px;font-size:12px;font-weight:700;color:#F4F4F5;text-decoration:none;text-align:center;border-radius:9px;background-color:#1A1A22;border:1px solid #2E2E3A;">
+                                            Download Receipt
+                                        </a>
+                                    </td>
+                                    @if ($waNumber !== '')
+                                        <td class="stack-btn" width="33.33%" style="padding-left:4px;">
+                                            <a href="https://wa.me/{{ $waNumber }}" target="_blank" style="display:block;padding:11px 10px;font-size:12px;font-weight:700;color:#FFFFFF;text-decoration:none;text-align:center;border-radius:9px;background-color:#15803D;border:1px solid #22C55E;">
+                                                WhatsApp Support
+                                            </a>
+                                        </td>
+                                    @endif
+                                </tr>
+                            </table>
 
-                            <div style="padding:14px 16px;background-color:#090D18;border:1px solid #1E293B;border-radius:10px;text-align:center;">
-                                <p style="margin:0;font-size:12px;color:#94A3B8;line-height:1.6;">
-                                    Your delivered credentials are also permanently saved in your
-                                    <a href="{{ route('account.orders') }}" style="color:#34D399;font-weight:700;text-decoration:underline;">Customer Order Vault</a>.
-                                </p>
-                            </div>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#151115" style="width:100%;background-color:#151115;border:1px solid #291820;border-radius:10px;margin-top:14px;">
+                                <tr>
+                                    <td style="padding:12px 14px;text-align:center;font-size:12px;color:#A1A1AA;line-height:1.55;">
+                                        Your delivered credentials are also permanently saved in your
+                                        <a href="{{ route('account.orders') }}" style="color:#FDA4AF;font-weight:700;text-decoration:underline;">Customer Order Vault</a>.
+                                    </td>
+                                </tr>
+                            </table>
                         </td>
                     </tr>
 
-                    {{-- Dark Footer --}}
+                    {{-- Footer --}}
                     <tr>
-                        <td style="background-color:#080C16;padding:20px 26px;border-top:1px solid #1E293B;text-align:center;">
-                            <div style="margin-bottom:8px;font-size:12px;">
-                                <a href="{{ url('/') }}" style="color:#94A3B8;text-decoration:none;margin:0 8px;font-weight:600;">Store</a>
-                                <span style="color:#334155;">&middot;</span>
-                                <a href="{{ route('shop') }}" style="color:#94A3B8;text-decoration:none;margin:0 8px;font-weight:600;">Catalog</a>
-                                <span style="color:#334155;">&middot;</span>
-                                <a href="{{ route('account.orders') }}" style="color:#94A3B8;text-decoration:none;margin:0 8px;font-weight:600;">My Orders</a>
+                        <td bgcolor="#0C0C10" style="padding:18px 24px;background-color:#0C0C10;border-top:1px solid #24131A;text-align:center;">
+                            <div style="margin-bottom:6px;font-size:12px;">
+                                <a href="{{ url('/') }}" style="color:#A1A1AA;text-decoration:none;margin:0 6px;font-weight:600;">Store</a>
+                                <span style="color:#3F3F46;">&middot;</span>
+                                <a href="{{ route('shop') }}" style="color:#A1A1AA;text-decoration:none;margin:0 6px;font-weight:600;">Catalog</a>
+                                <span style="color:#3F3F46;">&middot;</span>
+                                <a href="{{ route('account.orders') }}" style="color:#A1A1AA;text-decoration:none;margin:0 6px;font-weight:600;">My Orders</a>
                             </div>
-                            <div style="font-size:11px;color:#64748B;">
+                            <div style="font-size:11px;color:#71717A;">
                                 &copy; {{ date('Y') }} {{ $storeName }} ({{ parse_url(config('app.url'), PHP_URL_HOST) ?: 'sellmetools.com' }}). All rights reserved.
                             </div>
                         </td>

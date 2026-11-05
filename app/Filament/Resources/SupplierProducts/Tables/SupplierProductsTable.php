@@ -13,6 +13,7 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\SupplierOrder;
 use App\Models\SupplierProduct;
+use App\Services\FulfillmentService;
 use App\Services\ProductSeoOptimizer;
 use App\Services\Suppliers\SupplierManager;
 use App\Services\SupplierSyncService;
@@ -250,22 +251,18 @@ class SupplierProductsTable
                 try {
                     $res = app(SupplierManager::class)->driver($supplier)->placeOrder($record->external_id, $qty, $reqId);
                 } catch (\Throwable $e) {
-                    $errLower = strtolower($e->getMessage());
-                    $isBridgeable = str_contains($errLower, 'cooldown')
-                        || str_contains($errLower, 'timed out')
-                        || str_contains($errLower, 'connection error')
-                        || str_contains($errLower, 'failed to connect');
+                    $isBridgeable = FulfillmentService::isBridgeHandoffError($e->getMessage());
 
                     if ($isBridgeable) {
                         $attempt->update([
                             'status' => SupplierOrderStatus::Pending,
-                            'error' => 'Relaying via Admin Browser Bridge...',
+                            'error' => 'Dispatching via live supplier bridge...',
                             'response' => $metaPayload,
                         ]);
 
                         Notification::make()
-                            ->title("Connecting to {$supplier->name} via Browser Bridge...")
-                            ->body('Your browser is completing the direct purchase now. Open Direct & Vendor Orders in 2 seconds to view your credentials!')
+                            ->title("Dispatching to {$supplier->name} via Live Supplier Bridge...")
+                            ->body('Completing your direct purchase automatically now. Your credentials will appear in Direct & Vendor Orders in ~1 second!')
                             ->info()
                             ->actions([
                                 Action::make('viewVendorOrders')

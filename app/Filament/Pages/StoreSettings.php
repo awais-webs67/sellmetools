@@ -54,7 +54,7 @@ class StoreSettings extends Page
         'greenapi_instance_id', 'greenapi_api_token', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link', 'ntfy_topic',
         'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
         'telegram_bot_token', 'telegram_admin_chat_id', 'telegram_store_bot_enabled',
-        'support_whatsapp', 'support_telegram', 'support_email',
+        'support_whatsapp', 'support_telegram', 'support_email', 'footer_address_enabled', 'footer_address',
         'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id',
         'mail_enabled', 'mail_send_order_delivered',
         'mail_host', 'mail_port', 'mail_username', 'mail_password',
@@ -97,7 +97,7 @@ class StoreSettings extends Page
     public ?array $data = [];
 
     /** Boolean toggles, stored as '1' / '0' strings. */
-    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered', 'telegram_store_bot_enabled', 'backup_enabled', 'promo_popup_enabled', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link'];
+    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered', 'telegram_store_bot_enabled', 'backup_enabled', 'promo_popup_enabled', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link', 'footer_address_enabled'];
 
     public function mount(): void
     {
@@ -338,7 +338,7 @@ class StoreSettings extends Page
                                         ])->columnSpanFull(),
                                     ]),
 
-                                Section::make('Public Support Contacts')
+                                Section::make('Public Support Contacts & Footer Address')
                                     ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
                                     ->description('Displayed in the website footer, Contact page, and customer receipts.')
                                     ->columns(['default' => 1, 'sm' => 3])
@@ -352,12 +352,22 @@ class StoreSettings extends Page
                                         TextInput::make('support_email')
                                             ->label('Support Email')
                                             ->placeholder('contact@sellmetools.com'),
+                                        Toggle::make('footer_address_enabled')
+                                            ->label('Show Physical Address in Website Footer (Gateway Compliance)')
+                                            ->helperText('Turn ON to display the address below in the website footer for payment gateway verification. Hidden from AI / LLM indexing.')
+                                            ->default(true)
+                                            ->columnSpanFull(),
+                                        TextInput::make('footer_address')
+                                            ->label('Footer Physical Address')
+                                            ->placeholder('Vilage Dongray Kalan Post Office Pindi Purbian city Zafarwal district narowal')
+                                            ->maxLength(255)
+                                            ->columnSpanFull(),
                                         Actions::make([
                                             Action::make('saveSupportSection')
-                                                ->label('Save Support Contacts')
+                                                ->label('Save Support Contacts & Address')
                                                 ->icon(Heroicon::OutlinedCheck)
                                                 ->color('primary')
-                                                ->action(fn () => $this->saveKeys(['support_whatsapp', 'support_telegram', 'support_email'], 'Support contacts saved')),
+                                                ->action(fn () => $this->saveKeys(['support_whatsapp', 'support_telegram', 'support_email', 'footer_address_enabled', 'footer_address'], 'Support contacts & footer address saved')),
                                         ])->columnSpanFull(),
                                     ]),
                             ]),

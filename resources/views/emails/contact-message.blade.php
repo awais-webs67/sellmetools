@@ -1,102 +1,110 @@
 @php
-    $logoUrl = asset('images/email-logo.png');
+    $storeName = $storeName ?? (string) setting('store_name', 'SellMeTools');
+    $logoUrl = asset('images/email-logo-dark.png') . '?v=4';
 @endphp
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="dark light">
-    <meta name="supported-color-schemes" content="dark light">
+    <meta name="x-apple-disable-message-reformatting">
+    <meta name="color-scheme" content="dark">
+    <meta name="supported-color-schemes" content="dark">
     <title>New Contact Inquiry - {{ $storeName }}</title>
+    <style>
+        body, table, td, p, a, h1, h2 {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+        table, td {
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+            border-collapse: collapse;
+        }
+        @media only screen and (max-width: 600px) {
+            .email-wrapper { padding: 12px 8px !important; }
+            .email-card { border-radius: 14px !important; }
+            .hero-pad { padding: 26px 18px !important; }
+            .body-pad { padding: 20px 16px !important; }
+            .hero-title { font-size: 20px !important; }
+        }
+    </style>
 </head>
-<body style="margin:0;padding:0;background-color:#060911;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#F8FAFC;line-height:1.6;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#060911;padding:32px 12px;">
+<body style="margin:0;padding:0;background-color:#09090B;color:#F4F4F5;width:100% !important;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#09090B" style="background-color:#09090B;width:100%;margin:0;padding:0;">
         <tr>
-            <td align="center">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background-color:#0D1322;border-radius:18px;border:1px solid #1E293B;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,0.6);">
+            <td align="center" class="email-wrapper" style="padding:28px 12px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-card" bgcolor="#111115" style="max-width:580px;width:100%;background-color:#111115;border:1px solid #2E151E;border-radius:16px;overflow:hidden;">
 
-                    {{-- Top Brand Accent Line --}}
+                    {{-- Top Wine-Red Hero Accent Line --}}
                     <tr>
-                        <td style="height:4px;background:linear-gradient(90deg,#9B1B30 0%,#E11D48 50%,#10B981 100%);font-size:0;line-height:0;">&nbsp;</td>
+                        <td height="4" bgcolor="#9B1B30" style="height:4px;line-height:4px;font-size:4px;background-color:#9B1B30;background-image:linear-gradient(90deg,#7D1426 0%,#E11D48 50%,#7D1426 100%);">&nbsp;</td>
                     </tr>
 
-                    {{-- Dark Luxury Brand Header with High-Contrast Logo Pill --}}
+                    {{-- Storefront Hero Banner (Wine Red + Pure Black) --}}
                     <tr>
-                        <td style="background-color:#090D18;padding:20px 26px;border-bottom:1px solid #1E293B;">
-                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                                <tr>
-                                    <td align="left" valign="middle">
-                                        <a href="{{ url('/') }}" style="text-decoration:none;display:inline-block;background-color:#FFFFFF;background-image:linear-gradient(#FFFFFF,#FFFFFF);padding:7px 14px;border-radius:10px;border:1px solid #E2E8F0;box-shadow:0 4px 12px rgba(0,0,0,0.35);">
-                                            <img src="{{ $logoUrl }}" alt="{{ $storeName }}" width="155" style="display:block;height:32px;width:auto;max-width:165px;border:0;">
-                                        </a>
-                                    </td>
-                                    <td align="right" valign="middle">
-                                        <span style="display:inline-block;background-color:#4C0519;border:1px solid #E11D48;color:#FDA4AF;font-size:11px;font-weight:800;padding:5px 12px;border-radius:999px;">
-                                            New Support Ticket
-                                        </span>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
+                        <td align="center" bgcolor="#140409" class="hero-pad" style="padding:30px 24px 24px 24px;background-color:#140409;background-image:radial-gradient(ellipse at top, rgba(180,28,54,0.48), transparent 62%), linear-gradient(145deg, #100307 0%, #3A0916 52%, #0C0306 100%);border-bottom:1px solid #3A121E;text-align:center;">
+                            <a href="{{ url('/') }}" target="_blank" style="text-decoration:none;display:inline-block;">
+                                <img src="{{ $logoUrl }}" alt="{{ $storeName }}" width="175" height="34" style="display:block;margin:0 auto;width:175px;max-width:78%;height:auto;border:0;">
+                            </a>
 
-                    {{-- Dark Banner --}}
-                    <tr>
-                        <td style="background-color:#111827;background-image:linear-gradient(180deg,#131C31 0%,#0D1322 100%);padding:24px 26px;border-bottom:1px solid #1E293B;">
-                            <p style="margin:0;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:#94A3B8;font-weight:800;">Customer Support Desk</p>
-                            <h1 style="margin:6px 0 0;font-size:21px;font-weight:800;color:#FFFFFF;">New Contact Message on {{ $storeName }}</h1>
+                            <div style="margin-top:16px;">
+                                <span style="display:inline-block;background-color:#280812;border:1px solid #7D1426;color:#FDA4AF;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:5px 14px;border-radius:999px;">
+                                    New Support Ticket
+                                </span>
+                            </div>
+
+                            <h1 class="hero-title" style="margin:12px 0 0 0;font-size:21px;font-weight:800;color:#FFFFFF;line-height:1.3;">
+                                {{ $inquiry['subject'] }}
+                            </h1>
                         </td>
                     </tr>
 
                     {{-- Main Body --}}
                     <tr>
-                        <td style="padding:26px;">
-                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-size:14px;">
+                        <td class="body-pad" style="padding:24px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#171216" style="width:100%;background-color:#171216;border:1px solid #2E1821;border-radius:12px;margin-bottom:18px;">
                                 <tr>
-                                    <td style="padding:10px 0;border-bottom:1px solid #1E293B;color:#94A3B8;width:140px;font-weight:600;">Customer Name:</td>
-                                    <td style="padding:10px 0;border-bottom:1px solid #1E293B;color:#FFFFFF;font-weight:700;">{{ $inquiry['name'] }}</td>
+                                    <td style="padding:10px 14px;border-bottom:1px solid #26141C;font-size:12px;color:#A1A1AA;font-weight:600;">Customer Name</td>
+                                    <td align="right" style="padding:10px 14px;border-bottom:1px solid #26141C;font-size:13px;color:#FFFFFF;font-weight:700;">{{ $inquiry['name'] }}</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding:10px 0;border-bottom:1px solid #1E293B;color:#94A3B8;font-weight:600;">Reply Email:</td>
-                                    <td style="padding:10px 0;border-bottom:1px solid #1E293B;color:#38BDF8;font-weight:700;">
-                                        <a href="mailto:{{ $inquiry['email'] }}" style="color:#38BDF8;text-decoration:underline;">{{ $inquiry['email'] }}</a>
-                                    </td>
+                                    <td style="padding:10px 14px;border-bottom:1px solid #26141C;font-size:12px;color:#A1A1AA;font-weight:600;">Reply Email</td>
+                                    <td align="right" style="padding:10px 14px;border-bottom:1px solid #26141C;font-size:13px;"><a href="mailto:{{ $inquiry['email'] }}" style="color:#FDA4AF;text-decoration:underline;font-weight:700;">{{ $inquiry['email'] }}</a></td>
                                 </tr>
                                 @if (!empty($inquiry['phone']))
                                     <tr>
-                                        <td style="padding:10px 0;border-bottom:1px solid #1E293B;color:#94A3B8;font-weight:600;">WhatsApp / Phone:</td>
-                                        <td style="padding:10px 0;border-bottom:1px solid #1E293B;color:#34D399;font-weight:700;">{{ $inquiry['phone'] }}</td>
+                                        <td style="padding:10px 14px;border-bottom:1px solid #26141C;font-size:12px;color:#A1A1AA;font-weight:600;">WhatsApp / Phone</td>
+                                        <td align="right" style="padding:10px 14px;border-bottom:1px solid #26141C;font-size:13px;color:#86EFAC;font-weight:700;">{{ $inquiry['phone'] }}</td>
                                     </tr>
                                 @endif
                                 @if (!empty($inquiry['order_number']))
                                     <tr>
-                                        <td style="padding:10px 0;border-bottom:1px solid #1E293B;color:#94A3B8;font-weight:600;">Order Number:</td>
-                                        <td style="padding:10px 0;border-bottom:1px solid #1E293B;color:#FFFFFF;font-family:monospace;font-weight:700;">{{ $inquiry['order_number'] }}</td>
+                                        <td style="padding:10px 14px;font-size:12px;color:#A1A1AA;font-weight:600;">Order Number</td>
+                                        <td align="right" style="padding:10px 14px;font-size:13px;color:#FFFFFF;font-family:monospace;font-weight:700;">{{ $inquiry['order_number'] }}</td>
                                     </tr>
                                 @endif
-                                <tr>
-                                    <td style="padding:10px 0;color:#94A3B8;font-weight:600;">Topic / Subject:</td>
-                                    <td style="padding:10px 0;color:#FFFFFF;font-weight:700;">{{ $inquiry['subject'] }}</td>
-                                </tr>
                             </table>
 
-                            <div style="margin-top:20px;padding:18px;background:#080C16;border:1px solid #1E293B;border-left:4px solid #E11D48;border-radius:12px;">
-                                <p style="margin:0 0 8px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;">Customer Message</p>
-                                <p style="margin:0;font-size:14px;line-height:1.65;color:#F8FAFC;white-space:pre-line;">{{ $inquiry['message'] }}</p>
-                            </div>
+                            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:#FDA4AF;margin-bottom:6px;">Customer Message</div>
+                            <div style="padding:15px 16px;background-color:#09090D;border-radius:10px;border:1px solid #3A1522;border-left:3px solid #E11D48;font-size:13.5px;color:#F8FAFC;line-height:1.65;white-space:pre-line;word-break:break-word;">{{ $inquiry['message'] }}</div>
 
-                            <div style="text-align:center;margin:24px 0 8px;">
-                                <a href="mailto:{{ $inquiry['email'] }}?subject={{ rawurlencode('Re: '.$inquiry['subject'].' - '.$storeName) }}" style="display:inline-block;background-color:#10B981;color:#042F2E;font-weight:800;font-size:13.5px;padding:13px 28px;border-radius:10px;text-decoration:none;">
-                                    Reply to {{ $inquiry['name'] }} &rarr;
-                                </a>
-                            </div>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-top:18px;">
+                                <tr>
+                                    <td align="center" bgcolor="#9B1B30" style="border-radius:10px;background-color:#9B1B30;">
+                                        <a href="mailto:{{ $inquiry['email'] }}?subject={{ rawurlencode('Re: '.$inquiry['subject'].' - '.$storeName) }}" style="display:block;padding:13px 18px;font-size:13.5px;font-weight:800;color:#FFFFFF;text-decoration:none;text-align:center;border-radius:10px;background-color:#9B1B30;border:1px solid #BE123C;">
+                                            Reply to {{ $inquiry['name'] }}
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
                         </td>
                     </tr>
 
                     {{-- Footer --}}
                     <tr>
-                        <td style="background-color:#080C16;padding:18px 26px;border-top:1px solid #1E293B;text-align:center;font-size:11px;color:#64748B;">
+                        <td bgcolor="#0C0C10" style="padding:18px 24px;background-color:#0C0C10;border-top:1px solid #24131A;text-align:center;font-size:11px;color:#71717A;">
                             &copy; {{ date('Y') }} {{ $storeName }} ({{ parse_url(config('app.url'), PHP_URL_HOST) ?: 'sellmetools.com' }}). All rights reserved.
                         </td>
                     </tr>
