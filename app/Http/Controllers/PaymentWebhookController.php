@@ -298,6 +298,9 @@ class PaymentWebhookController extends Controller
                     if ($order->status === OrderStatus::Completed) {
                         $actionResult = 'approve';
                         $message = "✅ Order {$order->number} Delivered via {$source->supplier?->name}!";
+                    } elseif ($order->status === OrderStatus::Processing) {
+                        $actionResult = 'approve';
+                        $message = "⚡ Payment Approved! Delivering credentials via {$source->supplier?->name} bridge now (1–2 seconds)...";
                     } else {
                         $actionResult = 'needs_attention';
                         $message = "⚠️ {$source->supplier?->name} could not deliver: ".($order->admin_note ?: 'Check supplier balance or try another supplier.');
@@ -314,6 +317,9 @@ class PaymentWebhookController extends Controller
                     if ($order->status === OrderStatus::Completed) {
                         $actionResult = 'approve';
                         $message = "✅ Order {$order->number} Payment Confirmed & Credentials Delivered!";
+                    } elseif ($order->status === OrderStatus::Processing) {
+                        $actionResult = 'approve';
+                        $message = '⚡ Payment Confirmed! Delivering credentials from supplier API now (1–2 seconds)...';
                     } else {
                         $actionResult = 'needs_attention';
                         $message = '✅ Payment is Approved, BUT Delivery is On Hold: '.($order->admin_note ?: 'Check supplier balance or paste credentials below to deliver manually.');

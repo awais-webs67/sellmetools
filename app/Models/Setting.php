@@ -31,6 +31,7 @@ class Setting extends Model
         'greenapi_instance_id' => '',
         'greenapi_api_token' => '',
         'whatsapp_send_customer_receipt' => '0',
+        'whatsapp_include_customer_chat_link' => '0',
         'ntfy_topic' => '',
         'whatsapp_callmebot_apikey' => '',
         'whatsapp_admin_webhook_url' => '',

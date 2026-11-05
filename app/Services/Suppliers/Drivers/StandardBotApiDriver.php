@@ -125,7 +125,7 @@ class StandardBotApiDriver implements SupplierDriver
 
         $host = parse_url($this->normalizedBaseUrl(), PHP_URL_HOST);
         $targetIp = $overrideIp;
-        if (! $targetIp && is_string($host) && $this->isRailwayHost()) {
+        if (! $targetIp && is_string($host) && str_ends_with(strtolower($host), '.up.railway.app')) {
             $edges = ['69.46.46.88', '69.46.46.90', '69.46.46.95', '69.46.46.97'];
             $targetIp = $edges[array_rand($edges)];
         }
@@ -618,7 +618,7 @@ class StandardBotApiDriver implements SupplierDriver
             throw SupplierException::withContext('Could not connect directly to Railway edge (queued for instant browser bridge / alternate supplier).');
         }
 
-        $connTimeout = $isRailway ? 4 : 15;
+        $connTimeout = $isRailway ? 2 : 15;
 
         $executeOrderRequest = function () use ($isProdSeller, $isBunai, $isQamify, $isTunvn, $isCanboso, $externalProductId, $normalizedId, $quantity, $requestId, $idempotencyKey, $apiKey, $connTimeout): Response {
             if ($isProdSeller) {
@@ -699,8 +699,8 @@ class StandardBotApiDriver implements SupplierDriver
 
             if ($isConnectPhaseTimeout) {
                 if ($isRailway) {
-                    Cache::put('railway_direct_cooldown_'.$this->supplier->id, true, 600);
-                    throw SupplierException::withContext('Could not connect to supplier while placing order: '.$e->getMessage());
+                    Cache::put('railway_direct_cooldown_'.$this->supplier->id, true, 86400);
+                    throw SupplierException::withContext('Could not connect directly to Railway edge (queued for instant browser bridge / alternate supplier).');
                 }
                 if (! app()->runningUnitTests()) {
                     usleep(800000);

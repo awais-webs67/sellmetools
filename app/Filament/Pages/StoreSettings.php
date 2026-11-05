@@ -51,7 +51,7 @@ class StoreSettings extends Page
         'shop_seo_title', 'shop_seo_description',
         'usdt_rate', 'price_rounding', 'order_expiry_minutes',
         'sms_webhook_secret', 'admin_quick_pin',
-        'greenapi_instance_id', 'greenapi_api_token', 'whatsapp_send_customer_receipt', 'ntfy_topic',
+        'greenapi_instance_id', 'greenapi_api_token', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link', 'ntfy_topic',
         'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
         'telegram_bot_token', 'telegram_admin_chat_id', 'telegram_store_bot_enabled',
         'support_whatsapp', 'support_telegram', 'support_email',
@@ -97,14 +97,14 @@ class StoreSettings extends Page
     public ?array $data = [];
 
     /** Boolean toggles, stored as '1' / '0' strings. */
-    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered', 'telegram_store_bot_enabled', 'backup_enabled', 'promo_popup_enabled', 'whatsapp_send_customer_receipt'];
+    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered', 'telegram_store_bot_enabled', 'backup_enabled', 'promo_popup_enabled', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link'];
 
     public function mount(): void
     {
         $values = array_intersect_key(Setting::values(), array_flip(self::KEYS));
 
         foreach (self::TOGGLE_KEYS as $key) {
-            $default = in_array($key, ['backup_enabled', 'promo_popup_enabled', 'whatsapp_send_customer_receipt'], true) ? '0' : '1';
+            $default = in_array($key, ['backup_enabled', 'promo_popup_enabled', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link'], true) ? '0' : '1';
             $values[$key] = (string) ($values[$key] ?? $default) === '1';
         }
 
@@ -579,6 +579,11 @@ class StoreSettings extends Page
                                             ->helperText('Keep OFF on Green-API Free Plan (3-number limit) so Admin 1-Tap & Order Alerts work without interruption. Turn ON when you upgrade your Green-API plan to auto-send receipts & credentials to every customer.')
                                             ->default(false)
                                             ->columnSpanFull(),
+                                        Toggle::make('whatsapp_include_customer_chat_link')
+                                            ->label('Include Customer WhatsApp Chat Invoice Link in Admin Delivered Alert')
+                                            ->helperText('Keep OFF for a clean Admin Order Delivered WhatsApp notification without the long wa.me customer chat link. Turn ON if you want the manual 1-tap customer chat link inside your delivered notification.')
+                                            ->default(false)
+                                            ->columnSpanFull(),
                                         TextInput::make('support_whatsapp')
                                             ->label('Admin WhatsApp Number (Exact Format: 923XXXXXXXXX)')
                                             ->placeholder('923001234567'),
@@ -607,7 +612,7 @@ class StoreSettings extends Page
                                                 ->icon(Heroicon::OutlinedCheck)
                                                 ->color('primary')
                                                 ->action(fn () => $this->saveKeys([
-                                                    'whatsapp_send_customer_receipt',
+                                                    'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link',
                                                     'support_whatsapp', 'admin_quick_pin', 'ntfy_topic', 'sms_webhook_secret',
                                                     'greenapi_instance_id', 'greenapi_api_token',
                                                     'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
@@ -618,7 +623,7 @@ class StoreSettings extends Page
                                                 ->color('success')
                                                 ->action(function (): void {
                                                     $this->saveKeys([
-                                                        'whatsapp_send_customer_receipt',
+                                                        'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link',
                                                         'support_whatsapp', 'admin_quick_pin', 'ntfy_topic', 'sms_webhook_secret',
                                                         'greenapi_instance_id', 'greenapi_api_token',
                                                         'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',

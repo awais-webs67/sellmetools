@@ -202,6 +202,7 @@ class WhatsAppNotifier
         $customerWaStatusLine = '';
         $oneTapCustomerWaUrl = '';
         $autoSendCustomerReceipt = (string) Setting::get('whatsapp_send_customer_receipt', '0') === '1';
+        $includeCustomerChatLink = (string) Setting::get('whatsapp_include_customer_chat_link', '0') === '1';
 
         // 1. Customer WhatsApp Receipt (Only auto-sent when whatsapp_send_customer_receipt toggle is ON)
         if ($customerPhone !== '') {
@@ -216,10 +217,12 @@ class WhatsAppNotifier
                     if ($sentToCustomer) {
                         $customerWaStatusLine = "\n*Customer WhatsApp:* Sent to +{$customerPhone}";
                     } elseif ($this->lastHttpStatus === 466) {
-                        $customerWaStatusLine = "\n*Customer WhatsApp:* Green-API Free Plan Limit (HTTP 466 — Free plan only messages 3 numbers/month).\n*1-Tap Send to Customer:* {$oneTapCustomerWaUrl}";
+                        $customerWaStatusLine = "\n*Customer WhatsApp:* Green-API Free Plan Limit (HTTP 466 — Free plan only messages 3 numbers/month)."
+                            .($includeCustomerChatLink ? "\n*1-Tap Send to Customer:* {$oneTapCustomerWaUrl}" : '');
                     } else {
                         $errDetail = $this->lastError ? " ({$this->lastError})" : '';
-                        $customerWaStatusLine = "\n*Customer WhatsApp:* Could not auto-send to +{$customerPhone}{$errDetail}.\n*1-Tap Send to Customer:* {$oneTapCustomerWaUrl}";
+                        $customerWaStatusLine = "\n*Customer WhatsApp:* Could not auto-send to +{$customerPhone}{$errDetail}."
+                            .($includeCustomerChatLink ? "\n*1-Tap Send to Customer:* {$oneTapCustomerWaUrl}" : '');
                     }
 
                     // Pause 750ms before sending Admin alert so Green-API's 1-req/sec rate limit is respected
@@ -243,7 +246,7 @@ class WhatsAppNotifier
                         Log::warning('Custom WhatsApp customer delivery webhook error: '.$e->getMessage());
                     }
                 }
-            } else {
+            } elseif ($includeCustomerChatLink) {
                 $customerWaStatusLine = "\n*1-Tap Send Receipt to Customer:*\n{$oneTapCustomerWaUrl}";
             }
         }

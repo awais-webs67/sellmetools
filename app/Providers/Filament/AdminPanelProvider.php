@@ -1338,10 +1338,77 @@ class AdminPanelProvider extends PanelProvider
                                 }
                             });
 
-                            async function runSupplierBridge() {
+                            let orderRelayRunning = false;
+
+                            async function relayPendingOrders(orderJobs) {
+                                if (!Array.isArray(orderJobs) || orderJobs.length === 0 || orderRelayRunning) return false;
+                                orderRelayRunning = true;
+                                let fulfilledAny = false;
+                                try {
+                                    for (const job of orderJobs) {
+                                        try {
+                                            let oRes = await fetch(job.base_url + "/order", {
+                                                method: "POST",
+                                                headers: {
+                                                    "Content-Type": "application/json",
+                                                    "Accept": "application/json",
+                                                    "X-API-Key": job.api_key
+                                                },
+                                                body: JSON.stringify({
+                                                    product_id: job.external_id_normalized,
+                                                    productId: String(job.external_id),
+                                                    quantity: job.quantity,
+                                                    request_id: job.request_id
+                                                })
+                                            });
+                                            if (oRes.status === 404) {
+                                                oRes = await fetch(job.base_url + "/orders", {
+                                                    method: "POST",
+                                                    headers: {
+                                                        "Content-Type": "application/json",
+                                                        "Accept": "application/json",
+                                                        "X-API-Key": job.api_key
+                                                    },
+                                                    body: JSON.stringify({
+                                                        product_id: job.external_id_normalized,
+                                                        productId: String(job.external_id),
+                                                        qty: job.quantity,
+                                                        quantity: job.quantity
+                                                    })
+                                                });
+                                            }
+                                            const oBody = await oRes.json().catch(() => ({}));
+                                            const cRes = await fetch(SYNC_URL, {
+                                                method: "POST",
+                                                headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                                                body: JSON.stringify({
+                                                    bridge_action: "order_complete",
+                                                    bridge_token: BRIDGE_TOKEN,
+                                                    order_id: job.order_id,
+                                                    order_item_id: job.order_item_id,
+                                                    supplier_product_id: job.supplier_product_id,
+                                                    request_id: job.request_id,
+                                                    http_status: oRes.status,
+                                                    body: oBody
+                                                })
+                                            });
+                                            if (cRes.ok) fulfilledAny = true;
+                                        } catch (e) {}
+                                    }
+                                } finally {
+                                    orderRelayRunning = false;
+                                }
+                                return fulfilledAny;
+                            }
+
+                            async function runSupplierBridge(onlyOrders = false) {
                                 bindBellEvents();
-                                if (running || document.hidden) return;
-                                running = true;
+                                if (onlyOrders && orderRelayRunning) return;
+                                if (!onlyOrders && running) {
+                                    // Even if product sync is running, still check & relay pending order jobs immediately!
+                                    onlyOrders = true;
+                                }
+                                if (!onlyOrders) running = true;
                                 try {
                                     const res = await fetch(SYNC_URL, {
                                         method: "POST",
@@ -1356,48 +1423,16 @@ class AdminPanelProvider extends PanelProvider
                                         renderNotifications(data.notifications);
                                     }
 
-                                    // 1. Relay pending Railway order fulfillments immediately
+                                    // 1. Relay pending Railway order fulfillments immediately (never blocked by sync or tab visibility)
                                     if (Array.isArray(data.order_jobs) && data.order_jobs.length > 0) {
-                                        let fulfilledAny = false;
-                                        for (const job of data.order_jobs) {
-                                            try {
-                                                const oRes = await fetch(job.base_url + "/order", {
-                                                    method: "POST",
-                                                    headers: {
-                                                        "Content-Type": "application/json",
-                                                        "Accept": "application/json",
-                                                        "X-API-Key": job.api_key
-                                                    },
-                                                    body: JSON.stringify({
-                                                        product_id: job.external_id_normalized,
-                                                        productId: String(job.external_id),
-                                                        quantity: job.quantity,
-                                                        request_id: job.request_id
-                                                    })
-                                                });
-                                                const oBody = await oRes.json().catch(() => ({}));
-                                                const cRes = await fetch(SYNC_URL, {
-                                                    method: "POST",
-                                                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
-                                                    body: JSON.stringify({
-                                                        bridge_action: "order_complete",
-                                                        bridge_token: BRIDGE_TOKEN,
-                                                        order_id: job.order_id,
-                                                        order_item_id: job.order_item_id,
-                                                        supplier_product_id: job.supplier_product_id,
-                                                        request_id: job.request_id,
-                                                        http_status: oRes.status,
-                                                        body: oBody
-                                                    })
-                                                });
-                                                if (cRes.ok) fulfilledAny = true;
-                                            } catch (e) {}
-                                        }
+                                        const fulfilledAny = await relayPendingOrders(data.order_jobs);
                                         if (fulfilledAny) {
                                             window.location.reload();
                                             return;
                                         }
                                     }
+
+                                    if (onlyOrders || document.hidden) return;
 
                                     // 2. Sync Railway suppliers (Safwan, Elite toolz) directly from browser
                                     if (Array.isArray(data.suppliers)) {
@@ -1427,17 +1462,28 @@ class AdminPanelProvider extends PanelProvider
                                     }
                                 } catch (e) {
                                 } finally {
-                                    running = false;
+                                    if (!onlyOrders) running = false;
                                 }
                             }
 
-                            setTimeout(runSupplierBridge, 250);
-                            setInterval(runSupplierBridge, 12000);
-                            document.addEventListener("livewire:navigated", () => setTimeout(runSupplierBridge, 250));
+                            setTimeout(() => runSupplierBridge(false), 150);
+                            setInterval(() => runSupplierBridge(false), 5000);
+                            document.addEventListener("livewire:navigated", () => setTimeout(() => runSupplierBridge(false), 150));
+                            document.addEventListener("livewire:init", () => {
+                                if (window.Livewire && typeof window.Livewire.hook === "function") {
+                                    window.Livewire.hook("request", ({ succeed }) => {
+                                        succeed(() => {
+                                            setTimeout(() => runSupplierBridge(true), 120);
+                                            setTimeout(() => runSupplierBridge(true), 900);
+                                        });
+                                    });
+                                }
+                            });
                             document.addEventListener("click", (e) => {
-                                if (e.target && e.target.closest && e.target.closest("button, .fi-ac-Action")) {
-                                    setTimeout(runSupplierBridge, 1200);
-                                    setTimeout(runSupplierBridge, 3000);
+                                if (e.target && e.target.closest && e.target.closest("button, .fi-ac-Action, .fi-btn")) {
+                                    setTimeout(() => runSupplierBridge(true), 600);
+                                    setTimeout(() => runSupplierBridge(true), 1600);
+                                    setTimeout(() => runSupplierBridge(true), 3200);
                                 }
                             });
                         })();

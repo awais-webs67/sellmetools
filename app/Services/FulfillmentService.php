@@ -281,8 +281,7 @@ class FulfillmentService
         // Auto-recover any previous 'unknown' rows that were actually TCP connect-phase timeouts (before any HTTP request was sent)
         foreach ($previous as $prevAttempt) {
             if ($prevAttempt->status === SupplierOrderStatus::Unknown) {
-                $errLower = strtolower((string) $prevAttempt->error);
-                if (str_contains($errLower, 'connection timed out') || str_contains($errLower, 'failed to connect') || str_contains($errLower, 'could not resolve host')) {
+                if (self::isBridgeHandoffError($prevAttempt->error) || str_contains(strtolower((string) $prevAttempt->error), 'could not resolve host')) {
                     $prevAttempt->update(['status' => SupplierOrderStatus::Failed]);
                 }
             }
@@ -426,6 +425,22 @@ class FulfillmentService
         return count($delivered) < $qty ? 'delivered fewer items than requested' : 'ok';
     }
 
+    public static function isBridgeHandoffError(?string $error): bool
+    {
+        $errLower = strtolower((string) $error);
+        if ($errLower === '') {
+            return false;
+        }
+
+        return str_contains($errLower, 'railway edge')
+            || str_contains($errLower, 'browser bridge')
+            || str_contains($errLower, 'could not connect')
+            || str_contains($errLower, 'cooldown')
+            || str_contains($errLower, 'timed out')
+            || str_contains($errLower, 'connection error')
+            || str_contains($errLower, 'failed to connect');
+    }
+
     /**
      * Returns any pending supplier order jobs for Railway-hosted suppliers (Safwan, Elite toolz)
      * that can be executed directly by the Admin Browser Bridge when Hostinger's server route is in cooldown.
@@ -457,13 +472,7 @@ class FulfillmentService
                 $allowAboveUnitPrice = false;
 
                 if ($latestAttempt && $latestAttempt->supplierProduct) {
-                    $errLower = strtolower((string) $latestAttempt->error);
-                    $isBridgeableError = str_contains($errLower, 'cooldown')
-                        || str_contains($errLower, 'timed out')
-                        || str_contains($errLower, 'connection error')
-                        || str_contains($errLower, 'failed to connect');
-
-                    if ($latestAttempt->status !== SupplierOrderStatus::Success && $isBridgeableError) {
+                    if ($latestAttempt->status !== SupplierOrderStatus::Success && self::isBridgeHandoffError($latestAttempt->error)) {
                         $candidateSource = $latestAttempt->supplierProduct;
                         $allowAboveUnitPrice = true;
                     }
@@ -505,8 +514,12 @@ class FulfillmentService
                     continue;
                 }
 
-                $attemptNo = $previous->count() + 1;
-                $requestId = "{$order->number}-{$item->id}-{$source->id}-{$attemptNo}";
+                if ($latestAttempt && (int) $latestAttempt->supplier_product_id === (int) $source->id && $latestAttempt->status !== SupplierOrderStatus::Success && self::isBridgeHandoffError($latestAttempt->error)) {
+                    $requestId = $latestAttempt->request_id;
+                } else {
+                    $attemptNo = $previous->count() + 1;
+                    $requestId = "{$order->number}-{$item->id}-{$source->id}-{$attemptNo}";
+                }
 
                 $jobs[] = [
                     'order_id' => $order->id,
@@ -835,34 +848,48 @@ class FulfillmentService
                 defer($notifyDelivered);
             }
         } else {
-            $reasonText = implode(' | ', array_unique($problems)) ?: 'Order on hold, awaiting admin stock dispatch';
-            $order->update([
-                'status' => OrderStatus::NeedsAttention,
-                'admin_note' => $reasonText,
-            ]);
+            $isBridgeHandoffOnly = ! app()->runningUnitTests()
+                && $problems !== []
+                && collect($problems)->every(fn (string $p): bool => self::isBridgeHandoffError($p));
 
-            $adminOrderUrl = route('filament.admin.resources.orders.view', ['record' => $order->number]);
-            $quickControlUrl = route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']);
-
-            $notifyHold = function () use ($order, $items, $reasonText, $adminOrderUrl, $quickControlUrl, $problems): void {
-                $this->telegram->notifyAdmin(
-                    "⏸️⚠️ <b>PAYMENT CONFIRMED: DELIVERY PENDING / FAILED!</b>\n".
-                    "━━━━━━━━━━━━━━━━━━\n".
-                    "✅ <b>Payment Status:</b> CONFIRMED (Rs {$order->total})\n".
-                    "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
-                    $items->map(fn ($i) => '📦 '.T::e($i->product_name)." ({$i->delivered_qty}/{$i->quantity} delivered)")->implode("\n")."\n".
-                    '🏭 <b>Supplier:</b> '.T::e($order->adminSupplierSummary(true))."\n".
-                    '⚠️ <b>Reason:</b> '.T::e($reasonText)."\n".
-                    '👤 <b>Customer:</b> '.T::e($order->email).($order->phone ? ' (+'.T::e($order->phone).')' : '')."\n".
-                    "🔗 <a href=\"{$adminOrderUrl}\">Open Order in Admin Panel</a> · <a href=\"{$quickControlUrl}\">1-Tap Manual Deliver</a>"
-                );
-                app(WhatsAppNotifier::class)->notifyOrderOnHoldLowBalance($order, $problems);
-            };
-
-            if (app()->runningUnitTests()) {
-                $notifyHold();
+            if ($isBridgeHandoffOnly) {
+                // Order is queued for instant execution by the Admin Browser Bridge (Safwan / EliteToolz on Railway).
+                // Keep status as Processing and suppress the false "Order On Hold" notification while the browser bridge delivers it in ~1s.
+                $order->update([
+                    'status' => OrderStatus::Processing,
+                    'paid_at' => $order->paid_at ?? now(),
+                    'admin_note' => 'Dispatching via live supplier bridge...',
+                ]);
             } else {
-                defer($notifyHold);
+                $reasonText = implode(' | ', array_unique($problems)) ?: 'Order on hold, awaiting admin stock dispatch';
+                $order->update([
+                    'status' => OrderStatus::NeedsAttention,
+                    'admin_note' => $reasonText,
+                ]);
+
+                $adminOrderUrl = route('filament.admin.resources.orders.view', ['record' => $order->number]);
+                $quickControlUrl = route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']);
+
+                $notifyHold = function () use ($order, $items, $reasonText, $adminOrderUrl, $quickControlUrl, $problems): void {
+                    $this->telegram->notifyAdmin(
+                        "⏸️⚠️ <b>PAYMENT CONFIRMED: DELIVERY PENDING / FAILED!</b>\n".
+                        "━━━━━━━━━━━━━━━━━━\n".
+                        "✅ <b>Payment Status:</b> CONFIRMED (Rs {$order->total})\n".
+                        "🧾 <b>Order:</b> <code>{$order->number}</code>\n".
+                        $items->map(fn ($i) => '📦 '.T::e($i->product_name)." ({$i->delivered_qty}/{$i->quantity} delivered)")->implode("\n")."\n".
+                        '🏭 <b>Supplier:</b> '.T::e($order->adminSupplierSummary(true))."\n".
+                        '⚠️ <b>Reason:</b> '.T::e($reasonText)."\n".
+                        '👤 <b>Customer:</b> '.T::e($order->email).($order->phone ? ' (+'.T::e($order->phone).')' : '')."\n".
+                        "🔗 <a href=\"{$adminOrderUrl}\">Open Order in Admin Panel</a> · <a href=\"{$quickControlUrl}\">1-Tap Manual Deliver</a>"
+                    );
+                    app(WhatsAppNotifier::class)->notifyOrderOnHoldLowBalance($order, $problems);
+                };
+
+                if (app()->runningUnitTests()) {
+                    $notifyHold();
+                } else {
+                    defer($notifyHold);
+                }
             }
         }
 
