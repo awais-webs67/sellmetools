@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Models\SupplierProduct;
 use App\Services\FulfillmentService;
 use App\Services\OrderService;
+use App\Services\WhatsAppNotifier;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
@@ -67,13 +68,17 @@ class ViewOrder extends ViewRecord
     protected function chatCustomerWhatsappAction(): Action
     {
         return Action::make('chatCustomerWhatsapp')
-            ->label('WhatsApp Customer')
+            ->label(fn (): string => $this->record->status === OrderStatus::Completed ? 'Send Receipt on WhatsApp' : 'WhatsApp Customer')
             ->icon(Heroicon::OutlinedChatBubbleLeftRight)
-            ->color('gray')
-            ->visible(fn (): bool => filled($this->record->phone) && format_whatsapp((string) $this->record->phone) !== '')
+            ->color(fn (): string => $this->record->status === OrderStatus::Completed ? 'success' : 'gray')
+            ->visible(fn (): bool => filled($this->record->phone ?: $this->record->latestPayment?->sender_number) && format_whatsapp((string) ($this->record->phone ?: $this->record->latestPayment?->sender_number)) !== '')
             ->url(function (): string {
-                $phone = format_whatsapp((string) $this->record->phone);
-                $text = urlencode("Assalam o Alaikum! Regarding your order {$this->record->number} on ".setting('store_name', 'SellMeTools').': ');
+                $phone = format_whatsapp((string) ($this->record->phone ?: $this->record->latestPayment?->sender_number));
+                if ($this->record->status === OrderStatus::Completed) {
+                    $text = urlencode(WhatsAppNotifier::buildCustomerReceiptMessage($this->record));
+                } else {
+                    $text = urlencode("Assalam o Alaikum! Regarding your order {$this->record->number} on ".setting('store_name', 'SellMeTools').': ');
+                }
 
                 return "https://wa.me/{$phone}?text={$text}";
             })

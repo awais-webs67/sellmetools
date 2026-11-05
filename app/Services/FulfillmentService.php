@@ -811,7 +811,10 @@ class FulfillmentService
                 }
             }
 
+            $order->setRelation('items', $items);
             $profit = round((float) $order->total - (float) $order->total_cost, 2);
+            app(EmailNotifier::class)->sendOrderDelivered($order);
+
             $notifyDelivered = function () use ($order, $items, $profit): void {
                 $this->telegram->notifyAdmin(
                     "🎉✅ <b>ORDER DELIVERED SUCCESSFULLY!</b>\n".
@@ -824,7 +827,6 @@ class FulfillmentService
                 );
 
                 app(WhatsAppNotifier::class)->notifyOrderDelivered($order);
-                app(EmailNotifier::class)->sendOrderDelivered($order);
             };
 
             if (app()->runningUnitTests()) {

@@ -21,6 +21,46 @@ class WhatsAppNotifier
         return format_whatsapp($raw);
     }
 
+    public function hasCustomerWhatsAppGateway(): bool
+    {
+        $greenId = trim((string) Setting::get('greenapi_instance_id', ''));
+        $greenToken = trim((string) Setting::get('greenapi_api_token', ''));
+        $webhookUrl = trim((string) Setting::get('whatsapp_admin_webhook_url', ''));
+
+        return ($greenId !== '' && $greenToken !== '') || $webhookUrl !== '';
+    }
+
+    public static function buildCustomerReceiptMessage(Order $order): string
+    {
+        $order->loadMissing(['items.deliveries', 'paymentMethod']);
+        $storeName = (string) Setting::get('store_name', 'SellMeTools');
+        $items = $order->items->map(fn ($i) => "{$i->product_name} × {$i->quantity}")->implode(', ');
+        $creds = $order->items
+            ->flatMap(fn ($item) => $item->deliveries->pluck('content'))
+            ->map(fn ($c) => trim((string) $c))
+            ->filter()
+            ->implode("\n\n");
+
+        if ($creds === '') {
+            $creds = filled($order->customer_input)
+                ? 'Activated on your submitted account: '.trim((string) $order->customer_input)
+                : 'Order fulfilled and activated.';
+        }
+
+        $totalStr = (float) $order->total <= 0 ? 'Rs 0 (Free)' : money($order->total);
+
+        return "*{$storeName} — Order Delivered Successfully!*\n\n"
+            ."Please copy your product details below:\n"
+            ."━━━━━━━━━━━━━━━━━━\n"
+            ."*Order ID:* `{$order->number}`\n"
+            ."*Product:* {$items}\n"
+            ."*Total Paid:* {$totalStr}\n\n"
+            ."*Your Credentials / Details:*\n{$creds}\n"
+            ."━━━━━━━━━━━━━━━━━━\n"
+            .'*Order & Receipt Link:* '.$order->customerUrl()."\n\n"
+            .'Thank you for shopping with us!';
+    }
+
     /**
      * 1. Manual Payment Submitted (Order at 85%: Awaiting Admin 1-Tap Approval)
      */
@@ -110,6 +150,8 @@ class WhatsAppNotifier
      */
     public function notifyOrderDelivered(Order $order): void
     {
+        $order->load(['items.deliveries', 'paymentMethod', 'latestPayment', 'user']);
+
         $adminPhone = admin_whatsapp_number();
         $greenId = trim((string) Setting::get('greenapi_instance_id', ''));
         $greenToken = trim((string) Setting::get('greenapi_api_token', ''));
@@ -119,7 +161,11 @@ class WhatsAppNotifier
 
         $items = $order->items->map(fn ($i) => "{$i->product_name} × {$i->quantity}")->implode(', ');
         $supplierSummary = $order->adminSupplierSummary(true);
-        $creds = $order->items->flatMap(fn ($item) => $item->deliveries->pluck('content'))->implode("\n");
+        $creds = $order->items
+            ->flatMap(fn ($item) => $item->deliveries->pluck('content'))
+            ->map(fn ($c) => trim((string) $c))
+            ->filter()
+            ->implode("\n\n");
         $methodName = $order->paymentMethod?->name ?? 'Online';
         $profit = round((float) $order->total - (float) $order->total_cost, 2);
 
@@ -170,16 +216,7 @@ class WhatsAppNotifier
         }
 
         if ($customerPhone !== '') {
-            $storeName = (string) Setting::get('store_name', 'SellMeTools');
-            $customerMsg = "*{$storeName} — Order Delivered Successfully!*\n\n"
-                ."Please copy your product details below:\n"
-                ."━━━━━━━━━━━━━━━━━━\n"
-                ."*Order ID:* `{$order->number}`\n"
-                ."*Product:* {$items}\n\n"
-                ."*Your Credentials / Details:*\n{$creds}\n"
-                ."━━━━━━━━━━━━━━━━━━\n"
-                .'*Order & Receipt Link:* '.$order->customerUrl()."\n\n"
-                .'Thank you for shopping with us!';
+            $customerMsg = self::buildCustomerReceiptMessage($order);
 
             if ($greenId !== '' && $greenToken !== '') {
                 $this->sendGreenApi($greenId, $greenToken, $customerPhone, $customerMsg);
@@ -377,20 +414,110 @@ class WhatsAppNotifier
 
     public function sendGreenApi(string $instanceId, string $apiToken, string $phoneDigits, string $message): bool
     {
-        try {
-            $response = Http::timeout(6)->post(
-                "https://api.green-api.com/waInstance{$instanceId}/sendMessage/{$apiToken}",
-                [
-                    'chatId' => "{$phoneDigits}@c.us",
-                    'message' => $message,
-                ]
-            );
-
-            return $response->successful();
-        } catch (Throwable $e) {
-            Log::warning('Green-API WhatsApp error: '.$e->getMessage());
-
+        $cleanDigits = self::formatPhone($phoneDigits);
+        if ($cleanDigits === '') {
             return false;
         }
+
+        $hosts = ['https://api.green-api.com'];
+        if (preg_match('/^(\d{4})/', $instanceId, $m)) {
+            $clusterHost = "https://{$m[1]}.api.greenapi.com";
+            if (! in_array($clusterHost, $hosts, true)) {
+                array_unshift($hosts, $clusterHost);
+            }
+        }
+
+        foreach ($hosts as $host) {
+            try {
+                $response = Http::timeout(6)->post(
+                    "{$host}/waInstance{$instanceId}/sendMessage/{$apiToken}",
+                    [
+                        'chatId' => "{$cleanDigits}@c.us",
+                        'message' => $message,
+                    ]
+                );
+
+                if ($response->successful()) {
+                    return true;
+                }
+            } catch (Throwable $e) {
+                Log::warning("Green-API WhatsApp error ({$host}): ".$e->getMessage());
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Tests WhatsApp delivery configuration from Store Settings.
+     *
+     * @param  array<string, mixed>  $overrides
+     * @return array{success: bool, message: string}
+     */
+    public function sendTestMessage(string $rawPhone, array $overrides = []): array
+    {
+        $phone = self::formatPhone($rawPhone);
+        if ($phone === '') {
+            return [
+                'success' => false,
+                'message' => 'Please enter a valid WhatsApp number (e.g. 923001234567) in the Admin WhatsApp Number field first.',
+            ];
+        }
+
+        $greenId = trim((string) ($overrides['greenapi_instance_id'] ?? Setting::get('greenapi_instance_id', '')));
+        $greenToken = trim((string) ($overrides['greenapi_api_token'] ?? Setting::get('greenapi_api_token', '')));
+        $webhookUrl = trim((string) ($overrides['whatsapp_admin_webhook_url'] ?? Setting::get('whatsapp_admin_webhook_url', '')));
+
+        if ($greenId === '' || $greenToken === '') {
+            if ($webhookUrl === '') {
+                return [
+                    'success' => false,
+                    'message' => 'To send automatic WhatsApp receipts to customers, create a free account at green-api.com, scan your WhatsApp QR code, and paste your Green-API Instance ID & API Token here.',
+                ];
+            }
+        }
+
+        $storeName = (string) Setting::get('store_name', 'SellMeTools');
+        $msg = "*{$storeName} — WhatsApp Auto-Delivery Active!*\n\n"
+            ."Your WhatsApp gateway is connected. Customer order receipts & product credentials will now be delivered automatically to customers' WhatsApp numbers.";
+
+        if ($greenId !== '' && $greenToken !== '') {
+            $ok = $this->sendGreenApi($greenId, $greenToken, $phone, $msg);
+            if ($ok) {
+                return [
+                    'success' => true,
+                    'message' => "Test WhatsApp message sent to +{$phone} via Green-API!",
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => 'Green-API rejected the request. Check that your Instance ID & Token are correct and your instance status is "Authorized" (QR code scanned) in green-api.com.',
+            ];
+        }
+
+        try {
+            $res = Http::timeout(6)->post($webhookUrl, [
+                'event' => 'test_whatsapp',
+                'phone' => $phone,
+                'message' => $msg,
+            ]);
+            if ($res->successful()) {
+                return [
+                    'success' => true,
+                    'message' => "Test WhatsApp payload sent to webhook for +{$phone}!",
+                ];
+            }
+        } catch (Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'Webhook error: '.$e->getMessage(),
+            ];
+        }
+
+        return [
+            'success' => false,
+            'message' => 'WhatsApp webhook returned a non-200 response.',
+        ];
     }
 }

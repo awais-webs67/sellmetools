@@ -81,11 +81,13 @@
                         <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                             Delivered Access Credentials
                         </span>
-                        @if ($customerPhoneFormatted !== '')
-                            <span class="text-[11px] text-emerald-700 font-medium">
+                        <span class="text-[11px] text-emerald-700 font-medium">
+                            @if ($customerPhoneFormatted !== '' && app(\App\Services\WhatsAppNotifier::class)->hasCustomerWhatsAppGateway())
                                 Sent to Email &amp; WhatsApp
-                            </span>
-                        @endif
+                            @else
+                                Sent to Email ({{ $order->email }})
+                            @endif
+                        </span>
                     </div>
 
                     @foreach ($order->items as $item)

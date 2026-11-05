@@ -157,7 +157,7 @@ class PaymentWebhookController extends Controller
                     }
                 } else {
                     $reason = $order->admin_note ?: 'Awaiting stock/supplier delivery';
-                    $adminUrl = url('/admin/orders/'.$order->id);
+                    $adminUrl = url('/admin/orders/'.$order->number);
                     $quickUrl = route('webhooks.order.quick', ['order' => $order->number, 'do' => 'approve']);
                     $telegram->answerCallback($callbackId, "✅ Payment Confirmed! ⚠️ Delivery On Hold: {$reason}");
                     if ($messageId > 0) {

@@ -89,6 +89,17 @@ class Order extends Model
         return 'number';
     }
 
+    public function resolveRouteBinding($value, $field = null): ?Model
+    {
+        if ($field !== null) {
+            return $this->where($field, $value)->first();
+        }
+
+        return $this->where('number', $value)
+            ->when(is_numeric($value), fn ($query) => $query->orWhere('id', (int) $value))
+            ->first();
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

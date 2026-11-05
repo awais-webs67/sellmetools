@@ -11,6 +11,7 @@ use App\Services\DatabaseBackupService;
 use App\Services\EmailNotifier;
 use App\Services\OrderService;
 use App\Services\TelegramNotifier;
+use App\Services\WhatsAppNotifier;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\RichEditor;
@@ -569,8 +570,8 @@ class StoreSettings extends Page
                                         ])->columnSpanFull(),
                                     ]),
 
-                                Section::make('1-Tap WhatsApp, ntfy Mobile Push & SMS Webhook')
-                                    ->description('Instant phone notifications and 1-Tap approval PIN security.')
+                                Section::make('1-Tap WhatsApp, Customer Auto-WhatsApp (Green-API), ntfy Push & SMS Webhook')
+                                    ->description('To automatically send order receipts & credentials to customers on WhatsApp, connect a free Green-API instance (green-api.com → scan WhatsApp QR code → paste Instance ID & Token below) or a custom WhatsApp webhook URL.')
                                     ->columns(['default' => 1, 'sm' => 2])
                                     ->schema([
                                         TextInput::make('support_whatsapp')
@@ -581,18 +582,20 @@ class StoreSettings extends Page
                                             ->placeholder('7860')
                                             ->maxLength(20)
                                             ->helperText('Protects 1-tap WhatsApp/Telegram manual delivery links.'),
+                                        TextInput::make('greenapi_instance_id')
+                                            ->label('Green-API Instance ID (For Auto Customer WhatsApp Receipts)')
+                                            ->placeholder('e.g. 7103948576')
+                                            ->helperText('Get free from console.green-api.com after scanning QR with your WhatsApp.'),
+                                        TextInput::make('greenapi_api_token')
+                                            ->label('Green-API API Token (For Auto Customer WhatsApp Receipts)')
+                                            ->placeholder('Paste your apiTokenInstance from Green-API')
+                                            ->autocomplete(false),
                                         TextInput::make('ntfy_topic')
                                             ->label('ntfy.sh Free Mobile Push Topic (Optional)')
                                             ->placeholder('e.g. sellmetools_awais_orders_786'),
                                         TextInput::make('sms_webhook_secret')
                                             ->label('SMS Webhook Secret Key (Optional)')
                                             ->placeholder('smt_auto_pay_secret_2026'),
-                                        TextInput::make('greenapi_instance_id')
-                                            ->label('Green-API Instance ID (Optional)')
-                                            ->placeholder('e.g. 7103948576'),
-                                        TextInput::make('greenapi_api_token')
-                                            ->label('Green-API Token (Optional)')
-                                            ->autocomplete(false),
                                         Actions::make([
                                             Action::make('saveWhatsappSection')
                                                 ->label('Save Mobile & WhatsApp Settings')
@@ -603,6 +606,25 @@ class StoreSettings extends Page
                                                     'greenapi_instance_id', 'greenapi_api_token',
                                                     'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
                                                 ], 'Mobile & WhatsApp settings saved')),
+                                            Action::make('testWhatsappAuto')
+                                                ->label('Save & Test WhatsApp Auto-Delivery')
+                                                ->icon(Heroicon::OutlinedPaperAirplane)
+                                                ->color('success')
+                                                ->action(function (): void {
+                                                    $this->saveKeys([
+                                                        'support_whatsapp', 'admin_quick_pin', 'ntfy_topic', 'sms_webhook_secret',
+                                                        'greenapi_instance_id', 'greenapi_api_token',
+                                                        'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
+                                                    ], 'Mobile & WhatsApp settings saved');
+                                                    $overrides = is_array($this->data) ? $this->data : [];
+                                                    $phone = (string) ($overrides['support_whatsapp'] ?? Setting::get('support_whatsapp', ''));
+                                                    $res = app(WhatsAppNotifier::class)->sendTestMessage($phone, $overrides);
+                                                    if ($res['success']) {
+                                                        Notification::make()->title('WhatsApp Sent!')->body($res['message'])->success()->send();
+                                                    } else {
+                                                        Notification::make()->title('WhatsApp Auto-Send Notice')->body($res['message'])->warning()->persistent()->send();
+                                                    }
+                                                }),
                                             Action::make('testNtfyPush')
                                                 ->label('Test ntfy Push')
                                                 ->icon(Heroicon::OutlinedBellAlert)

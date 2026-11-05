@@ -199,7 +199,7 @@ class StockController extends Controller
                         'gateway' => $o->paymentMethod?->name ?? 'Instant',
                         'tid' => $o->latestPayment?->transaction_id,
                         'time_ago' => $o->created_at?->diffForHumans(short: true) ?? 'now',
-                        'url' => url('/admin/orders/'.$o->id),
+                        'url' => url('/admin/orders/'.$o->number),
                         'is_actionable' => in_array($o->status, [OrderStatus::PaymentReview, OrderStatus::NeedsAttention, OrderStatus::Processing], true),
                     ])
                     ->values()
