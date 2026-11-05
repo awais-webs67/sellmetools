@@ -61,20 +61,36 @@
 
     $faqs = [
         [
+            'q' => 'How to buy ChatGPT Plus, CapCut Pro, and Canva Pro in Pakistan with Easypaisa or JazzCash?',
+            'a' => 'On SellMeTools, select your desired ChatGPT Plus, CapCut Pro, or Canva Pro plan, click Buy Now, choose Easypaisa, JazzCash, NayaPay, SadaPay, Raast, or Binance Pay (USDT), and receive your verified login credentials or invite link directly on your private order page.',
+        ],
+        [
+            'q' => 'What is the price of ChatGPT Plus, CapCut Pro, Canva Pro, and LinkedIn Premium in Pakistan?',
+            'a' => 'All live Pakistani Rupee (PKR) and USDT prices are displayed upfront on each product card. You can buy affordable monthly, 6-month, and 1-year subscriptions for ChatGPT Plus, CapCut Pro, Canva Edu Pro, and LinkedIn Premium without international card taxes.',
+        ],
+        [
+            'q' => 'Where can I buy genuine Ahrefs, Semrush, and SEO tools bundles in Pakistan?',
+            'a' => 'You can order the Ahrefs 1 Month + 30 Free SEO Tools Bundle (including Semrush, Moz Pro, Ubersuggest, QuillBot, Grammarly, and Envato Elements) on SellMeTools with 99.9% uptime and Full Warranty.',
+        ],
+        [
+            'q' => 'Can I buy LinkedIn Premium Career, Business, and Sales Navigator vouchers in Pakistan without a credit card?',
+            'a' => 'Yes. We offer official LinkedIn Career, LinkedIn Business, and LinkedIn Sales Navigator (Core & Advanced) 2-month, 3-month, and 12-month vouchers and direct login upgrades payable via local PKR wallets or USDT.',
+        ],
+        [
             'q' => 'How fast will I receive my digital tool or subscription order?',
-            'a' => 'In-stock subscriptions and accounts are delivered automatically on your private order page as soon as your payment is verified. You can order from anywhere in the world 24/7.',
+            'a' => 'In-stock subscriptions and accounts are delivered automatically on your private order page as soon as your payment is verified. You can order from anywhere in Pakistan or worldwide 24/7.',
         ],
         [
             'q' => 'Which global and local payment methods do you accept?',
-            'a' => 'Worldwide customers can pay in USDT via Binance Pay or TRC20. Customers in Pakistan can also pay in PKR using Easypaisa, JazzCash, NayaPay, SadaPay or Bank Transfer.',
+            'a' => 'Customers in Pakistan can pay in PKR using Easypaisa, JazzCash, NayaPay, SadaPay, or Bank Transfer (Raast). Worldwide customers can pay in USDT via Binance Pay or TRC20.',
         ],
         [
             'q' => 'Where do I get my login credentials or activation link after buying?',
-            'a' => 'Your delivered account details, invite link or activation steps appear directly on your private order page and are also sent to your email. If you create a customer account, all of your past orders and credentials stay saved in one dashboard.',
+            'a' => 'Your delivered account details, invite link, or activation steps appear directly on your private order page and are also sent to your email. If you create a customer account, all of your past orders and credentials stay saved in one dashboard.',
         ],
         [
             'q' => 'Do subscriptions include a replacement warranty?',
-            'a' => 'Yes. Every product page clearly states its plan type and warranty coverage. If you face any login or subscription issue during the covered period, message our support team on WhatsApp with your Order ID for a fast fix or replacement.',
+            'a' => 'Yes. Every product page clearly states its plan type and warranty coverage (Full Warranty or Login Warranty). If you face any issue during the covered period, message our support team on WhatsApp with your Order ID for a fast fix or replacement.',
         ],
     ];
 
@@ -477,35 +493,61 @@
                                 {!! strip_tags($customHomeSeoContent, '<h2><h3><h4><p><br><ul><ol><li><strong><b><em><i><u><s><a><blockquote><code><hr>') !!}
                             @else
                                 <p>
-                                    Finding genuine digital subscriptions and cheap AI tool plans online in Pakistan or anywhere in the world at fair prices should not require risky social media deals or complicated credit cards. On <strong>{{ $storeName }}</strong>, every product page shows the exact price in USDT and PKR, real-time stock count, delivery format and warranty terms before you place an order.
+                                    Finding genuine digital subscriptions and cheap AI tool plans online in Pakistan or anywhere in the world at fair prices should not require risky social media deals or international credit cards. On <strong>{{ $storeName }}</strong>, every product page shows the exact price in PKR and USDT, real-time stock count, delivery format, and warranty terms before you place an order.
+                                </p>
+                                <p>
+                                    Whether you are searching for <strong>ChatGPT Plus price in Pakistan</strong>, <strong>CapCut Pro 1 Month / 6 Months / 1 Year Full Warranty</strong>, <strong>Canva Pro Education</strong>, <strong>LinkedIn Premium Career, Business &amp; Sales Navigator vouchers</strong>, or <strong>Ahrefs &amp; Semrush SEO group buy bundles</strong>, you can order 24/7 with instant automated delivery on your private order page.
                                 </p>
                             @endif
                         </div>
 
                         <div class="mt-6 grid gap-4 sm:grid-cols-2">
                             <div class="rounded-xl border border-line bg-grey-soft/60 p-4 sm:p-5">
-                                <h3 class="text-sm sm:text-base font-bold text-ink">AI Assistants, Coding &amp; Research</h3>
+                                <h3 class="text-sm sm:text-base font-bold text-ink">ChatGPT Plus, Claude, Gemini &amp; AI Coding</h3>
                                 <p class="mt-1.5 text-xs sm:text-sm leading-relaxed text-body">
-                                    Upgrade your workflow with premium AI assistants, coding companions, academic research tools and automation platforms at local Pakistani rates.
+                                    Buy <strong>ChatGPT Plus</strong>, <strong>Claude API &amp; Pro</strong>, <strong>Google Gemini Advanced</strong>, <strong>Cursor Pro</strong>, <strong>Lovable Pro</strong>, <strong>HeyGen Creator</strong>, <strong>Kling AI</strong>, and <strong>ElevenLabs</strong> in Pakistan at local PKR rates.
                                 </p>
                             </div>
                             <div class="rounded-xl border border-line bg-grey-soft/60 p-4 sm:p-5">
-                                <h3 class="text-sm sm:text-base font-bold text-ink">Design, Video &amp; Creative Suites</h3>
+                                <h3 class="text-sm sm:text-base font-bold text-ink">CapCut Pro, Canva Pro, Figma &amp; Envato</h3>
                                 <p class="mt-1.5 text-xs sm:text-sm leading-relaxed text-body">
-                                    Get official team invites, pro accounts and creative asset subscriptions so your agency or freelance studio can export high-resolution projects without limits.
+                                    Unlock 4K video editing and graphic design with <strong>CapCut Pro Full Warranty</strong>, <strong>Canva Edu Pro</strong>, <strong>Figma Education</strong>, <strong>Freepik Premium</strong>, <strong>Veed Pro</strong>, and <strong>Adobe Express</strong>.
                                 </p>
                             </div>
                             <div class="rounded-xl border border-line bg-grey-soft/60 p-4 sm:p-5">
-                                <h3 class="text-sm sm:text-base font-bold text-ink">Streaming, Mail &amp; Cloud Accounts</h3>
+                                <h3 class="text-sm sm:text-base font-bold text-ink">LinkedIn Premium, Ahrefs SEO &amp; VPNs</h3>
                                 <p class="mt-1.5 text-xs sm:text-sm leading-relaxed text-body">
-                                    Order verified streaming memberships, productivity suites, ready mail accounts and developer cloud access with instant delivery on your private order page.
+                                    Get official <strong>LinkedIn Career, Business &amp; Sales Navigator vouchers</strong>, <strong>Ahrefs + Semrush 30-in-1 SEO bundles</strong>, <strong>Surfshark VPN</strong>, <strong>ExpressVPN</strong>, and <strong>NordVPN</strong>.
                                 </p>
                             </div>
                             <div class="rounded-xl border border-line bg-grey-soft/60 p-4 sm:p-5">
-                                <h3 class="text-sm sm:text-base font-bold text-ink">Instant PKR Wallet Checkout</h3>
+                                <h3 class="text-sm sm:text-base font-bold text-ink">Coursera, Turnitin, Streaming &amp; PKR Checkout</h3>
                                 <p class="mt-1.5 text-xs sm:text-sm leading-relaxed text-body">
-                                    Pay in rupees from anywhere in Pakistan via <strong>Easypaisa, JazzCash, NayaPay, SadaPay</strong> or <strong>Binance Pay (USDT)</strong> and track verification live on screen.
+                                    Order <strong>Coursera Plus</strong>, <strong>Grammarly Pro</strong>, <strong>StealthWriter AI</strong>, <strong>YouTube Premium</strong>, <strong>Amazon Prime Video</strong>, and <strong>Windows 11 Pro Keys</strong> via <strong>Easypaisa, JazzCash, NayaPay, SadaPay</strong>, or <strong>USDT</strong>.
                                 </p>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 rounded-xl border border-line bg-grey-soft/40 p-4">
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-muted">Popular Searches in Pakistan</p>
+                            <div class="mt-2 flex flex-wrap gap-1.5 text-xs">
+                                @foreach ([
+                                    ['ChatGPT Plus in Pakistan', route('shop', ['q' => 'ChatGPT'])],
+                                    ['CapCut Pro Price in Pakistan', route('shop', ['q' => 'CapCut'])],
+                                    ['Canva Pro 1 Year', route('shop', ['q' => 'Canva'])],
+                                    ['LinkedIn Premium Vouchers', route('shop', ['q' => 'LinkedIn'])],
+                                    ['Ahrefs & Semrush SEO Tools', route('shop', ['q' => 'Ahrefs'])],
+                                    ['Claude API & Pro', route('shop', ['q' => 'Claude'])],
+                                    ['Google Gemini Pro', route('shop', ['q' => 'Gemini'])],
+                                    ['Surfshark & ExpressVPN', route('shop', ['q' => 'VPN'])],
+                                    ['YouTube Premium & Prime Video', route('shop', ['q' => 'Prime'])],
+                                    ['Coursera & Grammarly Pro', route('shop', ['q' => 'Coursera'])],
+                                    ['Windows 11 Pro Activation Key', route('shop', ['q' => 'Windows'])],
+                                ] as [$kwLabel, $kwUrl])
+                                    <a href="{{ $kwUrl }}" class="rounded-lg border border-line bg-white px-2.5 py-1 text-[11px] font-semibold text-body transition hover:border-brand hover:text-brand">
+                                        {{ $kwLabel }}
+                                    </a>
+                                @endforeach
                             </div>
                         </div>
                     </div>

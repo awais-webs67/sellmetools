@@ -1069,21 +1069,27 @@ class Product extends Model
 
     public function seoKeywords(): string
     {
+        $cleanName = ProductSeoOptimizer::cleanProductTitle((string) $this->name);
+        $brand = $this->brandName();
+        $baseKeywords = [
+            "{$cleanName} price in Pakistan",
+            "buy {$cleanName} in Pakistan",
+            "buy {$cleanName} with Easypaisa JazzCash",
+            "buy {$cleanName} without credit card",
+            "{$cleanName} cheap subscription",
+            "buy {$cleanName} online",
+            "{$brand} subscription price in Pakistan",
+            "{$cleanName} instant delivery",
+            "{$cleanName} USDT Binance",
+            $this->category ? $this->category->name.' Pakistan' : null,
+            (string) Setting::get('store_name', 'SellMeTools'),
+        ];
+
         if (filled($this->meta_keywords)) {
-            return (string) $this->meta_keywords;
+            $existing = array_map('trim', explode(',', ProductSeoOptimizer::cleanProductTitle((string) $this->meta_keywords)));
+            $baseKeywords = array_merge($existing, $baseKeywords);
         }
 
-        return implode(', ', array_filter([
-            "{$this->name} cheap subscription",
-            "buy {$this->name} cheap subscription",
-            "buy {$this->name} online",
-            "{$this->name} subscription",
-            "{$this->name} cheap price",
-            "{$this->name} price in Pakistan",
-            "{$this->name} instant delivery",
-            "{$this->name} USDT Binance",
-            $this->category ? $this->category->name : null,
-            (string) Setting::get('store_name', 'SellMeTools'),
-        ]));
+        return implode(', ', array_values(array_unique(array_filter($baseKeywords))));
     }
 }

@@ -253,7 +253,14 @@ class SeoController extends Controller
             $xml .= "      <g:availability>{$availability}</g:availability>\n";
             $xml .= "      <g:price>{$price}</g:price>\n";
             $xml .= '      <g:brand>'.$this->esc($brand)."</g:brand>\n";
+            $xml .= "      <g:google_product_category>Software &gt; Computer Software</g:google_product_category>\n";
+            $xml .= '      <g:product_type>'.$this->esc($product->category?->name ?? 'Digital Subscriptions')."</g:product_type>\n";
             $xml .= "      <g:identifier_exists>no</g:identifier_exists>\n";
+            $xml .= "      <g:shipping>\n";
+            $xml .= "        <g:country>PK</g:country>\n";
+            $xml .= "        <g:service>Instant Digital Delivery</g:service>\n";
+            $xml .= "        <g:price>0.00 PKR</g:price>\n";
+            $xml .= "      </g:shipping>\n";
             $xml .= "    </item>\n";
         }
 
@@ -395,11 +402,21 @@ class SeoController extends Controller
             'Allow: /',
             'User-agent: PerplexityBot',
             'Allow: /',
+            'User-agent: Perplexity-User',
+            'Allow: /',
             'User-agent: ClaudeBot',
+            'Allow: /',
+            'User-agent: Claude-SearchBot',
+            'Allow: /',
+            'User-agent: Claude-User',
             'Allow: /',
             'User-agent: Google-Extended',
             'Allow: /',
+            'User-agent: Applebot',
+            'Allow: /',
             'User-agent: Applebot-Extended',
+            'Allow: /',
+            'User-agent: DuckAssistBot',
             'Allow: /',
             'User-agent: Meta-ExternalAgent',
             'Allow: /',

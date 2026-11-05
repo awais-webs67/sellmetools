@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Http\Controllers\SeoController;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\Setting;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -21,7 +22,7 @@ class ProductSeoOptimizer
             return;
         }
 
-        $flagFile = storage_path('framework/product_seo_v9_synced.flag');
+        $flagFile = storage_path('framework/product_seo_v10_synced.flag');
         if (is_file($flagFile)) {
             return;
         }
@@ -29,6 +30,22 @@ class ProductSeoOptimizer
         @file_put_contents($flagFile, '1');
 
         try {
+            if (Schema::hasTable('settings')) {
+                foreach (['seo_title', 'seo_description', 'seo_keywords', 'shop_seo_title', 'shop_seo_description'] as $seoKey) {
+                    if (isset(Setting::DEFAULTS[$seoKey])) {
+                        Setting::set($seoKey, Setting::DEFAULTS[$seoKey]);
+                    }
+                }
+            }
+
+            if (Schema::hasTable('settings')) {
+                foreach (['seo_title', 'seo_description', 'seo_keywords', 'shop_seo_title', 'shop_seo_description'] as $seoKey) {
+                    if (isset(\App\Models\Setting::DEFAULTS[$seoKey])) {
+                        \App\Models\Setting::set($seoKey, \App\Models\Setting::DEFAULTS[$seoKey]);
+                    }
+                }
+            }
+
             if (! Schema::hasTable('products')) {
                 return;
             }

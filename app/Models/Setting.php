@@ -52,12 +52,12 @@ class Setting extends Model
         'home_about_heading' => 'Pakistan’s Trusted Marketplace for AI Tools & Subscriptions',
         'home_guide_heading' => 'Buy AI Tools & Digital Subscriptions Online — USDT & Local PKR Prices',
         'home_seo_content' => '',
-        'shop_seo_title' => 'Shop AI Tools & Cheap Subscriptions Online',
-        'shop_seo_description' => 'Browse genuine AI tools, cheap subscriptions, design software and cloud plans. Instant delivery via Binance USDT, Easypaisa or JazzCash.',
+        'shop_seo_title' => 'Shop AI Tools, SEO Tools & Digital Subscriptions in Pakistan',
+        'shop_seo_description' => 'Compare live PKR & USDT prices for 75+ genuine AI tools, ChatGPT Plus, CapCut Pro, Canva Pro, LinkedIn Premium & SEO tools. Instant delivery via Easypaisa, JazzCash & USDT.',
         // General store-wide SEO targets for global + local digital tools & subscriptions marketplace:
-        'seo_title' => 'Buy AI Tools & Cheap Digital Subscriptions Online',
-        'seo_description' => 'Buy genuine AI tools, cheap subscriptions, creative software and cloud accounts online. Pay via Binance USDT or local PKR wallets (Easypaisa, JazzCash) with instant delivery.',
-        'seo_keywords' => 'buy ai tools online, cheap digital subscriptions, chatgpt plus cheap subscription, canva pro cheap subscription, buy software subscriptions online, binance pay digital store, easypaisa jazzcash subscriptions, sellmetools',
+        'seo_title' => 'Buy ChatGPT Plus, CapCut Pro, Canva Pro & AI Tools in Pakistan',
+        'seo_description' => 'Buy genuine ChatGPT Plus, CapCut Pro, Canva Pro, LinkedIn Premium, Ahrefs, Semrush & AI tools in Pakistan & worldwide. Instant delivery via Easypaisa, JazzCash & USDT.',
+        'seo_keywords' => 'buy ai tools in pakistan, chatgpt plus price in pakistan, capcut pro price in pakistan, canva pro price in pakistan, buy linkedin premium pakistan, ahrefs semrush bundle pakistan, claude pro price in pakistan, gemini pro subscription pakistan, surfshark vpn price in pakistan, expressvpn price in pakistan, youtube premium price in pakistan, envato elements pakistan, cursor pro pakistan, cheap digital subscriptions easypaisa jazzcash, buy tools without credit card pakistan, binance usdt digital store, sellmetools',
         'google_site_verification' => '',
         'bing_site_verification' => '',
         'indexnow_key' => 'a7f9c2e4b8d106359a2c4e6f8b0d2e4a',
@@ -98,10 +98,7 @@ class Setting extends Model
             $out = self::DEFAULTS;
             foreach ($db as $k => $v) {
                 if ($v !== null && $v !== '') {
-                    if ($k === 'seo_title' && str_contains($v, 'in Pakistan')) {
-                        continue;
-                    }
-                    if ($k === 'seo_description' && str_contains($v, 'in Pakistan at local PKR prices')) {
+                    if ($k === 'seo_title' && $v === 'Buy AI Tools & Cheap Digital Subscriptions Online') {
                         continue;
                     }
                     $out[$k] = $v;

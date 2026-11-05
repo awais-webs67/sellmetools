@@ -185,6 +185,14 @@
             'q' => "How is {$product->name} delivered and what warranty is included?",
             'a' => ($product->warranty ? 'Warranty terms: '.preg_replace('/\s+/', ' ', $product->cleanWarrantyText()).'. ' : '')."Your login credentials, invite link, or activation details are delivered directly on your private order page and saved in your customer account dashboard, backed by 24/7 WhatsApp support.",
         ],
+        [
+            'q' => "Can I buy {$product->name} in Pakistan without an international credit or debit card?",
+            'a' => "Yes! You do not need an international credit card or USD bank account. On {$storeName}, you can buy {$product->name} directly in Pakistani Rupees (PKR) using Easypaisa, JazzCash, NayaPay, SadaPay, or local bank transfer (Raast) with zero withholding tax.",
+        ],
+        [
+            'q' => "Is {$product->name} on {$storeName} genuine and safe to use?",
+            'a' => "Yes. Every {$product->name} order on {$storeName} is verified and delivered through our automated order vault with clear replacement warranty coverage and dedicated WhatsApp customer support.",
+        ],
     ];
 
     $productFaqSchema = [
@@ -359,6 +367,16 @@
             <section class="card p-5 sm:p-7 shadow-xs space-y-5">
                 <div>
                     <h2 class="display text-2xl sm:text-3xl">Product Overview &amp; Delivery Guide</h2>
+
+                    {{-- GEO / AEO Self-Contained Direct Answer Summary --}}
+                    <div class="mt-3 rounded-xl border border-brand/20 bg-brand-tint/40 p-3.5 text-xs sm:text-sm leading-relaxed text-ink">
+                        <strong>Quick Summary:</strong> <strong>{{ $product->name }}</strong> by <strong>{{ $product->brandName() }}</strong> is available online on <strong>{{ $storeName }}</strong>
+                        @if ($hasValidPrice)
+                            at <strong>{{ $priceStr }}</strong> (approx. <strong>${{ $usdPriceStr }} USDT</strong>)
+                        @endif
+                        with instant automated delivery on your private order page. Pay in Pakistan via <strong>Easypaisa, JazzCash, NayaPay, SadaPay, or Raast</strong>, or globally via <strong>Binance Pay (USDT)</strong> without needing an international credit card.
+                    </div>
+
                     @if ($product->description)
                         @php
                             $rawDesc = $product->cleanDescriptionText();
@@ -375,6 +393,59 @@
                     <p class="mt-3 text-xs sm:text-sm leading-relaxed text-body">
                         Looking for a genuine <strong>{{ $product->name }} cheap subscription</strong> with <strong>instant delivery</strong>? Buy <strong>{{ $product->name }}</strong> online in Pakistan and worldwide from <strong>{{ $storeName }}</strong> with local PKR or USDT checkout. Your stock is reserved at checkout and your login credentials, invite link, or activation instructions are delivered directly to your private order page as soon as your payment is verified.
                     </p>
+                </div>
+
+                {{-- E-Commerce Structured Specifications Table (Google Shopping & AI Overview Extraction) --}}
+                <div class="border-t border-line pt-4">
+                    <h3 class="text-sm font-bold text-ink mb-2.5">{{ $product->name }} Specifications &amp; Plan Details</h3>
+                    <div class="overflow-hidden rounded-xl border border-line">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <tbody class="divide-y divide-line">
+                                <tr class="bg-grey-soft/50">
+                                    <th scope="row" class="py-2.5 px-3.5 font-semibold text-ink w-2/5">Product / Plan</th>
+                                    <td class="py-2.5 px-3.5 text-body font-medium">{{ $product->name }}</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" class="py-2.5 px-3.5 font-semibold text-ink">Brand / Provider</th>
+                                    <td class="py-2.5 px-3.5 text-body">{{ $product->brandName() }}</td>
+                                </tr>
+                                @if ($product->category)
+                                    <tr class="bg-grey-soft/50">
+                                        <th scope="row" class="py-2.5 px-3.5 font-semibold text-ink">Category</th>
+                                        <td class="py-2.5 px-3.5 text-body">
+                                            <a href="{{ route('categories.show', $product->category) }}" class="font-semibold text-brand hover:underline">{{ $product->category->name }}</a>
+                                        </td>
+                                    </tr>
+                                @endif
+                                <tr>
+                                    <th scope="row" class="py-2.5 px-3.5 font-semibold text-ink">Price in Pakistan / USDT</th>
+                                    <td class="py-2.5 px-3.5 text-body font-semibold">
+                                        @if ($isFree)
+                                            FREE (Rs 0 / $0.00 USDT)
+                                        @elseif ($hasValidPrice)
+                                            {{ $priceStr }} PKR (≈ ${{ $usdPriceStr }} USDT)
+                                        @else
+                                            Live Restock Pricing
+                                        @endif
+                                    </td>
+                                </tr>
+                                <tr class="bg-grey-soft/50">
+                                    <th scope="row" class="py-2.5 px-3.5 font-semibold text-ink">Delivery Format</th>
+                                    <td class="py-2.5 px-3.5 text-body">Instant Automated Order Page &amp; Email Vault</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row" class="py-2.5 px-3.5 font-semibold text-ink">Payment Methods</th>
+                                    <td class="py-2.5 px-3.5 text-body">Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer (Raast), Binance USDT</td>
+                                </tr>
+                                @if ($product->warranty)
+                                    <tr class="bg-grey-soft/50">
+                                        <th scope="row" class="py-2.5 px-3.5 font-semibold text-ink">Warranty Coverage</th>
+                                        <td class="py-2.5 px-3.5 text-body">{{ $product->cleanWarrantyText() }}</td>
+                                    </tr>
+                                @endif
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <div class="grid gap-3 sm:grid-cols-2 border-t border-line pt-4">
