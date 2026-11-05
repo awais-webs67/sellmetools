@@ -219,7 +219,6 @@ class Product extends Model
             }
 
             Cache::forget('smt_search_catalog_v1');
-            Cache::forget('store.active_categories.v2');
 
             if (! app()->runningUnitTests() && $product->is_active && ($product->wasRecentlyCreated || $product->wasChanged(['name', 'slug', 'is_active', 'price', 'short_description', 'description']))) {
                 defer(function () use ($product): void {
@@ -239,7 +238,6 @@ class Product extends Model
 
         static::deleted(function () {
             Cache::forget('smt_search_catalog_v1');
-            Cache::forget('store.active_categories.v2');
         });
     }
 

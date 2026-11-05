@@ -8,7 +8,6 @@ use App\Models\Review;
 use App\Services\ProductSeoOptimizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class ProductController extends Controller
@@ -114,12 +113,12 @@ class ProductController extends Controller
 
     private function activeCategories()
     {
-        return Cache::remember('store.active_categories.v2', 60, fn () => Category::query()
+        return Category::query()
             ->where('is_active', true)
             ->withCount(['products' => fn ($q) => $q->visible()])
             ->orderBy('sort')
             ->orderBy('name')
-            ->get());
+            ->get();
     }
 
     private function catalogQuery(?Category $activeCategory, string $search, string $sort = 'featured', bool $inStockOnly = false, ?int $seed = null)
