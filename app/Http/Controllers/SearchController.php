@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Services\InventoryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -19,67 +20,87 @@ class SearchController extends Controller
 
     public function __invoke(Request $request): JsonResponse
     {
+        if (! app()->runningUnitTests()) {
+            StockController::deferBackgroundSync();
+
+            if (Cache::add('smt_inventory_reconcile_tick', 1, 15)) {
+                try {
+                    $inventory = app(InventoryService::class);
+                    Product::query()
+                        ->where('is_active', true)
+                        ->with(['activeSources.supplier'])
+                        ->each(fn (Product $p) => $inventory->refresh($p));
+                } catch (\Throwable) {
+                }
+            }
+        }
+
         if ($request->boolean('catalog')) {
-            return response()->json(self::instantCatalog())->header('Cache-Control', 'public, max-age=120');
+            return response()
+                ->json(self::instantCatalog())
+                ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
         }
 
         $term = Str::of((string) $request->query('q', ''))->squish()->limit(60, '')->lower()->toString();
 
         if (mb_strlen($term) < 1) {
-            return response()->json(['products' => [], 'categories' => []]);
+            return response()
+                ->json(['products' => [], 'categories' => []])
+                ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
         }
 
-        $payload = Cache::remember('search.suggest.'.md5($term), 60, fn () => $this->lookup($term));
-
-        return response()->json($payload)->header('Cache-Control', 'public, max-age=30');
+        return response()
+            ->json($this->lookup($term))
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
     /**
-     * Lightweight preloaded catalog index for 0ms client-side instant search across all search bars.
+     * Lightweight real-time catalog index for instant search across all search bars.
+     * Always reads fresh stock & price from the database so search bars never show stale Sold Out / In Stock status.
      *
-     * @return array{products: array<int, array<string, mixed>>, categories: array<int, array<string, string>>}
+     * @return array{has_more: bool, products: array<int, array<string, mixed>>, categories: array<int, array<string, string>>}
      */
     public static function instantCatalog(): array
     {
         try {
-            return Cache::remember('smt_search_catalog_v1', 86400, function (): array {
-                $totalVisible = Product::query()->visible()->count();
+            $totalVisible = Product::query()->visible()->count();
 
-                $products = Product::query()
-                    ->visible()
-                    ->with('category:id,name,slug')
-                    ->orderByRaw('CASE WHEN available_stock > 0 OR stock_unlimited = 1 THEN 0 ELSE 1 END')
-                    ->orderByDesc('is_featured')
-                    ->orderByDesc('sold_count')
-                    ->limit(150)
-                    ->get(['id', 'name', 'slug', 'image', 'price', 'is_free', 'category_id', 'available_stock', 'stock_unlimited']);
+            $products = Product::query()
+                ->visible()
+                ->with('category:id,name,slug')
+                ->orderByRaw('CASE WHEN available_stock > 0 OR stock_unlimited = 1 THEN 0 ELSE 1 END')
+                ->orderByDesc('is_featured')
+                ->orderByDesc('sold_count')
+                ->limit(200)
+                ->get(['id', 'name', 'slug', 'image', 'price', 'is_free', 'category_id', 'available_stock', 'stock_unlimited']);
 
-                $categories = Category::query()
-                    ->where('is_active', true)
-                    ->orderBy('sort')
-                    ->get(['name', 'slug']);
+            $categories = Category::query()
+                ->where('is_active', true)
+                ->orderBy('sort')
+                ->get(['name', 'slug']);
 
-                return [
-                    'has_more' => $totalVisible > 150,
-                    'products' => $products->map(fn (Product $p) => [
-                        'id' => $p->id,
-                        'name' => $p->name,
-                        'url' => route('products.show', $p),
-                        'image' => $p->imageUrl(),
-                        'price' => $p->isFree() ? 'FREE' : money($p->price),
-                        'price_raw' => $p->isFree() ? 0.0 : (float) $p->price,
-                        'is_free' => $p->isFree(),
-                        'category' => $p->category?->name,
-                        'in_stock' => $p->inStock(),
-                        'search' => mb_strtolower($p->name.' '.($p->category?->name ?? '')),
-                    ])->all(),
-                    'categories' => $categories->map(fn (Category $c) => [
-                        'name' => $c->name,
-                        'url' => route('categories.show', $c),
-                        'search' => mb_strtolower($c->name),
-                    ])->all(),
-                ];
-            });
+            return [
+                'has_more' => $totalVisible > 200,
+                'products' => $products->map(fn (Product $p) => [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                    'url' => route('products.show', $p),
+                    'image' => $p->imageUrl(),
+                    'price' => $p->isFree() ? 'FREE' : money($p->price),
+                    'price_raw' => $p->isFree() ? 0.0 : (float) $p->price,
+                    'is_free' => $p->isFree(),
+                    'category' => $p->category?->name,
+                    'qty' => (int) $p->available_stock,
+                    'unlimited' => (bool) $p->stock_unlimited,
+                    'in_stock' => $p->inStock(),
+                    'search' => mb_strtolower($p->name.' '.($p->category?->name ?? '')),
+                ])->all(),
+                'categories' => $categories->map(fn (Category $c) => [
+                    'name' => $c->name,
+                    'url' => route('categories.show', $c),
+                    'search' => mb_strtolower($c->name),
+                ])->all(),
+            ];
         } catch (\Throwable) {
             return ['has_more' => true, 'products' => [], 'categories' => []];
         }
@@ -126,6 +147,7 @@ class SearchController extends Controller
 
         return [
             'products' => $products->map(fn (Product $p) => [
+                'id' => $p->id,
                 'name' => $p->name,
                 'url' => route('products.show', $p),
                 'image' => $p->imageUrl(),
@@ -133,6 +155,8 @@ class SearchController extends Controller
                 'price_raw' => $p->isFree() ? 0.0 : (float) $p->price,
                 'is_free' => $p->isFree(),
                 'category' => $p->category?->name,
+                'qty' => (int) $p->available_stock,
+                'unlimited' => (bool) $p->stock_unlimited,
                 'in_stock' => $p->inStock(),
             ])->all(),
             'categories' => $categories->map(fn (Category $c) => [

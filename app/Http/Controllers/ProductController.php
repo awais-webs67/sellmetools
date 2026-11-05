@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Review;
+use App\Services\InventoryService;
 use App\Services\ProductSeoOptimizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class ProductController extends Controller
@@ -126,6 +128,17 @@ class ProductController extends Controller
         ProductSeoOptimizer::syncCatalogOnce();
         Product::seedInitialReviewsOnce();
 
+        if (! app()->runningUnitTests() && Cache::add('smt_inventory_reconcile_tick', 1, 20)) {
+            try {
+                $inventory = app(InventoryService::class);
+                Product::query()
+                    ->where('is_active', true)
+                    ->with(['activeSources.supplier'])
+                    ->each(fn (Product $p) => $inventory->refresh($p));
+            } catch (\Throwable) {
+            }
+        }
+
         $tokens = collect(preg_split('/\s+/u', $search, -1, PREG_SPLIT_NO_EMPTY))
             ->map(fn (string $t) => addcslashes($t, '%_'))
             ->filter()
@@ -178,6 +191,11 @@ class ProductController extends Controller
 
         ProductSeoOptimizer::syncCatalogOnce();
         Product::seedInitialReviewsOnce();
+
+        try {
+            app(InventoryService::class)->refresh($product);
+        } catch (\Throwable) {
+        }
 
         if ($request->user()?->is_reseller) {
             $request->user()->loadMissing('resellerProductPrices');

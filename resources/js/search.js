@@ -1,29 +1,44 @@
 /**
- * Instant 0ms real-time search + live filtering across every search bar.
+ * Instant real-time search + live filtering across every search bar.
  *
- * Uses the preloaded `window.SMT.catalog` index for instant 0ms keystroke response
- * starting from the 1st character, with automatic server fallback when needed.
+ * Always syncs live stock & price with the server (cache: 'no-store') and
+ * Alpine.store('stock') so search results never show stale Sold Out / In Stock status.
  */
-const suggestCache = new Map();
-const pageHtmlCache = new Map();
 let catalogPromise = null;
 
-function ensureCatalogLoaded() {
-    if (window.SMT?.catalog && Array.isArray(window.SMT.catalog.products)) {
+try {
+    sessionStorage.removeItem('smt_catalog_cache_v1');
+} catch (_) {}
+
+function syncProductsWithStockStore(products) {
+    if (!Array.isArray(products)) return;
+    const stockStore = window.Alpine?.store?.('stock');
+    if (!stockStore) return;
+
+    for (const p of products) {
+        if (!p || !p.id) continue;
+        const id = String(p.id);
+        stockStore.items[id] = {
+            qty: typeof p.qty === 'number' ? p.qty : p.in_stock ? 1 : 0,
+            unlimited: Boolean(p.unlimited),
+            in_stock: Boolean(p.in_stock),
+            price: Number(p.price_raw ?? 0),
+            retail_price: Number(p.price_raw ?? 0),
+            price_formatted: p.price,
+        };
+    }
+}
+
+function ensureCatalogLoaded(force = false) {
+    const now = Date.now();
+    if (
+        !force &&
+        window.SMT?.catalog &&
+        Array.isArray(window.SMT.catalog.products) &&
+        now - (window.SMT.catalogTs || 0) < 6000
+    ) {
         return Promise.resolve(window.SMT.catalog);
     }
-
-    try {
-        const cached = sessionStorage.getItem('smt_catalog_cache_v1');
-        if (cached) {
-            const parsed = JSON.parse(cached);
-            if (parsed && parsed.ts && Date.now() - parsed.ts < 300000 && parsed.data) {
-                window.SMT = window.SMT || {};
-                window.SMT.catalog = parsed.data;
-                return Promise.resolve(parsed.data);
-            }
-        }
-    } catch (_) {}
 
     if (catalogPromise) {
         return catalogPromise;
@@ -35,15 +50,16 @@ function ensureCatalogLoaded() {
 
     const url = new URL(window.SMT.searchUrl, window.location.origin);
     url.searchParams.set('catalog', '1');
+    url.searchParams.set('_t', String(now));
 
-    catalogPromise = fetch(url, { headers: { Accept: 'application/json' } })
+    catalogPromise = fetch(url, { headers: { Accept: 'application/json' }, cache: 'no-store' })
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
             if (data && Array.isArray(data.products)) {
+                window.SMT = window.SMT || {};
                 window.SMT.catalog = data;
-                try {
-                    sessionStorage.setItem('smt_catalog_cache_v1', JSON.stringify({ ts: Date.now(), data }));
-                } catch (_) {}
+                window.SMT.catalogTs = Date.now();
+                syncProductsWithStockStore(data.products);
                 return data;
             }
             return null;
@@ -93,9 +109,24 @@ function lookupLocalCatalog(rawTerm) {
         else if (nameLower.startsWith(term)) score += 60;
         else if (nameLower.includes(' ' + term)) score += 40;
         else if (nameLower.includes(term)) score += 25;
-        if (p.in_stock) score += 10;
 
-        scoredProducts.push({ p, score });
+        const liveItem = window.Alpine?.store?.('stock')?.get?.(p.id);
+        const isInStock = liveItem ? Boolean(liveItem.in_stock) : Boolean(p.in_stock);
+        if (isInStock) score += 10;
+
+        scoredProducts.push({
+            p: liveItem
+                ? {
+                      ...p,
+                      in_stock: Boolean(liveItem.in_stock),
+                      qty: liveItem.qty,
+                      unlimited: Boolean(liveItem.unlimited),
+                      price_raw: liveItem.price ?? p.price_raw,
+                      price: liveItem.price_formatted ?? p.price,
+                  }
+                : p,
+            score,
+        });
     }
 
     scoredProducts.sort((a, b) => b.score - a.score);
@@ -156,9 +187,9 @@ function createSearchBehavior(targetSelector = null) {
                 }
             },
             '@focus'() {
-                ensureCatalogLoaded();
+                ensureCatalogLoaded(true);
                 if (this.q.trim().length >= 1) {
-                    if (!this.searched) this.queue();
+                    this.queue();
                     this.open = true;
                 }
             },
@@ -179,19 +210,14 @@ function createSearchBehavior(targetSelector = null) {
                 return;
             }
 
-            // 0ms instant in-memory search when preloaded catalog is available
+            // Instant in-memory preview while simultaneous real-time server lookup fetches latest live stock
             const local = lookupLocalCatalog(this.term);
-            if (local) {
+            if (local && local.products.length > 0) {
                 this.open = true;
                 this.apply(local);
-                // If catalog has >80 products and local matches are few, also query server in background
-                if (window.SMT?.catalog?.has_more && local.products.length < 5) {
-                    this.timer = setTimeout(() => this.search(), 90);
-                }
-                return;
             }
 
-            this.timer = setTimeout(() => this.search(), 80);
+            this.timer = setTimeout(() => this.search(), 70);
         },
 
         reset() {
@@ -208,22 +234,22 @@ function createSearchBehavior(targetSelector = null) {
             const key = term.toLowerCase();
             this.open = true;
 
-            if (suggestCache.has(key)) {
-                this.apply(suggestCache.get(key));
-                return;
-            }
-
             this.controller?.abort();
             this.controller = new AbortController();
             this.loading = true;
 
             try {
-                const url = new URL(window.SMT.searchUrl);
+                const url = new URL(window.SMT.searchUrl, window.location.origin);
                 url.searchParams.set('q', term);
-                const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: this.controller.signal });
+                url.searchParams.set('_t', String(Date.now()));
+                const res = await fetch(url, {
+                    headers: { Accept: 'application/json' },
+                    cache: 'no-store',
+                    signal: this.controller.signal,
+                });
                 if (!res.ok) throw new Error(String(res.status));
                 const data = await res.json();
-                suggestCache.set(key, data);
+                syncProductsWithStockStore(data.products);
                 if (this.term.toLowerCase() === key) this.apply(data);
             } catch (e) {
                 if (e.name !== 'AbortError') this.loading = false;
@@ -282,16 +308,6 @@ function createSearchBehavior(targetSelector = null) {
 
         prefetch(rawUrl) {
             if (!rawUrl) return;
-            const url = String(rawUrl).split('#')[0];
-            const cached = pageHtmlCache.get(url);
-            if (cached && Date.now() - cached.ts < 60000) return;
-
-            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then((res) => (res.ok ? res.text() : null))
-                .then((html) => {
-                    if (html) pageHtmlCache.set(url, { html, ts: Date.now() });
-                })
-                .catch(() => {});
         },
 
         filterCategoryDomNow(slug) {
@@ -381,6 +397,7 @@ function createSearchBehavior(targetSelector = null) {
                 currentMeta.remove();
             }
             window.history.replaceState(null, '', url);
+            window.Alpine?.store?.('stock')?.poll?.(false);
         },
 
         async run() {
@@ -404,13 +421,6 @@ function createSearchBehavior(targetSelector = null) {
 
             this.filterController?.abort();
 
-            const cached = pageHtmlCache.get(url);
-            if (cached && Date.now() - cached.ts < 60000) {
-                this.loading = false;
-                this.applyHtmlSwap(cached.html, url);
-                return;
-            }
-
             const controller = (this.filterController = new AbortController());
             this.loading = true;
             const currentEl = document.querySelector(targetSelector);
@@ -421,6 +431,7 @@ function createSearchBehavior(targetSelector = null) {
             try {
                 const res = await fetch(url, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-SMT-Filter': '1' },
+                    cache: 'no-store',
                     signal: controller.signal,
                 });
                 if (!res.ok) {
@@ -428,7 +439,6 @@ function createSearchBehavior(targetSelector = null) {
                     return;
                 }
                 const html = await res.text();
-                pageHtmlCache.set(url, { html, ts: Date.now() });
                 this.applyHtmlSwap(html, url);
             } catch (e) {
                 if (e.name !== 'AbortError') window.location.href = url;

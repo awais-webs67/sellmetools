@@ -175,7 +175,8 @@ class SupplierSyncService
 
         $supplier->forceFill(['last_synced_at' => $now, 'last_sync_error' => null])->save();
 
-        return ['products' => count($rows)] + $this->refreshListings($supplier, $changedIds);
+        // Always reconcile all listings linked to this supplier so any drifted product stock/price self-heals on every sync
+        return ['products' => count($rows)] + $this->refreshListings($supplier, null);
     }
 
     public function syncBalance(Supplier $supplier): void

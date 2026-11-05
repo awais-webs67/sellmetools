@@ -67,9 +67,9 @@
                         <span class="truncate font-medium text-muted" x-text="p.category || 'Digital Tool'"></span>
                         <span class="text-line-strong">•</span>
                         <span class="inline-flex items-center gap-1 font-semibold"
-                              :class="p.in_stock ? 'text-success' : 'text-danger'">
-                            <span class="h-1.5 w-1.5 rounded-full" :class="p.in_stock ? 'bg-success' : 'bg-danger'"></span>
-                            <span x-text="p.in_stock ? 'In Stock' : 'Sold Out'"></span>
+                              :class="($store.stock && p.id && $store.stock.get(p.id) ? $store.stock.get(p.id).in_stock : p.in_stock) ? 'text-success' : 'text-danger'">
+                            <span class="h-1.5 w-1.5 rounded-full" :class="($store.stock && p.id && $store.stock.get(p.id) ? $store.stock.get(p.id).in_stock : p.in_stock) ? 'bg-success' : 'bg-danger'"></span>
+                            <span x-text="($store.stock && p.id && $store.stock.get(p.id) ? $store.stock.get(p.id).in_stock : p.in_stock) ? (($store.stock && p.id && $store.stock.get(p.id) ? $store.stock.get(p.id).unlimited : p.unlimited) ? 'In Stock' : 'In Stock (' + (($store.stock && p.id && $store.stock.get(p.id) ? $store.stock.get(p.id).qty : p.qty) || 1) + ')') : 'Sold Out (0)'"></span>
                         </span>
                     </span>
                 </span>

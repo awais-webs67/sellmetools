@@ -518,4 +518,39 @@ class StorefrontTest extends TestCase
         $this->assertSame('Surfshark 2 Months Account', $product->name);
         $this->assertSame('Buy Surfshark 2 Months Account | Best Price in Pakistan', $product->seoTitle());
     }
+
+    public function test_search_api_always_returns_real_time_stock_without_stale_cache(): void
+    {
+        $product = $this->listing([], [
+            'name' => 'ElevenLabs Creator 3 Months',
+            'available_stock' => 0,
+            'stock_unlimited' => false,
+        ]);
+
+        // 1. Initially 0 stock -> search API shows in_stock = false, qty = 0
+        $res1 = $this->getJson(route('search.suggest', ['q' => 'elevenlabs']))->assertOk()->json('products.0');
+        $this->assertFalse($res1['in_stock']);
+        $this->assertSame(0, $res1['qty']);
+
+        $cat1 = collect($this->getJson(route('search.suggest', ['catalog' => 1]))->assertOk()->json('products'))
+            ->firstWhere('id', $product->id);
+        $this->assertFalse($cat1['in_stock']);
+
+        // 2. Stock is added (e.g. via supplier sync or stock items) -> search API immediately reflects in_stock = true
+        $product->stockItems()->createMany([
+            ['content' => 'el1@test.com:pass1'],
+            ['content' => 'el2@test.com:pass2'],
+            ['content' => 'el3@test.com:pass3'],
+        ]);
+        app(InventoryService::class)->refresh($product);
+
+        $res2 = $this->getJson(route('search.suggest', ['q' => 'elevenlabs']))->assertOk()->json('products.0');
+        $this->assertTrue($res2['in_stock']);
+        $this->assertSame(3, $res2['qty']);
+
+        $cat2 = collect($this->getJson(route('search.suggest', ['catalog' => 1]))->assertOk()->json('products'))
+            ->firstWhere('id', $product->id);
+        $this->assertTrue($cat2['in_stock']);
+        $this->assertSame(3, $cat2['qty']);
+    }
 }

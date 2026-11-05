@@ -8,6 +8,7 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\StockItem;
 use App\Models\SupplierProduct;
+use Illuminate\Support\Facades\Cache;
 
 class InventoryService
 {
@@ -91,16 +92,18 @@ class InventoryService
 
         if ($product->isDirty(['available_stock', 'stock_unlimited'])) {
             $product->saveQuietly();
+            Cache::forget('smt_search_catalog_v1');
+            \Illuminate\Support\Facades\Cache::forget('smt_search_catalog_v1');
         }
 
         $nowInStock = $product->inStock();
         $alertKey = "out_of_stock_alerted:{$product->id}";
 
         if ($nowInStock) {
-            \Illuminate\Support\Facades\Cache::forget($alertKey);
+            Cache::forget($alertKey);
         } elseif ($wasInStock && ! $nowInStock && $product->is_active && ! app()->runningUnitTests()) {
-            if (! \Illuminate\Support\Facades\Cache::has($alertKey)) {
-                \Illuminate\Support\Facades\Cache::put($alertKey, true, now()->addDays(7));
+            if (! Cache::has($alertKey)) {
+                Cache::put($alertKey, true, now()->addDays(7));
                 $this->dispatchOutOfStockAlert($product);
             }
         }

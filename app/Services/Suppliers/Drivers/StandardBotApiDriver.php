@@ -250,8 +250,41 @@ class StandardBotApiDriver implements SupplierDriver
                         'balance' => $balanceObj,
                     ];
                 } catch (\Throwable) {
-                    // Fall back immediately to cached catalog + browser bridge sync below
+                    // Fall through to direct HTTP attempt below
                 }
+            }
+
+            // Always try direct HTTP to Railway before falling back to cached catalog so background sync picks up restocks immediately
+            try {
+                $prodResponse = $this->http(10, 4)->get($productsPath);
+                $this->guard($prodResponse);
+                $products = $this->parseProductsResponse($prodResponse);
+
+                $balanceObj = $this->extractBalanceFromResponse($prodResponse);
+                $balJson = null;
+                if ($balanceObj === null) {
+                    try {
+                        $balResponse = $this->http(8, 3)->get($balancePath);
+                        $balJson = $balResponse->json();
+                        $balanceObj = $this->extractBalanceFromResponse($balResponse);
+                    } catch (\Throwable) {
+                        // Keep existing balance if balance endpoint times out
+                    }
+                }
+
+                Cache::put('supplier_raw_cache_'.$this->supplier->id, [
+                    'products' => $prodResponse->json(),
+                    'balance' => $balJson ?? $prodResponse->json(),
+                    'at' => now()->timestamp,
+                ], 86400);
+                Cache::forget('supplier_needs_bridge_sync_'.$this->supplier->id);
+
+                return [
+                    'products' => $products,
+                    'balance' => $balanceObj,
+                ];
+            } catch (\Throwable) {
+                // Direct HTTP timed out; fall back to cached catalog + browser bridge sync
             }
 
             Cache::put('supplier_needs_bridge_sync_'.$this->supplier->id, true, 600);
@@ -548,23 +581,75 @@ class StandardBotApiDriver implements SupplierDriver
                 return null;
             }
 
-            $unlimited = (bool) ($row['unlimited_stock'] ?? $row['stock_unlimited'] ?? $row['infinite_stock'] ?? false);
+            $unlimited = (bool) ($row['unlimited_stock'] ?? $row['stock_unlimited'] ?? $row['infinite_stock'] ?? $row['is_unlimited'] ?? false);
             $rawStock = $row['stock']
                 ?? $row['stock_count']
+                ?? $row['stockCount']
                 ?? $row['quantity']
+                ?? $row['qty']
+                ?? $row['count']
+                ?? $row['inventory']
                 ?? $row['available_stock']
-                ?? (is_array($row['availability'] ?? null) ? ($row['availability']['available'] ?? null) : null);
-            $stock = $rawStock !== null && is_numeric($rawStock) ? (int) $rawStock : null;
+                ?? $row['availableStock']
+                ?? $row['available_quantity']
+                ?? $row['stock_qty']
+                ?? (is_array($row['availability'] ?? null) ? ($row['availability']['available'] ?? $row['availability']['stock'] ?? null) : null);
 
-            $explicitAvailable = $row['available'] ?? $row['is_available'] ?? $row['inStock'] ?? $row['in_stock'] ?? null;
+            $stock = null;
+            if ($rawStock !== null) {
+                if (is_numeric($rawStock)) {
+                    $numStock = (int) $rawStock;
+                    if ($numStock < 0) {
+                        $unlimited = true;
+                    } else {
+                        $stock = $numStock;
+                    }
+                } elseif (is_string($rawStock)) {
+                    $rawStockLower = strtolower(trim($rawStock));
+                    if (in_array($rawStockLower, ['unlimited', 'infinite', '∞', 'in stock', 'in_stock', 'available', 'yes', 'true'], true)) {
+                        $unlimited = true;
+                    } elseif (preg_match('/(\d+)/', $rawStockLower, $sm)) {
+                        $stock = (int) $sm[1];
+                    } elseif (in_array($rawStockLower, ['out of stock', 'out_of_stock', 'sold out', 'sold_out', 'none', 'no', 'false'], true)) {
+                        $stock = 0;
+                    }
+                }
+            }
 
-            // A null stock without the unlimited flag is treated as unlimited when explicitly marked available/inStock (e.g. ProdSeller).
-            if ($stock === null && ! $unlimited && $explicitAvailable === true) {
+            $rawAvailable = $row['available']
+                ?? $row['is_available']
+                ?? $row['inStock']
+                ?? $row['in_stock']
+                ?? $row['is_active']
+                ?? $row['active']
+                ?? $row['status']
+                ?? null;
+
+            $explicitAvailable = null;
+            if (is_bool($rawAvailable)) {
+                $explicitAvailable = $rawAvailable;
+            } elseif (is_int($rawAvailable) || is_float($rawAvailable)) {
+                $explicitAvailable = ((int) $rawAvailable) > 0;
+            } elseif (is_string($rawAvailable)) {
+                $availLower = strtolower(trim($rawAvailable));
+                if (in_array($availLower, ['true', '1', 'yes', 'available', 'in_stock', 'in stock', 'active', 'enabled'], true)) {
+                    $explicitAvailable = true;
+                } elseif (in_array($availLower, ['false', '0', 'no', 'unavailable', 'out_of_stock', 'out of stock', 'sold_out', 'sold out', 'inactive', 'disabled'], true)) {
+                    $explicitAvailable = false;
+                }
+            }
+
+            // A null stock without the unlimited flag is treated as unlimited unless explicitly marked unavailable.
+            if ($stock === null && ! $unlimited && $explicitAvailable !== false) {
                 $unlimited = true;
             }
             if ($stock === null && ! $unlimited && $explicitAvailable === false) {
                 $stock = 0;
             }
+
+            // If a positive stock count (> 0) is present, the product is available unless explicitly disabled.
+            $isDisabledFlag = ($row['is_active'] ?? null) === false || ($row['disabled'] ?? null) === true;
+            $isAvailable = ! $isDisabledFlag && (($unlimited || ($stock !== null && $stock > 0)) ? true : (bool) ($explicitAvailable ?? false));
 
             $warranty = $row['warranty'] ?? $row['warranty_period'] ?? $row['subscription_type'] ?? null;
             if ($warranty === null && isset($row['warranty_hours']) && is_numeric($row['warranty_hours']) && (int) $row['warranty_hours'] > 0) {
@@ -580,7 +665,7 @@ class StandardBotApiDriver implements SupplierDriver
                 cost: (float) $rawPrice,
                 stock: $stock,
                 unlimitedStock: $unlimited,
-                available: (bool) ($explicitAvailable ?? ($unlimited || $stock > 0)),
+                available: $isAvailable,
                 warranty: TextCleaner::clean(is_scalar($warranty) ? (string) $warranty : null),
                 description: TextCleaner::clean(is_scalar($description) ? (string) $description : null),
                 raw: $row,
