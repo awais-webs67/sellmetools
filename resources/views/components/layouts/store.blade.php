@@ -5,6 +5,8 @@
     'image' => null,
     'type' => 'website',
     'canonical' => null,
+    'prevUrl' => null,
+    'nextUrl' => null,
     'robots' => 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
 ])
 @if (request()->header('X-SMT-Filter') === '1')
@@ -49,6 +51,14 @@
         'paymentAccepted' => 'Binance Pay, USDT (TRC20), Cryptocurrency, Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer',
         'priceRange' => '$1 - $100 / PKR 100 - PKR 25000',
         'areaServed' => 'Worldwide',
+        'knowsAbout' => [
+            'AI Tools Subscriptions',
+            'ChatGPT Plus Subscription',
+            'Canva Pro Subscription',
+            'CapCut Pro Subscription',
+            'Digital Software Licenses',
+            'Cloud & Streaming Subscriptions',
+        ],
         'founder' => [
             '@type' => 'Organization',
             'name' => 'AivraSol Softwares',
@@ -81,7 +91,7 @@
             '@type' => 'SearchAction',
             'target' => [
                 '@type' => 'EntryPoint',
-                'urlTemplate' => route('home').'?q={search_term_string}',
+                'urlTemplate' => route('shop').'?q={search_term_string}',
             ],
             'query-input' => 'required name=search_term_string',
         ],
@@ -103,6 +113,12 @@
     <meta name="theme-color" content="{{ $themeColorHex }}">
 
     <link rel="canonical" href="{{ $canonicalUrl }}">
+    @if ($prevUrl)
+        <link rel="prev" href="{{ $prevUrl }}">
+    @endif
+    @if ($nextUrl)
+        <link rel="next" href="{{ $nextUrl }}">
+    @endif
     <link rel="alternate" hreflang="en" href="{{ $canonicalUrl }}">
     <link rel="alternate" hreflang="en-pk" href="{{ $canonicalUrl }}">
     <link rel="alternate" hreflang="x-default" href="{{ $canonicalUrl }}">

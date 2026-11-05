@@ -11,12 +11,23 @@
     $seoKeywords = $activeCategory
         ? $activeCategory->seoKeywords()
         : null;
-    $canonicalUrl = $activeCategory
+    $baseCanonicalUrl = $activeCategory
         ? route('categories.show', $activeCategory)
         : route('shop');
     $defaultShopSort = (string) setting('shop_default_sort', 'alpha');
     $isDefaultSort = in_array($sort, [$defaultShopSort, 'featured'], true);
-    $robotsDirective = ($search !== '' || ! $isDefaultSort || $inStockOnly)
+    $isIndexableShopState = ($search === '' && $isDefaultSort && ! $inStockOnly);
+    $currentPageNum = (int) $products->currentPage();
+    $canonicalUrl = ($isIndexableShopState && ! $activeCategory && $currentPageNum > 1)
+        ? $baseCanonicalUrl.'?page='.$currentPageNum
+        : $baseCanonicalUrl;
+    $prevPageUrl = ($isIndexableShopState && ! $activeCategory && $currentPageNum > 1)
+        ? ($currentPageNum === 2 ? $baseCanonicalUrl : $baseCanonicalUrl.'?page='.($currentPageNum - 1))
+        : null;
+    $nextPageUrl = ($isIndexableShopState && ! $activeCategory && $products->hasMorePages())
+        ? $baseCanonicalUrl.'?page='.($currentPageNum + 1)
+        : null;
+    $robotsDirective = ! $isIndexableShopState
         ? 'noindex, follow'
         : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
 
@@ -73,6 +84,8 @@
     :description="$seoDescription"
     :keywords="$seoKeywords"
     :canonical="$canonicalUrl"
+    :prev-url="$prevPageUrl"
+    :next-url="$nextPageUrl"
     :robots="$robotsDirective"
 >
     {{-- ================= SHOP HEADER ================= --}}

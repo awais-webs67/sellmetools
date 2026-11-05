@@ -6,6 +6,8 @@ use App\Models\Category;
 use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\Setting;
+use App\Services\ProductSeoOptimizer;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Http;
 
@@ -133,7 +135,7 @@ class SeoController extends Controller
 
     public function sitemap(): Response
     {
-        \App\Services\ProductSeoOptimizer::syncCatalogOnce();
+        ProductSeoOptimizer::syncCatalogOnce();
 
         $categories = Category::query()
             ->where('is_active', true)
@@ -215,7 +217,7 @@ class SeoController extends Controller
      */
     public function googleShoppingFeed(): Response
     {
-        \App\Services\ProductSeoOptimizer::syncCatalogOnce();
+        ProductSeoOptimizer::syncCatalogOnce();
 
         $storeName = (string) Setting::get('store_name', 'SellMeTools');
         $storeDesc = (string) Setting::get('seo_description', Setting::get('store_tagline'));
@@ -270,7 +272,7 @@ class SeoController extends Controller
      */
     public function llmsTxt(): Response
     {
-        \App\Services\ProductSeoOptimizer::syncCatalogOnce();
+        ProductSeoOptimizer::syncCatalogOnce();
 
         $storeName = (string) Setting::get('store_name', 'SellMeTools');
         $desc = (string) Setting::get('seo_description', Setting::get('store_tagline'));
@@ -323,11 +325,53 @@ class SeoController extends Controller
         ]);
     }
 
+    public function aiCatalog(): JsonResponse
+    {
+        ProductSeoOptimizer::syncCatalogOnce();
+
+        $storeName = (string) Setting::get('store_name', 'SellMeTools');
+        $desc = (string) Setting::get('seo_description', Setting::get('store_tagline'));
+        $categories = Category::query()->where('is_active', true)->orderBy('sort')->get();
+
+        return response()->json([
+            'schema_version' => '1.0',
+            'name' => $storeName,
+            'url' => url('/'),
+            'description' => $desc,
+            'parent_organization' => [
+                'name' => 'AivraSol Softwares',
+                'url' => 'https://aivrasol.com',
+            ],
+            'discovery' => [
+                'llms_txt' => route('llms'),
+                'llms_full_txt' => url('/llms-full.txt'),
+                'sitemap_xml' => route('sitemap'),
+                'google_shopping_rss' => route('feed.google-shopping'),
+                'search_api' => route('search.suggest').'?q={query}',
+            ],
+            'capabilities' => [
+                'instant_digital_delivery' => true,
+                'currencies' => ['PKR', 'USDT', 'USD'],
+                'payment_methods' => ['Binance Pay', 'USDT TRC20', 'Easypaisa', 'JazzCash', 'NayaPay', 'SadaPay', 'Bank Transfer'],
+            ],
+            'categories' => $categories->map(fn (Category $c) => [
+                'name' => $c->name,
+                'slug' => $c->slug,
+                'url' => route('categories.show', $c),
+                'description' => $c->seoDescription(),
+            ])->values()->all(),
+        ], 200, [
+            'Cache-Control' => 'public, max-age=3600',
+            'X-Robots-Tag' => 'all',
+        ]);
+    }
+
     public function robots(): Response
     {
         $lines = [
             'User-agent: *',
             'Allow: /',
+            'Content-Signal: search=yes, ai-input=yes, ai-train=yes',
             'Disallow: /admin',
             'Disallow: /checkout/',
             'Disallow: /orders/',
@@ -370,6 +414,7 @@ class SeoController extends Controller
 
         return response(implode("\n", $lines)."\n", 200, [
             'Content-Type' => 'text/plain; charset=UTF-8',
+            'Cache-Control' => 'public, max-age=3600',
         ]);
     }
 

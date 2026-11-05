@@ -201,6 +201,9 @@
     ];
 @endphp
 @push('seo')
+    @if ($product->imageUrl())
+        <link rel="preload" as="image" href="{{ $product->imageUrl() }}" fetchpriority="high">
+    @endif
     <meta property="product:price:amount" content="{{ number_format((float) $product->price, 2, '.', '') }}">
     <meta property="product:price:currency" content="PKR">
     <meta property="product:availability" content="{{ $product->inStock() ? 'in stock' : 'out of stock' }}">
@@ -220,7 +223,9 @@
         {{-- Breadcrumb Navigation --}}
         <nav class="text-xs sm:text-sm mb-4" aria-label="Breadcrumb">
             <ol class="flex flex-wrap items-center gap-2 text-muted">
-                <li><a href="{{ route('home') }}" class="hover:text-ink transition">Shop</a></li>
+                <li><a href="{{ route('home') }}" class="hover:text-ink transition">Home</a></li>
+                <li aria-hidden="true" class="text-muted/60">/</li>
+                <li><a href="{{ route('shop') }}" class="hover:text-ink transition">Shop</a></li>
                 @if ($product->category)
                     <li aria-hidden="true" class="text-muted/60">/</li>
                     <li><a href="{{ route('categories.show', $product->category) }}" class="hover:text-ink transition">{{ $product->category->name }}</a></li>
@@ -261,8 +266,13 @@
                         <span class="eyebrow truncate">{{ $product->category?->name ?? 'Software & AI' }}</span>
                         <a href="#reviews" class="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-amber-500 hover:underline">
                             <span>★</span>
-                            <span class="text-ink font-bold">{{ number_format($avgRating, 1) }}</span>
-                            <span class="text-muted">({{ $reviewsCount }} reviews)</span>
+                            @if ($reviewsCount > 0)
+                                <span class="text-ink font-bold">{{ number_format($avgRating, 1) }}</span>
+                                <span class="text-muted">({{ $reviewsCount }} {{ \Illuminate\Support\Str::plural('review', $reviewsCount) }})</span>
+                            @else
+                                <span class="text-ink font-bold">Verified</span>
+                                <span class="text-muted">(Write a review)</span>
+                            @endif
                         </a>
                     </div>
 

@@ -29,8 +29,8 @@
     {{-- Media Box: Full uncropped image (object-contain) with soft ambient backdrop --}}
     <a href="{{ route('products.show', $product) }}" class="surface-dark-solid relative block h-36 sm:h-40 overflow-hidden" tabindex="-1" aria-hidden="true">
         @if ($img = $product->imageUrl())
-            {{-- Soft ambient backdrop fills side/top gaps so object-contain never leaves ugly empty bars (uses native lazy-loading!) --}}
-            <img src="{{ $img }}" alt="" width="40" height="25" @if (! $priority) loading="lazy" @endif decoding="async" aria-hidden="true" class="pointer-events-none absolute inset-0 h-full w-full object-cover scale-110 opacity-35 blur-md" :class="!inStock && 'grayscale'">
+            {{-- Soft ambient CSS backdrop fills side/top gaps without creating duplicate <img> DOM nodes --}}
+            <div aria-hidden="true" style="background-image: url('{{ $img }}')" class="pointer-events-none absolute inset-0 bg-cover bg-center scale-110 opacity-35 blur-md" :class="!inStock && 'grayscale'"></div>
             {{-- Full uncropped product image --}}
             <img src="{{ $img }}" alt="{{ $product->imageSeoAlt() }}" title="{{ $product->imageSeoTitle() }}" width="400" height="250" @if ($priority) fetchpriority="high" @else loading="lazy" @endif decoding="async" class="relative z-10 h-full w-full object-contain p-1.5 transition duration-300 group-hover:scale-[1.03]" :class="!inStock && 'grayscale opacity-65'">
         @else
