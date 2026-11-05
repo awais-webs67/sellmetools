@@ -31,13 +31,14 @@
               action="{{ route('checkout.store', $product) }}"
               class="grid gap-6 lg:grid-cols-[1fr_360px]"
               data-stock-id="{{ $product->id }}"
-              x-data="checkoutForm({{ $product->id }}, {{ (int) old('quantity', $quantity) }}, {{ $effectivePrice }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, {{ (int) $product->available_stock }}, '{{ $initialMethod }}')"
-              x-effect="if (method === 'wallet' && ({{ $walletBalance }} < (livePrice * qty))) { method = '{{ $methods->first()?->id }}'; }"
+              x-data="checkoutForm({{ $product->id }}, {{ (int) old('quantity', $quantity) }}, {{ $effectivePrice }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, {{ (int) $product->available_stock }}, '{{ $initialMethod }}', '{{ route('checkout.voucher', $product) }}')"
+              x-effect="if (method === 'wallet' && ({{ $walletBalance }} < totalAmount)) { method = '{{ $methods->first()?->id }}'; }"
               @input="saveDraft()"
               @change="saveDraft()"
               @submit="submitting = true">
             @csrf
             <input type="hidden" name="pay_with_wallet" :value="method === 'wallet' ? '1' : '0'">
+            <input type="hidden" name="voucher_code" :value="voucherApplied ? voucherApplied.code : ''">
 
             <div class="min-w-0 space-y-5">
                 {{-- STEP 1: Contact Details (Minimal & Clean) --}}
@@ -101,7 +102,7 @@
                         </div>
 
                         {{-- Clean 1-Click Account Wallet Option Card --}}
-                        <div @click="if ({{ $user ? 'true' : 'false' }} && ({{ $walletBalance }} >= (livePrice * qty))) { method = 'wallet'; }"
+                        <div @click="if ({{ $user ? 'true' : 'false' }} && ({{ $walletBalance }} >= totalAmount)) { method = 'wallet'; }"
                              :class="method === 'wallet' ? 'border-ink bg-grey-soft/80 shadow-2xs' : 'border-line hover:border-line-strong bg-white'"
                              class="mt-4 flex cursor-pointer flex-col gap-3 rounded-xl border-2 p-4 transition sm:flex-row sm:items-center sm:justify-between">
                             <div class="flex items-center gap-3">
@@ -127,13 +128,13 @@
                             <div class="shrink-0">
                                 @if ($user)
                                     <button type="submit"
-                                            x-show="{{ $walletBalance }} >= (livePrice * qty)"
+                                            x-show="{{ $walletBalance }} >= totalAmount"
                                             @click.stop="method = 'wallet'"
                                             :disabled="!inStock || submitting"
                                             class="btn bg-[#16a34a] text-white hover:bg-[#15803d] w-full sm:w-auto px-4 py-2 text-xs font-bold shadow-2xs">
                                         Pay Instantly →
                                     </button>
-                                    <div x-show="{{ $walletBalance }} < (livePrice * qty)" x-cloak>
+                                    <div x-show="{{ $walletBalance }} < totalAmount" x-cloak>
                                         @if ($waAdmin !== '')
                                             <a href="https://wa.me/{{ $waAdmin }}?text={{ urlencode('Assalam o Alaikum! I want to top-up my SellMeTools Wallet Balance for account: '.$user->email) }}"
                                                target="_blank"
@@ -248,6 +249,53 @@
                             </div>
                         </div>
                         @error('quantity')<p class="field-error text-xs">{{ $message }}</p>@enderror
+
+                        @unless ($isFree)
+                            {{-- Voucher / Promo Code Box --}}
+                            <div class="pt-2">
+                                <template x-if="!voucherApplied">
+                                    <div>
+                                        <label for="voucher_input" class="block text-[11px] font-semibold text-muted mb-1.5">Have a voucher or promo code?</label>
+                                        <div class="flex items-center gap-2">
+                                            <input id="voucher_input"
+                                                   type="text"
+                                                   x-model="voucherCode"
+                                                   @keydown.enter.prevent="applyVoucher()"
+                                                   placeholder="Enter code (e.g. SAVE20)"
+                                                   class="input py-2 px-3 text-xs font-mono uppercase tracking-wider flex-1">
+                                            <button type="button"
+                                                    @click="applyVoucher()"
+                                                    :disabled="voucherLoading || !voucherCode.trim()"
+                                                    class="btn btn-outline py-2 px-3.5 text-xs font-bold shrink-0">
+                                                <span x-show="!voucherLoading">Apply</span>
+                                                <span x-show="voucherLoading" x-cloak>...</span>
+                                            </button>
+                                        </div>
+                                        <p x-show="voucherError" x-cloak x-text="voucherError" class="mt-1.5 text-[11px] font-semibold text-danger"></p>
+                                    </div>
+                                </template>
+
+                                <template x-if="voucherApplied">
+                                    <div class="rounded-xl border border-emerald-200 bg-emerald-50/80 p-2.5">
+                                        <div class="flex items-center justify-between gap-2">
+                                            <div class="flex items-center gap-2 min-w-0">
+                                                <span class="inline-flex items-center rounded-md bg-emerald-600 px-2 py-0.5 font-mono text-[11px] font-bold text-white" x-text="voucherApplied.code"></span>
+                                                <span class="truncate text-xs font-bold text-emerald-800" x-text="voucherApplied.formatted_discount"></span>
+                                            </div>
+                                            <button type="button"
+                                                    @click="removeVoucher()"
+                                                    class="text-[11px] font-bold text-danger hover:underline shrink-0">
+                                                Remove
+                                            </button>
+                                        </div>
+                                        <div class="mt-1.5 flex items-center justify-between text-xs font-semibold text-emerald-700">
+                                            <span>Voucher Discount</span>
+                                            <span class="font-mono" x-text="'-' + discountFormatted"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        @endunless
                     </div>
 
                     {{-- Total Payable --}}

@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Exceptions\StoreException;
 use App\Models\PaymentMethod;
 use App\Models\Product;
+use App\Models\Voucher;
 use App\Services\OrderService;
 use App\Services\PaymentService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -48,7 +50,8 @@ class CheckoutController extends Controller
             'email' => ['required', 'email:rfc', 'max:190'],
             'name' => ['nullable', 'string', 'max:100'],
             'phone' => ['nullable', 'string', 'max:32'],
-            'payment_method_id' => [$isFree || $payWithWallet ? 'nullable' : 'required', Rule::exists('payment_methods', 'id')->where('is_active', true)],
+            'voucher_code' => ['nullable', 'string', 'max:64'],
+            'payment_method_id' => ['nullable', Rule::exists('payment_methods', 'id')->where('is_active', true)],
             'agree' => ['accepted'],
         ], [
             'agree.accepted' => 'Please accept the terms & refund policy.',
@@ -95,8 +98,13 @@ class CheckoutController extends Controller
                         'sort' => 0,
                     ]
                 );
-            } else {
+            } elseif (filled($data['payment_method_id'] ?? null)) {
                 $method = PaymentMethod::findOrFail($data['payment_method_id']);
+            } else {
+                $method = PaymentMethod::query()->where('is_active', true)->orderBy('sort')->first();
+                if (! $method) {
+                    throw new StoreException('Please select a payment method.');
+                }
             }
 
             $order = $orders->create(
@@ -106,14 +114,15 @@ class CheckoutController extends Controller
                     'email' => $data['email'],
                     'name' => $data['name'] ?? null,
                     'phone' => $normalizedPhone,
+                    'voucher_code' => $data['voucher_code'] ?? null,
                     'ip' => $request->ip(),
                 ],
                 $method,
                 $user,
             );
 
-            // Free product: auto-approve and fulfill immediately without payment or TID!
-            if ($isFree) {
+            // Free product or 100% off voucher: auto-approve and fulfill immediately without payment or TID!
+            if ($isFree || (float) $order->total <= 0) {
                 $order = $payments->completeFreeOrder($order);
             } elseif (($payWithWallet || $method->code === 'wallet') && $user) {
                 // If user selected Wallet payment (or payment method is 'wallet'), deduct wallet & auto-deliver immediately!
@@ -127,5 +136,50 @@ class CheckoutController extends Controller
         $request->session()->push('guest_orders', $order->number);
 
         return redirect()->to($order->customerUrl());
+    }
+
+    public function checkVoucher(Request $request, Product $product): JsonResponse
+    {
+        abort_unless($product->is_active, 404);
+
+        $code = strtoupper(trim((string) $request->input('code', '')));
+        $qty = max(1, min((int) $request->input('quantity', 1), (int) $product->max_per_order));
+        $email = trim((string) $request->input('email', ''));
+
+        if ($code === '') {
+            return response()->json(['ok' => false, 'message' => 'Please enter a voucher code.'], 422);
+        }
+
+        $user = $request->user();
+        $unitPrice = (float) $product->priceFor($user);
+        $subtotal = round($unitPrice * $qty, 2);
+
+        try {
+            Voucher::ensureSchemaExists();
+            /** @var Voucher|null $voucher */
+            $voucher = Voucher::query()->where('code', $code)->first();
+            if (! $voucher) {
+                throw new StoreException("Invalid voucher code: {$code}");
+            }
+            $discount = $voucher->validateAndCalculateDiscount($product, $subtotal, $email ?: ($user?->email), $user?->id);
+
+            return response()->json([
+                'ok' => true,
+                'code' => $voucher->code,
+                'title' => $voucher->title,
+                'discount_type' => $voucher->discount_type,
+                'discount_value' => (float) $voucher->discount_value,
+                'max_discount_amount' => $voucher->max_discount_amount !== null ? (float) $voucher->max_discount_amount : null,
+                'formatted_discount' => $voucher->formattedDiscount(),
+                'discount_pkr' => $discount,
+                'final_total_pkr' => max(0.0, round($subtotal - $discount, 2)),
+                'message' => "Voucher {$voucher->code} ({$voucher->formattedDiscount()}) applied!",
+            ]);
+        } catch (StoreException $e) {
+            return response()->json([
+                'ok' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
     }
 }

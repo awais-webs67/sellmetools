@@ -88,6 +88,7 @@ Route::match(['get', 'post'], '/quick-order/{order:number}', [PaymentWebhookCont
 // Checkout
 Route::get('/checkout/{product:slug}', [CheckoutController::class, 'create'])->name('checkout.create');
 Route::post('/checkout/{product:slug}', [CheckoutController::class, 'store'])->middleware('throttle:60,1')->name('checkout.store');
+Route::post('/checkout/{product:slug}/voucher', [CheckoutController::class, 'checkVoucher'])->middleware('throttle:60,1')->name('checkout.voucher');
 
 // Orders (guest access via secret token, or owner when logged in)
 Route::get('/orders/{order:number}', [OrderController::class, 'show'])->name('orders.show');

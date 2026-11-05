@@ -14,6 +14,7 @@ class Order extends Model
 {
     protected $fillable = [
         'number', 'access_token', 'user_id', 'customer_name', 'email', 'phone', 'payment_method_id',
+        'voucher_id', 'voucher_code', 'discount_amount',
         'status', 'total', 'total_cost', 'currency', 'usdt_rate', 'expires_at', 'paid_at', 'completed_at',
         'ip', 'admin_note', 'customer_input',
     ];
@@ -25,6 +26,7 @@ class Order extends Model
         return [
             'status' => OrderStatus::class,
             'total' => 'decimal:2',
+            'discount_amount' => 'decimal:2',
             'total_cost' => 'decimal:2',
             'usdt_rate' => 'decimal:4',
             'expires_at' => 'datetime',
@@ -37,6 +39,7 @@ class Order extends Model
     {
         static::creating(function (Order $order) {
             Product::ensureFreeAndStockColumnsExist();
+            Voucher::ensureSchemaExists();
             $order->number ??= static::generateNumber();
             $order->access_token ??= Str::random(48);
         });
@@ -91,13 +94,21 @@ class Order extends Model
 
     public function resolveRouteBinding($value, $field = null): ?Model
     {
+        return $this->resolveRouteBindingQuery($this->newQuery(), $value, $field)->first();
+    }
+
+    public function resolveRouteBindingQuery($query, $value, $field = null)
+    {
         if ($field !== null) {
-            return $this->where($field, $value)->first();
+            return $query->where($this->qualifyColumn($field), $value);
         }
 
-        return $this->where('number', $value)
-            ->when(is_numeric($value), fn ($query) => $query->orWhere('id', (int) $value))
-            ->first();
+        return $query->where(function ($q) use ($value) {
+            $q->where($this->qualifyColumn('number'), $value);
+            if (is_numeric($value)) {
+                $q->orWhere($this->qualifyColumn('id'), (int) $value);
+            }
+        });
     }
 
     public function user(): BelongsTo
@@ -108,6 +119,11 @@ class Order extends Model
     public function paymentMethod(): BelongsTo
     {
         return $this->belongsTo(PaymentMethod::class);
+    }
+
+    public function voucher(): BelongsTo
+    {
+        return $this->belongsTo(Voucher::class);
     }
 
     public function items(): HasMany

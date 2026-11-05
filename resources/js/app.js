@@ -237,12 +237,16 @@ Alpine.data('stockBadge', (id, initialQty, initialUnlimited, initialPriceFormatt
     },
 }));
 
-/** Checkout form controller: keeps typed user details safe in sessionStorage & syncs live price/stock. */
-Alpine.data('checkoutForm', (productId, initialQty, initialPrice, initialUnlimited, initialStock, initialMethod) => ({
+/** Checkout form controller: keeps typed user details safe in sessionStorage & syncs live price/stock + voucher discounts. */
+Alpine.data('checkoutForm', (productId, initialQty, initialPrice, initialUnlimited, initialStock, initialMethod, voucherCheckUrl = '') => ({
     id: String(productId),
     qty: Number(initialQty) || 1,
     method: String(initialMethod || ''),
     submitting: false,
+    voucherCode: '',
+    voucherLoading: false,
+    voucherError: '',
+    voucherApplied: null,
 
     init() {
         try {
@@ -258,6 +262,52 @@ Alpine.data('checkoutForm', (productId, initialQty, initialPrice, initialUnlimit
                 this.method = String(saved.method);
             }
         } catch (_) {}
+    },
+
+    async applyVoucher() {
+        const code = String(this.voucherCode || '').trim().toUpperCase();
+        if (!code || !voucherCheckUrl) {
+            this.voucherError = 'Please enter a voucher code.';
+            return;
+        }
+        this.voucherLoading = true;
+        this.voucherError = '';
+        try {
+            const email = this.$el.querySelector('#email')?.value || '';
+            const token = document.querySelector('meta[name="csrf-token"]')?.content || this.$el.querySelector('input[name="_token"]')?.value || '';
+            const res = await fetch(voucherCheckUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': token,
+                },
+                body: JSON.stringify({
+                    code,
+                    quantity: this.qty,
+                    email,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                this.voucherApplied = null;
+                this.voucherError = data.message || 'Invalid voucher code.';
+            } else {
+                this.voucherCode = data.code;
+                this.voucherApplied = data;
+                this.voucherError = '';
+            }
+        } catch (_) {
+            this.voucherError = 'Could not verify voucher right now. Please try again.';
+        } finally {
+            this.voucherLoading = false;
+        }
+    },
+
+    removeVoucher() {
+        this.voucherApplied = null;
+        this.voucherCode = '';
+        this.voucherError = '';
     },
 
     saveDraft() {
@@ -293,17 +343,38 @@ Alpine.data('checkoutForm', (productId, initialQty, initialPrice, initialUnlimit
         if (this.stockData.unlimited) return 'Unlimited Stock';
         return `Stock: ${this.stockData.qty}`;
     },
-    get totalAmount() {
+    get subtotalAmount() {
         return Math.max(1, Number(this.qty) || 1) * this.livePrice;
+    },
+    get discountAmount() {
+        if (!this.voucherApplied) return 0;
+        const sub = this.subtotalAmount;
+        let disc = 0;
+        if (this.voucherApplied.discount_type === 'percentage') {
+            disc = Math.round(sub * (Math.min(100, Number(this.voucherApplied.discount_value) || 0) / 100));
+            if (this.voucherApplied.max_discount_amount && Number(this.voucherApplied.max_discount_amount) > 0) {
+                disc = Math.min(disc, Number(this.voucherApplied.max_discount_amount));
+            }
+        } else {
+            disc = Number(this.voucherApplied.discount_value) || 0;
+        }
+        return Math.min(sub, Math.max(0, disc));
+    },
+    get discountFormatted() {
+        return this.$store.currency ? this.$store.currency.format(this.discountAmount) : `Rs ${this.discountAmount.toLocaleString()}`;
+    },
+    get totalAmount() {
+        return Math.max(0, this.subtotalAmount - this.discountAmount);
     },
     get totalFormatted() {
         return this.totalAmount.toLocaleString();
     },
     get totalPrimary() {
+        if (this.totalAmount <= 0 && this.voucherApplied) return 'FREE';
         return this.$store.currency ? this.$store.currency.format(this.totalAmount) : `Rs ${this.totalFormatted}`;
     },
     get totalSecondary() {
-        if (!this.$store.currency) return '';
+        if (!this.$store.currency || (this.totalAmount <= 0 && this.voucherApplied)) return '';
         if (this.$store.currency.isUsdt) {
             return `≈ ${this.$store.currency.symbol} ${this.totalAmount.toLocaleString('en-US')} PKR`;
         }

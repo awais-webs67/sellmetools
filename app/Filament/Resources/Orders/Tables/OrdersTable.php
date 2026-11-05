@@ -76,9 +76,16 @@ class OrdersTable
                     ->weight('bold')
                     ->formatStateUsing(fn ($state): string => Money::pkr($state))
                     ->description(function (Order $record): ?string {
+                        $parts = [];
                         $profit = $record->profit();
+                        if ($profit !== null) {
+                            $parts[] = ($profit >= 0 ? '+' : '').Money::pkr($profit);
+                        }
+                        if (filled($record->voucher_code)) {
+                            $parts[] = '🏷️ '.$record->voucher_code;
+                        }
 
-                        return $profit !== null ? '+'.Money::pkr($profit) : null;
+                        return $parts !== [] ? implode(' · ', $parts) : null;
                     })
                     ->sortable(),
                 TextColumn::make('paymentMethod.name')

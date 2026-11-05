@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Enums\OrderStatus;
+use App\Enums\PaymentStatus;
 use App\Models\Order;
 use App\Models\ResellerProductPrice;
 use App\Models\User;
+use App\Models\Voucher;
 use App\Services\InventoryService;
 use App\Services\OrderService;
 use App\Services\PaymentService;
@@ -148,8 +150,8 @@ class StorefrontTest extends TestCase
         ])->assertOk()->assertSee('Order Approved &amp; Delivered!', false);
 
         $this->assertSame(OrderStatus::Completed, $order->refresh()->status);
-        $this->assertSame(\App\Enums\PaymentStatus::Approved, $order->latestPayment->refresh()->status);
-        $this->assertSame(0, $order->payments()->where('status', \App\Enums\PaymentStatus::Pending)->count());
+        $this->assertSame(PaymentStatus::Approved, $order->latestPayment->refresh()->status);
+        $this->assertSame(0, $order->payments()->where('status', PaymentStatus::Pending)->count());
         $this->assertCount(2, $order->deliveries);
 
         // Logged-in customer and admin can both view the order page cleanly without any Admin Only banner on the customer page
@@ -412,5 +414,76 @@ class StorefrontTest extends TestCase
         $product->refresh();
         $this->assertSame(0, $product->available_stock);
         $this->assertCount(0, $product->sources()->get());
+    }
+
+    public function test_voucher_system_and_admin_order_id_routing(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $productA = $this->listing([], ['fixed_price' => 1000, 'price' => 1000]);
+        $productA->importStockItems("credA1\ncredA2\ncredA3", 'line');
+        $productB = $this->listing([], ['fixed_price' => 2000, 'price' => 2000]);
+        $productB->importStockItems("credB1\ncredB2", 'line');
+        $method = $this->paymentMethod();
+
+        // 1. Create a 25% OFF voucher restricted to Product A with max_uses = 1
+        $voucher = Voucher::create([
+            'code' => 'SAVE25',
+            'title' => 'Product A 25% Promo',
+            'discount_type' => 'percentage',
+            'discount_value' => 25,
+            'scope' => 'specific',
+            'product_ids' => [$productA->id],
+            'max_uses' => 1,
+            'is_active' => true,
+        ]);
+
+        // 2. Fails on Product B (scope mismatch)
+        $this->postJson(route('checkout.voucher', $productB), [
+            'code' => 'SAVE25',
+            'quantity' => 1,
+            'email' => 'customer@example.com',
+        ])->assertStatus(422)->assertJson(['ok' => false]);
+
+        // 3. Succeeds on Product A (25% of Rs 1000 = Rs 250 discount, final total = Rs 750)
+        $this->postJson(route('checkout.voucher', $productA), [
+            'code' => 'SAVE25',
+            'quantity' => 1,
+            'email' => 'customer@example.com',
+        ])->assertOk()->assertJson([
+            'ok' => true,
+            'code' => 'SAVE25',
+            'discount_pkr' => 250.0,
+            'final_total_pkr' => 750.0,
+        ]);
+
+        // 4. Checkout with voucher applies discount & increments used_count
+        $this->post(route('checkout.store', $productA), [
+            'quantity' => 1,
+            'email' => 'customer@example.com',
+            'name' => 'Test Buyer',
+            'phone' => '03001234567',
+            'voucher_code' => 'save25',
+            'payment_method_id' => $method->id,
+            'agree' => '1',
+        ])->assertRedirect();
+
+        $order = Order::latest('id')->firstOrFail();
+        $this->assertSame('SAVE25', $order->voucher_code);
+        $this->assertSame(250.0, (float) $order->discount_amount);
+        $this->assertSame(750.0, (float) $order->total);
+        $this->assertSame(1, $voucher->refresh()->used_count);
+
+        // 5. Second attempt fails because max_uses = 1 is reached
+        $this->postJson(route('checkout.voucher', $productA), [
+            'code' => 'SAVE25',
+            'quantity' => 1,
+            'email' => 'another@example.com',
+        ])->assertStatus(422)->assertJson(['ok' => false]);
+
+        // 6. Both /admin/orders/{number} AND /admin/orders/{id} resolve 200 OK without 404, and /admin/vouchers renders
+        $this->actingAs($admin)->get('/admin/orders/'.$order->number)->assertOk();
+        $this->actingAs($admin)->get('/admin/orders/'.$order->id)->assertOk();
+        $this->actingAs($admin)->get('/admin/vouchers')->assertOk()->assertSee('SAVE25');
+        $this->actingAs($admin)->get('/admin/vouchers/'.$voucher->id.'/edit')->assertOk()->assertSee($order->number);
     }
 }

@@ -117,7 +117,8 @@ class FulfillmentService
         $primarySource = $this->pricing->rankedSources($item->product)->first();
 
         if ($primarySource && $item->remainingQty() > 0) {
-            if ($primarySource->costPkr() > (float) $item->unit_price) {
+            $hasVoucherDiscount = (bool) $order->voucher_id || (float) $order->discount_amount > 0;
+            if (! $hasVoucherDiscount && $primarySource->costPkr() > (float) $item->unit_price) {
                 $problems[] = "Skipped {$primarySource->supplier->name}: cost Rs ".round($primarySource->costPkr(), 2)." > sold at Rs {$item->unit_price}";
             } else {
                 $outcome = $this->orderFromSupplier($order, $item, $primarySource);
@@ -526,7 +527,8 @@ class FulfillmentService
                     continue;
                 }
 
-                if (! $allowAboveUnitPrice && $source->costPkr() > (float) $item->unit_price) {
+                $hasVoucherDiscount = (bool) $order->voucher_id || (float) $order->discount_amount > 0;
+                if (! $allowAboveUnitPrice && ! $hasVoucherDiscount && $source->costPkr() > (float) $item->unit_price) {
                     continue;
                 }
 

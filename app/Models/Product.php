@@ -323,6 +323,20 @@ class Product extends Model
         return 'slug';
     }
 
+    public function resolveRouteBindingQuery($query, $value, $field = null)
+    {
+        if ($field !== null) {
+            return $query->where($this->qualifyColumn($field), $value);
+        }
+
+        return $query->where(function ($q) use ($value) {
+            $q->where($this->qualifyColumn('slug'), $value);
+            if (is_numeric($value)) {
+                $q->orWhere($this->qualifyColumn('id'), (int) $value);
+            }
+        });
+    }
+
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);

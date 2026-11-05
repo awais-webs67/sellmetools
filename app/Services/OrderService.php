@@ -12,6 +12,7 @@ use App\Models\Product;
 use App\Models\Setting;
 use App\Models\StockItem;
 use App\Models\User;
+use App\Models\Voucher;
 use App\Models\WalletTransaction;
 use Illuminate\Support\Facades\DB;
 
@@ -61,7 +62,23 @@ class OrderService
             }
 
             $unitPrice = $locked->priceFor($user);
-            $total = round($unitPrice * $quantity, 2);
+            $subtotal = round($unitPrice * $quantity, 2);
+            $discountAmount = 0.0;
+            $voucher = null;
+
+            $rawVoucherCode = strtoupper(trim((string) ($customer['voucher_code'] ?? '')));
+            if ($rawVoucherCode !== '' && $subtotal > 0) {
+                Voucher::ensureSchemaExists();
+                /** @var Voucher|null $voucher */
+                $voucher = Voucher::query()->where('code', $rawVoucherCode)->lockForUpdate()->first();
+                if (! $voucher) {
+                    throw new StoreException("Invalid voucher code: {$rawVoucherCode}");
+                }
+                $discountAmount = $voucher->validateAndCalculateDiscount($locked, $subtotal, $customer['email'] ?? null, $user?->id);
+            }
+
+            $total = max(0.0, round($subtotal - $discountAmount, 2));
+            $effectiveUnitPrice = $quantity > 0 ? round($total / $quantity, 2) : $unitPrice;
             $normalizedPhone = filled($customer['phone'] ?? null)
                 ? format_whatsapp((string) $customer['phone'])
                 : ($user?->phone ? format_whatsapp($user->phone) : null);
@@ -72,6 +89,9 @@ class OrderService
                 'email' => $customer['email'],
                 'phone' => $normalizedPhone ?: null,
                 'payment_method_id' => $method->id,
+                'voucher_id' => $voucher?->id,
+                'voucher_code' => $voucher?->code,
+                'discount_amount' => $discountAmount,
                 'status' => OrderStatus::PendingPayment,
                 'total' => $total,
                 'currency' => 'PKR',
@@ -80,10 +100,14 @@ class OrderService
                 'ip' => $customer['ip'] ?? null,
             ]);
 
+            if ($voucher) {
+                $voucher->increment('used_count');
+            }
+
             $order->items()->create([
                 'product_id' => $locked->id,
                 'product_name' => $locked->name,
-                'unit_price' => $unitPrice,
+                'unit_price' => $effectiveUnitPrice,
                 'quantity' => $quantity,
                 'line_total' => $total,
                 'reserved_supplier_qty' => 0,
@@ -124,6 +148,10 @@ class OrderService
                     ->update(['status' => StockStatus::Available, 'order_item_id' => null]);
 
                 $item->update(['reserved_supplier_qty' => 0]);
+            }
+
+            if ($order->voucher_id) {
+                Voucher::query()->whereKey($order->voucher_id)->where('used_count', '>', 0)->decrement('used_count');
             }
 
             $order->update(['status' => $status]);

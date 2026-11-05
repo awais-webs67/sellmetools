@@ -51,6 +51,12 @@ class OrderInfolist
                             ->label('Total Payable')
                             ->weight('bold')
                             ->formatStateUsing(fn ($state): string => Money::pkr($state)),
+                        TextEntry::make('voucher_code')
+                            ->label('Voucher Applied')
+                            ->badge()
+                            ->color('success')
+                            ->visible(fn (Order $record): bool => filled($record->voucher_code))
+                            ->formatStateUsing(fn ($state, Order $record): string => $state.' (-'.Money::pkr($record->discount_amount).')'),
                         TextEntry::make('total_cost')
                             ->label('Cost')
                             ->formatStateUsing(fn ($state): string => Money::pkr($state))
