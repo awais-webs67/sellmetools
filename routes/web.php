@@ -34,6 +34,8 @@ Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])
 Route::get('/feed/google-shopping.xml', [SeoController::class, 'googleShoppingFeed'])
     ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
     ->name('feed.google-shopping');
+Route::get('/feeds/google-shopping.xml', [SeoController::class, 'googleShoppingFeed'])
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class]);
 Route::get('/llms.txt', [SeoController::class, 'llmsTxt'])
     ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
     ->name('llms');
@@ -42,6 +44,10 @@ Route::get('/llms-full.txt', [SeoController::class, 'llmsTxt'])
 Route::get('/.well-known/ai-catalog.json', [SeoController::class, 'aiCatalog'])
     ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
     ->name('ai.catalog');
+Route::get('/.well-known/ai-plugin.json', [SeoController::class, 'aiCatalog'])
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class]);
+Route::get('/api/agent-catalog.json', [SeoController::class, 'aiCatalog'])
+    ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class]);
 Route::get('/robots.txt', [SeoController::class, 'robots'])
     ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
     ->name('robots');
@@ -103,6 +109,7 @@ Route::post('/orders/{order:number}/customer-input', [OrderController::class, 's
 Route::post('/orders/{order:number}/pay-wallet', [OrderController::class, 'payWithWallet'])->middleware(['auth', 'throttle:30,1'])->name('orders.pay-wallet');
 Route::post('/orders/{order:number}/cancel', [OrderController::class, 'cancel'])->middleware('throttle:60,1')->name('orders.cancel');
 Route::get('/track', [OrderController::class, 'track'])->name('orders.track');
+Route::get('/track-order', fn () => redirect()->route('orders.track', [], 301));
 Route::post('/track', [OrderController::class, 'lookup'])->middleware('throttle:60,1')->name('orders.lookup');
 
 // Customer auth
@@ -142,5 +149,5 @@ Route::post('/{slug}/wallet-buy/{product:slug}', [ResellerController::class, 'qu
     ->middleware(['auth', 'throttle:30,1'])
     ->name('reseller.wallet-buy');
 Route::get('/{slug}', [ResellerController::class, 'portal'])
-    ->where('slug', '^(?!admin|livewire|filament|api|media|storage|feed|shop|about|contact|faq|category|products|checkout|orders|track|login|register|logout|account|pages|webhooks|quick-order|up)[a-z0-9\-]+$')
+    ->where('slug', '^(?!admin|livewire|filament|api|media|storage|feed|feeds|shop|about|contact|faq|category|products|checkout|orders|track|track-order|login|register|logout|account|pages|webhooks|quick-order|up)[a-z0-9\-]+$')
     ->name('reseller.portal');

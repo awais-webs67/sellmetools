@@ -504,6 +504,11 @@ class StorefrontTest extends TestCase
             'Claude API 100Million Token 3D' => 'Claude API 100 Million Token 3 Days',
             'Super Duolingo 12M Link' => 'Super Duolingo 12 Months Link',
             'Figma Edu 2Year 1MW' => 'Figma Edu 2 Years',
+            '[KEY] HMA Android/PC 30 Days' => 'HMA VPN Android & PC 30 Days Key',
+            'MIcrosoft Office365 (lifetime plan)' => 'Microsoft Office 365 Lifetime Plan',
+            'Ms365 Admin 1 Year Family' => 'Microsoft 365 Admin 1 Year Family',
+            'Higgsfield Genjutsu 30-day limit - 24H warranty' => 'Higgsfield Genjutsu 30 Days',
+            'Antigravity Slot x20 Ultra 1 Month ( 0 Credit )' => 'Antigravity Slot x20 Ultra 1 Month',
         ];
 
         foreach ($cases as $raw => $expected) {

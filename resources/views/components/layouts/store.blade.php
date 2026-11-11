@@ -19,9 +19,12 @@
     $rawTitle = trim((string) ($title ?: $defaultSeoTitle));
     $rawTitle = str_replace([' — '.$storeName, ' – '.$storeName, ' | '.$storeName], ' | '.$storeName, $rawTitle);
     $rawTitle = str_replace(['—', '–'], '-', $rawTitle);
-    $pageTitle = (stripos($rawTitle, (string) $storeName) !== false || mb_strlen($rawTitle) > 54)
+    $pageTitle = (stripos($rawTitle, (string) $storeName) !== false || mb_strlen($rawTitle) > 46)
         ? $rawTitle
         : "{$rawTitle} | {$storeName}";
+    if (mb_strlen($pageTitle) > 60 && str_ends_with($pageTitle, ' | '.$storeName)) {
+        $pageTitle = trim(mb_substr($pageTitle, 0, mb_strlen($pageTitle) - mb_strlen(' | '.$storeName)));
+    }
     $metaDescription = str_replace(['—', '–'], '-', \Illuminate\Support\Str::limit(trim((string) ($description ?: (setting('seo_description') ?: setting('store_tagline')))), 155));
     $metaKeywords = $keywords ?: setting('seo_keywords');
     $canonicalUrl = $canonical ?: url()->current();

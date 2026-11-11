@@ -129,14 +129,16 @@ class ProductController extends Controller
         Product::seedInitialReviewsOnce();
 
         if (! app()->runningUnitTests() && Cache::add('smt_inventory_reconcile_tick', 1, 20)) {
-            try {
-                $inventory = app(InventoryService::class);
-                Product::query()
-                    ->where('is_active', true)
-                    ->with(['activeSources.supplier'])
-                    ->each(fn (Product $p) => $inventory->refresh($p));
-            } catch (\Throwable) {
-            }
+            defer(static function (): void {
+                try {
+                    $inventory = app(InventoryService::class);
+                    Product::query()
+                        ->where('is_active', true)
+                        ->with(['activeSources.supplier'])
+                        ->each(fn (Product $p) => $inventory->refresh($p));
+                } catch (\Throwable) {
+                }
+            });
         }
 
         $tokens = collect(preg_split('/\s+/u', $search, -1, PREG_SPLIT_NO_EMPTY))

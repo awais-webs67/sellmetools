@@ -24,14 +24,16 @@ class SearchController extends Controller
             StockController::deferBackgroundSync();
 
             if (Cache::add('smt_inventory_reconcile_tick', 1, 15)) {
-                try {
-                    $inventory = app(InventoryService::class);
-                    Product::query()
-                        ->where('is_active', true)
-                        ->with(['activeSources.supplier'])
-                        ->each(fn (Product $p) => $inventory->refresh($p));
-                } catch (\Throwable) {
-                }
+                defer(static function (): void {
+                    try {
+                        $inventory = app(InventoryService::class);
+                        Product::query()
+                            ->where('is_active', true)
+                            ->with(['activeSources.supplier'])
+                            ->each(fn (Product $p) => $inventory->refresh($p));
+                    } catch (\Throwable) {
+                    }
+                });
             }
         }
 

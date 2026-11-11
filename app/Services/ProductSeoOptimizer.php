@@ -22,7 +22,7 @@ class ProductSeoOptimizer
             return;
         }
 
-        $flagFile = storage_path('framework/product_seo_v13_synced.flag');
+        $flagFile = storage_path('framework/product_seo_v14_synced.flag');
         if (is_file($flagFile)) {
             return;
         }
@@ -40,8 +40,8 @@ class ProductSeoOptimizer
 
             if (Schema::hasTable('settings')) {
                 foreach (['seo_title', 'seo_description', 'seo_keywords', 'shop_seo_title', 'shop_seo_description'] as $seoKey) {
-                    if (isset(\App\Models\Setting::DEFAULTS[$seoKey])) {
-                        \App\Models\Setting::set($seoKey, \App\Models\Setting::DEFAULTS[$seoKey]);
+                    if (isset(Setting::DEFAULTS[$seoKey])) {
+                        Setting::set($seoKey, Setting::DEFAULTS[$seoKey]);
                     }
                 }
             }
@@ -141,8 +141,26 @@ class ProductSeoOptimizer
         $title = preg_replace('/([a-z])(w\d+[dhmyw]|\d+[dhmy]w)\b/iu', '$1 $2', $title) ?? $title;
         $title = preg_replace('/\b(\d+)(Million|Billion)\b/iu', '$1 $2', $title) ?? $title;
 
-        // 2. Remove parenthesized or bracketed supplier warranty codes like (FW), (1HW), (5DW), (20DW), (W25D), (NW)
-        $title = preg_replace('/[\(\[\{]\s*(?:FW|NW|\d+\s*[HDMWY]W|W\d+\s*[HDMWY]|Full\s+Warranty|Non?\s+Warranty)\s*[\)\]\}]/iu', ' ', $title) ?? $title;
+        // 2. Remove parenthesized or bracketed supplier warranty/credit codes like (FW), (1HW), (5DW), (20DW), (W25D), (NW), ( 0 Credit )
+        $title = preg_replace('/[\(\[\{]\s*(?:FW|NW|\d+\s*[HDMWY]W|W\d+\s*[HDMWY]|Full\s+Warranty|Non?\s+Warranty|0\s*Credits?)\s*[\)\]\}]/iu', ' ', $title) ?? $title;
+        $title = preg_replace('/\b0\s*Credits?\b/iu', ' ', $title) ?? $title;
+
+        // 2b. Convert leading [KEY] or Key prefix into a trailing "Key" token and strip "- 24H warranty" style notes
+        if (preg_match('/^\s*(Buy\s+)?(?:\[\s*KEY\s*\]|Key\b)\s*(.+)$/iu', $title, $keyMatch)) {
+            $prefix = $keyMatch[1] ?? '';
+            $inner = trim($keyMatch[2]);
+            if (str_contains($inner, '|')) {
+                [$left, $right] = explode('|', $inner, 2);
+                $left = trim($left);
+                $left = preg_match('/\bKey\b/iu', $left) ? $left : $left.' Key';
+                $title = $prefix.$left.' | '.trim($right);
+            } else {
+                $title = $prefix.(preg_match('/\bKey\b/iu', $inner) ? $inner : $inner.' Key');
+            }
+        }
+        $title = preg_replace('/\s*[-|\/]?\s*\b\d+\s*(?:h|hr|hrs|hours?|d|days?|m|months?)\s*warranty\b/iu', ' ', $title) ?? $title;
+        $title = preg_replace('/\b(\d+)\s*-\s*days?\s+limit\b/iu', '$1 Days', $title) ?? $title;
+        $title = preg_replace('/\(\s*lifetime\s+plan\s*\)/iu', 'Lifetime Plan', $title) ?? $title;
 
         // 3. Remove standalone supplier bot codes (FW, NW, 1HW, 24HW, 1DW, 5DW, 7DW, 20DW, 1MW, 3MW, 6MW, 12MW, W1D, W25D)
         $title = preg_replace('/\b(?:FW|NW|\d+[HDMWY]W|W\d+[HDMWY])\b/iu', ' ', $title) ?? $title;
@@ -169,6 +187,12 @@ class ProductSeoOptimizer
         // 5. Expand supplier shorthand words and normalize brand/acronym casing
         $brandNormalizations = [
             '/\bAcc\b/iu' => 'Account',
+            '/\bMicrosoft\b/iu' => 'Microsoft',
+            '/\bOffice\s*365\b/iu' => 'Office 365',
+            '/\bMs\s*365\b/iu' => 'Microsoft 365',
+            '/\bHma(?!\s+VPN)\b/iu' => 'HMA VPN',
+            '/\bHma\s+Vpn\b/iu' => 'HMA VPN',
+            '/\bAndroid\s*\/?\s*pc\b/iu' => 'Android & PC',
             '/\bChatgpt\b/iu' => 'ChatGPT',
             '/\bGpt\b/iu' => 'GPT',
             '/\bOpenai\b/iu' => 'OpenAI',
@@ -185,6 +209,7 @@ class ProductSeoOptimizer
             '/\bHeygen\b/iu' => 'HeyGen',
             '/\bQuillbot\b/iu' => 'QuillBot',
             '/\bN8n\b/iu' => 'n8n',
+            '/\b100\$\s*API\b/iu' => '$100 API',
         ];
         foreach ($brandNormalizations as $pattern => $replacement) {
             $title = preg_replace($pattern, $replacement, $title) ?? $title;
