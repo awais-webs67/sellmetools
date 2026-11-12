@@ -6,6 +6,7 @@ use App\Enums\PricingMode;
 use App\Enums\StockStatus;
 use App\Http\Controllers\SeoController;
 use App\Services\InventoryService;
+use App\Services\PriceCalculator;
 use App\Services\ProductSeoOptimizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
