@@ -446,6 +446,26 @@ class Product extends Model
     }
 
     /**
+     * Computes the unit selling price (PKR) of this Product when fulfilled from a specific SupplierProduct source.
+     */
+    public function calculateSellPriceForSource(?SupplierProduct $source = null, ?float $cost = null): float
+    {
+        if ($source && (! $source->pivot || ! isset($source->pivot->pricing_mode)) && $this->id) {
+            $withPivot = $this->sources()->where('supplier_products.id', $source->id)->first();
+            if ($withPivot) {
+                $source = $withPivot;
+            }
+        }
+
+        $calculated = app(PriceCalculator::class)->sellingPriceForSource($this, $source, $cost);
+        if ($calculated > 0 || $this->is_free) {
+            return $calculated;
+        }
+
+        return (float) $this->price;
+    }
+
+    /**
      * Admin-only helper: returns which Supplier (or Own Stock / Manual mode) fulfills this product.
      * Never called on customer-facing views.
      */

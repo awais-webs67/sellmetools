@@ -62,7 +62,9 @@ class SupplierProduct extends Model
 
     public function listings(): BelongsToMany
     {
-        return $this->belongsToMany(Product::class, 'product_sources')->withPivot('is_active')->withTimestamps();
+        return $this->belongsToMany(Product::class, 'product_sources')
+            ->withPivot(['is_active', 'pricing_mode', 'markup_value'])
+            ->withTimestamps();
     }
 
     public function products(): BelongsToMany
