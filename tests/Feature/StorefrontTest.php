@@ -532,12 +532,15 @@ class StorefrontTest extends TestCase
         $this->assertSame('chatgpt-plus-1-month-full-warranty', ProductSeoOptimizer::resolveCleanSlug('ChatGPT Plus 1 Month', 'chatgpt-plus-1-month-full-warranty'));
 
         $product = $this->listing([$this->supplierProduct($this->supplier(), ['stock' => 5])], [
-            'name' => 'ChatGPT Plus 1 Month',
+            'name' => 'ChatGPT Plus 1m 1hw',
             'slug' => 'chatgpt-plus-1m-1hw',
         ]);
 
-        // Updating slug to clean SEO version automatically records old slug in legacy_slugs
-        $product->update(['slug' => 'chatgpt-plus-1-month']);
+        // Run optimizer and verify slug cleanup + legacy_slugs recording + 301 redirects
+        $this->assertTrue(ProductSeoOptimizer::syncCatalogNow());
+        $product->refresh();
+        $this->assertSame('chatgpt-plus-1-month', $product->slug);
+        $this->assertContains('chatgpt-plus-1m-1hw', $product->legacy_slugs ?? []);
 
         $this->get('/products/chatgpt-plus-1m-1hw')
             ->assertStatus(301)

@@ -22,13 +22,18 @@ class ProductSeoOptimizer
             return;
         }
 
-        $flagFile = storage_path('framework/product_seo_v15_synced.flag');
+        $flagFile = storage_path('framework/product_seo_v16_synced.flag');
         if (is_file($flagFile)) {
             return;
         }
 
-        @file_put_contents($flagFile, '1');
+        if (static::syncCatalogNow()) {
+            @file_put_contents($flagFile, '1');
+        }
+    }
 
+    public static function syncCatalogNow(): bool
+    {
         try {
             Product::ensureFreeAndStockColumnsExist();
 
@@ -41,7 +46,7 @@ class ProductSeoOptimizer
             }
 
             if (! Schema::hasTable('products')) {
-                return;
+                return false;
             }
 
             $categoryMap = [];
@@ -133,15 +138,21 @@ class ProductSeoOptimizer
 
             Cache::forget('smt_search_catalog_v1');
 
-            defer(function (): void {
-                try {
-                    SeoController::submitAllToIndexNow();
-                } catch (\Throwable $e) {
-                    report($e);
-                }
-            });
+            if (! app()->runningUnitTests()) {
+                defer(function (): void {
+                    try {
+                        SeoController::submitAllToIndexNow();
+                    } catch (\Throwable $e) {
+                        report($e);
+                    }
+                });
+            }
+
+            return true;
         } catch (\Throwable $e) {
             report($e);
+
+            return false;
         }
     }
 
