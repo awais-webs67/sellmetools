@@ -180,12 +180,52 @@ class ProductController extends Controller
         };
     }
 
-    public function show(Request $request, Product $product): View
+    public function show(Request $request, string $slug): View|RedirectResponse
     {
-        abort_unless($product->is_active, 404);
-
+        Product::ensureFreeAndStockColumnsExist();
         ProductSeoOptimizer::syncCatalogOnce();
         Product::seedInitialReviewsOnce();
+
+        $product = Product::query()->where('slug', $slug)->first();
+
+        if (! $product && is_numeric($slug)) {
+            $byId = Product::query()->where('is_active', true)->find((int) $slug);
+            if ($byId) {
+                return redirect()->route('products.show', $byId, 301);
+            }
+        }
+
+        if (! $product) {
+            $legacyMatch = Product::query()
+                ->where('is_active', true)
+                ->whereJsonContains('legacy_slugs', $slug)
+                ->first();
+
+            if ($legacyMatch) {
+                return redirect()->route('products.show', $legacyMatch, 301);
+            }
+
+            $trashed = Product::onlyTrashed()
+                ->with('category')
+                ->where(fn ($q) => $q->where('slug', $slug)->orWhereJsonContains('legacy_slugs', $slug))
+                ->first();
+
+            if ($trashed) {
+                if ($trashed->category?->is_active) {
+                    return redirect()->route('categories.show', $trashed->category, 301);
+                }
+
+                return redirect()->route('shop', [], 301);
+            }
+
+            if ($slug === 'test-reseller-api-elite') {
+                return redirect()->route('shop', [], 301);
+            }
+
+            abort(404);
+        }
+
+        abort_unless($product->is_active, 404);
 
         try {
             app(InventoryService::class)->refresh($product);

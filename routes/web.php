@@ -60,7 +60,7 @@ Route::get('/{key}.txt', [SeoController::class, 'indexNowKey'])
 Route::get('/', [ProductController::class, 'index'])->name('home');
 Route::get('/shop', [ProductController::class, 'shop'])->name('shop');
 Route::get('/category/{category:slug}', [ProductController::class, 'category'])->name('categories.show');
-Route::get('/products/{product:slug}', [ProductController::class, 'show'])->name('products.show');
+Route::get('/products/{slug}', [ProductController::class, 'show'])->name('products.show');
 Route::post('/products/{product:slug}/reviews', [ProductController::class, 'storeReview'])->middleware('throttle:15,1')->name('products.reviews.store');
 
 // Instant search suggestions (stateless, cached)
@@ -95,7 +95,7 @@ Route::match(['get', 'post'], '/quick-order/{order:number}', [PaymentWebhookCont
     ->name('webhooks.order.quick');
 
 // Checkout
-Route::get('/checkout/{product:slug}', [CheckoutController::class, 'create'])->name('checkout.create');
+Route::get('/checkout/{slug}', [CheckoutController::class, 'create'])->name('checkout.create');
 Route::post('/checkout/{product:slug}', [CheckoutController::class, 'store'])->middleware('throttle:60,1')->name('checkout.store');
 Route::post('/checkout/{product:slug}/voucher', [CheckoutController::class, 'checkVoucher'])->middleware('throttle:60,1')->name('checkout.voucher');
 

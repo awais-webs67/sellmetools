@@ -25,7 +25,7 @@ class Product extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'category_id', 'name', 'slug', 'short_description', 'description', 'warranty', 'image',
+        'category_id', 'name', 'slug', 'legacy_slugs', 'short_description', 'description', 'warranty', 'image',
         'meta_title', 'meta_description', 'meta_keywords',
         'pricing_mode', 'delivery_type', 'customer_input_label', 'fixed_price', 'markup_value', 'use_overall_supplier_markup', 'compare_at_price', 'price', 'cost_price',
         'available_stock', 'stock_limit', 'stock_unlimited',
@@ -149,6 +149,7 @@ class Product extends Model
             'is_active' => 'boolean',
             'is_featured' => 'boolean',
             'is_free' => 'boolean',
+            'legacy_slugs' => 'array',
         ];
     }
 
@@ -169,6 +170,16 @@ class Product extends Model
 
             if (blank($product->slug)) {
                 $product->slug = static::uniqueSlug((string) $product->name);
+            } elseif ($product->exists && $product->isDirty('slug')) {
+                $previousSlug = trim((string) $product->getOriginal('slug'));
+                if ($previousSlug !== '' && $previousSlug !== (string) $product->slug) {
+                    $legacy = is_array($product->legacy_slugs) ? $product->legacy_slugs : [];
+                    $legacy[] = $previousSlug;
+                    $product->legacy_slugs = array_values(array_unique(array_filter(
+                        $legacy,
+                        fn ($s): bool => is_string($s) && $s !== '' && $s !== (string) $product->slug
+                    )));
+                }
             }
             if ($product->is_free) {
                 $product->fixed_price = 0;
@@ -262,11 +273,16 @@ class Product extends Model
         }
         $checked = true;
 
-        if (! app()->runningUnitTests() && is_file(storage_path('framework/schema_v7_ready.flag'))) {
+        if (! app()->runningUnitTests() && is_file(storage_path('framework/schema_v8_ready.flag'))) {
             return;
         }
 
         try {
+            if (! Schema::hasColumn('products', 'legacy_slugs')) {
+                Schema::table('products', function (Blueprint $table): void {
+                    $table->json('legacy_slugs')->nullable()->after('slug');
+                });
+            }
             if (! Schema::hasColumn('products', 'is_free')) {
                 Schema::table('products', function (Blueprint $table): void {
                     $table->boolean('is_free')->default(false)->after('is_featured');
@@ -309,17 +325,23 @@ class Product extends Model
                     });
                 }
             }
+            if (! app()->runningUnitTests()) {
+                @file_put_contents(storage_path('framework/schema_v8_ready.flag'), '1');
+            }
         } catch (\Throwable $e) {
             report($e);
         }
     }
 
-    public static function uniqueSlug(string $name): string
+    public static function uniqueSlug(string $name, ?int $ignoreId = null): string
     {
         $base = Str::slug($name) ?: 'product';
         $slug = $base;
         $i = 2;
-        while (static::withTrashed()->where('slug', $slug)->exists()) {
+        while (static::withTrashed()
+            ->when($ignoreId !== null, fn ($q) => $q->whereKeyNot($ignoreId))
+            ->where('slug', $slug)
+            ->exists()) {
             $slug = "{$base}-{$i}";
             $i++;
         }

@@ -22,7 +22,7 @@ class ProductSeoOptimizer
             return;
         }
 
-        $flagFile = storage_path('framework/product_seo_v14_synced.flag');
+        $flagFile = storage_path('framework/product_seo_v15_synced.flag');
         if (is_file($flagFile)) {
             return;
         }
@@ -30,16 +30,10 @@ class ProductSeoOptimizer
         @file_put_contents($flagFile, '1');
 
         try {
-            if (Schema::hasTable('settings')) {
-                foreach (['seo_title', 'seo_description', 'seo_keywords', 'shop_seo_title', 'shop_seo_description', 'google_analytics_id'] as $seoKey) {
-                    if (isset(Setting::DEFAULTS[$seoKey])) {
-                        Setting::set($seoKey, Setting::DEFAULTS[$seoKey]);
-                    }
-                }
-            }
+            Product::ensureFreeAndStockColumnsExist();
 
             if (Schema::hasTable('settings')) {
-                foreach (['seo_title', 'seo_description', 'seo_keywords', 'shop_seo_title', 'shop_seo_description'] as $seoKey) {
+                foreach (['seo_title', 'seo_description', 'seo_keywords', 'shop_seo_title', 'shop_seo_description', 'google_analytics_id'] as $seoKey) {
                     if (isset(Setting::DEFAULTS[$seoKey])) {
                         Setting::set($seoKey, Setting::DEFAULTS[$seoKey]);
                     }
@@ -80,10 +74,22 @@ class ProductSeoOptimizer
             $products = Product::withTrashed()->get();
 
             foreach ($products as $product) {
-                $slug = (string) $product->slug;
+                $oldSlug = (string) $product->slug;
                 $cleanName = static::cleanProductTitle((string) $product->name);
                 $product->name = $cleanName;
-                $updates = $catalog[$slug] ?? static::buildDynamicSeoFields($product);
+
+                $legacySlugs = is_array($product->legacy_slugs) ? $product->legacy_slugs : [];
+                $newSlug = static::resolveCleanSlug($cleanName, $oldSlug, (int) $product->id);
+
+                $lookupKeys = array_values(array_unique(array_filter(array_merge([$oldSlug, $newSlug], $legacySlugs))));
+                $updates = null;
+                foreach ($lookupKeys as $key) {
+                    if (isset($catalog[$key])) {
+                        $updates = $catalog[$key];
+                        break;
+                    }
+                }
+                $updates ??= static::buildDynamicSeoFields($product);
 
                 $customMetaTitle = "Buy {$cleanName} | Best Price in Pakistan";
                 if (mb_strlen($customMetaTitle) > 60) {
@@ -103,10 +109,22 @@ class ProductSeoOptimizer
                     'meta_keywords' => static::stripEmDashes($updates['meta_keywords']),
                 ];
 
-                if (isset($categoryReassignments[$slug])) {
-                    $targetSlug = $categoryReassignments[$slug];
-                    if (isset($categoryMap[$targetSlug]) && (! $product->category_id || $product->category_id === $generalCatId)) {
-                        $fill['category_id'] = $categoryMap[$targetSlug];
+                if ($newSlug !== '' && $newSlug !== $oldSlug) {
+                    $legacySlugs[] = $oldSlug;
+                    $fill['slug'] = $newSlug;
+                    $fill['legacy_slugs'] = array_values(array_unique(array_filter(
+                        $legacySlugs,
+                        fn ($s): bool => is_string($s) && $s !== '' && $s !== $newSlug
+                    )));
+                }
+
+                foreach ($lookupKeys as $key) {
+                    if (isset($categoryReassignments[$key])) {
+                        $targetSlug = $categoryReassignments[$key];
+                        if (isset($categoryMap[$targetSlug]) && (! $product->category_id || $product->category_id === $generalCatId)) {
+                            $fill['category_id'] = $categoryMap[$targetSlug];
+                        }
+                        break;
                     }
                 }
 
@@ -221,6 +239,24 @@ class ProductSeoOptimizer
         $title = preg_replace('/\s+/u', ' ', trim($title)) ?? trim($title);
 
         return $title !== '' ? $title : trim($rawTitle);
+    }
+
+    /**
+     * Checks whether a product slug still contains supplier bot codes or compressed shorthand tokens
+     * and upgrades it to a clean, human-readable SEO URL slug while ensuring uniqueness.
+     */
+    public static function resolveCleanSlug(string $cleanName, string $currentSlug, ?int $productId = null): string
+    {
+        $needsCleanup = preg_match(
+            '/(?:^|-)(?:fw|nw|\d+[hdmy]w|w\d+[hdmy]|key-hma|ms365|androidpc|0-credit|24h-warranty|1000-creditsw1d|\d+(?:m|d|y|month|months|day|days|year|years|million)(?=-|$))/i',
+            $currentSlug
+        ) === 1 || str_contains($currentSlug, '10million') || str_contains($currentSlug, '100million');
+
+        if (! $needsCleanup) {
+            return $currentSlug;
+        }
+
+        return Product::uniqueSlug($cleanName, $productId);
     }
 
     /**

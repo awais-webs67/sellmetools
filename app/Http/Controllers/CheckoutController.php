@@ -17,8 +17,28 @@ use Illuminate\View\View;
 
 class CheckoutController extends Controller
 {
-    public function create(Request $request, Product $product): View|RedirectResponse
+    public function create(Request $request, string $slug): View|RedirectResponse
     {
+        Product::ensureFreeAndStockColumnsExist();
+
+        $product = Product::query()->where('slug', $slug)->first();
+        if (! $product) {
+            $legacyMatch = Product::query()
+                ->where('is_active', true)
+                ->whereJsonContains('legacy_slugs', $slug)
+                ->first();
+
+            if ($legacyMatch) {
+                return redirect()->route('checkout.create', $legacyMatch, 301);
+            }
+
+            if (Product::onlyTrashed()->where(fn ($q) => $q->where('slug', $slug)->orWhereJsonContains('legacy_slugs', $slug))->exists() || $slug === 'test-reseller-api-elite') {
+                return redirect()->route('shop', [], 301);
+            }
+
+            abort(404);
+        }
+
         abort_unless($product->is_active, 404);
 
         if (! $product->inStock()) {

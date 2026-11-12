@@ -524,6 +524,38 @@ class StorefrontTest extends TestCase
         $this->assertSame('Buy Surfshark 2 Months Account | Best Price in Pakistan', $product->seoTitle());
     }
 
+    public function test_clean_product_slugs_and_301_redirects_preserve_seo_equity(): void
+    {
+        $this->assertSame('chatgpt-plus-1-month', ProductSeoOptimizer::resolveCleanSlug('ChatGPT Plus 1 Month', 'chatgpt-plus-1m-1hw'));
+        $this->assertSame('capcut-pro-6-months', ProductSeoOptimizer::resolveCleanSlug('CapCut Pro 6 Months', 'capcut-pro-6months-fw'));
+        $this->assertSame('microsoft-365-admin-1-year-family', ProductSeoOptimizer::resolveCleanSlug('Microsoft 365 Admin 1 Year Family', 'ms365-admin-1-year-family-fw'));
+        $this->assertSame('chatgpt-plus-1-month-full-warranty', ProductSeoOptimizer::resolveCleanSlug('ChatGPT Plus 1 Month', 'chatgpt-plus-1-month-full-warranty'));
+
+        $product = $this->listing([$this->supplierProduct($this->supplier(), ['stock' => 5])], [
+            'name' => 'ChatGPT Plus 1 Month',
+            'slug' => 'chatgpt-plus-1m-1hw',
+        ]);
+
+        // Updating slug to clean SEO version automatically records old slug in legacy_slugs
+        $product->update(['slug' => 'chatgpt-plus-1-month']);
+
+        $this->get('/products/chatgpt-plus-1m-1hw')
+            ->assertStatus(301)
+            ->assertRedirect(route('products.show', $product));
+
+        $this->get('/checkout/chatgpt-plus-1m-1hw')
+            ->assertStatus(301)
+            ->assertRedirect(route('checkout.create', $product));
+
+        $this->get('/products/test-reseller-api-elite')
+            ->assertStatus(301)
+            ->assertRedirect(route('shop'));
+
+        $this->get('/?seed=239527&page=2')
+            ->assertStatus(301)
+            ->assertRedirect(route('home'));
+    }
+
     public function test_search_api_always_returns_real_time_stock_without_stale_cache(): void
     {
         $product = $this->listing([], [
