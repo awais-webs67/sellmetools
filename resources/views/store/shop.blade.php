@@ -18,16 +18,14 @@
     $isDefaultSort = in_array($sort, [$defaultShopSort, 'featured'], true);
     $isIndexableShopState = ($search === '' && $isDefaultSort && ! $inStockOnly);
     $currentPageNum = (int) $products->currentPage();
-    $canonicalUrl = ($isIndexableShopState && ! $activeCategory && $currentPageNum > 1)
-        ? $baseCanonicalUrl.'?page='.$currentPageNum
-        : $baseCanonicalUrl;
+    $canonicalUrl = $baseCanonicalUrl;
     $prevPageUrl = ($isIndexableShopState && ! $activeCategory && $currentPageNum > 1)
         ? ($currentPageNum === 2 ? $baseCanonicalUrl : $baseCanonicalUrl.'?page='.($currentPageNum - 1))
         : null;
     $nextPageUrl = ($isIndexableShopState && ! $activeCategory && $products->hasMorePages())
         ? $baseCanonicalUrl.'?page='.($currentPageNum + 1)
         : null;
-    $robotsDirective = ! $isIndexableShopState
+    $robotsDirective = (! $isIndexableShopState || $currentPageNum > 1 || request()->filled('category'))
         ? 'noindex, follow'
         : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
 

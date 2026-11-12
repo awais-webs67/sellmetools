@@ -20,8 +20,14 @@ class ProductController extends Controller
         'is_active', 'is_featured', 'is_free', 'sold_count',
     ];
 
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
+        $search = trim((string) $request->query('q', ''));
+
+        if (! $request->filled('category') && $search === '' && $request->header('X-SMT-Filter') !== '1' && ($request->query->has('seed') || $request->integer('page', 1) > 1)) {
+            return redirect()->route('home', [], 301);
+        }
+
         if ($request->user()?->is_reseller) {
             $request->user()->loadMissing('resellerProductPrices');
         }
@@ -32,20 +38,15 @@ class ProductController extends Controller
             ? $categories->firstWhere('slug', $request->string('category')->toString())
             : null;
 
-        $search = trim((string) $request->query('q', ''));
         $homeSort = (string) setting('home_default_sort', 'random');
         if (! in_array($homeSort, ['random', 'alpha', 'popular', 'price_asc', 'price_desc', 'newest'], true)) {
             $homeSort = 'random';
         }
-        $seed = $homeSort === 'random' ? ($request->integer('seed') ?: random_int(1000, 999999)) : null;
+        $seed = $homeSort === 'random' ? (int) date('YmdH') : null;
 
         $products = $this->catalogQuery($activeCategory, $search, $homeSort, false, $seed)
             ->paginate($request->boolean('all') ? 500 : 12)
             ->withQueryString();
-
-        if ($seed !== null) {
-            $products->appends(['seed' => $seed]);
-        }
 
         return view('store.home', compact('categories', 'activeCategory', 'products', 'search'));
     }
@@ -71,15 +72,11 @@ class ProductController extends Controller
         $requestedSort = $request->string('sort', '')->toString();
         $sort = ($requestedSort === '' || $requestedSort === 'featured') ? $defaultShopSort : $requestedSort;
         $inStockOnly = $request->boolean('in_stock');
-        $seed = $sort === 'random' ? ($request->integer('seed') ?: random_int(1000, 999999)) : null;
+        $seed = $sort === 'random' ? (int) date('YmdH') : null;
 
         $products = $this->catalogQuery($activeCategory, $search, $sort, $inStockOnly, $seed)
             ->paginate($request->boolean('all') ? 500 : 24)
             ->withQueryString();
-
-        if ($seed !== null) {
-            $products->appends(['seed' => $seed]);
-        }
 
         return view('store.shop', compact('categories', 'activeCategory', 'products', 'search', 'sort', 'inStockOnly'));
     }
@@ -100,15 +97,11 @@ class ProductController extends Controller
         if (! in_array($homeSort, ['random', 'alpha', 'popular', 'price_asc', 'price_desc', 'newest'], true)) {
             $homeSort = 'random';
         }
-        $seed = $homeSort === 'random' ? ($request->integer('seed') ?: random_int(1000, 999999)) : null;
+        $seed = $homeSort === 'random' ? (int) date('YmdH') : null;
 
         $products = $this->catalogQuery($activeCategory, $search, $homeSort, false, $seed)
             ->paginate($request->boolean('all') ? 500 : 12)
             ->withQueryString();
-
-        if ($seed !== null) {
-            $products->appends(['seed' => $seed]);
-        }
 
         return view('store.home', compact('categories', 'activeCategory', 'products', 'search'));
     }

@@ -18,16 +18,10 @@
         ? route('categories.show', $activeCategory)
         : route('home');
     $currentPageNum = (int) $products->currentPage();
-    $canonicalUrl = ($search === '' && $currentPageNum > 1)
-        ? $baseCanonicalUrl.'?page='.$currentPageNum
-        : $baseCanonicalUrl;
-    $prevPageUrl = ($search === '' && $currentPageNum > 1)
-        ? ($currentPageNum === 2 ? $baseCanonicalUrl : $baseCanonicalUrl.'?page='.($currentPageNum - 1))
-        : null;
-    $nextPageUrl = ($search === '' && $products->hasMorePages())
-        ? $baseCanonicalUrl.'?page='.($currentPageNum + 1)
-        : null;
-    $robotsDirective = $search !== ''
+    $canonicalUrl = $baseCanonicalUrl;
+    $prevPageUrl = null;
+    $nextPageUrl = null;
+    $robotsDirective = ($search !== '' || $currentPageNum > 1 || request()->filled('category'))
         ? 'noindex, follow'
         : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
 
@@ -362,10 +356,6 @@
                     </div>
                 </div>
             </div>
-
-            <noscript>
-                <div class="mt-6">{{ $products->links() }}</div>
-            </noscript>
         @endif
         </div>
     </section>

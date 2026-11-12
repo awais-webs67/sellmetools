@@ -18,6 +18,17 @@ class SecurityHeaders
             return redirect()->to($targetUrl, 301);
         }
 
+        if ($request->isMethod('GET') && $request->query->has('seed')) {
+            $query = $request->query->all();
+            unset($query['seed']);
+            if (($query['page'] ?? null) === '1' || ($query['page'] ?? null) === 1 || $request->getPathInfo() === '/') {
+                unset($query['page']);
+            }
+            $cleanUrl = $request->url().($query !== [] ? '?'.http_build_query($query) : '');
+
+            return redirect()->to($cleanUrl, 301);
+        }
+
         /** @var Response $response */
         $response = $next($request);
 
