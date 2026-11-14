@@ -433,7 +433,7 @@
                                 International software, AI platforms, creative suites and cloud services normally charge in USD and require international credit cards that carry heavy cross-border banking taxes or fail outright in Pakistan.
                             </p>
                             <p>
-                                Built by <a href="https://aivrasol.com" target="_blank" rel="noopener" class="font-bold text-white underline decoration-white/40 underline-offset-2 hover:text-dark-accent">AivraSol Softwares</a>, {{ $storeName }} bridges that gap by offering verified digital tools, accounts and subscriptions in Pakistani Rupees (PKR). Whether you are a student completing university research, a creator producing client projects, a marketer, or a software developer, our automated platform reserves your stock at checkout and delivers credentials directly to your private order page.
+                                {{ $storeName }} bridges that gap by offering verified digital tools, accounts and subscriptions in Pakistani Rupees (PKR) and USDT. Whether you are a student completing university research, a creator producing client projects, a marketer, or a software developer, our automated platform reserves your stock at checkout and delivers credentials directly to your private order page.
                             </p>
                         </div>
                         <div class="mt-6 flex flex-wrap items-center gap-3">
@@ -645,7 +645,7 @@
                             <div class="rounded-xl border border-line bg-grey-soft/60 p-4">
                                 <h3 class="text-xs sm:text-sm font-bold text-ink">🛡️ Clear Warranty &amp; Support</h3>
                                 <p class="mt-1 text-xs leading-relaxed text-body">
-                                    Backed by <a href="https://aivrasol.com" target="_blank" rel="noopener" class="font-semibold text-ink underline hover:text-brand">AivraSol Softwares</a> with dedicated WhatsApp support and clear warranty coverage on every digital tool.
+                                    Backed by {{ $storeName }} with dedicated 24/7 WhatsApp support and clear replacement warranty coverage on every digital tool.
                                 </p>
                             </div>
                         </div>

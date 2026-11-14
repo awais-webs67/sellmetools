@@ -2,7 +2,7 @@
     $store = (string) setting('store_name', 'SellMeTools');
 @endphp
 <x-page
-    title="About {{ $store }} — AI Tools & Digital Subscriptions"
+    title="About {{ $store }} - AI Tools & Digital Subscriptions"
     eyebrow="About Our Store"
     description="Learn how {{ $store }} delivers genuine AI tools, creative software, cloud accounts and digital subscriptions in Pakistan at local PKR prices via Easypaisa, JazzCash, NayaPay and Binance."
     subtitle="Built for Pakistani freelancers, students, creators and software teams who want instant, verified access to global digital tools in local rupees."
@@ -22,7 +22,7 @@
 
     <h2>Who We Are</h2>
     <p>
-        <strong>{{ $store }}</strong> (a digital commerce project by <a href="https://aivrasol.com" target="_blank" rel="noopener"><strong>AivraSol Softwares</strong></a>) is a dedicated Pakistani marketplace for premium AI tools, creative software, productivity suites, streaming memberships and cloud accounts. We started {{ $store }} to solve one of the most frustrating challenges faced by professionals and students across Pakistan: paying for international USD subscriptions when local bank cards decline cross-border recurring charges or add heavy withholding and foreign exchange taxes.
+        <strong>{{ $store }}</strong> is a trusted online marketplace for premium AI tools, creative software, productivity suites, streaming memberships and cloud accounts in Pakistan and worldwide. We started {{ $store }} to solve one of the most frustrating challenges faced by professionals, freelancers and students: paying for international USD subscriptions when local bank cards decline cross-border recurring charges or add heavy withholding and foreign exchange taxes.
     </p>
 
     <h2>What You Can Buy on {{ $store }}</h2>

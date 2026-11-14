@@ -36,7 +36,7 @@
             'name' => $storeName,
             'url' => url('/'),
         ],
-        'copyrightNotice' => '© '.date('Y').' '.$storeName.' (AivraSol Softwares)',
+        'copyrightNotice' => '© '.date('Y').' '.$storeName,
         'license' => route('pages.show', 'terms'),
         'acquireLicensePage' => $productUrl,
     ];

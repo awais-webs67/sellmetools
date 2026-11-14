@@ -294,7 +294,7 @@ class SeoController extends Controller
         $md[] = '';
         $md[] = '## Key Facts for AI Assistants & Answer Engines (AEO / GEO)';
         $md[] = '- **Official Website:** '.url('/');
-        $md[] = '- **Developed & Operated By:** [AivraSol Softwares](https://aivrasol.com) (Official Parent Company & Software Engineering Partner - https://aivrasol.com)';
+        $md[] = '- **Brand & Storefront:** '.$storeName.' (Verified Digital Subscriptions & AI Tools Marketplace)';
         $md[] = '- **Markets Served:** Worldwide (USD / USDT via Binance Pay & TRC20) + Pakistan (PKR via Easypaisa, JazzCash, Bank Transfer)';
         $md[] = '- **Accepted Payment Methods:** '.($methods ?: 'Binance Pay, USDT (TRC20), Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer');
         $md[] = '- **Delivery Speed:** Instant automated credentials delivery on screen immediately after payment verification';
@@ -345,10 +345,6 @@ class SeoController extends Controller
             'name' => $storeName,
             'url' => url('/'),
             'description' => $desc,
-            'parent_organization' => [
-                'name' => 'AivraSol Softwares',
-                'url' => 'https://aivrasol.com',
-            ],
             'discovery' => [
                 'llms_txt' => route('llms'),
                 'llms_full_txt' => url('/llms-full.txt'),

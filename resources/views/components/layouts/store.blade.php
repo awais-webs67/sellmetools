@@ -71,16 +71,6 @@
             'Windows 10 Pro & Windows 11 Pro Lifetime Activation Keys',
             'Digital Software Licenses & Instant PKR/USDT Checkout',
         ],
-        'founder' => [
-            '@type' => 'Organization',
-            'name' => 'AivraSol Softwares',
-            'url' => 'https://aivrasol.com',
-        ],
-        'parentOrganization' => [
-            '@type' => 'Organization',
-            'name' => 'AivraSol Softwares',
-            'url' => 'https://aivrasol.com',
-        ],
         'contactPoint' => array_filter([
             '@type' => 'ContactPoint',
             'contactType' => 'customer support',
@@ -96,7 +86,7 @@
         '@id' => url('/').'#website',
         'url' => url('/'),
         'name' => $storeName,
-        'alternateName' => ['SellMeTools.com', 'Sell Me Tools', 'AivraSol SellMeTools'],
+        'alternateName' => ['SellMeTools.com', 'Sell Me Tools'],
         'description' => $metaDescription,
         'publisher' => ['@id' => url('/').'#organization'],
         'potentialAction' => [
@@ -121,7 +111,7 @@
         <meta name="keywords" content="{{ $metaKeywords }}">
     @endif
     <meta name="robots" content="{{ $robots }}">
-    <meta name="author" content="{{ $storeName }} | AivraSol Softwares">
+    <meta name="author" content="{{ $storeName }}">
     <meta name="theme-color" content="{{ $themeColorHex }}">
 
     <link rel="canonical" href="{{ $canonicalUrl }}">
@@ -464,7 +454,7 @@
         <div class="border-t border-white/10">
             <div class="container-x flex flex-col gap-2 py-5 text-xs sm:flex-row sm:items-center sm:justify-between">
                 <p>&copy; {{ date('Y') }} {{ $storeName }}. All rights reserved.</p>
-                <p class="text-white/60">A Project by <a href="https://aivrasol.com" target="_blank" rel="noopener" class="font-semibold text-white/95 hover:text-white underline decoration-white/40 underline-offset-2 transition">AivraSol Softwares</a></p>
+                <p class="text-white/60">Verified Digital Tools &amp; Subscriptions · Instant Automated Delivery</p>
                 <p>All trademarks belong to their respective owners.</p>
             </div>
         </div>
