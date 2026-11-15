@@ -7,7 +7,7 @@
 <x-page
     title="Contact {{ $store }} & 24/7 Customer Support"
     eyebrow="Customer Support Desk"
-    description="Get fast support for your {{ $store }} orders, warranty replacements, PKR payment verification or bulk reseller inquiries via WhatsApp, Telegram or our direct email contact form."
+    description="Get fast support for {{ $store }} orders, warranty replacements & PKR/USDT payments via WhatsApp, Telegram or our email contact form."
     subtitle="Need help with an existing order, replacement credentials or choosing the right plan? Send us a message below or chat with us on WhatsApp."
 >
     @if (session('contact_sent'))
@@ -24,7 +24,7 @@
     <div class="not-prose mt-6 grid gap-4 sm:grid-cols-3">
         @if ($wa)
             <a href="https://wa.me/{{ preg_replace('/\D/', '', $wa) }}" target="_blank" rel="noopener" class="card p-4 sm:p-5 no-underline hover:border-brand hover:shadow-md transition active:scale-[0.98] group bg-white border border-line">
-                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#25D366]/10 text-[#25D366] group-hover:bg-[#25D366] group-hover:text-white transition">
+                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#127A43]/10 text-[#127A43] group-hover:bg-[#127A43] group-hover:text-white transition">
                     <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.03c-.25.69-1.45 1.32-2 1.37-.51.05-1 .24-3.36-.7-2.84-1.12-4.63-4.03-4.77-4.22-.14-.19-1.14-1.52-1.14-2.9 0-1.38.72-2.06.98-2.34.25-.28.55-.35.74-.35l.53.01c.17 0 .4-.06.62.48.25.6.84 2.07.92 2.22.07.15.12.32.02.51-.1.19-.15.32-.29.49-.15.17-.31.38-.44.51-.15.15-.3.3-.13.6.17.29.77 1.27 1.65 2.06 1.14 1.01 2.09 1.33 2.39 1.48.29.15.47.12.64-.07.17-.2.74-.86.94-1.16.2-.29.39-.24.66-.15.27.1 1.73.82 2.02.97.3.15.5.22.57.34.07.12.07.71-.18 1.4Z"/></svg>
                 </div>
                 <p class="font-bold text-ink mt-3 text-sm">WhatsApp Live Chat</p>

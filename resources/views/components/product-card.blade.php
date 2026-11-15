@@ -27,7 +27,7 @@
          data-category-slug="{{ $product->category?->slug ?? '' }}"
          data-search-text="{{ mb_strtolower($product->name.' '.($product->category?->name ?? '').' '.($product->short_description ?? '')) }}">
     {{-- Media Box: Full uncropped image (object-contain) with soft ambient backdrop --}}
-    <a href="{{ route('products.show', $product) }}" class="surface-dark-solid relative block h-36 sm:h-40 overflow-hidden" tabindex="-1" aria-hidden="true">
+    <div class="surface-dark-solid relative block h-36 sm:h-40 overflow-hidden">
         @if ($img = $product->imageUrl())
             {{-- Soft ambient CSS backdrop fills side/top gaps without creating duplicate <img> DOM nodes --}}
             <div aria-hidden="true" style="background-image: url('{{ $img }}')" class="pointer-events-none absolute inset-0 bg-cover bg-center scale-110 opacity-35 blur-md" :class="!inStock && 'grayscale'"></div>
@@ -71,7 +71,7 @@
                 <span x-text="label">{{ $initialStockLabel }}</span>
             </span>
         </div>
-    </a>
+    </div>
 
     {{-- Compact Card Body --}}
     <div class="flex flex-1 flex-col p-3 sm:p-3.5">

@@ -25,7 +25,11 @@
     if (mb_strlen($pageTitle) > 60 && str_ends_with($pageTitle, ' | '.$storeName)) {
         $pageTitle = trim(mb_substr($pageTitle, 0, mb_strlen($pageTitle) - mb_strlen(' | '.$storeName)));
     }
-    $metaDescription = str_replace(['—', '–'], '-', \Illuminate\Support\Str::limit(trim((string) ($description ?: (setting('seo_description') ?: setting('store_tagline')))), 155));
+    $rawDesc = str_replace(['—', '–'], '-', trim((string) ($description ?: (setting('seo_description') ?: setting('store_tagline')))));
+    $rawDesc = rtrim((string) preg_replace('/\.{2,}$/u', '', $rawDesc));
+    $metaDescription = mb_strlen($rawDesc) > 155
+        ? rtrim(preg_replace('/\s+\S*$/u', '', mb_substr($rawDesc, 0, 155)) ?: mb_substr($rawDesc, 0, 155), ' .,;:-')
+        : $rawDesc;
     $metaKeywords = $keywords ?: setting('seo_keywords');
     $canonicalUrl = $canonical ?: url()->current();
     $logoSetting = setting('store_logo');
@@ -461,8 +465,12 @@
     </footer>
 
     @if ($wa = admin_whatsapp_number())
-        <a href="https://wa.me/{{ $wa }}" target="_blank" rel="noopener" class="fixed right-5 bottom-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-[var(--shadow-pop)] transition hover:scale-105 active:scale-95" aria-label="Chat on WhatsApp">
-            <svg class="h-7 w-7" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.03c-.25.69-1.45 1.32-2 1.37-.51.05-1 .24-3.36-.7-2.84-1.12-4.63-4.03-4.77-4.22-.14-.19-1.14-1.52-1.14-2.9 0-1.38.72-2.06.98-2.34.25-.28.55-.35.74-.35l.53.01c.17 0 .4-.06.62.48.25.6.84 2.07.92 2.22.07.15.12.32.02.51-.1.19-.15.32-.29.49-.15.17-.31.38-.44.51-.15.15-.3.3-.13.6.17.29.77 1.27 1.65 2.06 1.14 1.01 2.09 1.33 2.39 1.48.29.15.47.12.64-.07.17-.2.74-.86.94-1.16.2-.29.39-.24.66-.15.27.1 1.73.82 2.02.97.3.15.5.22.57.34.07.12.07.71-.18 1.4Z"/></svg>
+        <a href="https://wa.me/{{ $wa }}" target="_blank" rel="noopener" @class([
+            'fixed right-3 bottom-3 sm:right-5 sm:bottom-5 z-40 h-11 w-11 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-[#127A43] hover:bg-[#0E6336] text-white shadow-[var(--shadow-pop)] transition hover:scale-105 active:scale-95',
+            'hidden sm:flex' => request()->routeIs('products.show', 'checkout.*'),
+            'flex' => ! request()->routeIs('products.show', 'checkout.*'),
+        ]) aria-label="Chat on WhatsApp">
+            <svg class="h-5 w-5 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.03c-.25.69-1.45 1.32-2 1.37-.51.05-1 .24-3.36-.7-2.84-1.12-4.63-4.03-4.77-4.22-.14-.19-1.14-1.52-1.14-2.9 0-1.38.72-2.06.98-2.34.25-.28.55-.35.74-.35l.53.01c.17 0 .4-.06.62.48.25.6.84 2.07.92 2.22.07.15.12.32.02.51-.1.19-.15.32-.29.49-.15.17-.31.38-.44.51-.15.15-.3.3-.13.6.17.29.77 1.27 1.65 2.06 1.14 1.01 2.09 1.33 2.39 1.48.29.15.47.12.64-.07.17-.2.74-.86.94-1.16.2-.29.39-.24.66-.15.27.1 1.73.82 2.02.97.3.15.5.22.57.34.07.12.07.71-.18 1.4Z"/></svg>
         </a>
     @endif
 

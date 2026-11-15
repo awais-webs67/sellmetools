@@ -41,7 +41,7 @@ Route::get('/llms.txt', [SeoController::class, 'llmsTxt'])
     ->name('llms');
 Route::get('/llms-full.txt', [SeoController::class, 'llmsTxt'])
     ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class]);
-Route::get('/.well-known/ai-catalog.json', [SeoController::class, 'aiCatalog'])
+Route::get('/.well-known/ai-catalog.json', [SeoController::class, 'ardCatalog'])
     ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
     ->name('ai.catalog');
 Route::get('/.well-known/ai-plugin.json', [SeoController::class, 'aiCatalog'])

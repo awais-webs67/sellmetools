@@ -53,7 +53,7 @@
                 {{-- Product Thumbnail --}}
                 <span class="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-line bg-grey-soft shadow-2xs">
                     <template x-if="p.image">
-                        <img :src="p.image" :alt="p.name" loading="lazy" class="h-full w-full object-cover transition duration-200 group-hover:scale-105">
+                        <img :src="p.image" :alt="p.name" width="40" height="40" loading="lazy" class="h-full w-full object-cover transition duration-200 group-hover:scale-105">
                     </template>
                     <template x-if="!p.image">
                         <span class="flex h-full w-full items-center justify-center bg-ink text-sm font-extrabold text-white" x-text="p.name ? p.name.charAt(0).toUpperCase() : 'S'"></span>

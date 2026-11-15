@@ -239,7 +239,7 @@
                                                 🔄 Deliver / Retry Supplier
                                             </button>
                                         @endif
-                                        <button type="submit" name="do" value="whatsapp_delivered" class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] py-2.5 text-xs sm:text-sm font-bold">
+                                        <button type="submit" name="do" value="whatsapp_delivered" class="btn bg-[#127A43] text-white hover:bg-[#0E6336] py-2.5 text-xs sm:text-sm font-bold">
                                             📲 Mark Delivered on WhatsApp
                                         </button>
                                     </div>
@@ -347,7 +347,7 @@
                             <a href="https://wa.me/{{ $customerPhone }}?text={{ urlencode($customerWaText) }}"
                                target="_blank"
                                rel="noopener"
-                               class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] w-full py-2.5 text-xs font-bold">
+                               class="btn bg-[#127A43] text-white hover:bg-[#0E6336] w-full py-2.5 text-xs font-bold">
                                 WhatsApp Customer →
                             </a>
                         @endif

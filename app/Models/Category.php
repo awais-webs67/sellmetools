@@ -22,52 +22,52 @@ class Category extends Model
         return [
             'ai-tools' => [
                 'title' => 'Buy AI Tools in Pakistan - ChatGPT Plus, Claude, Gemini',
-                'description' => 'Buy genuine ChatGPT Plus, Claude Pro & API, Google Gemini Pro, HeyGen, Kling AI & ElevenLabs in Pakistan with instant delivery via Easypaisa, JazzCash & USDT.',
+                'description' => 'Buy genuine ChatGPT Plus, Claude Pro, Gemini Pro, HeyGen & ElevenLabs in Pakistan with instant delivery via Easypaisa, JazzCash & USDT.',
                 'keywords' => 'buy AI tools in Pakistan, ChatGPT Plus price in Pakistan, buy ChatGPT Plus with Easypaisa JazzCash, Claude Pro price in Pakistan, Claude API key Pakistan, Gemini Advanced subscription Pakistan, HeyGen Creator, Kling AI, ElevenLabs, Midjourney Pro Pakistan, SellMeTools',
             ],
             'linkedin' => [
                 'title' => 'Buy LinkedIn Premium & Sales Navigator Vouchers in Pakistan',
-                'description' => 'Buy LinkedIn Career, Business & Sales Navigator official vouchers and login upgrades in Pakistan & worldwide. Pay via Easypaisa, JazzCash, NayaPay or USDT.',
+                'description' => 'Buy LinkedIn Career, Business & Sales Navigator vouchers in Pakistan & worldwide with instant delivery via Easypaisa, JazzCash or USDT.',
                 'keywords' => 'LinkedIn Premium price in Pakistan, buy LinkedIn Career voucher Pakistan, LinkedIn Business 12 months price in Pakistan, LinkedIn Sales Navigator Core Advanced voucher, buy LinkedIn Premium with Easypaisa JazzCash, SellMeTools',
             ],
             'seo' => [
                 'title' => 'Buy SEO Tools in Pakistan - Ahrefs, Semrush & Moz Pro Bundle',
-                'description' => 'Buy Ahrefs, Semrush, Moz Pro, Ubersuggest & 30+ premium SEO group buy tools online in Pakistan at cheap prices. Instant delivery via Easypaisa, JazzCash & USDT.',
+                'description' => 'Buy Ahrefs, Semrush, Moz Pro & 30+ SEO group buy tools online in Pakistan at cheap prices with instant Easypaisa, JazzCash & USDT checkout.',
                 'keywords' => 'Ahrefs price in Pakistan, Semrush price in Pakistan, buy SEO tools in Pakistan, SEO group buy tools Pakistan, Semrush Moz Pro bundle Easypaisa JazzCash, cheap Ahrefs subscription online, SellMeTools',
             ],
             'design' => [
                 'title' => 'Buy Canva Pro, Figma & Envato Subscriptions in Pakistan',
-                'description' => 'Buy Canva Edu Pro 1 Year, Figma Education, Freepik Premium & Envato Elements subscriptions online in Pakistan & worldwide via Easypaisa, JazzCash & USDT.',
+                'description' => 'Buy Canva Edu Pro, Figma Education, Freepik Premium & Envato Elements online in Pakistan & worldwide via Easypaisa, JazzCash & USDT.',
                 'keywords' => 'Canva Pro price in Pakistan, buy Canva Pro 1 year Easypaisa JazzCash, Figma Education Pro 2 years Pakistan, Freepik Premium 1 month price in Pakistan, Envato Elements subscription Pakistan, SellMeTools',
             ],
             'video-editing' => [
                 'title' => 'Buy CapCut Pro & Video Editing Subscriptions in Pakistan',
-                'description' => 'Buy CapCut Pro 1 Month, 6 Months & 1 Year Full Warranty accounts, Veed Pro and Adobe Express Premium in Pakistan via Easypaisa, JazzCash or Binance USDT.',
+                'description' => 'Buy CapCut Pro 1M, 6M & 1 Year Full Warranty, Veed Pro & Adobe Express in Pakistan via Easypaisa, JazzCash or Binance USDT.',
                 'keywords' => 'CapCut Pro price in Pakistan, buy CapCut Pro with Easypaisa JazzCash, CapCut Pro 1 year full warranty Pakistan, CapCut Pro 6 months private account, Veed Pro subscription Pakistan, Adobe Express 12 months, SellMeTools',
             ],
             'vpn-security' => [
                 'title' => 'Buy VPN in Pakistan - Surfshark, ExpressVPN, NordVPN & HMA',
-                'description' => 'Buy Surfshark VPN, ExpressVPN, NordVPN & HMA VPN accounts and license keys online at the lowest price in Pakistan via Easypaisa, JazzCash & USDT.',
+                'description' => 'Buy Surfshark, ExpressVPN, NordVPN & Proton VPN accounts and keys at the lowest price in Pakistan via Easypaisa, JazzCash & USDT.',
                 'keywords' => 'Surfshark VPN price in Pakistan, ExpressVPN price in Pakistan, NordVPN voucher Pakistan, buy VPN with Easypaisa JazzCash, HMA VPN license key Pakistan, cheap VPN subscription Pakistan, SellMeTools',
             ],
             'productivity' => [
                 'title' => 'Buy Productivity Tools in Pakistan - Zoom Pro, Notion & CAD',
-                'description' => 'Buy Official Zoom Pro, Notion Business, Miro Lifetime Admin Panel, Windows 11 Pro Key & Autodesk All Apps in Pakistan with instant PKR & USDT checkout.',
+                'description' => 'Buy Official Zoom Pro, Notion Business, Miro Admin Panel, Windows 11 Pro Key & Autodesk in Pakistan with instant PKR & USDT delivery.',
                 'keywords' => 'Zoom Pro price in Pakistan, buy Official Zoom Pro subscription, Windows 11 Pro activation key price in Pakistan, Miro Lifetime Panel 100 invites, Notion Business 3 months, Autodesk All Apps Pakistan, SellMeTools',
             ],
             'education' => [
                 'title' => 'Buy Coursera Plus, Grammarly Pro & Turnitin in Pakistan',
-                'description' => 'Buy Coursera Plus, Grammarly Pro, StealthWriter AI Humanizer, Turnitin, Scribd, Udemy & Super Duolingo subscriptions in Pakistan with instant delivery.',
+                'description' => 'Buy Coursera Plus, Grammarly Pro, StealthWriter AI, Turnitin, Scribd & Duolingo subscriptions in Pakistan with instant digital delivery.',
                 'keywords' => 'Coursera Plus price in Pakistan, Grammarly Pro 1 year price in Pakistan, StealthWriter AI humanizer Pakistan, Turnitin student account Pakistan, Scribd Premium 1 month, Super Duolingo 12 months Pakistan, SellMeTools',
             ],
             'entertainment' => [
                 'title' => 'Buy YouTube Premium & Amazon Prime Video in Pakistan',
-                'description' => 'Buy YouTube Premium, Amazon Prime Video 1 Month & 6 Months, and Apple TV+ subscriptions in Pakistan & worldwide via Easypaisa, JazzCash & USDT.',
+                'description' => 'Buy YouTube Premium, Amazon Prime Video & Apple TV+ subscriptions in Pakistan & worldwide via Easypaisa, JazzCash & Binance USDT.',
                 'keywords' => 'YouTube Premium price in Pakistan, Amazon Prime Video price in Pakistan, buy Prime Video 6 months Easypaisa JazzCash, Apple TV+ 12 months Pakistan, cheap streaming subscriptions Pakistan, SellMeTools',
             ],
             'cloud-dev' => [
                 'title' => 'Buy Cloud & Developer Tools - Cursor, Lovable, Railway, M365',
-                'description' => 'Buy Cursor Pro, Lovable Pro, Railway Hobby, Microsoft 365 Family Admin, Warp Build & n8n Cloud online in Pakistan via Easypaisa, JazzCash or USDT.',
+                'description' => 'Buy Cursor Pro, Lovable Pro, Railway Hobby, Microsoft 365 Family & Warp Build online in Pakistan via Easypaisa, JazzCash or USDT.',
                 'keywords' => 'Cursor Pro price in Pakistan, Lovable Pro price in Pakistan, Railway Hobby 1 year coupon Pakistan, Microsoft 365 Family 1 year Pakistan, Warp Build 12 months, n8n Cloud Starter 1 year, SellMeTools',
             ],
         ];

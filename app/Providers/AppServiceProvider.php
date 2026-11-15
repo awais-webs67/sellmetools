@@ -68,6 +68,13 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
+        if (! $this->app->runningUnitTests() && ! $this->app->runningInConsole()) {
+            $staleRobots = public_path('robots.txt');
+            if (is_file($staleRobots) && str_contains((string) @file_get_contents($staleRobots), 'skillsnexuspro.com')) {
+                @unlink($staleRobots);
+            }
+        }
+
         $readyFlag = storage_path('framework/schema_v7_ready.flag');
         if (is_file($readyFlag)) {
             return;

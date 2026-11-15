@@ -139,7 +139,6 @@ class SeoController extends Controller
 
         $categories = Category::query()
             ->where('is_active', true)
-            ->whereHas('products', fn ($q) => $q->visible())
             ->orderBy('sort')
             ->get();
 
@@ -238,7 +237,7 @@ class SeoController extends Controller
 
         foreach ($products as $product) {
             $url = route('products.show', $product);
-            $img = $product->imageUrl() ?: asset('favicon.svg');
+            $img = $product->imageUrl() ?: asset('images/og-image.png');
             $availability = $product->inStock() ? 'in_stock' : 'out_of_stock';
             $price = number_format((float) $product->price, 2, '.', '').' PKR';
             $brand = $product->brandName();
@@ -332,6 +331,44 @@ class SeoController extends Controller
         ]);
     }
 
+    /**
+     * ARD 1.0 compliant discovery catalog at /.well-known/ai-catalog.json.
+     */
+    public function ardCatalog(): JsonResponse
+    {
+        $storeName = (string) Setting::get('store_name', 'SellMeTools');
+
+        return response()->json([
+            'specVersion' => '1.0',
+            'entries' => [
+                [
+                    'identifier' => 'urn:air:sellmetools:store:catalog',
+                    'displayName' => $storeName.' AI & Digital Subscriptions Catalog',
+                    'type' => 'application/ai-catalog+json',
+                    'url' => url('/api/agent-catalog.json'),
+                    'representativeQueries' => [
+                        'Buy ChatGPT Plus and AI tools in Pakistan with PKR or USDT',
+                        'Compare digital subscription prices and live stock on SellMeTools',
+                    ],
+                ],
+                [
+                    'identifier' => 'urn:air:sellmetools:store:llms',
+                    'displayName' => $storeName.' Live Store & Product Guide (llms.txt)',
+                    'type' => 'text/markdown; profile="urn:air:agent-skills"',
+                    'url' => route('llms'),
+                    'representativeQueries' => [
+                        'SellMeTools accepted payment methods and instant delivery guide',
+                        'List verified subscriptions, pricing, and warranty terms on SellMeTools',
+                    ],
+                ],
+            ],
+        ], 200, [
+            'Content-Type' => 'application/ai-catalog+json; charset=UTF-8',
+            'Cache-Control' => 'public, max-age=3600',
+            'X-Robots-Tag' => 'all',
+        ]);
+    }
+
     public function aiCatalog(): JsonResponse
     {
         ProductSeoOptimizer::syncCatalogOnce();
@@ -371,10 +408,30 @@ class SeoController extends Controller
 
     public function robots(): Response
     {
+        $signal = 'Content-Signal: search=yes, ai-input=yes, ai-train=yes';
+        $namedBots = [
+            'bingbot',
+            'msnbot',
+            'GPTBot',
+            'OAI-SearchBot',
+            'ChatGPT-User',
+            'PerplexityBot',
+            'Perplexity-User',
+            'ClaudeBot',
+            'Claude-SearchBot',
+            'Claude-User',
+            'Google-Extended',
+            'Applebot',
+            'Applebot-Extended',
+            'DuckAssistBot',
+            'Meta-ExternalAgent',
+            'Amazonbot',
+        ];
+
         $lines = [
             'User-agent: *',
             'Allow: /',
-            'Content-Signal: search=yes, ai-input=yes, ai-train=yes',
+            $signal,
             'Disallow: /admin',
             'Disallow: /checkout/',
             'Disallow: /orders/',
@@ -386,44 +443,19 @@ class SeoController extends Controller
             'Disallow: /register',
             '',
             '# Welcome AI Search & Answer Engines (AEO / GEO) + Bing / Copilot',
-            'User-agent: bingbot',
-            'Allow: /',
-            'User-agent: msnbot',
-            'Allow: /',
-            'User-agent: GPTBot',
-            'Allow: /',
-            'User-agent: OAI-SearchBot',
-            'Allow: /',
-            'User-agent: ChatGPT-User',
-            'Allow: /',
-            'User-agent: PerplexityBot',
-            'Allow: /',
-            'User-agent: Perplexity-User',
-            'Allow: /',
-            'User-agent: ClaudeBot',
-            'Allow: /',
-            'User-agent: Claude-SearchBot',
-            'Allow: /',
-            'User-agent: Claude-User',
-            'Allow: /',
-            'User-agent: Google-Extended',
-            'Allow: /',
-            'User-agent: Applebot',
-            'Allow: /',
-            'User-agent: Applebot-Extended',
-            'Allow: /',
-            'User-agent: DuckAssistBot',
-            'Allow: /',
-            'User-agent: Meta-ExternalAgent',
-            'Allow: /',
-            'User-agent: Amazonbot',
-            'Allow: /',
-            'User-agent: Googlebot-Image',
-            'Allow: /',
-            'Allow: /media/',
-            '',
-            'Sitemap: '.url('/sitemap.xml'),
         ];
+
+        foreach ($namedBots as $bot) {
+            $lines[] = "User-agent: {$bot}";
+            $lines[] = 'Allow: /';
+            $lines[] = $signal;
+        }
+
+        $lines[] = 'User-agent: Googlebot-Image';
+        $lines[] = 'Allow: /';
+        $lines[] = 'Allow: /media/';
+        $lines[] = '';
+        $lines[] = 'Sitemap: '.url('/sitemap.xml');
 
         return response(implode("\n", $lines)."\n", 200, [
             'Content-Type' => 'text/plain; charset=UTF-8',

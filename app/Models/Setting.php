@@ -54,10 +54,10 @@ class Setting extends Model
         'home_guide_heading' => 'Buy AI Tools & Digital Subscriptions Online — USDT & Local PKR Prices',
         'home_seo_content' => '',
         'shop_seo_title' => 'Shop All AI Tools, Premium Software & Digital Subscriptions',
-        'shop_seo_description' => 'Browse 75+ genuine AI tools, SEO software, design suites, VPNs & streaming subscriptions at best prices in Pakistan & worldwide. Instant delivery via PKR or USDT.',
+        'shop_seo_description' => 'Browse 80+ genuine AI tools, SEO software, design suites, VPNs & streaming plans in Pakistan & worldwide with instant PKR & USDT delivery.',
         // General store-wide SEO targets for global + local digital tools & subscriptions marketplace:
         'seo_title' => 'Buy AI Tools, Premium Software & Digital Subscriptions Online',
-        'seo_description' => 'Trusted marketplace to buy genuine AI tools, SEO software, creative suites, VPNs, cloud & streaming subscriptions in Pakistan & worldwide. Instant delivery via PKR & USDT.',
+        'seo_description' => 'Buy genuine AI tools, SEO software, creative suites, VPNs & streaming subscriptions in Pakistan & worldwide with instant PKR & USDT delivery.',
         'seo_keywords' => 'buy ai tools in pakistan, chatgpt plus price in pakistan, capcut pro price in pakistan, canva pro price in pakistan, buy linkedin premium pakistan, ahrefs semrush bundle pakistan, claude pro price in pakistan, gemini pro subscription pakistan, surfshark vpn price in pakistan, expressvpn price in pakistan, youtube premium price in pakistan, envato elements pakistan, cursor pro pakistan, cheap digital subscriptions easypaisa jazzcash, buy tools without credit card pakistan, binance usdt digital store, sellmetools',
         'google_site_verification' => '',
         'bing_site_verification' => '',

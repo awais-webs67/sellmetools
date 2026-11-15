@@ -391,7 +391,7 @@
                         <p class="mt-2 text-sm text-white/70">Message us with the tool you need and we'll tell you the right plan, price and delivery time.</p>
                         <div class="mt-5 space-y-2">
                             @if ($waNumber !== '')
-                                <a href="https://wa.me/{{ $waNumber }}?text={{ urlencode('Assalam o Alaikum! I need help choosing a product on '.$storeName.'.') }}" target="_blank" rel="noopener" class="btn w-full bg-[#25D366] py-3 font-bold text-white hover:bg-[#1ebe5b]">
+                                <a href="https://wa.me/{{ $waNumber }}?text={{ urlencode('Assalam o Alaikum! I need help choosing a product on '.$storeName.'.') }}" target="_blank" rel="noopener" class="btn w-full bg-[#127A43] py-3 font-bold text-white hover:bg-[#0E6336]">
                                     Chat on WhatsApp
                                 </a>
                             @endif

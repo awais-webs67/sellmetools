@@ -154,7 +154,7 @@
                                     <a href="https://wa.me/{{ $waAdmin }}?text={{ urlencode('Assalam o Alaikum! I want to add funds to my Reseller Wallet (@'.$reseller->reseller_slug.' / '.$reseller->email.')') }}"
                                        target="_blank"
                                        rel="noopener"
-                                       class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] px-4 py-2.5 text-xs sm:text-sm font-bold shadow-md">
+                                       class="btn bg-[#127A43] text-white hover:bg-[#0E6336] px-4 py-2.5 text-xs sm:text-sm font-bold shadow-md">
                                         ➕ Top-Up Wallet on WhatsApp
                                     </a>
                                 @endif
@@ -616,7 +616,7 @@
                             <a href="https://wa.me/{{ $waAdmin }}?text={{ urlencode('Assalam o Alaikum! I want to add funds to my Reseller Wallet (@'.$reseller->reseller_slug.' / '.$reseller->email.')') }}"
                                target="_blank"
                                rel="noopener"
-                               class="btn bg-[#25D366] text-white hover:bg-[#1ebe5b] px-4 py-2 text-xs font-bold">
+                               class="btn bg-[#127A43] text-white hover:bg-[#0E6336] px-4 py-2 text-xs font-bold">
                                 ➕ Top-Up Wallet via WhatsApp
                             </a>
                         @endif

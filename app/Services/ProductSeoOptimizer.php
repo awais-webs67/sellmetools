@@ -41,6 +41,43 @@ class ProductSeoOptimizer
         }
 
         static::syncNewCuratedOnce();
+        static::syncAuditMetaOnce();
+    }
+
+    public static function syncAuditMetaOnce(): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+
+        $flagFile = storage_path('framework/product_seo_v18_audit_meta.flag');
+        if (is_file($flagFile)) {
+            return;
+        }
+
+        try {
+            if (Schema::hasTable('settings')) {
+                Setting::set('seo_description', Setting::DEFAULTS['seo_description']);
+                Setting::set('shop_seo_description', Setting::DEFAULTS['shop_seo_description']);
+            }
+
+            if (Schema::hasTable('categories')) {
+                $curatedCatSeo = Category::curatedSeoMap();
+                foreach (Category::query()->get() as $cat) {
+                    $slug = trim((string) $cat->slug);
+                    if (isset($curatedCatSeo[$slug])) {
+                        $cat->forceFill([
+                            'meta_description' => $curatedCatSeo[$slug]['description'],
+                        ])->saveQuietly();
+                    }
+                }
+            }
+
+            Cache::forget('smt_active_categories_v2');
+            @file_put_contents($flagFile, '1');
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     public static function syncNewCuratedOnce(): void

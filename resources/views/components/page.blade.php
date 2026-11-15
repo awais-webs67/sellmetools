@@ -90,7 +90,7 @@
                     </p>
                     <div class="mt-5 space-y-2.5">
                         @if ($wa)
-                            <a href="https://wa.me/{{ $wa }}" target="_blank" rel="noopener" class="btn w-full bg-[#25D366] py-2.5 text-xs sm:text-sm font-bold text-white hover:bg-[#1ebe5b]">
+                            <a href="https://wa.me/{{ $wa }}" target="_blank" rel="noopener" class="btn w-full bg-[#127A43] py-2.5 text-xs sm:text-sm font-bold text-white hover:bg-[#0E6336]">
                                 Chat on WhatsApp
                             </a>
                         @endif

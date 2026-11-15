@@ -6,7 +6,7 @@
         : ($product->stock_unlimited ? 'Unlimited Stock' : 'Stock: '.(int) $product->available_stock);
 
     $productUrl = route('products.show', $product);
-    $productImage = $product->imageUrl() ?: asset('favicon.svg');
+    $productImage = $product->imageUrl() ?: asset('images/og-image.png');
     $storeName = (string) setting('store_name', 'SellMeTools');
     $rawSchemaPrice = (float) $product->price > 0
         ? (float) $product->price
@@ -107,52 +107,36 @@
                 'applicableCountry' => ['PK', 'US', 'GB', 'AE', 'CA', 'SA', 'AU'],
                 'returnPolicyCategory' => 'https://schema.org/MerchantReturnFiniteReturnWindow',
                 'merchantReturnDays' => 7,
-                'returnMethod' => 'https://schema.org/ReturnByMail',
                 'returnFees' => 'https://schema.org/FreeReturn',
                 'merchantReturnLink' => route('pages.show', 'refund'),
             ],
         ],
-        'aggregateRating' => [
+    ];
+
+    if ($reviewsCount > 0 && $product->approvedReviews->isNotEmpty()) {
+        $productSchema['aggregateRating'] = [
             '@type' => 'AggregateRating',
             'ratingValue' => number_format($avgRating > 0 ? $avgRating : 5.0, 1, '.', ''),
-            'reviewCount' => max(1, $reviewsCount),
+            'reviewCount' => $reviewsCount,
             'bestRating' => '5',
             'worstRating' => '1',
-        ],
-        'review' => $product->approvedReviews->isNotEmpty()
-            ? $product->approvedReviews->take(5)->map(fn ($rev) => [
-                '@type' => 'Review',
-                'author' => [
-                    '@type' => 'Person',
-                    'name' => $rev->customer_name,
-                ],
-                'datePublished' => $rev->created_at?->toDateString() ?: now()->toDateString(),
-                'reviewBody' => $rev->comment,
-                'reviewRating' => [
-                    '@type' => 'Rating',
-                    'ratingValue' => (string) $rev->rating,
-                    'bestRating' => '5',
-                    'worstRating' => '1',
-                ],
-            ])->values()->all()
-            : [
-                [
-                    '@type' => 'Review',
-                    'author' => [
-                        '@type' => 'Person',
-                        'name' => 'Verified Buyer',
-                    ],
-                    'datePublished' => $offerValidFrom,
-                    'reviewBody' => 'Genuine '.$product->name.' subscription delivered instantly with full warranty support.',
-                    'reviewRating' => [
-                        '@type' => 'Rating',
-                        'ratingValue' => '5',
-                        'bestRating' => '5',
-                        'worstRating' => '1',
-                    ],
-                ],
+        ];
+        $productSchema['review'] = $product->approvedReviews->take(5)->map(fn ($rev) => [
+            '@type' => 'Review',
+            'author' => [
+                '@type' => 'Person',
+                'name' => $rev->customer_name,
             ],
-    ];
+            'datePublished' => $rev->created_at?->toDateString() ?: now()->toDateString(),
+            'reviewBody' => $rev->comment,
+            'reviewRating' => [
+                '@type' => 'Rating',
+                'ratingValue' => (string) $rev->rating,
+                'bestRating' => '5',
+                'worstRating' => '1',
+            ],
+        ])->values()->all();
+    }
 
     $breadcrumbItems = [
         [
@@ -563,10 +547,12 @@
                     <h3 class="text-sm font-bold text-ink">Leave a Review</h3>
                     <div class="grid gap-3 sm:grid-cols-2">
                         <div>
-                            <input id="customer_name" name="customer_name" required class="input py-2.5 text-xs sm:text-sm" value="{{ old('customer_name', auth()->user()?->name) }}" placeholder="Your Name">
+                            <label for="customer_name" class="sr-only">Your Name</label>
+                            <input id="customer_name" name="customer_name" required aria-label="Your Name" class="input py-2.5 text-xs sm:text-sm" value="{{ old('customer_name', auth()->user()?->name) }}" placeholder="Your Name">
                         </div>
                         <div>
-                            <select id="rating" name="rating" class="input py-2.5 text-xs sm:text-sm">
+                            <label for="rating" class="sr-only">Rating</label>
+                            <select id="rating" name="rating" aria-label="Rating" class="input py-2.5 text-xs sm:text-sm">
                                 <option value="5">★★★★★ (5/5 Excellent)</option>
                                 <option value="4">★★★★☆ (4/5 Good)</option>
                                 <option value="3">★★★☆☆ (3/5 Average)</option>
@@ -575,7 +561,10 @@
                             </select>
                         </div>
                     </div>
-                    <textarea id="comment" name="comment" rows="2" required class="input text-xs sm:text-sm" placeholder="Write your feedback...">{{ old('comment') }}</textarea>
+                    <div>
+                        <label for="comment" class="sr-only">Your Review</label>
+                        <textarea id="comment" name="comment" rows="2" required aria-label="Your Review" class="input text-xs sm:text-sm" placeholder="Write your feedback...">{{ old('comment') }}</textarea>
+                    </div>
                     <button type="submit" class="btn btn-outline text-xs sm:text-sm py-2 px-5 font-bold">Submit Review</button>
                 </form>
             </section>

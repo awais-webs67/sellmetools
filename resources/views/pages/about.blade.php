@@ -4,7 +4,7 @@
 <x-page
     title="About {{ $store }} - AI Tools & Digital Subscriptions"
     eyebrow="About Our Store"
-    description="Learn how {{ $store }} delivers genuine AI tools, creative software, cloud accounts and digital subscriptions in Pakistan at local PKR prices via Easypaisa, JazzCash, NayaPay and Binance."
+    description="Learn how {{ $store }} delivers genuine AI tools, creative software & subscriptions in Pakistan at local PKR prices via Easypaisa, JazzCash & USDT."
     subtitle="Built for Pakistani freelancers, students, creators and software teams who want instant, verified access to global digital tools in local rupees."
 >
     <div class="not-prose grid gap-4 sm:grid-cols-3 mb-8">

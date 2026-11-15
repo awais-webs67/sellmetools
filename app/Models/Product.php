@@ -1104,8 +1104,20 @@ class Product extends Model
 
     public function seoDescription(): string
     {
+        $limit = static function (string $text): string {
+            $clean = trim(str_replace(['—', '–'], '-', $text));
+            $clean = rtrim((string) preg_replace('/\.{2,}$/u', '', $clean));
+            if (mb_strlen($clean) <= 155) {
+                return $clean;
+            }
+
+            $cut = preg_replace('/\s+\S*$/u', '', mb_substr($clean, 0, 155)) ?: mb_substr($clean, 0, 155);
+
+            return rtrim($cut, ' .,;:-');
+        };
+
         if (filled($this->meta_description)) {
-            return (string) $this->meta_description;
+            return $limit((string) $this->meta_description);
         }
 
         $base = $this->cleanSummaryText();
@@ -1113,25 +1125,25 @@ class Product extends Model
 
         if ($this->isFree()) {
             if ($base !== '') {
-                return Str::limit("Get {$this->name} for FREE with instant online access. {$base}", 152);
+                return $limit("Get {$this->name} for FREE with instant online access. {$base}");
             }
 
-            return Str::limit("Get {$this->name} for FREE with instant automated delivery on your order page, no payment required.", 152);
+            return $limit("Get {$this->name} for FREE with instant automated delivery on your order page, no payment required.");
         }
 
         if ($base !== '') {
             if ($hasValidPrice) {
-                return Str::limit("Buy {$this->name} cheap subscription online (".money($this->price)."). {$base}", 152);
+                return $limit("Buy {$this->name} cheap subscription online (".money($this->price)."). {$base}");
             }
 
-            return Str::limit("Buy {$this->name} cheap subscription online with instant delivery. {$base} Pay via Binance USDT, Easypaisa or JazzCash.", 152);
+            return $limit("Buy {$this->name} cheap subscription online with instant delivery. {$base} Pay via Binance USDT, Easypaisa or JazzCash.");
         }
 
         if ($hasValidPrice) {
-            return Str::limit("Buy {$this->name} cheap subscription online for ".money($this->price).'. Instant worldwide delivery via Binance USDT or local PKR wallets (Easypaisa, JazzCash).', 152);
+            return $limit("Buy {$this->name} cheap subscription online for ".money($this->price).'. Instant worldwide delivery via Binance USDT or local PKR wallets (Easypaisa, JazzCash).');
         }
 
-        return Str::limit("Buy {$this->name} cheap subscription online with instant automated delivery worldwide. Pay via Binance Pay / USDT or local PKR wallets.", 152);
+        return $limit("Buy {$this->name} cheap subscription online with instant automated delivery worldwide. Pay via Binance Pay / USDT or local PKR wallets.");
     }
 
     public function seoKeywords(): string

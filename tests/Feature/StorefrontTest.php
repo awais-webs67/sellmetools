@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Models\Category;
 use App\Models\Order;
 use App\Models\ResellerProductPrice;
+use App\Models\Setting;
 use App\Models\User;
 use App\Models\Voucher;
 use App\Services\InventoryService;
@@ -688,5 +689,77 @@ class StorefrontTest extends TestCase
         $this->assertNotEmpty($cached);
         $this->assertIsArray($cached[0]);
         $this->assertSame('ai-tools', $cached[0]['slug']);
+    }
+
+    public function test_seo_audit_fixes_robots_ard_meta_descriptions_and_product_a11y(): void
+    {
+        $htaccess = file_get_contents(public_path('.htaccess'));
+        $this->assertNotFalse($htaccess);
+        $this->assertStringContainsString('RewriteRule ^robots\.txt$ index.php [L]', $htaccess);
+
+        $robots = $this->get('/robots.txt');
+        $robots->assertOk();
+        $robotsContent = $robots->getContent();
+        $this->assertStringContainsString('Content-Signal: search=yes, ai-input=yes, ai-train=yes', $robotsContent);
+        $this->assertStringContainsString('Sitemap: ', $robotsContent);
+        $this->assertMatchesRegularExpression('/User-agent:\s*GPTBot[\s\S]*?Content-Signal:\s*search=yes/', $robotsContent);
+
+        $emptyCategory = Category::create(['name' => 'Design Studio', 'slug' => 'design-studio', 'is_active' => true]);
+        $aiCategory = Category::create(['name' => 'AI Tools', 'slug' => 'ai-tools', 'is_active' => true]);
+        $product = $this->listing([$this->supplierProduct($this->supplier(), ['stock' => 3])], [
+            'category_id' => $aiCategory->id,
+            'image' => null,
+            'name' => 'Claude Pro Workspace',
+            'slug' => 'claude-pro-workspace',
+        ]);
+
+        $this->get('/sitemap.xml')
+            ->assertOk()
+            ->assertSee(route('categories.show', $emptyCategory->slug), false);
+
+        $this->get('/.well-known/ai-catalog.json')
+            ->assertOk()
+            ->assertJsonPath('specVersion', '1.0')
+            ->assertJsonStructure([
+                'specVersion',
+                'entries' => [
+                    ['identifier', 'displayName', 'type', 'url', 'representativeQueries'],
+                ],
+            ]);
+
+        $this->get('/api/agent-catalog.json')
+            ->assertOk()
+            ->assertJsonStructure(['schema_version', 'name', 'url', 'description', 'discovery', 'capabilities', 'categories']);
+
+        foreach ([
+            route('home'),
+            route('shop'),
+            route('categories.show', $aiCategory->slug),
+            route('products.show', $product->slug),
+            route('pages.show', 'about'),
+            route('pages.show', 'contact'),
+        ] as $url) {
+            $html = $this->get($url)->assertOk()->getContent();
+            $this->assertSame(1, preg_match('/<meta\s+name="description"\s+content="([^"]*)"/i', $html, $matches), "Missing meta description on {$url}");
+            $desc = html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $this->assertStringNotContainsString('..', $desc, "Truncated meta description on {$url}: {$desc}");
+            $this->assertLessThanOrEqual(155, mb_strlen($desc), "Meta description too long on {$url}: {$desc}");
+        }
+
+        Setting::set('support_whatsapp', '923001234567');
+
+        $productResponse = $this->get(route('products.show', $product->slug));
+        $productResponse->assertOk()
+            ->assertSee('<label for="rating"', false)
+            ->assertSee('aria-label="Rating"', false)
+            ->assertSee('images/og-image.png', false)
+            ->assertSee('hidden sm:flex', false);
+
+        $productHtml = $productResponse->getContent();
+        preg_match_all('/<script type="application\/ld\+json">(.*?)<\/script>/s', $productHtml, $jsonLdMatches);
+        $jsonLdCombined = implode("\n", $jsonLdMatches[1] ?? []);
+        $this->assertStringNotContainsString('ReturnByMail', $jsonLdCombined);
+        $this->assertStringNotContainsString('Verified Buyer', $jsonLdCombined);
+        $this->assertStringContainsString('images/og-image.png', $jsonLdCombined);
     }
 }
