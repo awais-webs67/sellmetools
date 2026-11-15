@@ -38,12 +38,14 @@ class SupplierSyncService
 
         $driver = $this->manager->driver($supplier);
         $balanceResult = null;
+        $isFallback = false;
 
         try {
             if (method_exists($driver, 'productsAndBalance')) {
                 $both = $driver->productsAndBalance();
                 $rows = $both['products'];
                 $balanceResult = $both['balance'] ?? null;
+                $isFallback = (bool) ($both['fallback'] ?? false);
             } else {
                 $rows = $driver->products();
             }
@@ -55,6 +57,18 @@ class SupplierSyncService
             }
             $supplier->forceFill(['last_sync_error' => $e->getMessage()])->save();
             throw $e;
+        }
+
+        if ($isFallback) {
+            if ($supplier->products()->exists()) {
+                return ['products' => $supplier->products()->count()] + $this->refreshListings($supplier, null);
+            }
+
+            if ($rows === []) {
+                return ['products' => 0, 'updated_listings' => 0, 'disabled' => 0, 'enabled' => 0];
+            }
+
+            return $this->applySyncedRows($supplier, $rows, $balanceResult, false);
         }
 
         return $this->applySyncedRows($supplier, $rows, $balanceResult);
@@ -97,7 +111,7 @@ class SupplierSyncService
      * @param  SupplierProductData[]  $rows
      * @return array{products: int, updated_listings: int, disabled: int, enabled: int}
      */
-    protected function applySyncedRows(Supplier $supplier, array $rows, ?SupplierBalance $balanceResult): array
+    protected function applySyncedRows(Supplier $supplier, array $rows, ?SupplierBalance $balanceResult, bool $recordSyncTimestamp = true): array
     {
         $now = now();
         $seen = [];
@@ -169,13 +183,15 @@ class SupplierSyncService
             });
         });
 
-        if ($balanceResult !== null) {
-            $this->recordBalance($supplier, $balanceResult->balance);
-        } else {
-            $this->syncBalance($supplier);
-        }
+        if ($recordSyncTimestamp) {
+            if ($balanceResult !== null) {
+                $this->recordBalance($supplier, $balanceResult->balance);
+            } else {
+                $this->syncBalance($supplier);
+            }
 
-        $supplier->forceFill(['last_synced_at' => $now, 'last_sync_error' => null])->save();
+            $supplier->forceFill(['last_synced_at' => $now, 'last_sync_error' => null])->save();
+        }
 
         // Always reconcile all listings linked to this supplier so any drifted product stock/price self-heals on every sync
         return ['products' => count($rows)] + $this->refreshListings($supplier, null);

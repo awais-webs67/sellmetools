@@ -445,16 +445,13 @@ class SupplierProductsTable
                 $product = Product::query()->findOrFail($data['product_id']);
 
                 $alreadyAttached = $product->sources()
-                    ->where(function ($q) use ($record): void {
-                        $q->where('supplier_products.id', $record->id)
-                            ->orWhere('supplier_products.supplier_id', $record->supplier_id);
-                    })
+                    ->where('supplier_products.id', $record->id)
                     ->exists();
 
                 if ($alreadyAttached) {
                     Notification::make()
-                        ->title('Supplier Already Attached!')
-                        ->body(($record->supplier?->name ?? 'This supplier')." is already attached to \"{$product->name}\". Cannot attach the same supplier a 2nd time.")
+                        ->title('Already Linked!')
+                        ->body(($record->supplier?->name ? $record->supplier->name.': ' : '')."\"{$record->name}\" is already linked to \"{$product->name}\".")
                         ->warning()
                         ->send();
 

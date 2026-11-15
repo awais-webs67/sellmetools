@@ -111,15 +111,17 @@ class StockController extends Controller
                 ->update(['status' => SupplierOrderStatus::Failed]);
 
             $sync = app(SupplierSyncService::class);
-            $query = Supplier::query()
+            $suppliers = Supplier::query()
                 ->where('is_active', true)
-                ->orderByRaw('last_synced_at IS NOT NULL, last_synced_at ASC');
+                ->orderByRaw('last_synced_at IS NOT NULL, last_synced_at ASC')
+                ->get();
 
-            if (! $all) {
-                $query->limit(3);
-            }
+            foreach ($suppliers as $supplier) {
+                // Railway bridge suppliers unreachable from server HTTP sync via Admin Browser Bridge
+                if (! $all && Cache::has('supplier_needs_bridge_sync_'.$supplier->id)) {
+                    continue;
+                }
 
-            foreach ($query->get() as $supplier) {
                 try {
                     $sync->sync($supplier);
                 } catch (Throwable $e) {

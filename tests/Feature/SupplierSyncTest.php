@@ -2,8 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Supplier;
 use App\Models\SupplierProduct;
+use App\Services\Suppliers\Contracts\SupplierDriver;
+use App\Services\Suppliers\Drivers\StandardBotApiDriver;
 use App\Services\Suppliers\Exceptions\SupplierAuthException;
+use App\Services\Suppliers\SupplierManager;
 use App\Services\SupplierSyncService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -125,5 +129,81 @@ class SupplierSyncTest extends TestCase
         $this->assertSame(0, $ps5->stock);
         $this->assertFalse($ps5->unlimited_stock);
         $this->assertFalse($ps5->is_available);
+    }
+
+    public function test_restocked_supplier_product_after_zero_stock_restores_product_availability(): void
+    {
+        $supplier = $this->supplier(['base_url' => 'https://restock.test/api']);
+        $sp = $this->supplierProduct($supplier, [
+            'external_id' => 'cgpt-1m',
+            'name' => 'ChatGPT Plus 1M',
+            'cost' => 2.5,
+            'stock' => 0,
+            'is_available' => false,
+        ]);
+        $product = $this->listing([$sp], ['pricing_mode' => 'markup_percent', 'markup_value' => 20]);
+        $this->assertSame(0, $product->fresh()->available_stock);
+
+        Http::fake([
+            'restock.test/api/products' => Http::response([
+                'ok' => true,
+                'products' => [
+                    ['id' => 'cgpt-1m', 'name' => 'ChatGPT Plus 1M', 'price' => 2.5, 'stock' => 11, 'available' => true],
+                ],
+            ]),
+            'restock.test/api/balance' => Http::response(['ok' => true, 'balance' => 15.0, 'currency' => 'USDT']),
+        ]);
+
+        app(SupplierSyncService::class)->sync($supplier);
+
+        $this->assertSame(11, $sp->fresh()->stock);
+        $this->assertTrue($sp->fresh()->is_available);
+        $this->assertSame(11, $product->fresh()->available_stock);
+    }
+
+    public function test_railway_fallback_does_not_overwrite_db_or_fake_fresh_sync_timestamp(): void
+    {
+        $supplier = $this->supplier([
+            'name' => 'Safwan Railway',
+            'base_url' => 'https://safwan-demo.up.railway.app/api',
+            'last_synced_at' => null,
+        ]);
+
+        $sp = $this->supplierProduct($supplier, [
+            'external_id' => 'rw-1',
+            'name' => 'Railway Item',
+            'cost' => 2.0,
+            'stock' => 0,
+            'is_available' => false,
+        ]);
+
+        cache()->put('supplier_raw_cache_'.$supplier->id, [
+            'products' => ['ok' => true, 'products' => [['id' => 'rw-1', 'name' => 'Railway Item', 'price' => 2.0, 'stock' => 99, 'available' => true]]],
+            'balance' => ['ok' => true, 'balance' => 10.0],
+            'at' => now()->subHour()->timestamp,
+        ], 86400);
+
+        $this->app->instance(SupplierManager::class, new class extends SupplierManager
+        {
+            public function driver(Supplier $supplier): SupplierDriver
+            {
+                return new class($supplier) extends StandardBotApiDriver
+                {
+                    public function productsAndBalance(): array
+                    {
+                        cache()->put('supplier_needs_bridge_sync_'.$this->supplier->id, true, 600);
+
+                        return $this->railwayFallbackProductsAndBalance();
+                    }
+                };
+            }
+        });
+
+        app(SupplierSyncService::class)->sync($supplier);
+
+        $this->assertNull($supplier->fresh()->last_synced_at);
+        $this->assertTrue(cache()->has('supplier_needs_bridge_sync_'.$supplier->id));
+        $this->assertSame(0, $sp->fresh()->stock);
+        $this->assertFalse($sp->fresh()->is_available);
     }
 }

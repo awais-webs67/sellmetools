@@ -76,7 +76,7 @@ Route::get('/api/stock', StockController::class)
     ->name('stock');
 Route::post('/api/sync', [StockController::class, 'sync'])
     ->withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])
-    ->middleware('throttle:30,1')
+    ->middleware('throttle:240,1')
     ->name('stock.sync');
 
 // Auto-Payment Webhooks (SMS/Notification forwarder + 1-click Telegram & WhatsApp approve/decline)

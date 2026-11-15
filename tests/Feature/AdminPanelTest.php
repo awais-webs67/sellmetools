@@ -328,4 +328,53 @@ class AdminPanelTest extends TestCase
         // 2 × 280 × 1.25 = 700
         $this->assertSame(700.0, (float) $this->product->fresh()->price);
     }
+
+    public function test_attach_supplier_allows_second_variant_from_same_supplier_and_searches_supplier_name(): void
+    {
+        $this->actingAs($this->admin);
+
+        // Create > 50 cheaper filler items on another supplier to ensure >50 items don't hide higher-cost variants.
+        $otherSupplier = $this->supplier(['name' => 'Alpha Bulk']);
+        for ($i = 1; $i <= 55; $i++) {
+            $this->supplierProduct($otherSupplier, [
+                'external_id' => 'filler-'.$i,
+                'name' => 'Filler Tool '.$i,
+                'cost' => 0.05,
+                'stock' => 2,
+            ]);
+        }
+
+        $secondVariant = $this->supplierProduct($this->supplierModel, [
+            'external_id' => 'var-25dw',
+            'name' => 'ChatGPT Plus 1M (25DW)',
+            'cost' => 6.50,
+            'stock' => 9,
+        ]);
+
+        // Mark first variant out of stock so only the 2nd variant has stock
+        $this->supplierItem->update(['stock' => 0, 'is_available' => false]);
+
+        $component = Livewire::test(SourcesRelationManager::class, [
+            'ownerRecord' => $this->product,
+            'pageClass' => EditProduct::class,
+        ])->mountAction(TestAction::make('attach')->table());
+
+        $results = $component
+            ->instance()
+            ->getMountedTableActionForm()
+            ->getComponent('recordId')
+            ->getSearchResults(strtolower($this->supplierModel->name).' 25dw');
+
+        $this->assertArrayHasKey($secondVariant->id, $results);
+        $this->assertArrayNotHasKey($this->supplierItem->id, $results);
+
+        $component
+            ->fillForm(['recordId' => $secondVariant->id])
+            ->callMountedAction()
+            ->assertHasNoFormErrors()
+            ->assertCanSeeTableRecords([$this->supplierItem, $secondVariant]);
+
+        // 1 own stock item + 0 from 1st variant + 9 from 2nd variant
+        $this->assertSame(10, $this->product->fresh()->available_stock);
+    }
 }

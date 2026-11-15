@@ -15,6 +15,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DetachAction;
 use Filament\Actions\DetachBulkAction;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
@@ -54,11 +55,12 @@ class SourcesRelationManager extends RelationManager
 
         return $table
             ->recordTitle(fn (SupplierProduct $record): string => sprintf(
-                '%s: %s (%s / Rs %s)',
+                '%s: %s (%s / Rs %s · Stock: %s)',
                 $record->supplier?->name,
                 $record->name,
                 Money::currency($record->cost, $record->supplier?->currency),
                 number_format($record->costPkr(), 0),
+                $record->displayStockLabel(),
             ))
             ->modifyQueryUsing($applyCostPrioritySort)
             ->defaultSort($applyCostPrioritySort)
@@ -183,16 +185,42 @@ class SourcesRelationManager extends RelationManager
                 AttachAction::make()
                     ->label('Attach Supplier')
                     ->preloadRecordSelect()
-                    ->recordSelectSearchColumns(['name', 'external_id'])
-                    ->recordSelectOptionsQuery(function (Builder $query): Builder {
+                    ->recordSelect(fn (Select $select): Select => $select
+                        ->optionsLimit(500)
+                        ->searchable()
+                    )
+                    ->recordSelectOptionsQuery(function (Builder $query, ?string $search = null): Builder {
                         $attachedIds = $this->owner()->sources()->pluck('supplier_products.id')->all();
-                        $attachedSupplierIds = $this->owner()->sources()->pluck('supplier_products.supplier_id')->filter()->unique()->all();
+                        $rate = max(1.0, (float) Setting::usdtRate());
+
+                        $query
+                            ->with('supplier')
+                            ->when($attachedIds !== [], fn (Builder $q) => $q->whereNotIn('supplier_products.id', $attachedIds));
+
+                        if (filled($search)) {
+                            $tokens = preg_split('/\s+/', trim((string) $search), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                            foreach ($tokens as $token) {
+                                $like = '%'.strtolower($token).'%';
+                                $query->where(function (Builder $q) use ($like): void {
+                                    $q->whereRaw('LOWER(supplier_products.name) LIKE ?', [$like])
+                                        ->orWhereRaw('LOWER(supplier_products.external_id) LIKE ?', [$like])
+                                        ->orWhereHas('supplier', fn (Builder $sq) => $sq->whereRaw('LOWER(name) LIKE ?', [$like]));
+                                });
+                            }
+                        }
 
                         return $query
-                            ->with('supplier')
-                            ->when($attachedIds !== [], fn (Builder $q) => $q->whereNotIn('supplier_products.id', $attachedIds))
-                            ->when($attachedSupplierIds !== [], fn (Builder $q) => $q->whereNotIn('supplier_products.supplier_id', $attachedSupplierIds))
-                            ->orderBy('cost', 'asc');
+                            ->orderByRaw(
+                                'CASE WHEN COALESCE((SELECT s.is_active FROM suppliers s WHERE s.id = supplier_products.supplier_id), 0) = 1 '
+                                .'AND supplier_products.is_available = 1 '
+                                .'AND (supplier_products.unlimited_stock = 1 OR supplier_products.stock > 0) '
+                                .'THEN 0 ELSE 1 END ASC'
+                            )
+                            ->orderByRaw(
+                                "CASE WHEN COALESCE((SELECT UPPER(s.currency) FROM suppliers s WHERE s.id = supplier_products.supplier_id), 'USDT') = 'PKR' "
+                                ."THEN supplier_products.cost ELSE (supplier_products.cost * {$rate}) END ASC"
+                            )
+                            ->orderBy('supplier_products.id', 'asc');
                     })
                     ->before(function (AttachAction $action, array $data): void {
                         $spId = (int) ($data['recordId'] ?? 0);
@@ -204,16 +232,13 @@ class SourcesRelationManager extends RelationManager
                             return;
                         }
                         $alreadyAttached = $this->owner()->sources()
-                            ->where(function (Builder $q) use ($sp): void {
-                                $q->where('supplier_products.id', $sp->id)
-                                    ->orWhere('supplier_products.supplier_id', $sp->supplier_id);
-                            })
+                            ->where('supplier_products.id', $sp->id)
                             ->exists();
 
                         if ($alreadyAttached) {
                             Notification::make()
-                                ->title('Supplier Already Attached!')
-                                ->body(($sp->supplier?->name ?? 'This supplier').' already has a product linked to "'.$this->owner()->name.'". Cannot attach a 2nd time.')
+                                ->title('Supplier Product Already Attached!')
+                                ->body(($sp->supplier?->name ? $sp->supplier->name.': ' : '')."\"{$sp->name}\" is already linked to \"{$this->owner()->name}\".")
                                 ->warning()
                                 ->send();
 

@@ -1532,13 +1532,28 @@ class AdminPanelProvider extends PanelProvider
                                 }
                             }
 
+                            let orderBridgeTimer = null;
+                            let lastOrderBridgeAt = 0;
+                            function scheduleOrderBridge(delayMs = 200) {
+                                const now = Date.now();
+                                if (now - lastOrderBridgeAt < 1200) {
+                                    delayMs = Math.max(delayMs, 1200 - (now - lastOrderBridgeAt));
+                                }
+                                if (orderBridgeTimer) clearTimeout(orderBridgeTimer);
+                                orderBridgeTimer = setTimeout(() => {
+                                    orderBridgeTimer = null;
+                                    lastOrderBridgeAt = Date.now();
+                                    runSupplierBridge(true);
+                                }, delayMs);
+                            }
+
                             setTimeout(() => runSupplierBridge(false), 100);
-                            setInterval(() => runSupplierBridge(false), 3500);
+                            setInterval(() => runSupplierBridge(false), 8000);
 
                             // Unthrottled Web Worker timer so background / minimized PWA continues receiving instant order notifications
                             try {
                                 const workerBlob = new Blob([
-                                    "setInterval(function(){ postMessage(1); }, 4500);"
+                                    "setInterval(function(){ postMessage(1); }, 9000);"
                                 ], { type: "application/javascript" });
                                 const bgWorker = new Worker(URL.createObjectURL(workerBlob));
                                 bgWorker.onmessage = function () {
@@ -1571,18 +1586,14 @@ class AdminPanelProvider extends PanelProvider
                                 if (window.Livewire && typeof window.Livewire.hook === "function") {
                                     window.Livewire.hook("request", ({ succeed }) => {
                                         succeed(() => {
-                                            setTimeout(() => runSupplierBridge(true), 40);
-                                            setTimeout(() => runSupplierBridge(true), 350);
-                                            setTimeout(() => runSupplierBridge(true), 1000);
+                                            scheduleOrderBridge(250);
                                         });
                                     });
                                 }
                             });
                             document.addEventListener("click", (e) => {
                                 if (e.target && e.target.closest && e.target.closest("button, .fi-ac-Action, .fi-btn")) {
-                                    setTimeout(() => runSupplierBridge(true), 350);
-                                    setTimeout(() => runSupplierBridge(true), 1000);
-                                    setTimeout(() => runSupplierBridge(true), 2200);
+                                    scheduleOrderBridge(350);
                                 }
                             });
                         })();

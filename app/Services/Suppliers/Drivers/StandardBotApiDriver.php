@@ -360,6 +360,7 @@ class StandardBotApiDriver implements SupplierDriver
             return [
                 'products' => $products,
                 'balance' => $balanceObj,
+                'fallback' => true,
             ];
         }
 
@@ -384,6 +385,7 @@ class StandardBotApiDriver implements SupplierDriver
             return [
                 'products' => $products,
                 'balance' => $balanceObj,
+                'fallback' => true,
             ];
         }
 
@@ -394,6 +396,7 @@ class StandardBotApiDriver implements SupplierDriver
                 currency: (string) ($this->supplier->currency ?: 'USDT'),
                 raw: ['cached' => true],
             ),
+            'fallback' => true,
         ];
     }
 
