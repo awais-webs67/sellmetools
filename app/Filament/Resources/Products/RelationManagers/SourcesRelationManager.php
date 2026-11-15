@@ -55,9 +55,11 @@ class SourcesRelationManager extends RelationManager
 
         return $table
             ->recordTitle(fn (SupplierProduct $record): string => sprintf(
-                '%s: %s (%s / Rs %s · Stock: %s)',
+                '%s: %s [#%d | Ext: %s] (%s / Rs %s · Stock: %s)',
                 $record->supplier?->name,
                 $record->name,
+                $record->id,
+                $record->external_id,
                 Money::currency($record->cost, $record->supplier?->currency),
                 number_format($record->costPkr(), 0),
                 $record->displayStockLabel(),
@@ -123,6 +125,12 @@ class SourcesRelationManager extends RelationManager
                     ->label('Supplier')
                     ->weight('bold')
                     ->description(fn (SupplierProduct $record): string => $record->name ? Str::limit($record->name, 34) : ''),
+                TextColumn::make('source_ids')
+                    ->label('ID / Ext ID')
+                    ->badge()
+                    ->color('gray')
+                    ->state(fn (SupplierProduct $record): string => "#{$record->id}")
+                    ->description(fn (SupplierProduct $record): string => 'Ext: '.($record->external_id ?: '-')),
                 TextColumn::make('cost')
                     ->label('Cost (Low → High)')
                     ->weight('bold')
@@ -201,10 +209,15 @@ class SourcesRelationManager extends RelationManager
                             $tokens = preg_split('/\s+/', trim((string) $search), -1, PREG_SPLIT_NO_EMPTY) ?: [];
                             foreach ($tokens as $token) {
                                 $like = '%'.strtolower($token).'%';
-                                $query->where(function (Builder $q) use ($like): void {
+                                $idToken = ltrim($token, '#');
+                                $query->where(function (Builder $q) use ($like, $idToken): void {
                                     $q->whereRaw('LOWER(supplier_products.name) LIKE ?', [$like])
                                         ->orWhereRaw('LOWER(supplier_products.external_id) LIKE ?', [$like])
                                         ->orWhereHas('supplier', fn (Builder $sq) => $sq->whereRaw('LOWER(name) LIKE ?', [$like]));
+
+                                    if ($idToken !== '' && ctype_digit($idToken)) {
+                                        $q->orWhere('supplier_products.id', (int) $idToken);
+                                    }
                                 });
                             }
                         }

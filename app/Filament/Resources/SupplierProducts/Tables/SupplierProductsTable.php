@@ -52,6 +52,12 @@ class SupplierProductsTable
             ->paginated([15, 25, 50, 100])
             ->defaultPaginationPageOption(25)
             ->columns([
+                TextColumn::make('id')
+                    ->label('ID')
+                    ->formatStateUsing(fn (int $state): string => "#{$state}")
+                    ->searchable()
+                    ->sortable()
+                    ->copyable(),
                 TextColumn::make('supplier.name')
                     ->label('Supplier')
                     ->badge()
@@ -61,7 +67,7 @@ class SupplierProductsTable
                     ->label('Ext. ID')
                     ->searchable()
                     ->copyable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(),
                 TextColumn::make('name')
                     ->searchable()
                     ->sortable()
@@ -425,7 +431,8 @@ class SupplierProductsTable
             ->label('Link to product')
             ->icon(Heroicon::OutlinedLink)
             ->color('gray')
-            ->modalDescription('Links this supplier item to an existing storefront product. The product will automatically use the cheapest in-stock supplier and combine stock across all linked suppliers.')
+            ->modalHeading(fn (SupplierProduct $record): string => "Link #{$record->id} (Ext: {$record->external_id})")
+            ->modalDescription(fn (SupplierProduct $record): string => "Links \"{$record->name}\" ({$record->supplier?->name}, ID #{$record->id}, Ext: {$record->external_id}) to an existing storefront product. The product automatically uses the cheapest in-stock supplier and combines stock across all linked suppliers.")
             ->schema([
                 Select::make('product_id')
                     ->label('Select Existing Storefront Product')

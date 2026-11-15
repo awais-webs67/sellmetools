@@ -359,14 +359,19 @@ class AdminPanelTest extends TestCase
             'pageClass' => EditProduct::class,
         ])->mountAction(TestAction::make('attach')->table());
 
-        $results = $component
+        $select = $component
             ->instance()
             ->getMountedTableActionForm()
-            ->getComponent('recordId')
-            ->getSearchResults(strtolower($this->supplierModel->name).' 25dw');
+            ->getComponent('recordId');
+
+        $results = $select->getSearchResults(strtolower($this->supplierModel->name).' 25dw');
 
         $this->assertArrayHasKey($secondVariant->id, $results);
         $this->assertArrayNotHasKey($this->supplierItem->id, $results);
+        $this->assertStringContainsString("[#{$secondVariant->id} | Ext: var-25dw]", $results[$secondVariant->id]);
+
+        $idResults = $select->getSearchResults('#'.$secondVariant->id);
+        $this->assertArrayHasKey($secondVariant->id, $idResults);
 
         $component
             ->fillForm(['recordId' => $secondVariant->id])
