@@ -163,6 +163,7 @@
     <meta name="apple-mobile-web-app-title" content="{{ $storeName }}">
     <link rel="sitemap" type="application/xml" title="Sitemap" href="{{ route('sitemap') }}">
     <link rel="alternate" type="text/plain" title="LLMs.txt" href="{{ route('llms') }}">
+    <link rel="ard" type="application/json" href="{{ route('ai.ard') }}">
 
     {{-- Global Organization & WebSite JSON-LD Schema --}}
     <script type="application/ld+json">{!! json_encode($orgSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>

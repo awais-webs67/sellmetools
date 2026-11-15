@@ -717,15 +717,19 @@ class StorefrontTest extends TestCase
             ->assertOk()
             ->assertSee(route('categories.show', $emptyCategory->slug), false);
 
-        $this->get('/.well-known/ai-catalog.json')
-            ->assertOk()
-            ->assertJsonPath('specVersion', '1.0')
-            ->assertJsonStructure([
-                'specVersion',
-                'entries' => [
-                    ['identifier', 'displayName', 'type', 'url', 'representativeQueries'],
-                ],
-            ]);
+        foreach (['/.well-known/ard.json', '/.well-known/ai-catalog.json'] as $ardUrl) {
+            $this->get($ardUrl)
+                ->assertOk()
+                ->assertJsonPath('specVersion', '1.0')
+                ->assertJsonStructure([
+                    'specVersion',
+                    'entries' => [
+                        ['identifier', 'displayName', 'type', 'url', 'representativeQueries'],
+                    ],
+                ]);
+        }
+
+        $this->get(route('home'))->assertOk()->assertSee('rel="ard"', false);
 
         $this->get('/api/agent-catalog.json')
             ->assertOk()
