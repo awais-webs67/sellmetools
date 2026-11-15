@@ -24,6 +24,7 @@ class Setting extends Model
         'home_default_sort' => 'random',
         'usdt_rate' => '295',
         'price_rounding' => '10',
+        'supplier_unlimited_stock_qty' => '100',
         'order_expiry_minutes' => '15',
         'supplier_relay_url' => '',
         'currency_symbol' => 'Rs',

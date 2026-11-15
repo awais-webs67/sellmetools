@@ -49,7 +49,7 @@ class StoreSettings extends Page
         'promo_popup_enabled', 'promo_popup_type', 'promo_popup_badge', 'promo_popup_title', 'promo_popup_body', 'promo_popup_image', 'promo_popup_cta_text', 'promo_popup_cta_url', 'promo_popup_version',
         'home_hero_badge', 'home_hero_title', 'home_hero_subtitle', 'home_about_heading', 'home_guide_heading', 'home_seo_content',
         'shop_seo_title', 'shop_seo_description',
-        'usdt_rate', 'price_rounding', 'order_expiry_minutes', 'supplier_relay_url',
+        'usdt_rate', 'price_rounding', 'supplier_unlimited_stock_qty', 'order_expiry_minutes', 'supplier_relay_url',
         'sms_webhook_secret', 'admin_quick_pin',
         'greenapi_instance_id', 'greenapi_api_token', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link', 'ntfy_topic',
         'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
@@ -71,8 +71,8 @@ class StoreSettings extends Page
         'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id',
     ];
 
-    /** Changing these re-prices every supplier-sourced product. */
-    protected const PRICING_KEYS = ['usdt_rate', 'price_rounding'];
+    /** Changing these re-prices or re-stocks every supplier-sourced product. */
+    protected const PRICING_KEYS = ['usdt_rate', 'price_rounding', 'supplier_unlimited_stock_qty'];
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCog6Tooth;
 
@@ -518,7 +518,7 @@ class StoreSettings extends Page
                             ->schema([
                                 Section::make('USDT Conversion & Automatic Re-Pricing')
                                     ->description('Set the USDT → PKR conversion rate. Saving automatically recalculates prices for all supplier products.')
-                                    ->columns(['default' => 1, 'sm' => 3])
+                                    ->columns(['default' => 1, 'sm' => 2, 'lg' => 4])
                                     ->schema([
                                         TextInput::make('usdt_rate')
                                             ->label('1 USDT in PKR (Dollar Rate)')
@@ -532,6 +532,12 @@ class StoreSettings extends Page
                                             ->rule('numeric')
                                             ->rule('min:0')
                                             ->helperText('0 = exact price, 10 = round to nearest 10'),
+                                        TextInput::make('supplier_unlimited_stock_qty')
+                                            ->label('Simulated Stock for ∞ Suppliers')
+                                            ->placeholder('100')
+                                            ->rule('integer')
+                                            ->rule('min:0')
+                                            ->helperText('Used when supplier (e.g. Prodseller) shows ∞ without count. 0 = keep ∞'),
                                         TextInput::make('order_expiry_minutes')
                                             ->label('Order Payment Time (Minutes)')
                                             ->placeholder('15')
@@ -543,7 +549,7 @@ class StoreSettings extends Page
                                                 ->label('Save Pricing & Recalculate Products')
                                                 ->icon(Heroicon::OutlinedCheck)
                                                 ->color('primary')
-                                                ->action(fn () => $this->saveKeys(['usdt_rate', 'price_rounding', 'order_expiry_minutes'], 'Pricing settings saved')),
+                                                ->action(fn () => $this->saveKeys(['usdt_rate', 'price_rounding', 'supplier_unlimited_stock_qty', 'order_expiry_minutes'], 'Pricing settings saved')),
                                         ])->columnSpanFull(),
                                     ]),
 
@@ -893,7 +899,7 @@ class StoreSettings extends Page
                 $val = format_whatsapp($val);
                 $this->data['support_whatsapp'] = $val;
             }
-            if ($val === '' && isset(Setting::DEFAULTS[$key]) && in_array($key, ['store_name', 'currency_symbol', 'usdt_rate', 'price_rounding', 'order_expiry_minutes', 'sms_webhook_secret', 'admin_quick_pin', 'backup_frequency'], true)) {
+            if ($val === '' && isset(Setting::DEFAULTS[$key]) && in_array($key, ['store_name', 'currency_symbol', 'usdt_rate', 'price_rounding', 'supplier_unlimited_stock_qty', 'order_expiry_minutes', 'sms_webhook_secret', 'admin_quick_pin', 'backup_frequency'], true)) {
                 $val = Setting::DEFAULTS[$key];
                 $this->data[$key] = $val;
             }

@@ -139,14 +139,40 @@ class SupplierProduct extends Model
             && ($this->unlimited_stock || (int) $this->stock > 0);
     }
 
-    /** Units this source can deliver; null means unlimited. */
+    public static function simulatedUnlimitedStock(): int
+    {
+        return max(0, (int) Setting::get('supplier_unlimited_stock_qty', '100'));
+    }
+
+    /** Units this source can deliver; simulated when unlimited_stock is set (unless simulation = 0). */
     public function availableUnits(): ?int
     {
         if (! $this->isSellable()) {
             return 0;
         }
 
-        return $this->unlimited_stock ? null : (int) $this->stock;
+        if ($this->unlimited_stock) {
+            $simulated = static::simulatedUnlimitedStock();
+
+            return $simulated > 0 ? $simulated : null;
+        }
+
+        return (int) $this->stock;
+    }
+
+    public function displayStockLabel(): string
+    {
+        if (! $this->is_available) {
+            return '0';
+        }
+
+        if ($this->unlimited_stock) {
+            $simulated = static::simulatedUnlimitedStock();
+
+            return $simulated > 0 ? "∞ ({$simulated})" : '∞';
+        }
+
+        return (string) (int) $this->stock;
     }
 
     public function costPkr(): float

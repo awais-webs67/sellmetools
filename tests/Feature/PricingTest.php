@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\PricingMode;
 use App\Models\MediaItem;
+use App\Models\Setting;
 use App\Services\InventoryService;
 use App\Services\PriceCalculator;
 use App\Support\TextCleaner;
@@ -205,7 +206,7 @@ class PricingTest extends TestCase
         $this->assertSame(15, $product->available_stock);
         $this->assertFalse($product->stock_unlimited);
 
-        // When S4 drops back to 0 (and S5 is switched to unlimited), S5 takes back winning priority cleanly
+        // When S4 drops back to 0 (and S5 is switched to unlimited, like Prodseller), S5 takes back winning priority and simulates default 100 units (+2 own stock = 102)
         $s5->update(['unlimited_stock' => true, 'stock' => null]);
         $s4->update(['stock' => 0]);
         $product->refresh();
@@ -213,6 +214,25 @@ class PricingTest extends TestCase
         $this->assertSame($s5->id, app(PriceCalculator::class)->winningSource($product)->id);
         $this->assertSame(600.0, (float) $product->cost_price);
         $this->assertSame(700.0, (float) $product->price);
-        $this->assertTrue($product->stock_unlimited);
+        $this->assertFalse($product->stock_unlimited);
+        $this->assertSame(102, $product->available_stock);
+        $this->assertTrue($product->inStock());
+
+        // Custom simulated qty updates summed stock; setting 0 keeps literal unlimited (∞)
+        Setting::set('supplier_unlimited_stock_qty', '40');
+        app(InventoryService::class)->refresh($product);
+        $this->assertSame(42, $product->fresh()->available_stock);
+        $this->assertFalse($product->fresh()->stock_unlimited);
+
+        Setting::set('supplier_unlimited_stock_qty', '0');
+        app(InventoryService::class)->refresh($product);
+        $this->assertTrue($product->fresh()->stock_unlimited);
+
+        // When S5 becomes unavailable (inStock = false), availableUnits() returns 0 even for unlimited_stock
+        Setting::set('supplier_unlimited_stock_qty', '100');
+        $s5->update(['is_available' => false]);
+        app(InventoryService::class)->refresh($product);
+        $this->assertFalse($product->fresh()->stock_unlimited);
+        $this->assertSame(2, $product->fresh()->available_stock);
     }
 }

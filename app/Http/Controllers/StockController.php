@@ -4,11 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Enums\OrderStatus;
 use App\Enums\SupplierOrderStatus;
+use App\Filament\Support\Listings;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
+use App\Models\Setting;
 use App\Models\Supplier;
 use App\Models\SupplierOrder;
+use App\Models\SupplierProduct;
 use App\Models\User;
 use App\Services\DatabaseBackupService;
 use App\Services\FulfillmentService;
@@ -119,6 +122,16 @@ class StockController extends Controller
             foreach ($query->get() as $supplier) {
                 try {
                     $sync->sync($supplier);
+                } catch (Throwable $e) {
+                    report($e);
+                }
+            }
+
+            $simVersion = 'sim_v1_'.SupplierProduct::simulatedUnlimitedStock();
+            if (Setting::get('_inventory_sync_version') !== $simVersion) {
+                try {
+                    Listings::refreshAllSourced();
+                    Setting::set('_inventory_sync_version', $simVersion);
                 } catch (Throwable $e) {
                     report($e);
                 }

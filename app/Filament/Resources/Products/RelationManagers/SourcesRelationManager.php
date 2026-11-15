@@ -95,7 +95,7 @@ class SourcesRelationManager extends RelationManager
                             return "#{$rankNum} · Disabled";
                         }
 
-                        if (! $record->unlimited_stock && (int) $record->stock <= 0) {
+                        if (! $record->is_available || ! ($record->supplier?->is_active ?? false) || (! $record->unlimited_stock && (int) $record->stock <= 0)) {
                             return "#{$rankNum} Priority · Out of Stock";
                         }
 
@@ -111,7 +111,7 @@ class SourcesRelationManager extends RelationManager
                             return 'danger';
                         }
 
-                        if (! $record->unlimited_stock && (int) $record->stock <= 0) {
+                        if (! $record->is_available || ! ($record->supplier?->is_active ?? false) || (! $record->unlimited_stock && (int) $record->stock <= 0)) {
                             return 'warning';
                         }
 
@@ -150,8 +150,8 @@ class SourcesRelationManager extends RelationManager
                 TextColumn::make('stock')
                     ->label('Stock')
                     ->badge()
-                    ->color(fn (SupplierProduct $record): string => ($record->unlimited_stock || (int) $record->stock > 0) ? 'success' : 'danger')
-                    ->state(fn (SupplierProduct $record): string => $record->unlimited_stock ? '∞' : (string) (int) $record->stock),
+                    ->color(fn (SupplierProduct $record): string => ($record->is_available && ($record->unlimited_stock || (int) $record->stock > 0)) ? 'success' : 'danger')
+                    ->state(fn (SupplierProduct $record): string => $record->displayStockLabel()),
                 IconColumn::make('source_active')
                     ->label('Enabled')
                     ->state(fn (SupplierProduct $record): bool => (bool) $record->pivot?->is_active)

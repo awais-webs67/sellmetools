@@ -75,8 +75,8 @@ class SupplierProductsTable
                     ->sortable(),
                 TextColumn::make('stock')
                     ->badge()
-                    ->color(fn (SupplierProduct $record): string => ($record->unlimited_stock || (int) $record->stock > 0) ? 'success' : 'danger')
-                    ->state(fn (SupplierProduct $record): string => $record->unlimited_stock ? '∞' : (string) (int) $record->stock)
+                    ->color(fn (SupplierProduct $record): string => ($record->is_available && ($record->unlimited_stock || (int) $record->stock > 0)) ? 'success' : 'danger')
+                    ->state(fn (SupplierProduct $record): string => $record->displayStockLabel())
                     ->alignCenter(),
                 IconColumn::make('is_available')
                     ->label('Available')
