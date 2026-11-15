@@ -382,4 +382,26 @@ class AdminPanelTest extends TestCase
         // 1 own stock item + 0 from 1st variant + 9 from 2nd variant
         $this->assertSame(10, $this->product->fresh()->available_stock);
     }
+
+    public function test_create_listing_with_long_name_caps_generated_meta_keywords(): void
+    {
+        $source = $this->supplierProduct($this->supplierModel, [
+            'external_id' => 'yt-3m-voucher',
+            'name' => 'YouTube Premium 3 Months Voucher',
+            'cost' => 1.5,
+            'stock' => 10,
+        ]);
+
+        $product = Listings::createFromSupplierProduct($source, [
+            'name' => 'YouTube Premium 3 Months Voucher',
+            'pricing_mode' => PricingMode::MarkupPercent,
+            'markup_value' => 130,
+        ]);
+
+        $this->assertNotEmpty($product->meta_keywords);
+        $this->assertLessThanOrEqual(240, mb_strlen((string) $product->meta_keywords));
+        $this->assertLessThanOrEqual(250, mb_strlen((string) $product->meta_title));
+        $this->assertLessThanOrEqual(495, mb_strlen((string) $product->meta_description));
+        $this->assertLessThanOrEqual(495, mb_strlen((string) $product->short_description));
+    }
 }

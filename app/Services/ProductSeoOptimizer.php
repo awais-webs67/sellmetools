@@ -109,9 +109,9 @@ class ProductSeoOptimizer
                     'short_description' => static::stripBotCodesFromCopy(static::stripEmDashes($updates['short_description'])),
                     'description' => static::stripEmDashes($updates['description']),
                     'warranty' => static::stripEmDashes($updates['warranty']),
-                    'meta_title' => static::stripEmDashes($customMetaTitle),
+                    'meta_title' => Str::limit(static::stripEmDashes($customMetaTitle), 250, ''),
                     'meta_description' => Str::limit(static::stripBotCodesFromCopy(static::stripEmDashes($updates['meta_description'])), 152, '...'),
-                    'meta_keywords' => static::stripEmDashes($updates['meta_keywords']),
+                    'meta_keywords' => static::capKeywords(static::stripEmDashes($updates['meta_keywords']), 240),
                 ];
 
                 if ($newSlug !== '' && $newSlug !== $oldSlug) {
@@ -351,7 +351,7 @@ HTML;
             '...'
         );
 
-        $metaKeywords = implode(', ', array_unique(array_filter([
+        $metaKeywords = static::capKeywords(implode(', ', array_unique(array_filter([
             "buy {$name}",
             "buy {$name} online",
             "{$name} price in Pakistan",
@@ -364,7 +364,7 @@ HTML;
             "buy {$name} USDT Binance",
             "{$categoryName} Pakistan",
             'SellMeTools',
-        ])));
+        ]))), 240);
 
         return [
             'short_description' => $shortDesc,
@@ -374,6 +374,33 @@ HTML;
             'meta_description' => $metaDesc,
             'meta_keywords' => $metaKeywords,
         ];
+    }
+
+    /** Joins comma-separated SEO keywords up to $maxLength without cutting a keyword mid-phrase. */
+    public static function capKeywords(string $keywords, int $maxLength = 240): string
+    {
+        $parts = array_values(array_unique(array_filter(array_map('trim', explode(',', $keywords)), fn (string $p): bool => $p !== '')));
+        if ($parts === []) {
+            return '';
+        }
+
+        $selected = [];
+        $currentLength = 0;
+
+        foreach ($parts as $part) {
+            $addition = $selected === [] ? mb_strlen($part) : mb_strlen($part) + 2;
+            if ($currentLength + $addition > $maxLength) {
+                break;
+            }
+            $selected[] = $part;
+            $currentLength += $addition;
+        }
+
+        if ($selected === []) {
+            return Str::limit($parts[0], $maxLength, '');
+        }
+
+        return implode(', ', $selected);
     }
 
     public static function cleanRawSupplierText(string $text): string
@@ -1333,7 +1360,7 @@ HTML;
                 'warranty' => $data['warranty'],
                 'meta_title' => $metaTitle,
                 'meta_description' => $metaDesc,
-                'meta_keywords' => $data['kw'].", buy {$titleClean} online, {$titleClean} instant delivery, SellMeTools, cheap digital subscriptions Pakistan",
+                'meta_keywords' => static::capKeywords($data['kw'].", buy {$titleClean} online, {$titleClean} instant delivery, SellMeTools, cheap digital subscriptions Pakistan", 240),
             ];
         }
 

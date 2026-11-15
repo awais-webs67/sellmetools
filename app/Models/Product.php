@@ -213,6 +213,22 @@ class Product extends Model
                     $product->{$seoField} = ProductSeoOptimizer::stripEmDashes((string) $product->{$seoField});
                 }
             }
+
+            if (filled($product->slug)) {
+                $product->slug = Str::limit((string) $product->slug, 250, '');
+            }
+            if (filled($product->short_description)) {
+                $product->short_description = Str::limit((string) $product->short_description, 495, '');
+            }
+            if (filled($product->meta_title)) {
+                $product->meta_title = Str::limit((string) $product->meta_title, 250, '');
+            }
+            if (filled($product->meta_description)) {
+                $product->meta_description = Str::limit((string) $product->meta_description, 495, '');
+            }
+            if (filled($product->meta_keywords)) {
+                $product->meta_keywords = ProductSeoOptimizer::capKeywords((string) $product->meta_keywords, 490);
+            }
         });
 
         static::saved(function (Product $product) {
