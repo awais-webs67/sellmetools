@@ -80,7 +80,7 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            Cache::forget('smt_active_categories_v1');
+            Cache::forget('smt_active_categories_v2');
 
             $files = glob(database_path('migrations/*.php')) ?: [];
             $hash = md5('v7|'.implode('|', array_map('basename', $files)));

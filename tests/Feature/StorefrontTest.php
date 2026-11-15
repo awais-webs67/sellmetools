@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
+use App\Models\Category;
 use App\Models\Order;
 use App\Models\ResellerProductPrice;
 use App\Models\User;
@@ -13,6 +14,7 @@ use App\Services\OrderService;
 use App\Services\PaymentService;
 use App\Services\ProductSeoOptimizer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Tests\Concerns\CreatesStore;
@@ -663,5 +665,28 @@ class StorefrontTest extends TestCase
         $customExisting->refresh();
         $this->assertSame('<p>Keep untouched custom description</p>', $customExisting->description);
         $this->assertSame('Keep Untouched Meta Title', $customExisting->meta_title);
+    }
+
+    public function test_active_categories_cache_uses_plain_arrays_safe_without_serializable_classes(): void
+    {
+        $cat = Category::create(['name' => 'AI Tools', 'slug' => 'ai-tools', 'is_active' => true]);
+        $this->listing([$this->supplierProduct($this->supplier(), ['stock' => 2])], [
+            'category_id' => $cat->id,
+        ]);
+
+        // Force real database cache driver (serializable_classes = false) across two requests
+        config()->set('cache.default', 'database');
+        Cache::forget('smt_active_categories_v2');
+
+        $this->get(route('home'))->assertOk()->assertSee('AI Tools');
+        // Second request must unserialize cleanly without __PHP_Incomplete_Class
+        $this->get(route('home'))->assertOk()->assertSee('AI Tools');
+        $this->get(route('shop', ['category' => 'ai-tools']))->assertOk()->assertSee('AI Tools');
+
+        $cached = Cache::get('smt_active_categories_v2');
+        $this->assertIsArray($cached);
+        $this->assertNotEmpty($cached);
+        $this->assertIsArray($cached[0]);
+        $this->assertSame('ai-tools', $cached[0]['slug']);
     }
 }

@@ -109,16 +109,28 @@ class ProductController extends Controller
 
     private function activeCategories()
     {
-        $fetch = fn () => Category::query()
+        $fetch = fn (): array => Category::query()
             ->where('is_active', true)
             ->withCount(['products' => fn ($q) => $q->visible()])
             ->orderBy('sort')
             ->orderBy('name')
-            ->get();
+            ->get(['id', 'name', 'slug', 'icon', 'sort', 'is_active', 'meta_title', 'meta_description'])
+            ->map(fn (Category $cat): array => [
+                'id' => (int) $cat->id,
+                'name' => (string) $cat->name,
+                'slug' => (string) $cat->slug,
+                'icon' => $cat->icon,
+                'sort' => (int) $cat->sort,
+                'is_active' => (bool) $cat->is_active,
+                'meta_title' => $cat->meta_title,
+                'meta_description' => $cat->meta_description,
+                'products_count' => (int) ($cat->products_count ?? 0),
+            ])
+            ->all();
 
-        return app()->runningUnitTests()
-            ? $fetch()
-            : Cache::remember('smt_active_categories_v1', 60, $fetch);
+        $rows = Cache::remember('smt_active_categories_v2', 60, $fetch);
+
+        return Category::hydrate(is_array($rows) ? $rows : []);
     }
 
     private function catalogQuery(?Category $activeCategory, string $search, string $sort = 'featured', bool $inStockOnly = false, ?int $seed = null)

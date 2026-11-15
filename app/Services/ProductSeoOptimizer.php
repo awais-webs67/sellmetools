@@ -101,7 +101,7 @@ class ProductSeoOptimizer
             }
 
             Cache::forget('smt_search_catalog_v1');
-            Cache::forget('smt_active_categories_v1');
+            Cache::forget('smt_active_categories_v2');
 
             return true;
         } catch (\Throwable $e) {
@@ -216,7 +216,7 @@ class ProductSeoOptimizer
             }
 
             Cache::forget('smt_search_catalog_v1');
-            Cache::forget('smt_active_categories_v1');
+            Cache::forget('smt_active_categories_v2');
 
             if (! app()->runningUnitTests()) {
                 defer(function (): void {

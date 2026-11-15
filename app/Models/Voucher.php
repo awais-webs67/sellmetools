@@ -71,9 +71,6 @@ class Voucher extends Model
 
         static::saved(fn () => Cache::forget('smt_admin_nav_vouchers'));
         static::deleted(fn () => Cache::forget('smt_admin_nav_vouchers'));
-
-        static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('smt_admin_nav_vouchers'));
-        static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('smt_admin_nav_vouchers'));
     }
 
     public static function ensureSchemaExists(): void
