@@ -766,4 +766,43 @@ class StorefrontTest extends TestCase
         $this->assertStringNotContainsString('Verified Buyer', $jsonLdCombined);
         $this->assertStringContainsString('images/og-image.png', $jsonLdCombined);
     }
+
+    public function test_mobile_performance_headers_fonts_and_lazy_assets(): void
+    {
+        $htaccess = file_get_contents(public_path('.htaccess'));
+        $this->assertNotFalse($htaccess);
+        $this->assertStringContainsString('mod_brotli.c', $htaccess);
+        $this->assertStringContainsString('application/x-javascript', $htaccess);
+        $this->assertStringContainsString('font/woff', $htaccess);
+        $this->assertStringContainsString('max-age=31536000, immutable', $htaccess);
+
+        $fontsManifest = json_decode((string) file_get_contents(public_path('build/fonts-manifest.json')), true);
+        $this->assertIsArray($fontsManifest);
+        $familyStyles = implode("\n", $fontsManifest['style']['familyStyles'] ?? []);
+        $this->assertStringContainsString('.woff2', $familyStyles);
+        $this->assertStringNotContainsString('format("woff")', $familyStyles);
+
+        $cat = Category::create(['name' => 'Productivity', 'slug' => 'productivity', 'is_active' => true]);
+        $supplier = $this->supplier();
+        foreach ([1, 2, 3] as $n) {
+            $this->listing([$this->supplierProduct($supplier, ['stock' => 5])], [
+                'category_id' => $cat->id,
+                'name' => "Speed Tool {$n}",
+                'slug' => "speed-tool-{$n}",
+                'image' => "gallery/speed-tool-{$n}.webp",
+            ]);
+        }
+
+        Setting::set('google_analytics_id', 'G-TEST12345');
+
+        $homeHtml = $this->get(route('home'))
+            ->assertOk()
+            ->assertSee('width="40" height="40" loading="lazy"', false)
+            ->assertDontSee('<script async src="https://www.googletagmanager.com/gtag/js', false)
+            ->assertDontSee('style="background-image: url(', false)
+            ->getContent();
+
+        $this->assertStringContainsString('loading="lazy"', $homeHtml);
+        $this->assertStringContainsString('https:\/\/www.googletagmanager.com\/gtag\/js?id=G-TEST12345', $homeHtml);
+    }
 }

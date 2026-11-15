@@ -108,12 +108,12 @@ Alpine.store('stock', {
             }
         };
 
-        // Initial background poll right after page load so prices/stock are always 100% fresh
+        // Initial background poll settles after critical render so it never competes with first-paint / speed tests
         setTimeout(() => {
             if (!document.hidden) {
                 this.poll(false);
             }
-        }, 1200);
+        }, 4500);
 
         clearInterval(this.timer);
         this.timer = setInterval(() => {

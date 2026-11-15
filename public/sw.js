@@ -17,9 +17,18 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(self.clients.claim());
 });
 
-// Network-first pass-through to satisfy Chrome/Edge PWA installability without caching dynamic CSRF/session pages
+// Network-first pass-through to satisfy Chrome/Edge PWA installability without intercepting immutable build/media assets
 self.addEventListener('fetch', (event) => {
     if (event.request.method !== 'GET') {
+        return;
+    }
+    const url = new URL(event.request.url);
+    if (url.origin === self.location.origin && (
+        url.pathname.startsWith('/build/') ||
+        url.pathname.startsWith('/media/') ||
+        url.pathname.startsWith('/images/') ||
+        url.pathname.startsWith('/favicon')
+    )) {
         return;
     }
     event.respondWith(

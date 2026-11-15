@@ -171,12 +171,26 @@
     @stack('seo')
 
     @if ($gaId)
-        <script async src="https://www.googletagmanager.com/gtag/js?id={{ urlencode($gaId) }}"></script>
         <script>
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
             gtag('config', @json($gaId));
+            (function () {
+                let loaded = false;
+                const loadGtag = () => {
+                    if (loaded) return;
+                    loaded = true;
+                    const s = document.createElement('script');
+                    s.async = true;
+                    s.src = @json('https://www.googletagmanager.com/gtag/js?id='.urlencode($gaId));
+                    document.head.appendChild(s);
+                };
+                ['pointerdown', 'keydown', 'scroll', 'touchstart'].forEach((ev) =>
+                    window.addEventListener(ev, loadGtag, { once: true, passive: true })
+                );
+                window.addEventListener('load', () => setTimeout(loadGtag, 1800), { once: true });
+            })();
         </script>
     @endif
 
@@ -603,7 +617,7 @@
          class="fixed top-3 inset-x-3 mx-auto z-50 max-w-md rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-2xl">
         <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-3 min-w-0">
-                <img src="/images/pwa-icon-192.png" alt="{{ $storeName }}" class="h-10 w-10 rounded-xl border border-slate-200 shrink-0">
+                <img src="/images/pwa-icon-192.png" alt="{{ $storeName }}" width="40" height="40" loading="lazy" decoding="async" class="h-10 w-10 rounded-xl border border-slate-200 shrink-0">
                 <div class="min-w-0">
                     <p class="text-xs sm:text-sm font-bold text-slate-900 truncate">Install {{ $storeName }}</p>
                     <p class="text-[11px] text-slate-500 truncate">{{ request()->getHost() }} · Add to Home screen</p>

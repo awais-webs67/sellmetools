@@ -3,48 +3,16 @@
     "file": "assets/bebas-neue-400-normal-9mHNbWWO.woff2",
     "src": "_bebas-neue-400-normal-9mHNbWWO.woff2"
   },
-  "_bebas-neue-400-normal-Bi-ndsyu.woff": {
-    "file": "assets/bebas-neue-400-normal-Bi-ndsyu.woff",
-    "src": "_bebas-neue-400-normal-Bi-ndsyu.woff"
+  "_fonts-BsKk97u6.css": {
+    "file": "assets/fonts-BsKk97u6.css",
+    "src": "_fonts-BsKk97u6.css"
   },
-  "_fonts-CJ5KQNr7.css": {
-    "file": "assets/fonts-CJ5KQNr7.css",
-    "src": "_fonts-CJ5KQNr7.css"
-  },
-  "_inter-400-normal-C38fXH4l.woff2": {
-    "file": "assets/inter-400-normal-C38fXH4l.woff2",
-    "src": "_inter-400-normal-C38fXH4l.woff2"
-  },
-  "_inter-400-normal-CyCys3Eg.woff": {
-    "file": "assets/inter-400-normal-CyCys3Eg.woff",
-    "src": "_inter-400-normal-CyCys3Eg.woff"
-  },
-  "_inter-500-normal-BL9OpVg8.woff": {
-    "file": "assets/inter-500-normal-BL9OpVg8.woff",
-    "src": "_inter-500-normal-BL9OpVg8.woff"
-  },
-  "_inter-500-normal-Cerq10X2.woff2": {
-    "file": "assets/inter-500-normal-Cerq10X2.woff2",
-    "src": "_inter-500-normal-Cerq10X2.woff2"
-  },
-  "_inter-600-normal-CiBQ2DWP.woff": {
-    "file": "assets/inter-600-normal-CiBQ2DWP.woff",
-    "src": "_inter-600-normal-CiBQ2DWP.woff"
-  },
-  "_inter-600-normal-LgqL8muc.woff2": {
-    "file": "assets/inter-600-normal-LgqL8muc.woff2",
-    "src": "_inter-600-normal-LgqL8muc.woff2"
-  },
-  "_inter-700-normal-BLAVimhd.woff": {
-    "file": "assets/inter-700-normal-BLAVimhd.woff",
-    "src": "_inter-700-normal-BLAVimhd.woff"
-  },
-  "_inter-700-normal-Yt3aPRUw.woff2": {
-    "file": "assets/inter-700-normal-Yt3aPRUw.woff2",
-    "src": "_inter-700-normal-Yt3aPRUw.woff2"
+  "_inter-variable-normal-Dx4kXJAl.woff2": {
+    "file": "assets/inter-variable-normal-Dx4kXJAl.woff2",
+    "src": "_inter-variable-normal-Dx4kXJAl.woff2"
   },
   "resources/css/app.css": {
-    "file": "assets/app-CSodx-s6.css",
+    "file": "assets/app-D_JT9q_b.css",
     "name": "app",
     "names": [
       "app.css"
@@ -53,7 +21,7 @@
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-DSz_YNH3.js",
+    "file": "assets/app-DvKyfbvA.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true
