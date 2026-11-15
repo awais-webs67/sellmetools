@@ -537,6 +537,7 @@ class SupplierOrderResource extends Resource
 
                 if ($sp->stock !== null && ! $sp->unlimited_stock) {
                     $sp->decrement('stock', min($sp->stock, count($res->items)));
+                    $sp->refreshLinkedListings();
                 }
 
                 if (! empty($data['save_to_product_id'])) {

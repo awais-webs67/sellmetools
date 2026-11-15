@@ -12,16 +12,21 @@ class PriceCalculator
 {
     public const REASON_BELOW_COST = 'Supplier cost is higher than selling price';
 
-    /** Active, sellable sources of a product, cheapest first. */
+    /** Active, sellable sources of a product, cheapest first (skips out-of-stock/unavailable sources). */
     public function rankedSources(Product $product): Collection
     {
-        $product->loadMissing('activeSources.supplier');
+        if ($product->exists) {
+            $product->load('activeSources.supplier');
+        } else {
+            $product->loadMissing('activeSources.supplier');
+        }
 
         return $product->activeSources
             ->filter(fn (SupplierProduct $sp) => $sp->isSellable())
             ->sortBy([
                 fn ($a, $b) => $a->costPkr() <=> $b->costPkr(),
-                fn ($a, $b) => $a->supplier->priority <=> $b->supplier->priority,
+                fn ($a, $b) => ($a->supplier?->priority ?? 999) <=> ($b->supplier?->priority ?? 999),
+                fn ($a, $b) => $a->id <=> $b->id,
             ])
             ->values();
     }
@@ -33,12 +38,12 @@ class PriceCalculator
         // If all linked suppliers are currently out of stock (0 stock), still compute the price
         // from the cheapest enabled supplier source so out-of-stock products keep their real price instead of Rs 0.
         if (! $source) {
-            $product->loadMissing('activeSources.supplier');
             $source = $product->activeSources
                 ->filter(fn (SupplierProduct $sp) => (bool) $sp->supplier?->is_active)
                 ->sortBy([
                     fn ($a, $b) => $a->costPkr() <=> $b->costPkr(),
-                    fn ($a, $b) => ($a->supplier->priority ?? 999) <=> ($b->supplier->priority ?? 999),
+                    fn ($a, $b) => ($a->supplier?->priority ?? 999) <=> ($b->supplier?->priority ?? 999),
+                    fn ($a, $b) => $a->id <=> $b->id,
                 ])
                 ->first();
         }

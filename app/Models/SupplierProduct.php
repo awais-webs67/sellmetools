@@ -12,8 +12,32 @@ use Illuminate\Support\Facades\DB;
 
 class SupplierProduct extends Model
 {
+    public static bool $suppressListingRefresh = false;
+
+    public static function withoutListingRefresh(callable $callback): mixed
+    {
+        $prev = static::$suppressListingRefresh;
+        static::$suppressListingRefresh = true;
+
+        try {
+            return $callback();
+        } finally {
+            static::$suppressListingRefresh = $prev;
+        }
+    }
+
     protected static function booted(): void
     {
+        static::updated(function (SupplierProduct $sp): void {
+            if (static::$suppressListingRefresh) {
+                return;
+            }
+
+            if ($sp->wasChanged(['stock', 'unlimited_stock', 'is_available'])) {
+                $sp->refreshLinkedListings();
+            }
+        });
+
         static::deleting(function (SupplierProduct $sp): void {
             $affectedProductIds = DB::table('product_sources')
                 ->where('supplier_product_id', $sp->id)
@@ -36,6 +60,30 @@ class SupplierProduct extends Model
                     });
             }
         });
+    }
+
+    public function refreshLinkedListings(): void
+    {
+        $affectedProductIds = DB::table('product_sources')
+            ->where('supplier_product_id', $this->id)
+            ->pluck('product_id')
+            ->unique()
+            ->all();
+
+        if ($affectedProductIds === []) {
+            return;
+        }
+
+        $pricing = app(PriceCalculator::class);
+        $inventory = app(InventoryService::class);
+
+        Product::query()
+            ->whereIn('id', $affectedProductIds)
+            ->with(['activeSources.supplier'])
+            ->each(function (Product $product) use ($pricing, $inventory): void {
+                $pricing->refresh($product);
+                $inventory->refresh($product);
+            });
     }
 
     protected $fillable = [
@@ -81,8 +129,13 @@ class SupplierProduct extends Model
 
     public function isSellable(): bool
     {
-        return $this->is_available
-            && $this->supplier?->is_active
+        $pivotActive = $this->pivot === null
+            || ! array_key_exists('is_active', $this->pivot->getAttributes())
+            || (bool) $this->pivot->is_active;
+
+        return $pivotActive
+            && (bool) $this->is_available
+            && (bool) $this->supplier?->is_active
             && ($this->unlimited_stock || (int) $this->stock > 0);
     }
 
@@ -98,6 +151,8 @@ class SupplierProduct extends Model
 
     public function costPkr(): float
     {
-        return $this->supplier->toPkr((float) $this->cost);
+        return $this->supplier
+            ? $this->supplier->toPkr((float) $this->cost)
+            : (float) $this->cost * Setting::usdtRate();
     }
 }

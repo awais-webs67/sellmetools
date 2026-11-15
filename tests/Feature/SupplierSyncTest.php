@@ -77,4 +77,53 @@ class SupplierSyncTest extends TestCase
 
         $this->assertSame('Invalid API key', $supplier->refresh()->last_sync_error);
     }
+
+    public function test_prodseller_finite_stock_fields_and_unavailable_flags_do_not_produce_false_infinity(): void
+    {
+        $supplier = $this->supplier([
+            'name' => 'ProdSeller',
+            'base_url' => 'https://prodseller.com/v1',
+            'api_key' => 'psk_test_123',
+        ]);
+
+        Http::fake([
+            'prodseller.com/v1/products' => Http::response([
+                'products' => [
+                    ['productId' => 'ps-1', 'name' => 'CapCut Pro', 'finalPrice' => 1.5, 'stockQuantity' => 14, 'inStock' => true],
+                    ['productId' => 'ps-2', 'name' => 'Canva Pro', 'finalPrice' => 0.8, 'stock_quantity' => 0, 'inStock' => false],
+                    ['productId' => 'ps-3', 'name' => 'Cursor Pro', 'finalPrice' => 4.0, 'inventory' => ['available' => 6], 'inStock' => true],
+                    ['productId' => 'ps-4', 'name' => 'Stale Flag Item', 'finalPrice' => 2.0, 'unlimited_stock' => true, 'inStock' => false],
+                    ['productId' => 'ps-5', 'name' => 'Missing Flags Item', 'finalPrice' => 3.0],
+                ],
+            ]),
+            'prodseller.com/v1/balance' => Http::response(['balanceUsd' => 25.0, 'currency' => 'USDT']),
+        ]);
+
+        app(SupplierSyncService::class)->sync($supplier);
+
+        $ps1 = SupplierProduct::where('external_id', 'ps-1')->firstOrFail();
+        $this->assertSame(14, $ps1->stock);
+        $this->assertFalse($ps1->unlimited_stock);
+        $this->assertTrue($ps1->is_available);
+
+        $ps2 = SupplierProduct::where('external_id', 'ps-2')->firstOrFail();
+        $this->assertSame(0, $ps2->stock);
+        $this->assertFalse($ps2->unlimited_stock);
+        $this->assertFalse($ps2->is_available);
+
+        $ps3 = SupplierProduct::where('external_id', 'ps-3')->firstOrFail();
+        $this->assertSame(6, $ps3->stock);
+        $this->assertFalse($ps3->unlimited_stock);
+        $this->assertTrue($ps3->is_available);
+
+        $ps4 = SupplierProduct::where('external_id', 'ps-4')->firstOrFail();
+        $this->assertFalse($ps4->unlimited_stock);
+        $this->assertFalse($ps4->is_available);
+        $this->assertFalse($ps4->isSellable());
+
+        $ps5 = SupplierProduct::where('external_id', 'ps-5')->firstOrFail();
+        $this->assertSame(0, $ps5->stock);
+        $this->assertFalse($ps5->unlimited_stock);
+        $this->assertFalse($ps5->is_available);
+    }
 }

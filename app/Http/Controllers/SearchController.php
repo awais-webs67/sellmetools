@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Product;
 use App\Services\InventoryService;
+use App\Services\PriceCalculator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -26,11 +27,15 @@ class SearchController extends Controller
             if (Cache::add('smt_inventory_reconcile_tick', 1, 15)) {
                 defer(static function (): void {
                     try {
+                        $pricing = app(PriceCalculator::class);
                         $inventory = app(InventoryService::class);
                         Product::query()
                             ->where('is_active', true)
                             ->with(['activeSources.supplier'])
-                            ->each(fn (Product $p) => $inventory->refresh($p));
+                            ->each(function (Product $p) use ($pricing, $inventory): void {
+                                $pricing->refresh($p);
+                                $inventory->refresh($p);
+                            });
                     } catch (\Throwable) {
                     }
                 });

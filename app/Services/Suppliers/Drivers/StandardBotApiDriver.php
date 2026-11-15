@@ -585,19 +585,69 @@ class StandardBotApiDriver implements SupplierDriver
             $rawStock = $row['stock']
                 ?? $row['stock_count']
                 ?? $row['stockCount']
+                ?? $row['stock_quantity']
+                ?? $row['stockQuantity']
                 ?? $row['quantity']
                 ?? $row['qty']
                 ?? $row['count']
                 ?? $row['inventory']
+                ?? $row['inventory_count']
+                ?? $row['inventoryCount']
                 ?? $row['available_stock']
                 ?? $row['availableStock']
                 ?? $row['available_quantity']
+                ?? $row['availableQuantity']
+                ?? $row['available_count']
+                ?? $row['availableCount']
+                ?? $row['available_qty']
+                ?? $row['availableQty']
+                ?? $row['available_units']
+                ?? $row['availableUnits']
+                ?? $row['remaining']
+                ?? $row['remaining_stock']
+                ?? $row['remainingStock']
+                ?? $row['remaining_count']
+                ?? $row['remainingCount']
+                ?? $row['remaining_qty']
+                ?? $row['remainingQty']
+                ?? $row['in_stock_count']
+                ?? $row['inStockCount']
+                ?? $row['keys_count']
+                ?? $row['keysCount']
+                ?? $row['key_count']
+                ?? $row['keyCount']
+                ?? $row['available_keys']
+                ?? $row['availableKeys']
+                ?? $row['total_stock']
+                ?? $row['totalStock']
+                ?? $row['stock_level']
+                ?? $row['stockLevel']
                 ?? $row['stock_qty']
-                ?? (is_array($row['availability'] ?? null) ? ($row['availability']['available'] ?? $row['availability']['stock'] ?? null) : null);
+                ?? $row['units']
+                ?? $row['availability']
+                ?? null;
+
+            if (is_array($rawStock)) {
+                $nestedStock = null;
+                foreach (['available', 'stock', 'count', 'quantity', 'qty', 'remaining', 'units', 'total'] as $subKey) {
+                    if (array_key_exists($subKey, $rawStock) && $rawStock[$subKey] !== null && ! is_array($rawStock[$subKey])) {
+                        $nestedStock = $rawStock[$subKey];
+                        break;
+                    }
+                }
+                if ($nestedStock === null && isset($rawStock['keys']) && is_array($rawStock['keys'])) {
+                    $nestedStock = count($rawStock['keys']);
+                }
+                $rawStock = $nestedStock;
+            }
 
             $stock = null;
             if ($rawStock !== null) {
-                if (is_numeric($rawStock)) {
+                if (is_bool($rawStock)) {
+                    if ($rawStock === false) {
+                        $stock = 0;
+                    }
+                } elseif (is_numeric($rawStock)) {
                     $numStock = (int) $rawStock;
                     if ($numStock < 0) {
                         $unlimited = true;
@@ -639,17 +689,25 @@ class StandardBotApiDriver implements SupplierDriver
                 }
             }
 
-            // A null stock without the unlimited flag is treated as unlimited unless explicitly marked unavailable.
-            if ($stock === null && ! $unlimited && $explicitAvailable !== false) {
+            $isDisabledFlag = ($row['is_active'] ?? null) === false || ($row['disabled'] ?? null) === true;
+
+            if ($explicitAvailable === false || $isDisabledFlag) {
+                $unlimited = false;
+                if ($stock === null) {
+                    $stock = 0;
+                }
+            } elseif ($stock === null && ! $unlimited && $explicitAvailable === true) {
+                // Only infer unlimited when upstream omits stock count AND explicitly marks the item in stock/available.
                 $unlimited = true;
-            }
-            if ($stock === null && ! $unlimited && $explicitAvailable === false) {
+            } elseif ($stock === null && ! $unlimited && $explicitAvailable === null) {
+                // Unknown stock with no availability flag should not falsely mark every unquantified product as unlimited.
                 $stock = 0;
             }
 
-            // If a positive stock count (> 0) is present, the product is available unless explicitly disabled.
-            $isDisabledFlag = ($row['is_active'] ?? null) === false || ($row['disabled'] ?? null) === true;
-            $isAvailable = ! $isDisabledFlag && (($unlimited || ($stock !== null && $stock > 0)) ? true : (bool) ($explicitAvailable ?? false));
+            // If explicitly unavailable/disabled, never treat the row as available even if stale count/unlimited flag exists.
+            $isAvailable = ! $isDisabledFlag
+                && $explicitAvailable !== false
+                && (($unlimited || ($stock !== null && $stock > 0)) ? true : (bool) ($explicitAvailable ?? false));
 
             $warranty = $row['warranty'] ?? $row['warranty_period'] ?? $row['subscription_type'] ?? null;
             if ($warranty === null && isset($row['warranty_hours']) && is_numeric($row['warranty_hours']) && (int) $row['warranty_hours'] > 0) {

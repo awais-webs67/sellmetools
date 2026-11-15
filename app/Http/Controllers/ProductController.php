@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\Review;
 use App\Services\InventoryService;
+use App\Services\PriceCalculator;
 use App\Services\ProductSeoOptimizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -124,11 +125,15 @@ class ProductController extends Controller
         if (! app()->runningUnitTests() && Cache::add('smt_inventory_reconcile_tick', 1, 20)) {
             defer(static function (): void {
                 try {
+                    $pricing = app(PriceCalculator::class);
                     $inventory = app(InventoryService::class);
                     Product::query()
                         ->where('is_active', true)
                         ->with(['activeSources.supplier'])
-                        ->each(fn (Product $p) => $inventory->refresh($p));
+                        ->each(function (Product $p) use ($pricing, $inventory): void {
+                            $pricing->refresh($p);
+                            $inventory->refresh($p);
+                        });
                 } catch (\Throwable) {
                 }
             });
@@ -228,6 +233,7 @@ class ProductController extends Controller
         abort_unless($product->is_active, 404);
 
         try {
+            app(PriceCalculator::class)->refresh($product);
             app(InventoryService::class)->refresh($product);
         } catch (\Throwable) {
         }

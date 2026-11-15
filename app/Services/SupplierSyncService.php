@@ -104,67 +104,69 @@ class SupplierSyncService
         $existingByExtId = $supplier->products()->get()->keyBy(fn (SupplierProduct $sp) => (string) $sp->external_id);
         $changedIds = [];
 
-        DB::transaction(function () use ($supplier, $rows, $now, &$seen, $existingByExtId, &$changedIds) {
-            foreach ($rows as $row) {
-                $extId = (string) $row->externalId;
-                $seen[] = $extId;
+        SupplierProduct::withoutListingRefresh(function () use ($supplier, $rows, $now, &$seen, $existingByExtId, &$changedIds): void {
+            DB::transaction(function () use ($supplier, $rows, $now, &$seen, $existingByExtId, &$changedIds) {
+                foreach ($rows as $row) {
+                    $extId = (string) $row->externalId;
+                    $seen[] = $extId;
 
-                /** @var SupplierProduct|null $existing */
-                $existing = $existingByExtId->get($extId);
+                    /** @var SupplierProduct|null $existing */
+                    $existing = $existingByExtId->get($extId);
 
-                if ($existing) {
-                    $same = (string) $existing->name === (string) $row->name
-                        && abs((float) $existing->cost - (float) $row->cost) < 0.0001
-                        && $existing->stock === $row->stock
-                        && (bool) $existing->unlimited_stock === (bool) $row->unlimitedStock
-                        && (bool) $existing->is_available === (bool) $row->available
-                        && (string) ($existing->warranty ?? '') === (string) ($row->warranty ?? '')
-                        && (string) ($existing->description ?? '') === (string) ($row->description ?? '');
+                    if ($existing) {
+                        $same = (string) $existing->name === (string) $row->name
+                            && abs((float) $existing->cost - (float) $row->cost) < 0.0001
+                            && $existing->stock === $row->stock
+                            && (bool) $existing->unlimited_stock === (bool) $row->unlimitedStock
+                            && (bool) $existing->is_available === (bool) $row->available
+                            && (string) ($existing->warranty ?? '') === (string) ($row->warranty ?? '')
+                            && (string) ($existing->description ?? '') === (string) ($row->description ?? '');
 
-                    if ($same) {
-                        continue;
+                        if ($same) {
+                            continue;
+                        }
+
+                        $existing->update([
+                            'name' => $row->name,
+                            'cost' => $row->cost,
+                            'stock' => $row->stock,
+                            'unlimited_stock' => $row->unlimitedStock,
+                            'is_available' => $row->available,
+                            'warranty' => $row->warranty,
+                            'description' => $row->description,
+                            'raw' => $row->raw,
+                            'last_seen_at' => $now,
+                        ]);
+                        $changedIds[] = $existing->id;
+                    } else {
+                        $created = SupplierProduct::create([
+                            'supplier_id' => $supplier->id,
+                            'external_id' => $extId,
+                            'name' => $row->name,
+                            'cost' => $row->cost,
+                            'stock' => $row->stock,
+                            'unlimited_stock' => $row->unlimitedStock,
+                            'is_available' => $row->available,
+                            'warranty' => $row->warranty,
+                            'description' => $row->description,
+                            'raw' => $row->raw,
+                            'last_seen_at' => $now,
+                        ]);
+                        $changedIds[] = $created->id;
                     }
-
-                    $existing->update([
-                        'name' => $row->name,
-                        'cost' => $row->cost,
-                        'stock' => $row->stock,
-                        'unlimited_stock' => $row->unlimitedStock,
-                        'is_available' => $row->available,
-                        'warranty' => $row->warranty,
-                        'description' => $row->description,
-                        'raw' => $row->raw,
-                        'last_seen_at' => $now,
-                    ]);
-                    $changedIds[] = $existing->id;
-                } else {
-                    $created = SupplierProduct::create([
-                        'supplier_id' => $supplier->id,
-                        'external_id' => $extId,
-                        'name' => $row->name,
-                        'cost' => $row->cost,
-                        'stock' => $row->stock,
-                        'unlimited_stock' => $row->unlimitedStock,
-                        'is_available' => $row->available,
-                        'warranty' => $row->warranty,
-                        'description' => $row->description,
-                        'raw' => $row->raw,
-                        'last_seen_at' => $now,
-                    ]);
-                    $changedIds[] = $created->id;
                 }
-            }
 
-            // Products removed by the supplier become unavailable (kept for history).
-            $disappearedIds = $existingByExtId
-                ->filter(fn (SupplierProduct $sp) => ! in_array((string) $sp->external_id, $seen, true) && ($sp->is_available || (int) $sp->stock !== 0))
-                ->pluck('id')
-                ->all();
+                // Products removed by the supplier become unavailable (kept for history).
+                $disappearedIds = $existingByExtId
+                    ->filter(fn (SupplierProduct $sp) => ! in_array((string) $sp->external_id, $seen, true) && ($sp->is_available || (int) $sp->stock !== 0))
+                    ->pluck('id')
+                    ->all();
 
-            if ($disappearedIds !== []) {
-                SupplierProduct::whereIn('id', $disappearedIds)->update(['is_available' => false, 'stock' => 0]);
-                $changedIds = array_merge($changedIds, $disappearedIds);
-            }
+                if ($disappearedIds !== []) {
+                    SupplierProduct::whereIn('id', $disappearedIds)->update(['is_available' => false, 'stock' => 0]);
+                    $changedIds = array_merge($changedIds, $disappearedIds);
+                }
+            });
         });
 
         if ($balanceResult !== null) {

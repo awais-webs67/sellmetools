@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\PricingMode;
 use App\Models\MediaItem;
+use App\Services\InventoryService;
 use App\Services\PriceCalculator;
 use App\Support\TextCleaner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -166,5 +167,52 @@ class PricingTest extends TestCase
         $media->update(['path' => 'gallery/canva-new.webp']);
 
         $this->assertSame('gallery/canva-new.webp', $product->fresh()->image);
+    }
+
+    public function test_five_suppliers_skips_cheaper_out_of_stock_sources_picks_fifth_in_stock_and_sums_all_stock(): void
+    {
+        $s1 = $this->supplierProduct($this->supplier(['name' => 'Sup1']), ['cost' => 0.50, 'stock' => 0, 'is_available' => false]);
+        $s2 = $this->supplierProduct($this->supplier(['name' => 'Sup2']), ['cost' => 0.80, 'stock' => 0, 'is_available' => true]);
+        $s3 = $this->supplierProduct($this->supplier(['name' => 'Sup3']), ['cost' => 1.00, 'stock' => 0, 'is_available' => false]);
+        $s4 = $this->supplierProduct($this->supplier(['name' => 'Sup4']), ['cost' => 1.20, 'stock' => 0, 'is_available' => true]);
+        $s5 = $this->supplierProduct($this->supplier(['name' => 'Sup5']), ['cost' => 2.00, 'stock' => 8, 'is_available' => true]);
+
+        $product = $this->listing([$s1, $s2, $s3, $s4, $s5], [
+            'pricing_mode' => PricingMode::MarkupAmount,
+            'markup_value' => 100,
+        ]);
+
+        // Pre-load stale relation on model before verifying PriceCalculator + InventoryService ignore 0-stock cheaper ones
+        $product->load('activeSources.supplier');
+
+        $winner = app(PriceCalculator::class)->winningSource($product);
+        $this->assertNotNull($winner);
+        $this->assertSame($s5->id, $winner->id);
+        $this->assertSame(600.0, (float) $product->fresh()->cost_price);
+        $this->assertSame(700.0, (float) $product->fresh()->price);
+        $this->assertSame(8, $product->fresh()->available_stock);
+        $this->assertFalse($product->fresh()->stock_unlimited);
+
+        // When S4 is restocked with 5 units and own stock gets 2 units, S4 becomes winning price and stock shows combined sum (5 + 8 + 2 = 15)
+        $s4->update(['stock' => 5]);
+        $product->stockItems()->createMany([['content' => 'own-1'], ['content' => 'own-2']]);
+        app(InventoryService::class)->refresh($product);
+        $product->refresh();
+
+        $this->assertSame($s4->id, app(PriceCalculator::class)->winningSource($product)->id);
+        $this->assertSame(360.0, (float) $product->cost_price);
+        $this->assertSame(460.0, (float) $product->price);
+        $this->assertSame(15, $product->available_stock);
+        $this->assertFalse($product->stock_unlimited);
+
+        // When S4 drops back to 0 (and S5 is switched to unlimited), S5 takes back winning priority cleanly
+        $s5->update(['unlimited_stock' => true, 'stock' => null]);
+        $s4->update(['stock' => 0]);
+        $product->refresh();
+
+        $this->assertSame($s5->id, app(PriceCalculator::class)->winningSource($product)->id);
+        $this->assertSame(600.0, (float) $product->cost_price);
+        $this->assertSame(700.0, (float) $product->price);
+        $this->assertTrue($product->stock_unlimited);
     }
 }

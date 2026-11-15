@@ -496,7 +496,11 @@ class Product extends Model
     {
         static $matchedByName = [];
 
-        $this->loadMissing(['activeSources.supplier', 'sources.supplier']);
+        if ($this->exists) {
+            $this->load(['activeSources.supplier', 'sources.supplier']);
+        } else {
+            $this->loadMissing(['activeSources.supplier', 'sources.supplier']);
+        }
 
         $sources = $this->activeSources->isNotEmpty() ? $this->activeSources : $this->sources;
 

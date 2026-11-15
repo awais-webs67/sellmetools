@@ -448,6 +448,7 @@ class FulfillmentService
 
         if ($source->stock !== null && ! $source->unlimited_stock) {
             $source->decrement('stock', min($source->stock, count($delivered)));
+            $source->refreshLinkedListings();
         }
 
         return count($delivered) < $qty ? 'delivered fewer items than requested' : 'ok';
@@ -685,6 +686,7 @@ class FulfillmentService
 
             if ($source->stock !== null && ! $source->unlimited_stock) {
                 $source->decrement('stock', min($source->stock, count($cleanItems)));
+                $source->refreshLinkedListings();
             }
 
             if (! empty($saveToProductId) && ($product = Product::find($saveToProductId))) {
@@ -803,6 +805,7 @@ class FulfillmentService
 
             if ($source->stock !== null && ! $source->unlimited_stock) {
                 $source->decrement('stock', min($source->stock, count($delivered)));
+                $source->refreshLinkedListings();
             }
 
             $problems = $item->fresh()->remainingQty() > 0

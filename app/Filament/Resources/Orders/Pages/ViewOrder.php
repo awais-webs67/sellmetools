@@ -140,7 +140,11 @@ class ViewOrder extends ViewRecord
 
                 $sources = ($firstItem?->product?->sources ?? collect())
                     ->filter(fn (SupplierProduct $sp): bool => (bool) ($sp->supplier?->is_active ?? false))
-                    ->sortBy(fn (SupplierProduct $sp): float => $sp->costPkr())
+                    ->sortBy([
+                        fn (SupplierProduct $a, SupplierProduct $b): int => (int) $b->isSellable() <=> (int) $a->isSellable(),
+                        fn (SupplierProduct $a, SupplierProduct $b): int => $a->costPkr() <=> $b->costPkr(),
+                        fn (SupplierProduct $a, SupplierProduct $b): int => ($a->supplier?->priority ?? 999) <=> ($b->supplier?->priority ?? 999),
+                    ])
                     ->values();
 
                 $options = [];
@@ -149,13 +153,18 @@ class ViewOrder extends ViewRecord
                     $profit = $paidTotal - $costPkr;
                     $profitPct = $costPkr > 0 ? round(($profit / $costPkr) * 100, 0) : 0;
                     $stockStr = $sp->unlimited_stock ? '∞' : (string) (int) $sp->stock;
-                    $priority = $idx === 0 ? '1st Priority' : ($idx === 1 ? '2nd Priority' : ($idx + 1).'th Priority');
+                    $priority = $sp->isSellable()
+                        ? ($idx === 0 ? '1st Priority' : ($idx === 1 ? '2nd Priority' : ($idx + 1).'th Priority'))
+                        : 'Out of Stock';
                     $profitSign = $profit >= 0 ? "+Rs {$profit} (+{$profitPct}%)" : '-Rs '.abs($profit)." ({$profitPct}%)";
 
                     $options[$sp->id] = "[{$priority}] {$sp->supplier?->name} — Cost: Rs {$costPkr} (\${$sp->cost}) · Profit: {$profitSign} · Stock: {$stockStr}";
                 }
 
-                $defaultId = $sources->get(1)?->id ?? $sources->first()?->id;
+                $defaultId = $sources->skip(1)->first(fn (SupplierProduct $sp): bool => $sp->isSellable())?->id
+                    ?? $sources->first(fn (SupplierProduct $sp): bool => $sp->isSellable())?->id
+                    ?? $sources->get(1)?->id
+                    ?? $sources->first()?->id;
 
                 return [
                     Select::make('supplier_product_id')

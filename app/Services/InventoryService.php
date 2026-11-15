@@ -38,7 +38,11 @@ class InventoryService
 
         $own = $product->stockItems()->where('status', StockStatus::Available)->count();
 
-        $product->loadMissing('activeSources.supplier');
+        if ($product->exists) {
+            $product->load('activeSources.supplier');
+        } else {
+            $product->loadMissing('activeSources.supplier');
+        }
         $supplierUnits = 0;
         $isNonConsumingMode = in_array($product->delivery_type, ['manual_admin', 'whatsapp_handover', 'instant_link'], true);
         $hasCustomLimit = $isNonConsumingMode && $product->stock_limit !== null;
@@ -63,7 +67,7 @@ class InventoryService
         $supplierFree = $unlimited ? null : max(0, $supplierUnits);
 
         return [
-            'qty' => ($isNonConsumingMode ? 0 : $own) + ($supplierFree ?? 0),
+            'qty' => ($isNonConsumingMode ? 0 : $own) + max(0, $supplierUnits),
             'unlimited' => $unlimited,
             'own' => $own,
             'supplier' => $supplierFree,
@@ -93,7 +97,7 @@ class InventoryService
         if ($product->isDirty(['available_stock', 'stock_unlimited'])) {
             $product->saveQuietly();
             Cache::forget('smt_search_catalog_v1');
-            \Illuminate\Support\Facades\Cache::forget('smt_search_catalog_v1');
+            Cache::forget('smt_search_catalog_v1');
         }
 
         $nowInStock = $product->inStock();
