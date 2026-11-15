@@ -502,21 +502,35 @@ Alpine.data('copy', (text) => ({
     },
 }));
 
-/** In-place "Load More Products" grid appender so pages with 2,000+ products stay fast and compact. */
-Alpine.data('loadMoreGrid', (initialNextUrl, initialShown, totalCount) => ({
+/** In-place "Load More Products" & AJAX pagination controller (appends or swaps pages without full reload). */
+Alpine.data('loadMoreGrid', (initialNextUrl, initialShown, totalCount, initialPage = 1, lastPage = 1) => ({
     nextUrl: initialNextUrl || '',
     shown: Number(initialShown) || 0,
     total: Number(totalCount) || 0,
+    currentPage: Number(initialPage) || 1,
+    lastPage: Number(lastPage) || 1,
     loadingMore: false,
+    loadingPage: false,
+
+    handlePageClick(event) {
+        const link = event.target?.closest?.('a[href]');
+        if (!link) return;
+        event.preventDefault();
+        this.goToPage(link.href);
+    },
 
     async loadMore() {
-        if (!this.nextUrl || this.loadingMore) return;
+        if (!this.nextUrl || this.loadingMore || this.loadingPage) return;
         this.loadingMore = true;
 
         try {
-            const res = await fetch(this.nextUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const targetUrl = this.nextUrl;
+            const res = await fetch(targetUrl, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-SMT-Filter': '1' },
+                cache: 'no-store',
+            });
             if (!res.ok) {
-                window.location.href = this.nextUrl;
+                window.location.href = targetUrl;
                 return;
             }
             const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
@@ -530,18 +544,74 @@ Alpine.data('loadMoreGrid', (initialNextUrl, initialShown, totalCount) => ({
                 this.shown = currentGrid.children.length;
             }
 
+            const freshPagination = freshRegion?.querySelector('[data-ajax-pagination]');
+            const currentPagination = this.$el.querySelector('[data-ajax-pagination]');
+            if (freshPagination && currentPagination) {
+                currentPagination.innerHTML = freshPagination.innerHTML;
+            }
+
+            const pageParam = Number(new URL(targetUrl, window.location.origin).searchParams.get('page') || (this.currentPage + 1));
+            this.currentPage = Math.min(this.lastPage, pageParam);
             this.nextUrl = freshRegion?.getAttribute('data-next-url') || '';
+            window.history.replaceState(null, '', targetUrl);
+            window.Alpine?.store?.('stock')?.poll?.(false);
         } catch (_) {
             if (this.nextUrl) window.location.href = this.nextUrl;
         } finally {
             this.loadingMore = false;
         }
     },
+
+    async goToPage(url, pushHistory = true) {
+        if (!url || this.loadingPage || this.loadingMore) return;
+        this.loadingPage = true;
+        this.$el.classList.add('opacity-55', 'pointer-events-none', 'transition-opacity', 'duration-150');
+
+        try {
+            const res = await fetch(url, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-SMT-Filter': '1' },
+                cache: 'no-store',
+            });
+            if (!res.ok) {
+                window.location.href = url;
+                return;
+            }
+            const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+            const regionId = this.$el.id ? `#${this.$el.id}` : '[data-load-more-region]';
+            const freshRegion = doc.querySelector(regionId);
+            if (!freshRegion) {
+                window.location.href = url;
+                return;
+            }
+
+            this.$el.replaceWith(freshRegion);
+            if (pushHistory) {
+                window.history.pushState({ smtShopPage: url }, '', url);
+            }
+            document.getElementById('products')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            window.Alpine?.store?.('stock')?.poll?.(false);
+        } catch (_) {
+            window.location.href = url;
+        } finally {
+            this.loadingPage = false;
+            this.$el?.classList?.remove('opacity-55', 'pointer-events-none');
+        }
+    },
 }));
+
+window.addEventListener('popstate', () => {
+    const region = document.getElementById('shop-results');
+    if (region && window.Alpine?.$data) {
+        const data = window.Alpine.$data(region);
+        if (typeof data?.goToPage === 'function') {
+            data.goToPage(window.location.href, false);
+        }
+    }
+});
 
 window.Alpine = Alpine;
 Alpine.start();
-Alpine.store('stock').start(8000);
+Alpine.store('stock').start(15000);
 
 /**
  * Instant 0ms Tactile Click Progress Bar & Single-Link Pointerdown Prefetch.

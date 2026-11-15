@@ -6,11 +6,13 @@ use App\Enums\PaymentStatus;
 use App\Filament\Resources\Payments\Pages\ListPayments;
 use App\Filament\Resources\Payments\Tables\PaymentsTable;
 use App\Models\Payment;
+use App\Services\PaymentService;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use UnitEnum;
 
 class PaymentResource extends Resource
@@ -54,13 +56,15 @@ class PaymentResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        \App\Services\PaymentService::syncOrphanedPendingPayments();
+        $fetch = function (): int {
+            PaymentService::syncOrphanedPendingPayments();
 
-        $fetch = fn (): int => (int) static::getModel()::query()->where('status', PaymentStatus::Pending)->count();
+            return (int) static::getModel()::query()->where('status', PaymentStatus::Pending)->count();
+        };
 
         $count = app()->runningUnitTests()
             ? $fetch()
-            : (int) \Illuminate\Support\Facades\Cache::remember('smt_admin_nav_payments', 8, $fetch);
+            : (int) Cache::remember('smt_admin_nav_payments', 45, $fetch);
 
         return $count > 0 ? (string) $count : null;
     }

@@ -73,7 +73,7 @@ class SupplierOrderResource extends Resource
 
         $failed = app()->runningUnitTests()
             ? $fetch()
-            : (int) Cache::remember('smt_admin_nav_vendor_orders_v2', 12, $fetch);
+            : (int) Cache::remember('smt_admin_nav_vendor_orders_v2', 45, $fetch);
 
         return $failed > 0 ? (string) $failed : null;
     }

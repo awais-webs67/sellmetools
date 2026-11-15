@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class Order extends Model
@@ -43,6 +44,26 @@ class Order extends Model
             $order->number ??= static::generateNumber();
             $order->access_token ??= Str::random(48);
         });
+
+        static::saved(fn () => static::flushAdminCaches());
+        static::deleted(fn () => static::flushAdminCaches());
+    }
+
+    public static function flushAdminCaches(): void
+    {
+        foreach ([
+            'smt_admin_nav_orders',
+            'smt_admin_nav_payments',
+            'smt_admin_nav_vendor_orders_v2',
+            'smt_admin_bridge_notifications_v1',
+            'smt_exec_dashboard_today_v1',
+            'smt_exec_dashboard_yesterday_v1',
+            'smt_exec_dashboard_7d_v1',
+            'smt_exec_dashboard_this_month_v1',
+            'smt_exec_dashboard_all_v1',
+        ] as $key) {
+            Cache::forget($key);
+        }
     }
 
     /**

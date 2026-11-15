@@ -13,6 +13,12 @@ class Payment extends Model
         'screenshot', 'status', 'reviewed_by', 'reviewed_at', 'reject_reason', 'meta',
     ];
 
+    protected static function booted(): void
+    {
+        static::saved(fn () => Order::flushAdminCaches());
+        static::deleted(fn () => Order::flushAdminCaches());
+    }
+
     protected function casts(): array
     {
         return [

@@ -331,30 +331,11 @@
                 @endforeach
             </div>
 
-            {{-- Eye-Catching Dark Spotlight "View All Products" Banner --}}
-            <div class="surface-banner relative mt-8 overflow-hidden rounded-2xl border border-white/15 p-5 sm:p-7 text-white shadow-xl">
-                <div class="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-[#22c55e]/20 blur-3xl"></div>
-                <div class="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                    <div class="space-y-1.5">
-                        <div class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold tracking-wider uppercase text-[#4ade80]">
-                            <span class="h-2 w-2 rounded-full bg-[#22c55e] animate-pulse"></span>
-                            <span>Showing {{ $products->count() }} of {{ $products->total() }} Products</span>
-                        </div>
-                        <h3 class="display text-2xl sm:text-3xl text-white">
-                            Want to Browse Our Entire Catalog?
-                        </h3>
-                        <p class="text-xs sm:text-sm text-white/75">
-                            Open the full shop catalog to explore all {{ $products->total() }} tools &amp; subscriptions with live filters.
-                        </p>
-                    </div>
-
-                    <div class="shrink-0">
-                        <a href="{{ route('shop', array_filter(['category' => $activeCategory?->slug, 'q' => $search])) }}"
-                           class="btn btn-hero-primary w-full sm:w-auto px-7 py-3.5 text-sm sm:text-base font-extrabold shadow-lg">
-                            🛍️ View All Products ({{ $products->total() }}) →
-                        </a>
-                    </div>
-                </div>
+            <div class="mt-8 flex justify-center">
+                <a href="{{ route('shop', array_filter(['category' => $activeCategory?->slug, 'q' => $search])) }}"
+                   class="btn btn-primary px-8 py-3 text-sm sm:text-base font-extrabold shadow-sm">
+                    View All Products →
+                </a>
             </div>
         @endif
         </div>

@@ -7,6 +7,7 @@ use App\Exceptions\StoreException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -67,6 +68,12 @@ class Voucher extends Model
                 $voucher->discount_value = max(1, (float) $voucher->discount_value);
             }
         });
+
+        static::saved(fn () => Cache::forget('smt_admin_nav_vouchers'));
+        static::deleted(fn () => Cache::forget('smt_admin_nav_vouchers'));
+
+        static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('smt_admin_nav_vouchers'));
+        static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('smt_admin_nav_vouchers'));
     }
 
     public static function ensureSchemaExists(): void

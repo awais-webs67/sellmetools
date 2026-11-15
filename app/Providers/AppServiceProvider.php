@@ -55,7 +55,6 @@ class AppServiceProvider extends ServiceProvider
 
         $this->autoMigrateDatabaseIfChanged();
         ProductSeoOptimizer::syncCatalogOnce();
-        ProductSeoOptimizer::syncCatalogOnce();
     }
 
     /**

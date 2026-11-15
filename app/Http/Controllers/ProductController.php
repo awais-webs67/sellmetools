@@ -109,12 +109,16 @@ class ProductController extends Controller
 
     private function activeCategories()
     {
-        return Category::query()
+        $fetch = fn () => Category::query()
             ->where('is_active', true)
             ->withCount(['products' => fn ($q) => $q->visible()])
             ->orderBy('sort')
             ->orderBy('name')
             ->get();
+
+        return app()->runningUnitTests()
+            ? $fetch()
+            : Cache::remember('smt_active_categories_v1', 60, $fetch);
     }
 
     private function catalogQuery(?Category $activeCategory, string $search, string $sort = 'featured', bool $inStockOnly = false, ?int $seed = null)
@@ -122,7 +126,7 @@ class ProductController extends Controller
         ProductSeoOptimizer::syncCatalogOnce();
         Product::seedInitialReviewsOnce();
 
-        if (! app()->runningUnitTests() && Cache::add('smt_inventory_reconcile_tick', 1, 20)) {
+        if (! app()->runningUnitTests() && Cache::add('smt_inventory_reconcile_tick', 1, 300)) {
             defer(static function (): void {
                 try {
                     $pricing = app(PriceCalculator::class);

@@ -14,6 +14,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Cache;
 use UnitEnum;
 
 class VoucherResource extends Resource
@@ -43,8 +44,15 @@ class VoucherResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        Voucher::ensureSchemaExists();
-        $activeCount = Voucher::query()->where('is_active', true)->count();
+        $fetch = function (): int {
+            Voucher::ensureSchemaExists();
+
+            return (int) Voucher::query()->where('is_active', true)->count();
+        };
+
+        $activeCount = app()->runningUnitTests()
+            ? $fetch()
+            : (int) Cache::remember('smt_admin_nav_vouchers', 60, $fetch);
 
         return $activeCount > 0 ? (string) $activeCount : null;
     }

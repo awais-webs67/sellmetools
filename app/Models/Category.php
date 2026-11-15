@@ -102,6 +102,7 @@ class Category extends Model
 
         static::saved(function (Category $category): void {
             Cache::forget('smt_search_catalog_v1');
+            Cache::forget('smt_active_categories_v1');
 
             if (! app()->runningUnitTests() && $category->is_active && ($category->wasRecentlyCreated || $category->wasChanged(['name', 'slug', 'is_active', 'meta_title', 'meta_description']))) {
                 defer(function () use ($category): void {
@@ -115,7 +116,10 @@ class Category extends Model
             }
         });
 
-        static::deleted(fn () => Cache::forget('smt_search_catalog_v1'));
+        static::deleted(function (): void {
+            Cache::forget('smt_search_catalog_v1');
+            Cache::forget('smt_active_categories_v1');
+        });
     }
 
     protected function casts(): array

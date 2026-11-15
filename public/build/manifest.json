@@ -44,7 +44,7 @@
     "src": "_inter-700-normal-Yt3aPRUw.woff2"
   },
   "resources/css/app.css": {
-    "file": "assets/app-BU7XK1vw.css",
+    "file": "assets/app-O9JeyAQG.css",
     "name": "app",
     "names": [
       "app.css"
@@ -53,7 +53,7 @@
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-BZoRmvd2.js",
+    "file": "assets/app-DSz_YNH3.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true

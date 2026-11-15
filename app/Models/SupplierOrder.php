@@ -24,6 +24,9 @@ class SupplierOrder extends Model
                 static::ensureDirectOrderSchemaReady();
             }
         });
+
+        static::saved(fn () => Order::flushAdminCaches());
+        static::deleted(fn () => Order::flushAdminCaches());
     }
 
     public static function ensureDirectOrderSchemaReady(): void

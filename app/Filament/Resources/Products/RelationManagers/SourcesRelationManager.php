@@ -37,6 +37,44 @@ class SourcesRelationManager extends RelationManager
 
     protected static ?string $title = 'Supplier Sources (Sorted: Cheapest Cost First)';
 
+    /** @var array<int, int> */
+    protected ?array $cachedSourceRanks = null;
+
+    protected ?SupplierProduct $cachedWinningSource = null;
+
+    protected bool $winningResolved = false;
+
+    protected function sourceRank(SupplierProduct $record): int
+    {
+        if ($this->cachedSourceRanks === null) {
+            $ranked = $this->owner()->sources()
+                ->with('supplier')
+                ->get()
+                ->sortBy([
+                    fn (SupplierProduct $a, SupplierProduct $b) => (int) ($b->pivot?->is_active ?? false) <=> (int) ($a->pivot?->is_active ?? false),
+                    fn (SupplierProduct $a, SupplierProduct $b) => $a->costPkr() <=> $b->costPkr(),
+                ])
+                ->values();
+
+            $this->cachedSourceRanks = [];
+            foreach ($ranked as $idx => $s) {
+                $this->cachedSourceRanks[(int) $s->id] = $idx + 1;
+            }
+        }
+
+        return $this->cachedSourceRanks[(int) $record->id] ?? 1;
+    }
+
+    protected function resolvedWinningSource(): ?SupplierProduct
+    {
+        if (! $this->winningResolved) {
+            $this->cachedWinningSource = app(PriceCalculator::class)->winningSource($this->owner());
+            $this->winningResolved = true;
+        }
+
+        return $this->cachedWinningSource;
+    }
+
     public function table(Table $table): Table
     {
         $applyCostPrioritySort = function (Builder $query): Builder {
@@ -68,7 +106,7 @@ class SourcesRelationManager extends RelationManager
             ->defaultSort($applyCostPrioritySort)
             ->paginated(false)
             ->recordClasses(function (SupplierProduct $record): ?string {
-                $winning = app(PriceCalculator::class)->winningSource($this->owner());
+                $winning = $this->resolvedWinningSource();
 
                 return ($winning && (int) $winning->id === (int) $record->id)
                     ? 'smt-live-supplier-row'
@@ -79,18 +117,8 @@ class SourcesRelationManager extends RelationManager
                     ->label('Priority & Live Status')
                     ->badge()
                     ->state(function (SupplierProduct $record): string {
-                        $ranked = $this->owner()->sources()
-                            ->with('supplier')
-                            ->get()
-                            ->sortBy([
-                                fn (SupplierProduct $a, SupplierProduct $b) => (int) ($b->pivot?->is_active ?? false) <=> (int) ($a->pivot?->is_active ?? false),
-                                fn (SupplierProduct $a, SupplierProduct $b) => $a->costPkr() <=> $b->costPkr(),
-                            ])
-                            ->values();
-                        $pos = $ranked->search(fn (SupplierProduct $s): bool => (int) $s->id === (int) $record->id);
-                        $rankNum = $pos !== false ? ($pos + 1) : 1;
-
-                        $winning = app(PriceCalculator::class)->winningSource($this->owner());
+                        $rankNum = $this->sourceRank($record);
+                        $winning = $this->resolvedWinningSource();
                         if ($winning && (int) $winning->id === (int) $record->id) {
                             return "● LIVE ON STORE · #{$rankNum} Lowest Cost";
                         }
@@ -106,7 +134,7 @@ class SourcesRelationManager extends RelationManager
                         return "#{$rankNum} Priority · Backup";
                     })
                     ->color(function (SupplierProduct $record): string {
-                        $winning = app(PriceCalculator::class)->winningSource($this->owner());
+                        $winning = $this->resolvedWinningSource();
                         if ($winning && (int) $winning->id === (int) $record->id) {
                             return 'success';
                         }
@@ -448,6 +476,10 @@ class SourcesRelationManager extends RelationManager
 
     protected function refreshOwner(): void
     {
+        $this->cachedSourceRanks = null;
+        $this->cachedWinningSource = null;
+        $this->winningResolved = false;
+
         Listings::refresh($this->owner()->refresh());
         $this->dispatch('product-refreshed');
     }

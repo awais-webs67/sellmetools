@@ -21,6 +21,7 @@ use App\Services\PaymentService;
 use App\Services\SupplierSyncService;
 use Filament\Notifications\Notification;
 use Filament\Widgets\Widget;
+use Illuminate\Support\Facades\Cache;
 
 class ExecutiveCommandCenter extends Widget
 {
@@ -63,6 +64,7 @@ class ExecutiveCommandCenter extends Widget
 
         try {
             $res = app(SupplierSyncService::class)->sync($supplier);
+            Order::flushAdminCaches();
             Notification::make()
                 ->title("{$supplier->name} Synced!")
                 ->body("Products: {$res['synced']} · Balance: ".number_format((float) ($res['balance'] ?? $supplier->balance), 2).' '.$supplier->currency)
@@ -91,6 +93,7 @@ class ExecutiveCommandCenter extends Widget
             }
         }
 
+        Order::flushAdminCaches();
         Notification::make()
             ->title("Synced {$ok} active supplier(s)")
             ->body('Live prices, stock & wallet balances updated.')
@@ -102,6 +105,18 @@ class ExecutiveCommandCenter extends Widget
      * @return array<string, mixed>
      */
     public function getDashboardMetrics(): array
+    {
+        if (app()->runningUnitTests()) {
+            return $this->computeDashboardMetrics();
+        }
+
+        return Cache::remember("smt_exec_dashboard_{$this->range}_v1", 45, fn (): array => $this->computeDashboardMetrics());
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function computeDashboardMetrics(): array
     {
         PaymentService::syncOrphanedPendingPayments();
 
@@ -203,13 +218,15 @@ class ExecutiveCommandCenter extends Widget
             })
             ->count();
 
-        // 3. 7-Day Daily Trend (Revenue & Profit)
+        // 3. 7-Day Daily Trend (Revenue & Profit) — reuse $paidOrders when already viewing 7d
         $sevenDaysStart = $now->copy()->subDays(6)->startOfDay();
-        $recent7dOrders = Order::query()
-            ->with(['items.supplierOrders.supplier', 'items.product'])
-            ->whereIn('status', self::PAID_STATUSES)
-            ->whereRaw('COALESCE(paid_at, created_at) >= ?', [$sevenDaysStart->toDateTimeString()])
-            ->get();
+        $recent7dOrders = $this->range === '7d'
+            ? $paidOrders
+            : Order::query()
+                ->with(['items.supplierOrders.supplier', 'items.product'])
+                ->whereIn('status', self::PAID_STATUSES)
+                ->whereRaw('COALESCE(paid_at, created_at) >= ?', [$sevenDaysStart->toDateTimeString()])
+                ->get();
 
         $dailyBuckets = [];
         for ($i = 6; $i >= 0; $i--) {

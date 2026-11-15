@@ -14,6 +14,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use UnitEnum;
 
 class OrderResource extends Resource
@@ -82,7 +83,7 @@ class OrderResource extends Resource
 
         return self::$navBadgeCache = app()->runningUnitTests()
             ? $fetch()
-            : \Illuminate\Support\Facades\Cache::remember('smt_admin_nav_orders', 8, $fetch);
+            : Cache::remember('smt_admin_nav_orders', 45, $fetch);
     }
 
     public static function getNavigationBadge(): ?string

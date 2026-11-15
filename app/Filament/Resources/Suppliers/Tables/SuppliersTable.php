@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Suppliers\Tables;
 
 use App\Filament\Resources\Suppliers\Actions\SupplierActions;
 use App\Filament\Support\Money;
+use App\Http\Controllers\StockController;
 use App\Models\Supplier;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
@@ -19,11 +20,11 @@ class SuppliersTable
     public static function configure(Table $table): Table
     {
         if (! app()->runningUnitTests()) {
-            \App\Http\Controllers\StockController::deferBackgroundSync();
+            StockController::deferBackgroundSync();
         }
 
         return $table
-            ->poll('20s')
+            ->poll('60s')
             ->defaultSort('priority')
             ->columns([
                 TextColumn::make('name')

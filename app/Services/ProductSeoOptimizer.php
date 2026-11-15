@@ -16,6 +16,17 @@ class ProductSeoOptimizer
      * Runs once on production/local to upgrade all catalog products and categories with clean, high-ranking SEO descriptions,
      * short summaries, structured HTML feature lists, and clean warranty terms (with zero em dashes).
      */
+    public static function newCuratedSlugs(): array
+    {
+        return [
+            'gemini-plus-6-months',
+            'gemini-plus-6m',
+            'proton-vpn-1-month',
+            'google-flow-omni-veo-1-month',
+            'youtube-premium-3-months-voucher',
+        ];
+    }
+
     public static function syncCatalogOnce(): void
     {
         if (app()->runningUnitTests()) {
@@ -23,12 +34,80 @@ class ProductSeoOptimizer
         }
 
         $flagFile = storage_path('framework/product_seo_v16_synced.flag');
+        if (! is_file($flagFile)) {
+            if (static::syncCatalogNow()) {
+                @file_put_contents($flagFile, '1');
+            }
+        }
+
+        static::syncNewCuratedOnce();
+    }
+
+    public static function syncNewCuratedOnce(): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+
+        $flagFile = storage_path('framework/product_seo_v17_new_products.flag');
         if (is_file($flagFile)) {
             return;
         }
 
-        if (static::syncCatalogNow()) {
+        if (static::syncNewCuratedNow()) {
             @file_put_contents($flagFile, '1');
+        }
+    }
+
+    public static function syncNewCuratedNow(): bool
+    {
+        try {
+            Product::ensureFreeAndStockColumnsExist();
+
+            if (! Schema::hasTable('products')) {
+                return false;
+            }
+
+            $catalog = static::curatedCatalog();
+            $products = Product::withTrashed()
+                ->whereIn('slug', static::newCuratedSlugs())
+                ->get();
+
+            foreach ($products as $product) {
+                $slug = (string) $product->slug;
+                $updates = $catalog[$slug] ?? null;
+                if (! $updates) {
+                    continue;
+                }
+
+                $cleanName = static::cleanProductTitle((string) $product->name);
+                $customMetaTitle = "Buy {$cleanName} | Best Price in Pakistan";
+                if (mb_strlen($customMetaTitle) > 60) {
+                    $customMetaTitle = "Buy {$cleanName} | Instant Delivery";
+                }
+                if (mb_strlen($customMetaTitle) > 60) {
+                    $customMetaTitle = Str::limit("Buy {$cleanName}", 60, '');
+                }
+
+                $product->forceFill([
+                    'name' => $cleanName,
+                    'short_description' => static::stripBotCodesFromCopy(static::stripEmDashes($updates['short_description'])),
+                    'description' => static::stripEmDashes($updates['description']),
+                    'warranty' => static::stripEmDashes($updates['warranty']),
+                    'meta_title' => Str::limit(static::stripEmDashes($customMetaTitle), 250, ''),
+                    'meta_description' => Str::limit(static::stripBotCodesFromCopy(static::stripEmDashes($updates['meta_description'])), 152, '...'),
+                    'meta_keywords' => static::capKeywords(static::stripEmDashes($updates['meta_keywords']), 240),
+                ])->saveQuietly();
+            }
+
+            Cache::forget('smt_search_catalog_v1');
+            Cache::forget('smt_active_categories_v1');
+
+            return true;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return false;
         }
     }
 
@@ -137,6 +216,7 @@ class ProductSeoOptimizer
             }
 
             Cache::forget('smt_search_catalog_v1');
+            Cache::forget('smt_active_categories_v1');
 
             if (! app()->runningUnitTests()) {
                 defer(function (): void {
@@ -1324,6 +1404,54 @@ HTML;
                 'warranty' => 'Full Lifetime Activation Warranty. Includes 1x 25-character official Windows 10/11 Pro key (XXXXX-XXXXX-XXXXX-XXXXX-XXXXX) and full activation support.',
                 'kw' => 'Windows 11 Pro key price in Pakistan, buy Windows 10 Pro activation key lifetime, genuine Microsoft Windows license key Pakistan, Windows Pro retail key Easypaisa JazzCash',
             ],
+            'gemini-plus-6-months' => [
+                'short' => 'Buy Google Gemini Plus 6 Months subscription redeem link with no credit card required, fast AI chat, writing & coding tools, and instant digital delivery.',
+                'overview' => 'Unlock 6 months of Google Gemini Plus via an official redeem link without needing a credit card. Ideal for students, writers, marketers, and developers in Pakistan and worldwide who want fast AI reasoning, research assistance, and content generation on their own Google account.',
+                'bullets' => [
+                    '<strong>Official Redeem Link Activation:</strong> Activate directly using the provided redeem link with no credit card required at redemption.',
+                    '<strong>6 Months Full Access:</strong> Enjoy priority Gemini Plus AI capabilities for coding, research, summaries, content drafting, and daily productivity.',
+                    '<strong>Multi-Device Google Sync:</strong> Access Gemini seamlessly across web browser, Android, and iOS devices.',
+                    '<strong>Works Globally:</strong> Fast digital fulfillment on your order tracking page with responsive support if needed.',
+                ],
+                'warranty' => 'Full 6-Month Activation & Replacement Warranty. Redeem link provided with no credit card required.',
+                'kw' => 'Gemini Plus 6 months price in Pakistan, buy Google Gemini Plus redeem link, cheap Gemini Plus subscription Pakistan, Gemini AI 6 months Easypaisa JazzCash',
+            ],
+            'proton-vpn-1-month' => [
+                'short' => 'Buy Proton VPN 1 Month premium account for iOS, Android & PC with support for up to 10 devices, high-speed global servers, and strict Swiss privacy.',
+                'overview' => 'Browse safely, bypass geo-restrictions, and protect your online privacy with a 1 Month Proton VPN premium account. Designed for iOS, Android, and PC users, one account covers up to 10 devices simultaneously with encrypted high-speed servers worldwide.',
+                'bullets' => [
+                    '<strong>Up to 10 Devices Connected:</strong> Protect your smartphone, tablet, laptop, and desktop at the same time on iOS, Android, Windows, and macOS.',
+                    '<strong>Swiss No-Logs Privacy:</strong> Strong AES-256 encryption, Secure Core routing, NetShield ad-blocking, and strict no-logs policy.',
+                    '<strong>High-Speed Global Servers:</strong> Stream HD content, game with stable routing, and access region-locked tools reliably for 1 full month.',
+                    '<strong>Instant Account Delivery:</strong> Login credentials delivered quickly after payment confirmation via your order tracking page.',
+                ],
+                'warranty' => 'Full 1-Month Account & Replacement Warranty for iOS, Android, and PC (up to 10 devices).',
+                'kw' => 'Proton VPN 1 month price in Pakistan, buy Proton VPN premium account, Proton VPN 10 devices Pakistan, cheap VPN subscription Easypaisa JazzCash USDT',
+            ],
+            'google-flow-omni-veo-1-month' => [
+                'short' => 'Buy Google Flow Omni 1.1 Flash + All Veo 3.1 Models 1 Month access for AI filmmaking, cinematic video generation, and instant digital delivery.',
+                'overview' => 'Create studio-grade AI videos, storyboards, and visual scenes with 1 Month access to Google Flow featuring Omni 1.1 Flash and all Veo 3.1 video models. Built for creators, video editors, agencies, and marketers looking for realistic motion, prompt control, and rapid AI rendering.',
+                'bullets' => [
+                    '<strong>Omni 1.1 Flash + All Veo 3.1 Models:</strong> Access Google Flow generation pipelines including fast Flash previews and high-fidelity Veo 3.1 outputs.',
+                    '<strong>Text-to-Video &amp; Image-to-Video:</strong> Turn prompts and reference frames into smooth cinematic clips with consistent camera direction.',
+                    '<strong>Creator &amp; Agency Workflow:</strong> Ideal for reels, YouTube shorts, product promos, and commercial concept previews.',
+                    '<strong>1 Month Full Access:</strong> Fast delivery with guided login and ongoing technical support throughout your term.',
+                ],
+                'warranty' => 'Full 1-Month Access & Replacement Warranty for Google Flow (Omni 1.1 Flash + Veo 3.1 Models).',
+                'kw' => 'Google Flow Veo 3.1 price in Pakistan, buy Google Flow Omni 1 month, Veo 3.1 AI video generator account Pakistan, Google AI video subscription Easypaisa',
+            ],
+            'youtube-premium-3-months-voucher' => [
+                'short' => 'Buy YouTube Premium 3 Months Voucher activation link for eligible Google accounts. Watch ad-free with background play, offline downloads & YouTube Music.',
+                'overview' => 'Enjoy 3 months of ad-free streaming, background playback, offline video downloads, and full YouTube Music Premium with a YouTube Premium 3 Months Voucher activation link. Suitable for new users or Google accounts eligible for trial activation.',
+                'bullets' => [
+                    '<strong>Official 3-Month Activation Link:</strong> Delivered digitally after checkout for new users or trial-eligible Google accounts (card required during official trial redemption).',
+                    '<strong>Ad-Free YouTube &amp; YouTube Music:</strong> Watch videos without ads across mobile, smart TV, and desktop plus stream ad-free music.',
+                    '<strong>Background Play &amp; Offline Downloads:</strong> Keep audio playing with your screen locked and save videos offline for travel.',
+                    '<strong>Important Eligibility Tip:</strong> If the 3-month trial offer is not visible on your account before checkout, connect to a USA VPN and check eligibility first.',
+                ],
+                'warranty' => 'Full Activation Warranty for eligible new or trial-ready Google accounts. USA VPN check recommended before redeeming if offer does not appear.',
+                'kw' => 'YouTube Premium 3 months voucher Pakistan, buy YouTube Premium activation link, cheap YouTube Premium 3 months Easypaisa JazzCash, YouTube Music Premium Pakistan',
+            ],
         ];
 
         $formatted = [];
@@ -1362,6 +1490,10 @@ HTML;
                 'meta_description' => $metaDesc,
                 'meta_keywords' => static::capKeywords($data['kw'].", buy {$titleClean} online, {$titleClean} instant delivery, SellMeTools, cheap digital subscriptions Pakistan", 240),
             ];
+        }
+
+        if (isset($formatted['gemini-plus-6-months'])) {
+            $formatted['gemini-plus-6m'] = $formatted['gemini-plus-6-months'];
         }
 
         return $formatted;

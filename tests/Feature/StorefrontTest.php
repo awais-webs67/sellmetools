@@ -593,4 +593,75 @@ class StorefrontTest extends TestCase
         $this->assertTrue($cat2['in_stock']);
         $this->assertSame(3, $cat2['qty']);
     }
+
+    public function test_home_shows_centered_view_all_products_cta_without_old_catalog_banner(): void
+    {
+        for ($i = 1; $i <= 14; $i++) {
+            $this->listing([$this->supplierProduct($this->supplier(), ['stock' => 3])], [
+                'name' => "Tool Item {$i}",
+                'slug' => "tool-item-{$i}",
+            ]);
+        }
+
+        $response = $this->get(route('home'))->assertOk();
+        $response->assertSee('View All Products');
+        $response->assertSee(route('shop'), false);
+        $response->assertDontSee('Want to Browse Our Entire Catalog?');
+    }
+
+    public function test_shop_renders_load_more_and_ajax_pagination_controls(): void
+    {
+        for ($i = 1; $i <= 26; $i++) {
+            $this->listing([$this->supplierProduct($this->supplier(), ['stock' => 2])], [
+                'name' => sprintf('Catalog Tool %02d', $i),
+                'slug' => sprintf('catalog-tool-%02d', $i),
+            ]);
+        }
+
+        $page1 = $this->get(route('shop'))->assertOk();
+        $page1->assertSee('Load More Products');
+        $page1->assertSee('data-ajax-pagination', false);
+        $page1->assertSee('loadMoreGrid(', false);
+        $page1->assertSee('page=2', false);
+
+        $page2Ajax = $this->withHeaders(['X-SMT-Filter' => '1'])
+            ->get(route('shop', ['page' => 2]))
+            ->assertOk();
+        $page2Ajax->assertSee('id="shop-results"', false);
+        $page2Ajax->assertSee('data-ajax-pagination', false);
+    }
+
+    public function test_new_curated_product_seo_updates_only_target_products_with_valid_lengths(): void
+    {
+        $customExisting = $this->listing([], [
+            'name' => 'Custom Unrelated Product',
+            'slug' => 'custom-unrelated-product',
+            'description' => '<p>Keep untouched custom description</p>',
+            'meta_title' => 'Keep Untouched Meta Title',
+        ]);
+
+        $newProducts = [
+            $this->listing([], ['name' => 'GEMINI PLUS 6 Months', 'slug' => 'gemini-plus-6-months']),
+            $this->listing([], ['name' => 'Proton VPN 1 Month', 'slug' => 'proton-vpn-1-month']),
+            $this->listing([], ['name' => 'Google Flow Omni + Veo 1 Month', 'slug' => 'google-flow-omni-veo-1-month']),
+            $this->listing([], ['name' => 'YouTube Premium 3 Months Voucher', 'slug' => 'youtube-premium-3-months-voucher']),
+        ];
+
+        $this->assertTrue(ProductSeoOptimizer::syncNewCuratedNow());
+
+        foreach ($newProducts as $product) {
+            $product->refresh();
+            $this->assertStringContainsString('<h3>Product Overview</h3>', (string) $product->description);
+            $this->assertStringContainsString('<h3>What You Get &amp; Key Features</h3>', (string) $product->description);
+            $this->assertNotEmpty($product->meta_title);
+            $this->assertNotEmpty($product->meta_description);
+            $this->assertLessThanOrEqual(240, mb_strlen((string) $product->meta_keywords));
+            $this->assertStringNotContainsString("\u{2014}", (string) $product->description);
+            $this->assertStringNotContainsString("\u{2013}", (string) $product->description);
+        }
+
+        $customExisting->refresh();
+        $this->assertSame('<p>Keep untouched custom description</p>', $customExisting->description);
+        $this->assertSame('Keep Untouched Meta Title', $customExisting->meta_title);
+    }
 }

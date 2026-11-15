@@ -227,7 +227,7 @@
         <div id="shop-results"
              data-load-more-region
              data-next-url="{{ $products->nextPageUrl() ?? '' }}"
-             x-data="loadMoreGrid(@js($products->nextPageUrl() ?? ''), {{ (int) $products->count() }}, {{ (int) $products->total() }})"
+             x-data="loadMoreGrid(@js($products->nextPageUrl() ?? ''), {{ (int) $products->count() }}, {{ (int) $products->total() }}, {{ (int) $products->currentPage() }}, {{ (int) $products->lastPage() }})"
              aria-live="polite">
             <h2 class="sr-only">{{ $activeCategory ? $activeCategory->name.' Products' : 'All Available AI Tools & Digital Subscriptions' }}</h2>
             @if ($products->isEmpty())
@@ -244,8 +244,52 @@
                 </div>
 
                 @if ($products->hasPages())
-                    <div class="mt-8">
-                        {{ $products->links() }}
+                    <div class="mt-8 flex flex-col items-center gap-4 border-t border-line pt-6">
+                        <p class="text-xs font-medium text-muted">
+                            Showing <strong class="text-ink" x-text="shown">{{ $products->count() }}</strong> of <strong class="text-ink" x-text="total">{{ $products->total() }}</strong> products
+                            <span class="mx-1.5 text-line-strong">·</span>
+                            Page <strong class="text-ink" x-text="currentPage">{{ $products->currentPage() }}</strong> of {{ $products->lastPage() }}
+                        </p>
+
+                        <div class="flex flex-wrap items-center justify-center gap-3">
+                            <button type="button"
+                                    x-show="nextUrl"
+                                    @click="loadMore()"
+                                    :disabled="loadingMore || loadingPage"
+                                    class="btn btn-primary px-6 py-2.5 text-sm font-bold shadow-sm disabled:opacity-60">
+                                <span x-show="!loadingMore">Load More Products</span>
+                                <span x-show="loadingMore" x-cloak>Loading...</span>
+                            </button>
+                        </div>
+
+                        <nav data-ajax-pagination
+                             @click="handlePageClick($event)"
+                             class="flex flex-wrap items-center justify-center gap-1.5"
+                             aria-label="Shop Pagination">
+                            @if ($products->onFirstPage())
+                                <span class="inline-flex items-center rounded-lg border border-line bg-grey-soft px-3 py-1.5 text-xs font-semibold text-muted opacity-60">← Prev</span>
+                            @else
+                                <a href="{{ $products->previousPageUrl() }}"
+                                   class="inline-flex items-center rounded-lg border border-line-strong bg-white px-3 py-1.5 text-xs font-semibold text-ink transition hover:border-brand hover:text-brand">← Prev</a>
+                            @endif
+
+                            @foreach ($products->getUrlRange(1, $products->lastPage()) as $page => $url)
+                                @if ($page === $products->currentPage())
+                                    <span aria-current="page"
+                                          class="inline-flex min-w-[2.1rem] items-center justify-center rounded-lg border border-brand bg-brand px-2.5 py-1.5 text-xs font-bold text-white">{{ $page }}</span>
+                                @else
+                                    <a href="{{ $url }}"
+                                       class="inline-flex min-w-[2.1rem] items-center justify-center rounded-lg border border-line-strong bg-white px-2.5 py-1.5 text-xs font-semibold text-ink transition hover:border-brand hover:text-brand">{{ $page }}</a>
+                                @endif
+                            @endforeach
+
+                            @if ($products->hasMorePages())
+                                <a href="{{ $products->nextPageUrl() }}"
+                                   class="inline-flex items-center rounded-lg border border-brand/40 bg-brand/5 px-3.5 py-1.5 text-xs font-bold text-brand transition hover:border-brand hover:bg-brand hover:text-white">Next Page →</a>
+                            @else
+                                <span class="inline-flex items-center rounded-lg border border-line bg-grey-soft px-3.5 py-1.5 text-xs font-semibold text-muted opacity-60">Next Page →</span>
+                            @endif
+                        </nav>
                     </div>
                 @endif
             @endif
