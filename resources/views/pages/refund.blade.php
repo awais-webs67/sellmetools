@@ -2,7 +2,7 @@
 <x-page
     title="Refund & Warranty Policy"
     eyebrow="Buyer Protection"
-    description="Understand how {{ $store }} protects your digital subscription orders in Pakistan with clear Full Warranty (FW), Login Warranty and refund eligibility rules."
+    description="How {{ $store }} protects your digital subscription orders with Full Warranty, First-Login Warranty, free replacements, and refund rules."
     subtitle="Transparent replacement and refund rules so you always know how your purchase is covered before you pay."
 >
     <p>

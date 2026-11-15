@@ -71,7 +71,7 @@
             <div class="grid gap-4 sm:grid-cols-2">
                 <div>
                     <label for="contact-name" class="label">Your Full Name *</label>
-                    <input id="contact-name" type="text" name="name" value="{{ old('name', auth()->user()?->name) }}" required maxlength="100" placeholder="e.g. Ali Raza" class="input">
+                    <input id="contact-name" type="text" name="name" value="{{ old('name', auth()->user()?->name) }}" autocomplete="name" required maxlength="100" placeholder="e.g. Ali Raza" class="input">
                     @error('name')
                         <p class="mt-1 text-xs text-danger">{{ $message }}</p>
                     @enderror
@@ -79,7 +79,7 @@
 
                 <div>
                     <label for="contact-email" class="label">Your Email Address *</label>
-                    <input id="contact-email" type="email" name="email" value="{{ old('email', auth()->user()?->email) }}" required maxlength="150" placeholder="you@example.com" class="input">
+                    <input id="contact-email" type="email" name="email" value="{{ old('email', auth()->user()?->email) }}" autocomplete="email" required maxlength="150" placeholder="you@example.com" class="input">
                     @error('email')
                         <p class="mt-1 text-xs text-danger">{{ $message }}</p>
                     @enderror
@@ -89,7 +89,7 @@
             <div class="grid gap-4 sm:grid-cols-3">
                 <div>
                     <label for="contact-phone" class="label">WhatsApp / Phone (Optional)</label>
-                    <input id="contact-phone" type="text" name="phone" value="{{ old('phone', auth()->user()?->phone) }}" maxlength="35" placeholder="0300-1234567" class="input">
+                    <input id="contact-phone" type="text" name="phone" value="{{ old('phone', auth()->user()?->phone) }}" autocomplete="tel" maxlength="35" placeholder="0300-1234567" class="input">
                     @error('phone')
                         <p class="mt-1 text-xs text-danger">{{ $message }}</p>
                     @enderror

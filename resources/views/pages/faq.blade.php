@@ -64,7 +64,7 @@
 <x-page
     title="FAQ & Help Guide — {{ $store }}"
     eyebrow="Help Center & FAQ"
-    description="Find answers about buying AI tools, premium software and digital subscriptions in Pakistan, paying via Easypaisa or JazzCash, instant order delivery and warranty coverage."
+    description="Answers on buying AI tools and digital subscriptions in Pakistan via Easypaisa, JazzCash, and Binance USDT with instant delivery and warranty."
     subtitle="Everything you need to know about ordering digital tools in PKR, verifying your Transaction ID and accessing your credentials."
 >
     <p class="text-sm sm:text-base leading-relaxed mb-6">

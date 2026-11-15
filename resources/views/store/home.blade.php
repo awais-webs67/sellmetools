@@ -603,7 +603,7 @@
                         </h2>
                         <div class="prose-store mt-4 space-y-3.5 text-sm sm:text-base leading-relaxed text-body">
                             <p>
-                                Looking for verified <strong>{{ $activeCategory->name }}</strong> plans and accounts to buy online in Pakistan or worldwide without paying steep international credit card markups? On <strong>{{ $storeName }}</strong>, you can compare live USDT and PKR pricing, check real-time stock availability, and order genuine {{ strtolower($activeCategory->name) }} tools online with automated delivery directly on your private order page.
+                                Looking for verified <strong>{{ $activeCategory->name }}</strong> plans and accounts to buy online in Pakistan or worldwide without paying steep international credit card markups? On <strong>{{ $storeName }}</strong>, you can compare live USDT and PKR pricing, check real-time stock availability, and order genuine {{ strtolower($activeCategory->name) }} subscriptions online with automated delivery directly on your private order page.
                             </p>
                             <p>
                                 Every {{ strtolower($activeCategory->name) }} listing on {{ $storeName }} displays its exact plan type, duration, and replacement warranty terms upfront. You can complete checkout in seconds using <strong>Easypaisa, JazzCash, NayaPay, SadaPay, local bank transfer (Raast)</strong>, or <strong>Binance Pay (USDT)</strong>, and access your saved credentials anytime from your customer dashboard.

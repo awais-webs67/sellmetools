@@ -742,13 +742,26 @@ class StorefrontTest extends TestCase
             route('products.show', $product->slug),
             route('pages.show', 'about'),
             route('pages.show', 'contact'),
+            route('pages.show', 'faq'),
+            route('pages.show', 'refund'),
+            route('pages.show', 'privacy'),
+            route('pages.show', 'terms'),
         ] as $url) {
             $html = $this->get($url)->assertOk()->getContent();
             $this->assertSame(1, preg_match('/<meta\s+name="description"\s+content="([^"]*)"/i', $html, $matches), "Missing meta description on {$url}");
             $desc = html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $this->assertStringNotContainsString('..', $desc, "Truncated meta description on {$url}: {$desc}");
             $this->assertLessThanOrEqual(155, mb_strlen($desc), "Meta description too long on {$url}: {$desc}");
+            if (str_contains($url, '/pages/')) {
+                $this->assertStringEndsWith('.', $desc, "Static page meta description trimmed mid-sentence on {$url}: {$desc}");
+            }
         }
+
+        $this->assertStringContainsString('Allow: /api/agent-catalog.json', $robotsContent);
+        $this->get(route('categories.show', $aiCategory->slug))->assertOk()->assertDontSee('tools tools');
+        $this->get(route('pages.show', 'privacy'))->assertOk()->assertDontSee('AivraSol');
+        $this->get(route('pages.show', 'contact'))->assertOk()->assertSee('autocomplete="name"', false);
+        $this->get(route('home'))->assertOk()->assertSee('width="230" height="40"', false);
 
         Setting::set('support_whatsapp', '923001234567');
 

@@ -6,7 +6,7 @@
     subtitle="How we collect, encrypt and safeguard your account and order information."
 >
     <p>
-        <strong>{{ $store }}</strong> (operated by <strong>AivraSol Softwares</strong>) respects your privacy and is committed to protecting the personal data you share with us when ordering digital tools and subscriptions.
+        <strong>{{ $store }}</strong> respects your privacy and is committed to protecting the personal data you share with us when ordering digital tools and subscriptions.
     </p>
 
     <h2>1. Information We Collect</h2>

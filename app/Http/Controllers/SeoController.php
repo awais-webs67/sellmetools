@@ -436,6 +436,7 @@ class SeoController extends Controller
             'Disallow: /checkout/',
             'Disallow: /orders/',
             'Disallow: /account/',
+            'Allow: /api/agent-catalog.json',
             'Disallow: /api/',
             'Disallow: /webhooks/',
             'Disallow: /track',

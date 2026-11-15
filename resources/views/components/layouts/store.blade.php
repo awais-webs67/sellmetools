@@ -432,7 +432,7 @@
         <div class="container-x grid gap-10 py-14 md:grid-cols-2 lg:grid-cols-4">
             <div class="lg:col-span-2">
                 <a href="{{ route('home') }}" class="flex items-center">
-                    <img src="{{ asset('images/logo-white.png') }}?v=4" alt="{{ $storeName }}" width="180" height="40" loading="lazy" decoding="async" class="h-8 sm:h-9 md:h-10 w-auto object-contain">
+                    <img src="{{ asset('images/logo-white.png') }}?v=4" alt="{{ $storeName }}" width="230" height="40" decoding="async" fetchpriority="low" class="h-8 sm:h-9 md:h-10 w-auto object-contain">
                 </a>
                 <p class="mt-4 max-w-md text-sm leading-6">{{ setting('store_tagline') }} Pay with Easypaisa, JazzCash, NayaPay, SadaPay or Binance and receive your product automatically after verification.</p>
                 <div class="mt-5 flex flex-wrap gap-2">
