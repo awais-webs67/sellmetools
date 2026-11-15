@@ -157,6 +157,7 @@ class OrderInfolist
                                                 ->label('Credentials / Content')
                                                 ->copyable()
                                                 ->fontFamily('mono')
+                                                ->extraAttributes(['style' => 'min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:break-word;'])
                                                 ->columnSpan(['default' => 1, 'sm' => 2, 'lg' => 2]),
                                             TextEntry::make('source')
                                                 ->label('Source')

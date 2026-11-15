@@ -20,6 +20,7 @@ use App\Filament\Resources\Products\Pages\EditProduct;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\Products\RelationManagers\SourcesRelationManager;
 use App\Filament\Resources\Products\RelationManagers\StockItemsRelationManager;
+use App\Filament\Resources\SupplierOrders\Pages\ListSupplierOrders;
 use App\Filament\Resources\SupplierProducts\Pages\ListSupplierProducts;
 use App\Filament\Resources\SupplierProducts\SupplierProductResource;
 use App\Filament\Resources\Suppliers\Pages\EditSupplier;
@@ -403,5 +404,44 @@ class AdminPanelTest extends TestCase
         $this->assertLessThanOrEqual(250, mb_strlen((string) $product->meta_title));
         $this->assertLessThanOrEqual(495, mb_strlen((string) $product->meta_description));
         $this->assertLessThanOrEqual(495, mb_strlen((string) $product->short_description));
+    }
+
+    public function test_vendor_order_details_modal_wraps_delivered_credentials_with_copy_buttons(): void
+    {
+        $this->actingAs($this->admin);
+
+        $longToken = 'https://accounts.google.com/redeem?token='.str_repeat('AbCdEfGh1234567890', 6);
+        $secondCred = 'user_alpha@example.com:StrongPass!999 | Recovery: backup@example.com';
+
+        $supplierOrder = SupplierOrder::query()->create([
+            'supplier_id' => $this->supplierModel->id,
+            'supplier_product_id' => $this->supplierItem->id,
+            'request_id' => 'dir-test-copy-01',
+            'external_order_id' => 'ext-9001',
+            'quantity' => 2,
+            'cost' => 4.0,
+            'status' => SupplierOrderStatus::Success,
+            'response' => [
+                'direct_order' => true,
+                'delivered_items' => [$longToken, $secondCred],
+            ],
+        ]);
+
+        Livewire::test(ListSupplierOrders::class)
+            ->mountAction(TestAction::make('viewResponse')->table($supplierOrder))
+            ->assertMountedActionModalSee('Delivered Credentials / Items')
+            ->assertMountedActionModalSee('2 Delivered Items')
+            ->assertMountedActionModalSee('Copy All')
+            ->assertMountedActionModalSee('Copy JSON')
+            ->assertMountedActionModalSeeHtml('smt-cred-pre')
+            ->assertMountedActionModalSeeHtml('window.smtCopyFromBox(this)')
+            ->assertMountedActionModalSee($longToken)
+            ->assertMountedActionModalSee($secondCred)
+            ->assertMountedActionModalSeeHtml('fi-in-entry-label fi-sr-only');
+
+        $this->get('/admin/vendor-orders')
+            ->assertOk()
+            ->assertSee('.smt-cred-pre', false)
+            ->assertSee('window.smtCopyFromBox', false);
     }
 }

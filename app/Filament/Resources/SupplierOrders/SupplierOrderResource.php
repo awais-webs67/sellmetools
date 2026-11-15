@@ -247,6 +247,7 @@ class SupplierOrderResource extends Resource
                     ->color('gray')
                     ->button()
                     ->size('xs')
+                    ->modalWidth('4xl')
                     ->modalHeading(fn (SupplierOrder $r): string => 'Vendor Order #'.$r->id.' ('.$r->request_id.')')
                     ->modalSubmitAction(false)
                     ->schema(fn (SupplierOrder $r): array => [
@@ -263,21 +264,21 @@ class SupplierOrderResource extends Resource
                             ->visible(fn (): bool => self::extractDeliveredLines($r) !== [])
                             ->schema([
                                 TextEntry::make('delivered_items')
-                                    ->label('')
-                                    ->state(function () use ($r): HtmlString {
-                                        $lines = collect(self::extractDeliveredLines($r))->map(fn (string $l) => e($l))->implode("\n---\n");
-
-                                        return new HtmlString('<pre class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs font-mono text-slate-800 whitespace-pre-wrap break-all overflow-x-auto">'.$lines.'</pre>');
-                                    }),
+                                    ->hiddenLabel()
+                                    ->columnSpanFull()
+                                    ->extraAttributes(['style' => 'width:100%;min-width:0;max-width:100%;'])
+                                    ->state(fn (): HtmlString => self::renderCredentialsBoxHtml(self::extractDeliveredLines($r))),
                             ]),
                         Section::make('Raw API Response')
                             ->schema([
                                 TextEntry::make('raw_json')
-                                    ->label('')
-                                    ->state(fn (): HtmlString => new HtmlString(
-                                        '<pre class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs font-mono text-slate-800 whitespace-pre-wrap break-all overflow-x-auto">'
-                                        .e(json_encode($r->response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES))
-                                        .'</pre>'
+                                    ->hiddenLabel()
+                                    ->columnSpanFull()
+                                    ->extraAttributes(['style' => 'width:100%;min-width:0;max-width:100%;'])
+                                    ->state(fn (): HtmlString => self::renderCopyableCodeBoxHtml(
+                                        'Raw JSON Payload',
+                                        (string) json_encode($r->response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+                                        'Copy JSON'
                                     )),
                             ]),
                     ]),
@@ -598,6 +599,71 @@ class SupplierOrderResource extends Resource
             array_map(fn ($v): string => is_scalar($v) ? trim((string) $v) : '', $candidates),
             fn (string $l): bool => $l !== ''
         ));
+    }
+
+    /**
+     * @param  array<int, string>  $lines
+     */
+    protected static function renderCredentialsBoxHtml(array $lines): HtmlString
+    {
+        $items = array_values(array_filter(array_map('trim', $lines), fn (string $v): bool => $v !== ''));
+        $count = count($items);
+        if ($count === 0) {
+            return new HtmlString('');
+        }
+
+        if ($count === 1) {
+            return self::renderCopyableCodeBoxHtml('Delivered Credential', $items[0], 'Copy');
+        }
+
+        $allText = implode("\n---\n", $items);
+        $copyIcon = self::copyButtonSvg();
+        $cardsHtml = '';
+
+        foreach ($items as $idx => $item) {
+            $cardsHtml .= self::renderCopyableCodeBoxHtml('Item #'.($idx + 1), $item, 'Copy')->toHtml();
+        }
+
+        $html = '<div class="smt-cred-wrap" data-smt-copy-box>'
+            .'<div class="smt-cred-toolbar">'
+            .'<span class="smt-cred-count">'.e((string) $count).' Delivered Items</span>'
+            .'<button type="button" class="smt-copy-btn" onclick="window.smtCopyFromBox(this)">'
+            .$copyIcon
+            .'<span data-smt-copy-label>Copy All</span>'
+            .'</button>'
+            .'</div>'
+            .'<textarea data-smt-copy-src readonly tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">'.e($allText).'</textarea>'
+            .'<div class="smt-cred-list">'.$cardsHtml.'</div>'
+            .'</div>';
+
+        return new HtmlString($html);
+    }
+
+    protected static function renderCopyableCodeBoxHtml(string $title, string $content, string $buttonLabel = 'Copy'): HtmlString
+    {
+        $html = '<div class="smt-cred-wrap">'
+            .'<div class="smt-cred-card" data-smt-copy-box>'
+            .'<div class="smt-cred-card-head">'
+            .'<span>'.e($title).'</span>'
+            .'<button type="button" class="smt-copy-btn" onclick="window.smtCopyFromBox(this)">'
+            .self::copyButtonSvg()
+            .'<span data-smt-copy-label>'.e($buttonLabel).'</span>'
+            .'</button>'
+            .'</div>'
+            .'<textarea data-smt-copy-src readonly tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">'.e($content).'</textarea>'
+            .'<pre class="smt-cred-pre">'.e($content).'</pre>'
+            .'</div>'
+            .'</div>';
+
+        return new HtmlString($html);
+    }
+
+    protected static function copyButtonSvg(): string
+    {
+        return '<svg style="width:13px;height:13px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+            .'<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>'
+            .'<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>'
+            .'</svg>';
     }
 
     public static function getPages(): array

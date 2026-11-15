@@ -1040,6 +1040,138 @@ class AdminPanelProvider extends PanelProvider
                             padding: 0 !important;
                         }
                     }
+
+                    /* 11. Delivered Credentials & Infolist Full-Width Wrapping + Copy Controls */
+                    .fi-in-entry,
+                    .fi-in-text,
+                    .fi-in-text-item,
+                    .fi-sc-section-content {
+                        min-width: 0 !important;
+                        max-width: 100% !important;
+                    }
+                    .fi-in-text-item,
+                    .fi-in-text-item > * {
+                        max-width: 100% !important;
+                        overflow-wrap: anywhere !important;
+                        word-break: break-word !important;
+                    }
+                    .smt-cred-wrap {
+                        display: block;
+                        width: 100%;
+                        max-width: 100%;
+                        min-width: 0;
+                        box-sizing: border-box;
+                    }
+                    .smt-cred-toolbar {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 0.5rem;
+                        flex-wrap: wrap;
+                        margin-bottom: 0.55rem;
+                    }
+                    .smt-cred-count {
+                        font-size: 0.78rem;
+                        font-weight: 600;
+                        color: #475569;
+                    }
+                    .dark .smt-cred-count {
+                        color: #94a3b8;
+                    }
+                    .smt-cred-list {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 0.65rem;
+                        width: 100%;
+                        max-width: 100%;
+                        min-width: 0;
+                    }
+                    .smt-cred-card {
+                        width: 100%;
+                        max-width: 100%;
+                        min-width: 0;
+                        box-sizing: border-box;
+                        border: 1px solid #cbd5e1;
+                        border-radius: 0.65rem;
+                        background: #f8fafc;
+                        overflow: hidden;
+                    }
+                    .dark .smt-cred-card {
+                        border-color: rgba(255, 255, 255, 0.14);
+                        background: rgba(15, 23, 42, 0.72);
+                    }
+                    .smt-cred-card-head {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 0.5rem;
+                        padding: 0.45rem 0.75rem;
+                        border-bottom: 1px solid #e2e8f0;
+                        background: #f1f5f9;
+                        font-size: 0.74rem;
+                        font-weight: 600;
+                        color: #475569;
+                    }
+                    .dark .smt-cred-card-head {
+                        border-bottom-color: rgba(255, 255, 255, 0.1);
+                        background: rgba(30, 41, 59, 0.78);
+                        color: #cbd5e1;
+                    }
+                    .smt-cred-pre {
+                        display: block;
+                        width: 100%;
+                        max-width: 100%;
+                        box-sizing: border-box;
+                        margin: 0;
+                        padding: 0.8rem;
+                        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+                        font-size: 0.79rem;
+                        line-height: 1.55;
+                        color: #0f172a;
+                        white-space: pre-wrap !important;
+                        word-break: break-word !important;
+                        overflow-wrap: anywhere !important;
+                    }
+                    .dark .smt-cred-pre {
+                        color: #f1f5f9;
+                    }
+                    .smt-copy-btn {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 0.35rem;
+                        padding: 0.3rem 0.68rem;
+                        border-radius: 0.45rem;
+                        border: 1px solid #cbd5e1;
+                        background: #ffffff;
+                        color: #0f172a;
+                        font-size: 0.74rem;
+                        font-weight: 600;
+                        line-height: 1.2;
+                        cursor: pointer;
+                        transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+                    }
+                    .smt-copy-btn:hover {
+                        background: #f1f5f9;
+                        border-color: #94a3b8;
+                    }
+                    .smt-copy-btn.is-copied {
+                        border-color: #10b981;
+                        background: #ecfdf5;
+                        color: #047857;
+                    }
+                    .dark .smt-copy-btn {
+                        border-color: rgba(255, 255, 255, 0.18);
+                        background: rgba(30, 41, 59, 0.92);
+                        color: #f8fafc;
+                    }
+                    .dark .smt-copy-btn:hover {
+                        background: rgba(51, 65, 85, 0.96);
+                    }
+                    .dark .smt-copy-btn.is-copied {
+                        border-color: #34d399;
+                        background: rgba(6, 78, 59, 0.72);
+                        color: #6ee7b7;
+                    }
                 </style>
                 <script>
                     document.addEventListener("click", function (e) {
@@ -1596,6 +1728,46 @@ class AdminPanelProvider extends PanelProvider
                                     scheduleOrderBridge(350);
                                 }
                             });
+
+                            window.smtCopyFromBox = function (btn) {
+                                const host = btn && btn.closest ? btn.closest("[data-smt-copy-box]") : null;
+                                const src = host ? host.querySelector("[data-smt-copy-src]") : null;
+                                if (!src) return;
+                                const text = typeof src.value === "string" ? src.value : (src.textContent || "");
+                                const markCopied = () => {
+                                    const label = btn.querySelector("[data-smt-copy-label]");
+                                    const orig = btn.dataset.origLabel || (label ? label.textContent : "Copy");
+                                    btn.dataset.origLabel = orig;
+                                    btn.classList.add("is-copied");
+                                    if (label) label.textContent = "Copied!";
+                                    clearTimeout(btn._smtCopyTimer);
+                                    btn._smtCopyTimer = setTimeout(() => {
+                                        btn.classList.remove("is-copied");
+                                        if (label) label.textContent = orig;
+                                    }, 1800);
+                                };
+                                const fallbackCopy = () => {
+                                    const ta = document.createElement("textarea");
+                                    ta.value = text;
+                                    ta.setAttribute("readonly", "");
+                                    ta.style.position = "fixed";
+                                    ta.style.top = "-9999px";
+                                    ta.style.opacity = "0";
+                                    document.body.appendChild(ta);
+                                    ta.select();
+                                    try {
+                                        document.execCommand("copy");
+                                        markCopied();
+                                    } finally {
+                                        ta.remove();
+                                    }
+                                };
+                                if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+                                    navigator.clipboard.writeText(text).then(markCopied).catch(fallbackCopy);
+                                } else {
+                                    fallbackCopy();
+                                }
+                            };
                         })();
                     </script>');
                 }
