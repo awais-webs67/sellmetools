@@ -6,6 +6,7 @@ use App\Filament\Support\Listings;
 use App\Filament\Support\Money;
 use App\Models\Product;
 use App\Models\Setting;
+use App\Services\AiSeoAgent;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
@@ -155,6 +156,17 @@ class ProductsTable
             ->recordActions([
                 EditAction::make(),
                 ActionGroup::make([
+                    Action::make('aiOptimizeSeo')
+                        ->label('AI Optimize SEO & Description')
+                        ->icon(Heroicon::OutlinedSparkles)
+                        ->action(function (Product $record): void {
+                            $res = AiSeoAgent::optimizeProduct($record, overwriteExisting: true, useLlm: true);
+                            Notification::make()
+                                ->title("SEO Optimized ({$res['source']})")
+                                ->body('Updated description, tags & metadata; sitemap & IndexNow synced.')
+                                ->success()
+                                ->send();
+                        }),
                     Action::make('refresh')
                         ->label('Recalculate price & stock')
                         ->icon(Heroicon::OutlinedArrowPath)
@@ -168,6 +180,25 @@ class ProductsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    BulkAction::make('aiOptimizeSeoBulk')
+                        ->label('AI Optimize SEO & Descriptions')
+                        ->icon(Heroicon::OutlinedSparkles)
+                        ->action(function (Collection $records): void {
+                            $aiCount = 0;
+                            foreach ($records->take(20) as $record) {
+                                $res = AiSeoAgent::optimizeProduct($record, overwriteExisting: true, useLlm: true);
+                                if ($res['source'] !== 'template') {
+                                    $aiCount++;
+                                }
+                            }
+                            $total = min(20, $records->count());
+                            Notification::make()
+                                ->title("Optimized {$total} product(s)")
+                                ->body("AI generated: {$aiCount} | Sitemap & IndexNow updated automatically.")
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
                     BulkAction::make('refresh')
                         ->label('Recalculate price & stock')
                         ->icon(Heroicon::OutlinedArrowPath)

@@ -207,7 +207,7 @@ class SeoController extends Controller
 
         return response($xml, 200, [
             'Content-Type' => 'application/xml; charset=UTF-8',
-            'Cache-Control' => 'public, max-age=1800',
+            'Cache-Control' => 'public, max-age=300, must-revalidate',
         ]);
     }
 
@@ -268,7 +268,7 @@ class SeoController extends Controller
 
         return response($xml, 200, [
             'Content-Type' => 'application/xml; charset=UTF-8',
-            'Cache-Control' => 'public, max-age=1800',
+            'Cache-Control' => 'public, max-age=300, must-revalidate',
         ]);
     }
 

@@ -7,6 +7,7 @@ use App\Filament\Support\Listings;
 use App\Http\Controllers\SeoController;
 use App\Models\Product;
 use App\Models\Setting;
+use App\Services\AiSeoAgent;
 use App\Services\DatabaseBackupService;
 use App\Services\EmailNotifier;
 use App\Services\OrderService;
@@ -56,6 +57,7 @@ class StoreSettings extends Page
         'telegram_bot_token', 'telegram_admin_chat_id', 'telegram_store_bot_enabled',
         'support_whatsapp', 'support_telegram', 'support_email', 'footer_phone_enabled', 'footer_email_enabled', 'footer_address_enabled', 'footer_address',
         'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id',
+        'ai_seo_auto_enabled', 'ai_seo_provider', 'groq_api_key', 'groq_model', 'openrouter_api_key', 'openrouter_model', 'gemini_api_key', 'gemini_model', 'custom_llm_base_url', 'custom_llm_api_key', 'custom_llm_model', 'ai_seo_brand_instructions',
         'mail_enabled', 'mail_send_order_delivered',
         'mail_host', 'mail_port', 'mail_username', 'mail_password',
         'mail_encryption', 'mail_from_address', 'mail_from_name',
@@ -97,7 +99,10 @@ class StoreSettings extends Page
     public ?array $data = [];
 
     /** Boolean toggles, stored as '1' / '0' strings. */
-    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered', 'telegram_store_bot_enabled', 'backup_enabled', 'promo_popup_enabled', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link', 'footer_phone_enabled', 'footer_email_enabled', 'footer_address_enabled'];
+    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered', 'telegram_store_bot_enabled', 'backup_enabled', 'promo_popup_enabled', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link', 'footer_phone_enabled', 'footer_email_enabled', 'footer_address_enabled', 'ai_seo_auto_enabled'];
+
+    /** Encrypted secret keys never echoed back into HTML inputs. */
+    protected const AI_SECRET_KEYS = ['groq_api_key', 'openrouter_api_key', 'gemini_api_key', 'custom_llm_api_key'];
 
     public function mount(): void
     {
@@ -108,8 +113,11 @@ class StoreSettings extends Page
             $values[$key] = (string) ($values[$key] ?? $default) === '1';
         }
 
-        // Never send the stored SMTP password back to the browser.
+        // Never send stored secrets back to the browser.
         $values['mail_password'] = '';
+        foreach (self::AI_SECRET_KEYS as $secretKey) {
+            $values[$secretKey] = '';
+        }
         $values['test_mail_recipient'] = $values['support_email'] ?: (auth()->user()?->email ?? 'contact@sellmetools.com');
         if (empty($values['backup_email'])) {
             $values['backup_email'] = $values['support_email'] ?: (auth()->user()?->email ?? '');
@@ -519,6 +527,115 @@ class StoreSettings extends Page
                                                 }),
                                         ])->columnSpanFull(),
                                     ]),
+
+                                Section::make('AI SEO Agent (Site-Trained Auto-Optimizer — Free LLM APIs)')
+                                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
+                                    ->description('Automatically writes rich HTML product descriptions, tags, meta titles, and priced meta descriptions using SellMeTools live catalog & payment rules. Works with Groq, OpenRouter, Google Gemini, or any OpenAI-compatible API.')
+                                    ->columns(['default' => 1, 'sm' => 2])
+                                    ->schema([
+                                        Toggle::make('ai_seo_auto_enabled')
+                                            ->label('Auto-Generate AI SEO on New / Incomplete Products')
+                                            ->helperText('When ON, newly added or incomplete products automatically get AI-generated descriptions, tags & metadata on save (plus instant Sitemap & IndexNow update).')
+                                            ->default(true)
+                                            ->columnSpanFull(),
+                                        Select::make('ai_seo_provider')
+                                            ->label('Preferred Free LLM Provider')
+                                            ->options(AiSeoAgent::providerOptions())
+                                            ->default(AiSeoAgent::PROVIDER_AUTO)
+                                            ->columnSpanFull(),
+                                        TextInput::make('groq_api_key')
+                                            ->label('Groq API Key (console.groq.com — Free & Ultra Fast)')
+                                            ->password()
+                                            ->revealable()
+                                            ->placeholder(fn (): string => filled(Setting::decryptSecret((string) Setting::get('groq_api_key'))) ? '✓ Saved securely — paste new key to replace' : 'gsk_...'),
+                                        TextInput::make('groq_model')
+                                            ->label('Groq Model')
+                                            ->placeholder('llama-3.3-70b-versatile'),
+                                        TextInput::make('openrouter_api_key')
+                                            ->label('OpenRouter API Key (openrouter.ai — Free :free Models)')
+                                            ->password()
+                                            ->revealable()
+                                            ->placeholder(fn (): string => filled(Setting::decryptSecret((string) Setting::get('openrouter_api_key'))) ? '✓ Saved securely — paste new key to replace' : 'sk-or-v1-...'),
+                                        TextInput::make('openrouter_model')
+                                            ->label('OpenRouter Model')
+                                            ->placeholder('meta-llama/llama-3.3-70b-instruct:free'),
+                                        TextInput::make('gemini_api_key')
+                                            ->label('Google Gemini API Key (aistudio.google.com — Free Tier)')
+                                            ->password()
+                                            ->revealable()
+                                            ->placeholder(fn (): string => filled(Setting::decryptSecret((string) Setting::get('gemini_api_key'))) ? '✓ Saved securely — paste new key to replace' : 'AIza...'),
+                                        TextInput::make('gemini_model')
+                                            ->label('Gemini Model')
+                                            ->placeholder('gemini-2.5-flash'),
+                                        TextInput::make('custom_llm_base_url')
+                                            ->label('Custom Endpoint Base URL (AgentRouter / Together / Ollama)')
+                                            ->placeholder('https://api.example.com/v1')
+                                            ->columnSpanFull(),
+                                        TextInput::make('custom_llm_api_key')
+                                            ->label('Custom Endpoint API Key')
+                                            ->password()
+                                            ->revealable()
+                                            ->placeholder(fn (): string => filled(Setting::decryptSecret((string) Setting::get('custom_llm_api_key'))) ? '✓ Saved securely — paste new key to replace' : 'Bearer API key'),
+                                        TextInput::make('custom_llm_model')
+                                            ->label('Custom Endpoint Model Name')
+                                            ->placeholder('gpt-4o-mini'),
+                                        Textarea::make('ai_seo_brand_instructions')
+                                            ->label('Extra Store Training Rules for AI Agent (Optional)')
+                                            ->placeholder('e.g. Always highlight 24/7 WhatsApp support, mention private vs shared account clarity, and prioritize Pakistan freelancers & students.')
+                                            ->rows(2)
+                                            ->maxLength(1000)
+                                            ->columnSpanFull(),
+                                        Actions::make([
+                                            Action::make('saveAiSeoSection')
+                                                ->label('Save AI SEO Agent Settings')
+                                                ->icon(Heroicon::OutlinedCheck)
+                                                ->color('primary')
+                                                ->action(fn () => $this->saveKeys([
+                                                    'ai_seo_auto_enabled', 'ai_seo_provider',
+                                                    'groq_api_key', 'groq_model',
+                                                    'openrouter_api_key', 'openrouter_model',
+                                                    'gemini_api_key', 'gemini_model',
+                                                    'custom_llm_base_url', 'custom_llm_api_key', 'custom_llm_model',
+                                                    'ai_seo_brand_instructions',
+                                                ], 'AI SEO Agent settings saved')),
+                                            Action::make('testAiSeoAgent')
+                                                ->label('Test AI SEO Agent Now')
+                                                ->icon(Heroicon::OutlinedSparkles)
+                                                ->color('success')
+                                                ->action(function (): void {
+                                                    $raw = is_array($this->data) ? $this->data : [];
+                                                    $res = AiSeoAgent::testConnection([
+                                                        'ai_seo_provider' => $raw['ai_seo_provider'] ?? null,
+                                                        'groq_api_key' => $raw['groq_api_key'] ?? '',
+                                                        'groq_model' => $raw['groq_model'] ?? '',
+                                                        'openrouter_api_key' => $raw['openrouter_api_key'] ?? '',
+                                                        'openrouter_model' => $raw['openrouter_model'] ?? '',
+                                                        'gemini_api_key' => $raw['gemini_api_key'] ?? '',
+                                                        'gemini_model' => $raw['gemini_model'] ?? '',
+                                                        'custom_llm_base_url' => $raw['custom_llm_base_url'] ?? '',
+                                                        'custom_llm_api_key' => $raw['custom_llm_api_key'] ?? '',
+                                                        'custom_llm_model' => $raw['custom_llm_model'] ?? '',
+                                                    ]);
+                                                    if ($res['success']) {
+                                                        Notification::make()->title('AI SEO Agent Connected!')->body($res['message'])->success()->send();
+                                                    } else {
+                                                        Notification::make()->title('AI SEO Agent Notice')->body($res['message'])->warning()->persistent()->send();
+                                                    }
+                                                }),
+                                            Action::make('optimizeMissingProductsSeo')
+                                                ->label('Auto-Optimize Products Missing Rich SEO')
+                                                ->icon(Heroicon::OutlinedBolt)
+                                                ->color('gray')
+                                                ->action(function (): void {
+                                                    $res = AiSeoAgent::optimizeMissingProducts(10);
+                                                    Notification::make()
+                                                        ->title("Processed {$res['processed']} product(s)")
+                                                        ->body("AI upgraded: {$res['ai_count']} | Store template upgraded: {$res['template_count']}")
+                                                        ->success()
+                                                        ->send();
+                                                }),
+                                        ])->columnSpanFull(),
+                                    ]),
                             ]),
 
                         // ==========================================
@@ -897,6 +1014,15 @@ class StoreSettings extends Page
                 }
 
                 continue; // empty = keep the currently saved password
+            }
+            if (in_array($key, self::AI_SECRET_KEYS, true)) {
+                $plain = trim((string) ($raw[$key] ?? ''));
+                if ($plain !== '') {
+                    $toSave[$key] = Setting::encryptSecret($plain);
+                    $this->data[$key] = '';
+                }
+
+                continue; // empty = keep the currently saved API key
             }
             $rawVal = $raw[$key] ?? null;
             if (is_array($rawVal)) {

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\PricingMode;
 use App\Enums\StockStatus;
 use App\Http\Controllers\SeoController;
+use App\Services\AiSeoAgent;
 use App\Services\InventoryService;
 use App\Services\PriceCalculator;
 use App\Services\ProductSeoOptimizer;
@@ -186,8 +187,12 @@ class Product extends Model
                 $product->price = 0;
             }
 
-            if (blank($product->meta_title) || blank($product->meta_description) || blank($product->meta_keywords) || blank($product->short_description)) {
-                $autoSeo = ProductSeoOptimizer::buildDynamicSeoFields($product);
+            if (blank($product->meta_title) || blank($product->meta_description) || blank($product->meta_keywords) || blank($product->short_description) || blank($product->description)) {
+                $autoSeo = AiSeoAgent::generateForProduct(
+                    $product,
+                    useLlm: AiSeoAgent::shouldAutoRunOnSave(),
+                    timeoutSeconds: 8
+                )['fields'];
                 if (blank($product->short_description)) {
                     $product->short_description = $autoSeo['short_description'];
                 }

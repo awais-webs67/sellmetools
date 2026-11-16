@@ -4,12 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
 
 class Setting extends Model
 {
     protected $fillable = ['key', 'value'];
 
     private const CACHE_KEY = 'app_settings_v2';
+
+    public const ENCRYPTED_PREFIX = 'enc:';
 
     /** @var array<string, mixed>|null In-memory memoized settings per PHP request (0 repeated DB/Cache hits). */
     private static ?array $memoized = null;
@@ -65,6 +68,19 @@ class Setting extends Model
         'bing_site_verification' => '',
         'indexnow_key' => 'a7f9c2e4b8d106359a2c4e6f8b0d2e4a',
         'google_analytics_id' => 'G-CFGVMHWE3G',
+        // Site-Trained AI SEO Agent (Groq / OpenRouter / Gemini / Custom OpenAI-Compatible Free APIs):
+        'ai_seo_auto_enabled' => '1',
+        'ai_seo_provider' => 'auto',
+        'groq_api_key' => '',
+        'groq_model' => 'llama-3.3-70b-versatile',
+        'openrouter_api_key' => '',
+        'openrouter_model' => 'meta-llama/llama-3.3-70b-instruct:free',
+        'gemini_api_key' => '',
+        'gemini_model' => 'gemini-2.5-flash',
+        'custom_llm_base_url' => '',
+        'custom_llm_api_key' => '',
+        'custom_llm_model' => '',
+        'ai_seo_brand_instructions' => '',
         'mail_enabled' => '1',
         'mail_send_order_delivered' => '1',
         'mail_host' => '',
@@ -143,5 +159,28 @@ class Setting extends Model
     public static function usdtRate(): float
     {
         return max(0.0001, (float) static::get('usdt_rate'));
+    }
+
+    public static function encryptSecret(string $plain): string
+    {
+        return $plain === '' ? '' : self::ENCRYPTED_PREFIX.Crypt::encryptString($plain);
+    }
+
+    public static function decryptSecret(?string $stored): string
+    {
+        $stored = (string) $stored;
+        if ($stored === '') {
+            return '';
+        }
+
+        if (! str_starts_with($stored, self::ENCRYPTED_PREFIX)) {
+            return $stored;
+        }
+
+        try {
+            return Crypt::decryptString(substr($stored, strlen(self::ENCRYPTED_PREFIX)));
+        } catch (\Throwable) {
+            return '';
+        }
     }
 }

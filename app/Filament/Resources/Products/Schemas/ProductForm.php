@@ -8,7 +8,9 @@ use App\Filament\Support\Listings;
 use App\Filament\Support\Money;
 use App\Models\Product;
 use App\Models\Setting;
+use App\Services\AiSeoAgent;
 use App\Services\PriceCalculator;
+use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
@@ -16,9 +18,12 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Str;
@@ -329,12 +334,65 @@ class ProductForm
                     ]),
 
                 Section::make('SEO & Search Engine Metadata')
-                    ->description('Custom meta title, keywords, and description. Leave blank to auto-generate high-ranking SEO tags.')
+                    ->description('Custom meta title, keywords, and description — or let the Site-Trained AI SEO Agent generate a complete, high-ranking description, tags & metadata in 1 click.')
                     ->icon(Heroicon::OutlinedMagnifyingGlass)
                     ->collapsible()
                     ->collapsed(fn (): bool => ! auth()->user()?->isSeoStaff())
                     ->columns(['default' => 1, 'md' => 2])
                     ->schema([
+                        Actions::make([
+                            Action::make('generateAiSeo')
+                                ->label('✨ Generate Full SEO, Description & Tags (AI Agent)')
+                                ->icon(Heroicon::OutlinedSparkles)
+                                ->color('primary')
+                                ->action(function (?Product $record, Get $get, Set $set): void {
+                                    $name = trim((string) ($get('name') ?: $record?->name ?: ''));
+                                    if ($name === '') {
+                                        Notification::make()
+                                            ->title('Enter Product Name First')
+                                            ->body('Please type a Product Name at the top before running the AI SEO Agent.')
+                                            ->warning()
+                                            ->send();
+
+                                        return;
+                                    }
+
+                                    $temp = new Product([
+                                        'category_id' => $get('category_id') ?: $record?->category_id,
+                                        'name' => $name,
+                                        'price' => $get('fixed_price') ?: $get('price') ?: $record?->price ?: 0,
+                                        'fixed_price' => $get('fixed_price') ?: $record?->fixed_price ?: 0,
+                                        'is_free' => (bool) ($get('is_free') ?? $record?->is_free ?? false),
+                                        'delivery_type' => (string) ($get('delivery_type') ?: $record?->delivery_type ?: 'auto'),
+                                        'short_description' => (string) ($get('short_description') ?: $record?->short_description ?: ''),
+                                        'warranty' => (string) ($get('warranty') ?: $record?->warranty ?: ''),
+                                        'description' => (string) ($get('description') ?: $record?->description ?: ''),
+                                    ]);
+                                    if ($record?->id) {
+                                        $temp->id = $record->id;
+                                    }
+
+                                    $result = AiSeoAgent::generateForProduct($temp, useLlm: true);
+                                    $fields = $result['fields'];
+
+                                    $set('short_description', $fields['short_description']);
+                                    $set('description', $fields['description']);
+                                    $set('warranty', $fields['warranty']);
+                                    $set('meta_title', $fields['meta_title']);
+                                    $set('meta_description', $fields['meta_description']);
+                                    $set('meta_keywords', $fields['meta_keywords']);
+
+                                    $note = $result['source'] === 'template'
+                                        ? 'Generated using built-in Store SEO Optimizer (add a free Groq/OpenRouter/Gemini key in Store Settings -> SEO for full LLM copywriting).'
+                                        : "Generated via {$result['source']} ({$result['model']}) using live SellMeTools store context. Review and click Save!";
+
+                                    Notification::make()
+                                        ->title('SEO Content & Tags Generated!')
+                                        ->body($note)
+                                        ->success()
+                                        ->send();
+                                }),
+                        ])->columnSpanFull(),
                         TextInput::make('meta_title')
                             ->label('Custom SEO Meta Title')
                             ->placeholder('Auto: Buy ChatGPT Plus Subscription Online | Instant Delivery')
