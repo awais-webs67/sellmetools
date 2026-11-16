@@ -61,6 +61,7 @@ class ViewOrder extends ViewRecord
                 $this->adminNoteAction(),
                 $this->cancelAction(),
                 $this->refundAction(),
+                $this->manualRefundAction(),
             ])->label('More Actions')->icon(Heroicon::OutlinedEllipsisVertical)->button()->color('gray'),
         ];
     }
@@ -370,6 +371,61 @@ class ViewOrder extends ViewRecord
                     : 'Order marked as refunded';
 
                 Notification::make()->title($title)->success()->send();
+                $this->refreshRecord();
+            });
+    }
+
+    protected function manualRefundAction(): Action
+    {
+        return Action::make('cancelAndRefundManually')
+            ->label('Cancel & Refund Manually (External)')
+            ->icon(Heroicon::OutlinedBanknotes)
+            ->color('warning')
+            ->visible(fn (): bool => ! in_array($this->record->status, [OrderStatus::Refunded, OrderStatus::Expired], true))
+            ->requiresConfirmation()
+            ->modalHeading('Cancel Order & Record Manual External Refund')
+            ->modalDescription('Cancels/refunds this order and releases reserved stock WITHOUT crediting the customer’s Account Wallet. Use when refunding directly to Easypaisa, JazzCash, SadaPay, Bank, or Binance.')
+            ->schema([
+                Select::make('target_status')
+                    ->label('Mark Order As')
+                    ->options([
+                        OrderStatus::Refunded->value => 'Refunded (Recommended)',
+                        OrderStatus::Cancelled->value => 'Cancelled',
+                    ])
+                    ->default(OrderStatus::Refunded->value)
+                    ->required(),
+                TextInput::make('refund_account')
+                    ->label('Refunded To (Account / Wallet — Optional)')
+                    ->placeholder('e.g. Easypaisa 03001234567 / SadaPay / Binance'),
+                TextInput::make('refund_reference')
+                    ->label('Refund TID / Reference (Optional)')
+                    ->placeholder('e.g. TID 987654321'),
+                Textarea::make('note')
+                    ->label('Additional Note (Optional)')
+                    ->rows(2),
+            ])
+            ->action(function (array $data): void {
+                $targetStatus = OrderStatus::tryFrom((string) ($data['target_status'] ?? '')) ?? OrderStatus::Refunded;
+                $details = array_filter([
+                    filled($data['refund_account'] ?? null) ? 'Sent to: '.trim((string) $data['refund_account']) : null,
+                    filled($data['refund_reference'] ?? null) ? 'Ref: '.trim((string) $data['refund_reference']) : null,
+                    filled($data['note'] ?? null) ? trim((string) $data['note']) : null,
+                ]);
+
+                $res = app(OrderService::class)->cancelAndRefund(
+                    $this->record,
+                    $targetStatus,
+                    $details !== [] ? implode(' · ', $details) : null,
+                    auth()->id(),
+                    false,
+                    false
+                );
+
+                Notification::make()
+                    ->title("Order marked {$targetStatus->label()} (Manual External Refund)")
+                    ->body("Rs {$res['amount']} recorded as external refund — customer Store Wallet balance unchanged.")
+                    ->success()
+                    ->send();
                 $this->refreshRecord();
             });
     }

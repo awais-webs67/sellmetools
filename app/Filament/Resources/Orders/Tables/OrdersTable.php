@@ -172,6 +172,7 @@ class OrdersTable
                     self::quickWhatsappDeliveredAction(),
                     self::quickCancelAction(),
                     self::quickRefundAction(),
+                    self::quickManualRefundAction(),
                 ])->icon(Heroicon::OutlinedEllipsisVertical)->color('gray'),
             ]);
     }
@@ -406,6 +407,44 @@ class OrdersTable
                     ? "Order {$record->number} refunded & Rs {$res['amount']} credited to Wallet!"
                     : "Order {$record->number} marked refunded";
                 Notification::make()->title($msg)->success()->send();
+            });
+    }
+
+    protected static function quickManualRefundAction(): Action
+    {
+        return Action::make('quickManualRefund')
+            ->label('Cancel & Refund Manually (External)')
+            ->icon(Heroicon::OutlinedBanknotes)
+            ->color('warning')
+            ->visible(fn (Order $record): bool => ! in_array($record->status, [OrderStatus::Refunded, OrderStatus::Expired], true))
+            ->requiresConfirmation()
+            ->modalDescription('Marks this order Refunded and releases stock WITHOUT adding funds to the customer’s Store Wallet (use when refunding directly via Easypaisa/JazzCash/Bank/Binance).')
+            ->schema([
+                TextInput::make('refund_account')
+                    ->label('Refunded To (Account / Method — Optional)')
+                    ->placeholder('e.g. Easypaisa 03001234567 / Bank'),
+                TextInput::make('refund_reference')
+                    ->label('Refund TID / Reference (Optional)')
+                    ->placeholder('e.g. TID 987654321'),
+            ])
+            ->action(function (Order $record, array $data): void {
+                $details = array_filter([
+                    filled($data['refund_account'] ?? null) ? 'Sent to: '.trim((string) $data['refund_account']) : null,
+                    filled($data['refund_reference'] ?? null) ? 'Ref: '.trim((string) $data['refund_reference']) : null,
+                ]);
+                $res = app(OrderService::class)->cancelAndRefund(
+                    $record,
+                    OrderStatus::Refunded,
+                    $details !== [] ? implode(' · ', $details) : null,
+                    auth()->id(),
+                    false,
+                    false
+                );
+                Notification::make()
+                    ->title("Order {$record->number} marked Refunded manually (Rs {$res['amount']})")
+                    ->body('Customer Store Wallet balance was NOT credited.')
+                    ->success()
+                    ->send();
             });
     }
 }

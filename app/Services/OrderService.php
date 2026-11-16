@@ -173,15 +173,17 @@ class OrderService
         OrderStatus $targetStatus = OrderStatus::Cancelled,
         ?string $note = null,
         ?int $adminId = null,
-        bool $forceWalletRefund = false
+        bool $forceWalletRefund = false,
+        bool $creditWallet = true
     ): array {
         $result = [
             'refunded' => false,
+            'manual_refund' => ! $creditWallet,
             'amount' => 0.0,
             'user_email' => null,
         ];
 
-        DB::transaction(function () use ($order, $targetStatus, $note, $adminId, $forceWalletRefund, &$result) {
+        DB::transaction(function () use ($order, $targetStatus, $note, $adminId, $forceWalletRefund, $creditWallet, &$result) {
             /** @var Order $locked */
             $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
 
@@ -197,7 +199,7 @@ class OrderService
 
             $refundAmount = round((float) $locked->total, 2);
 
-            if (($wasPaid || $forceWalletRefund) && ! $alreadyRefunded && $refundAmount > 0) {
+            if ($creditWallet && ($wasPaid || $forceWalletRefund) && ! $alreadyRefunded && $refundAmount > 0) {
                 $user = $locked->user ?: User::query()->where('email', $locked->email)->first();
 
                 if ($user) {
@@ -215,6 +217,8 @@ class OrderService
                     $result['amount'] = $refundAmount;
                     $result['user_email'] = $user->email;
                 }
+            } elseif (! $creditWallet) {
+                $result['amount'] = $refundAmount;
             }
 
             foreach ($locked->items as $item) {
@@ -238,6 +242,7 @@ class OrderService
             $noteParts = array_filter([
                 $locked->admin_note,
                 $result['refunded'] ? "Auto-refunded Rs {$result['amount']} to Wallet ({$result['user_email']})" : null,
+                (! $creditWallet) ? "Manual external refund Rs {$refundAmount} (not credited to Wallet)" : null,
                 filled($note) ? "Note: {$note}" : null,
             ]);
 

@@ -297,6 +297,44 @@ class AdminPanelTest extends TestCase
         $this->assertSame(OrderStatus::Cancelled, $this->order->fresh()->status);
     }
 
+    public function test_order_can_be_cancelled_and_refunded_manually_without_crediting_store_wallet(): void
+    {
+        $this->actingAs($this->admin);
+
+        $customer = User::factory()->create([
+            'email' => 'manualrefund@example.com',
+            'wallet_balance' => 100.00,
+        ]);
+
+        $this->order->update([
+            'user_id' => $customer->id,
+            'email' => $customer->email,
+            'status' => OrderStatus::Completed,
+            'paid_at' => now(),
+            'completed_at' => now(),
+        ]);
+
+        Livewire::test(ViewOrder::class, ['record' => $this->order->getRouteKey()])
+            ->callAction('cancelAndRefundManually', [
+                'target_status' => OrderStatus::Refunded->value,
+                'refund_account' => 'Easypaisa 03001234567',
+                'refund_reference' => 'TID-778899',
+                'note' => 'Refunded directly to customer wallet app',
+            ])
+            ->assertHasNoFormErrors();
+
+        $freshOrder = $this->order->fresh();
+        $this->assertSame(OrderStatus::Refunded, $freshOrder->status);
+        $this->assertStringContainsString('Manual external refund', (string) $freshOrder->admin_note);
+        $this->assertStringContainsString('Easypaisa 03001234567', (string) $freshOrder->admin_note);
+        $this->assertStringContainsString('TID-778899', (string) $freshOrder->admin_note);
+        $this->assertSame(100.0, (float) $customer->fresh()->wallet_balance);
+        $this->assertDatabaseMissing('wallet_transactions', [
+            'order_id' => $this->order->id,
+            'type' => 'order_refund',
+        ]);
+    }
+
     public function test_orders_tabs_and_view_order_approve_work(): void
     {
         $this->actingAs($this->admin);
