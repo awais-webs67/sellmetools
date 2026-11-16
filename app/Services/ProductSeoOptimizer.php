@@ -425,7 +425,7 @@ class ProductSeoOptimizer
 
         $shortDesc = $rawSummary !== ''
             ? Str::limit($rawSummary, 165, '.')
-            : "Buy genuine {$name} subscription online with instant automated delivery. Pay securely via Easypaisa, JazzCash, NayaPay, SadaPay, or Binance USDT.";
+            : "Buy genuine {$name} subscription online with instant automated delivery, official access, and replacement warranty support.";
 
         $rawWarranty = Product::normalizeUnicodeText((string) $product->warranty);
         $cleanWarranty = static::cleanRawSupplierText($rawWarranty);
@@ -454,32 +454,32 @@ class ProductSeoOptimizer
 HTML;
         }
 
-        $metaTitle = "Buy {$name} | Best Price in Pakistan";
+        $metaTitle = "Buy {$name} | Instant Delivery";
         if (mb_strlen($metaTitle) > 58) {
-            $metaTitle = "Buy {$name} | Instant Delivery";
+            $metaTitle = "Buy {$name} | Best Price";
         }
         if (mb_strlen($metaTitle) > 58) {
             $metaTitle = Str::limit("Buy {$name}", 58, '');
         }
 
         $metaDesc = Str::limit(
-            "Buy {$name} online at the lowest price in Pakistan and worldwide. {$shortDesc} Instant delivery via Easypaisa, JazzCash & USDT.",
+            "Buy {$name} online at the best price. {$shortDesc} Instant delivery & verified warranty support.",
             152,
             '...'
         );
 
         $metaKeywords = static::capKeywords(implode(', ', array_unique(array_filter([
             "buy {$name}",
-            "buy {$name} online",
-            "{$name} price in Pakistan",
-            "cheap {$name} subscription",
-            "genuine {$name} account",
+            "{$name} subscription",
+            "{$name} price",
+            "cheap {$name}",
+            "{$name} plan",
             "{$name} instant delivery",
-            "{$brand} subscription price in Pakistan",
-            "buy {$brand} subscription online",
-            "buy {$name} with Easypaisa JazzCash",
-            "buy {$name} USDT Binance",
-            "{$categoryName} Pakistan",
+            "{$brand} subscription",
+            "buy {$brand} online",
+            "{$name} price in Pakistan",
+            "{$categoryName} tools",
+            'digital software subscriptions',
             'SellMeTools',
         ]))), 240);
 

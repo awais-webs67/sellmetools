@@ -1152,17 +1152,17 @@ class Product extends Model
 
         if ($base !== '') {
             if ($hasValidPrice) {
-                return $limit("Buy {$this->name} cheap subscription online (".money($this->price)."). {$base}");
+                return $limit("Buy {$this->name} subscription online (".money($this->price)."). {$base}");
             }
 
-            return $limit("Buy {$this->name} cheap subscription online with instant delivery. {$base} Pay via Binance USDT, Easypaisa or JazzCash.");
+            return $limit("Buy {$this->name} subscription online with instant automated delivery. {$base}");
         }
 
         if ($hasValidPrice) {
-            return $limit("Buy {$this->name} cheap subscription online for ".money($this->price).'. Instant worldwide delivery via Binance USDT or local PKR wallets (Easypaisa, JazzCash).');
+            return $limit("Buy {$this->name} subscription online for ".money($this->price).'. Genuine access with instant digital delivery and replacement warranty.');
         }
 
-        return $limit("Buy {$this->name} cheap subscription online with instant automated delivery worldwide. Pay via Binance Pay / USDT or local PKR wallets.");
+        return $limit("Buy {$this->name} subscription online with instant automated delivery, verified access, and replacement warranty support.");
     }
 
     public function seoKeywords(): string
@@ -1170,16 +1170,16 @@ class Product extends Model
         $cleanName = ProductSeoOptimizer::cleanProductTitle((string) $this->name);
         $brand = $this->brandName();
         $baseKeywords = [
-            "{$cleanName} price in Pakistan",
-            "buy {$cleanName} in Pakistan",
-            "buy {$cleanName} with Easypaisa JazzCash",
-            "buy {$cleanName} without credit card",
-            "{$cleanName} cheap subscription",
+            "buy {$cleanName}",
+            "{$cleanName} subscription",
+            "{$cleanName} price",
+            "cheap {$cleanName}",
             "buy {$cleanName} online",
-            "{$brand} subscription price in Pakistan",
             "{$cleanName} instant delivery",
-            "{$cleanName} USDT Binance",
-            $this->category ? $this->category->name.' Pakistan' : null,
+            "{$brand} subscription",
+            "{$cleanName} price in Pakistan",
+            "buy {$cleanName} without credit card",
+            $this->category ? $this->category->name.' tools' : null,
             (string) Setting::get('store_name', 'SellMeTools'),
         ];
 
