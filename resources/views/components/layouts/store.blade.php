@@ -441,13 +441,21 @@
                     @endforeach
                 </div>
                 @php
+                    $footerPhoneEnabled = (string) setting('footer_phone_enabled', '1') === '1';
+                    $footerPhoneDigits = format_whatsapp((string) setting('support_whatsapp', ''));
                     $footerEmailEnabled = (string) setting('footer_email_enabled', '1') === '1';
                     $footerEmail = trim((string) setting('support_email', ''));
                     $footerAddressEnabled = (string) setting('footer_address_enabled', '1') === '1';
                     $footerAddress = trim((string) setting('footer_address', 'Vilage Dongray Kalan Post Office Pindi Purbian city Zafarwal district narowal'));
                 @endphp
-                @if (($footerEmailEnabled && $footerEmail !== '') || ($footerAddressEnabled && $footerAddress !== ''))
+                @if (($footerPhoneEnabled && $footerPhoneDigits !== '') || ($footerEmailEnabled && $footerEmail !== '') || ($footerAddressEnabled && $footerAddress !== ''))
                     <div class="mt-4 space-y-2 text-xs text-white/75 max-w-md leading-relaxed">
+                        @if ($footerPhoneEnabled && $footerPhoneDigits !== '')
+                            <div class="flex items-center gap-2">
+                                <svg class="h-4 w-4 shrink-0 text-white/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                <a href="tel:+{{ $footerPhoneDigits }}" class="hover:text-white underline-offset-2 hover:underline">+{{ $footerPhoneDigits }}</a>
+                            </div>
+                        @endif
                         @if ($footerEmailEnabled && $footerEmail !== '')
                             <div class="flex items-center gap-2">
                                 <svg class="h-4 w-4 shrink-0 text-white/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>

@@ -54,7 +54,7 @@ class StoreSettings extends Page
         'greenapi_instance_id', 'greenapi_api_token', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link', 'ntfy_topic',
         'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
         'telegram_bot_token', 'telegram_admin_chat_id', 'telegram_store_bot_enabled',
-        'support_whatsapp', 'support_telegram', 'support_email', 'footer_email_enabled', 'footer_address_enabled', 'footer_address',
+        'support_whatsapp', 'support_telegram', 'support_email', 'footer_phone_enabled', 'footer_email_enabled', 'footer_address_enabled', 'footer_address',
         'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id',
         'mail_enabled', 'mail_send_order_delivered',
         'mail_host', 'mail_port', 'mail_username', 'mail_password',
@@ -97,7 +97,7 @@ class StoreSettings extends Page
     public ?array $data = [];
 
     /** Boolean toggles, stored as '1' / '0' strings. */
-    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered', 'telegram_store_bot_enabled', 'backup_enabled', 'promo_popup_enabled', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link', 'footer_email_enabled', 'footer_address_enabled'];
+    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered', 'telegram_store_bot_enabled', 'backup_enabled', 'promo_popup_enabled', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link', 'footer_phone_enabled', 'footer_email_enabled', 'footer_address_enabled'];
 
     public function mount(): void
     {
@@ -344,7 +344,7 @@ class StoreSettings extends Page
                                     ->columns(['default' => 1, 'sm' => 3])
                                     ->schema([
                                         TextInput::make('support_whatsapp')
-                                            ->label('WhatsApp Number')
+                                            ->label('WhatsApp / Contact Number')
                                             ->placeholder('923001234567'),
                                         TextInput::make('support_telegram')
                                             ->label('Telegram Username')
@@ -354,6 +354,11 @@ class StoreSettings extends Page
                                             ->email()
                                             ->maxLength(255)
                                             ->placeholder('contact@sellmetools.com'),
+                                        Toggle::make('footer_phone_enabled')
+                                            ->label('Show Contact Number in Website Footer')
+                                            ->helperText('Turn ON to display the Contact Number above in the website footer. Turn OFF anytime without affecting the WhatsApp chat button or Contact page.')
+                                            ->default(true)
+                                            ->columnSpanFull(),
                                         Toggle::make('footer_email_enabled')
                                             ->label('Show Contact Email in Website Footer')
                                             ->helperText('Turn ON to display the Contact Email above in the website footer. Turn OFF anytime without removing it from the Contact page or receipts.')
@@ -374,7 +379,7 @@ class StoreSettings extends Page
                                                 ->label('Save Support Contacts & Address')
                                                 ->icon(Heroicon::OutlinedCheck)
                                                 ->color('primary')
-                                                ->action(fn () => $this->saveKeys(['support_whatsapp', 'support_telegram', 'support_email', 'footer_email_enabled', 'footer_address_enabled', 'footer_address'], 'Support contacts & footer address saved')),
+                                                ->action(fn () => $this->saveKeys(['support_whatsapp', 'support_telegram', 'support_email', 'footer_phone_enabled', 'footer_email_enabled', 'footer_address_enabled', 'footer_address'], 'Support contacts & footer address saved')),
                                         ])->columnSpanFull(),
                                     ]),
                             ]),

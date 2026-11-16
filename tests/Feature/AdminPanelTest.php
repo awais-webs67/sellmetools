@@ -451,6 +451,8 @@ class AdminPanelTest extends TestCase
 
         Livewire::test(StoreSettings::class)
             ->fillForm([
+                'support_whatsapp' => '03001234567',
+                'footer_phone_enabled' => true,
                 'support_email' => 'hello@sellmetools.com',
                 'footer_email_enabled' => true,
                 'footer_address' => 'Office 12, Gulberg III, Lahore',
@@ -459,6 +461,8 @@ class AdminPanelTest extends TestCase
             ->call('save')
             ->assertHasNoFormErrors();
 
+        $this->assertSame('923001234567', Setting::get('support_whatsapp'));
+        $this->assertSame('1', Setting::get('footer_phone_enabled'));
         $this->assertSame('hello@sellmetools.com', Setting::get('support_email'));
         $this->assertSame('1', Setting::get('footer_email_enabled'));
         $this->assertSame('Office 12, Gulberg III, Lahore', Setting::get('footer_address'));
@@ -466,23 +470,28 @@ class AdminPanelTest extends TestCase
 
         $this->get('/')
             ->assertOk()
+            ->assertSee('tel:+923001234567', false)
+            ->assertSee('+923001234567')
             ->assertSee('mailto:hello@sellmetools.com', false)
             ->assertSee('hello@sellmetools.com')
             ->assertSee('Office 12, Gulberg III, Lahore');
 
         Livewire::test(StoreSettings::class)
             ->fillForm([
+                'footer_phone_enabled' => false,
                 'footer_email_enabled' => false,
                 'footer_address_enabled' => false,
             ])
             ->call('save')
             ->assertHasNoFormErrors();
 
+        $this->assertSame('0', Setting::get('footer_phone_enabled'));
         $this->assertSame('0', Setting::get('footer_email_enabled'));
         $this->assertSame('0', Setting::get('footer_address_enabled'));
 
         $response = $this->get('/');
         $response->assertOk();
+        $response->assertDontSee('tel:+923001234567', false);
         $response->assertDontSee('mailto:hello@sellmetools.com', false);
         $response->assertDontSee('Office 12, Gulberg III, Lahore');
     }

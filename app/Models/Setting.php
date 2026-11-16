@@ -43,6 +43,7 @@ class Setting extends Model
         'support_whatsapp' => '',
         'support_telegram' => '',
         'support_email' => '',
+        'footer_phone_enabled' => '1',
         'footer_email_enabled' => '1',
         'footer_address_enabled' => '1',
         'footer_address' => 'Vilage Dongray Kalan Post Office Pindi Purbian city Zafarwal district narowal',
