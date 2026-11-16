@@ -375,6 +375,11 @@ class ProductForm
                                     $result = AiSeoAgent::generateForProduct($temp, useLlm: true);
                                     $fields = $result['fields'];
 
+                                    if ($record?->exists) {
+                                        $record->snapshotSeoBackup($result['source'], $result['model']);
+                                        $record->saveQuietly();
+                                    }
+
                                     $set('short_description', $fields['short_description']);
                                     $set('description', $fields['description']);
                                     $set('warranty', $fields['warranty']);
@@ -384,11 +389,42 @@ class ProductForm
 
                                     $note = $result['source'] === 'template'
                                         ? 'Generated using built-in Store SEO Optimizer (add a free Groq/OpenRouter/Gemini key in Store Settings -> SEO for full LLM copywriting).'
-                                        : "Generated via {$result['source']} ({$result['model']}) using live SellMeTools store context. Review and click Save!";
+                                        : "Generated via {$result['source']} ({$result['model']}) using live SellMeTools store context. Click Save to publish — or use Revert Back anytime!";
 
                                     Notification::make()
                                         ->title('SEO Content & Tags Generated!')
                                         ->body($note)
+                                        ->success()
+                                        ->send();
+                                }),
+                            Action::make('revertAiSeo')
+                                ->label('↩️ Revert Back to Previous SEO')
+                                ->icon(Heroicon::OutlinedArrowUturnLeft)
+                                ->color('warning')
+                                ->visible(fn (?Product $record): bool => (bool) $record?->hasSeoBackup())
+                                ->requiresConfirmation()
+                                ->modalHeading('Revert to Previous SEO?')
+                                ->modalDescription('This restores the previous Description, Short Summary, Warranty, Meta Title, Meta Description, and SEO Tags saved before AI optimization.')
+                                ->action(function (?Product $record, Set $set): void {
+                                    if (! $record || ! $record->revertSeoFromBackup()) {
+                                        Notification::make()
+                                            ->title('No Previous SEO Backup Found')
+                                            ->warning()
+                                            ->send();
+
+                                        return;
+                                    }
+
+                                    $set('short_description', (string) ($record->short_description ?? ''));
+                                    $set('description', (string) ($record->description ?? ''));
+                                    $set('warranty', (string) ($record->warranty ?? ''));
+                                    $set('meta_title', (string) ($record->meta_title ?? ''));
+                                    $set('meta_description', (string) ($record->meta_description ?? ''));
+                                    $set('meta_keywords', (string) ($record->meta_keywords ?? ''));
+
+                                    Notification::make()
+                                        ->title('Reverted to Previous SEO!')
+                                        ->body('Original description, tags, and meta fields have been restored and synced to the storefront & sitemap.')
                                         ->success()
                                         ->send();
                                 }),

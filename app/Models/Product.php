@@ -27,7 +27,7 @@ class Product extends Model
 
     protected $fillable = [
         'category_id', 'name', 'slug', 'legacy_slugs', 'short_description', 'description', 'warranty', 'image',
-        'meta_title', 'meta_description', 'meta_keywords',
+        'meta_title', 'meta_description', 'meta_keywords', 'seo_backup',
         'pricing_mode', 'delivery_type', 'customer_input_label', 'fixed_price', 'markup_value', 'use_overall_supplier_markup', 'compare_at_price', 'price', 'cost_price',
         'available_stock', 'stock_limit', 'stock_unlimited',
         'is_active', 'is_featured', 'is_free', 'disabled_reason', 'max_per_order', 'sort', 'sold_count',
@@ -151,6 +151,7 @@ class Product extends Model
             'is_featured' => 'boolean',
             'is_free' => 'boolean',
             'legacy_slugs' => 'array',
+            'seo_backup' => 'array',
         ];
     }
 
@@ -296,7 +297,7 @@ class Product extends Model
         }
         $checked = true;
 
-        if (! app()->runningUnitTests() && is_file(storage_path('framework/schema_v8_ready.flag'))) {
+        if (! app()->runningUnitTests() && is_file(storage_path('framework/schema_v9_ready.flag'))) {
             return;
         }
 
@@ -304,6 +305,11 @@ class Product extends Model
             if (! Schema::hasColumn('products', 'legacy_slugs')) {
                 Schema::table('products', function (Blueprint $table): void {
                     $table->json('legacy_slugs')->nullable()->after('slug');
+                });
+            }
+            if (! Schema::hasColumn('products', 'seo_backup')) {
+                Schema::table('products', function (Blueprint $table): void {
+                    $table->json('seo_backup')->nullable()->after('meta_keywords');
                 });
             }
             if (! Schema::hasColumn('products', 'is_free')) {
@@ -349,7 +355,7 @@ class Product extends Model
                 }
             }
             if (! app()->runningUnitTests()) {
-                @file_put_contents(storage_path('framework/schema_v8_ready.flag'), '1');
+                @file_put_contents(storage_path('framework/schema_v9_ready.flag'), '1');
             }
         } catch (\Throwable $e) {
             report($e);
@@ -1175,5 +1181,46 @@ class Product extends Model
         }
 
         return implode(', ', array_values(array_unique(array_filter($baseKeywords))));
+    }
+
+    public function hasSeoBackup(): bool
+    {
+        return is_array($this->seo_backup) && array_key_exists('meta_title', $this->seo_backup);
+    }
+
+    public function snapshotSeoBackup(string $nextSource = 'ai', string $nextModel = ''): void
+    {
+        static::ensureFreeAndStockColumnsExist();
+
+        $this->seo_backup = [
+            'saved_at' => now()->toIso8601String(),
+            'next_source' => $nextSource,
+            'next_model' => $nextModel,
+            'short_description' => (string) ($this->short_description ?? ''),
+            'description' => (string) ($this->description ?? ''),
+            'warranty' => (string) ($this->warranty ?? ''),
+            'meta_title' => (string) ($this->meta_title ?? ''),
+            'meta_description' => (string) ($this->meta_description ?? ''),
+            'meta_keywords' => (string) ($this->meta_keywords ?? ''),
+        ];
+    }
+
+    public function revertSeoFromBackup(): bool
+    {
+        if (! $this->hasSeoBackup()) {
+            return false;
+        }
+
+        $backup = $this->seo_backup;
+        $this->short_description = (string) ($backup['short_description'] ?? '');
+        $this->description = (string) ($backup['description'] ?? '');
+        $this->warranty = (string) ($backup['warranty'] ?? '');
+        $this->meta_title = (string) ($backup['meta_title'] ?? '');
+        $this->meta_description = (string) ($backup['meta_description'] ?? '');
+        $this->meta_keywords = (string) ($backup['meta_keywords'] ?? '');
+        $this->seo_backup = null;
+        $this->save();
+
+        return true;
     }
 }

@@ -263,5 +263,71 @@ class AiSeoAgentTest extends TestCase
         $this->assertSame('gemini', $geminiChainRes['source']);
         $this->assertStringContainsString('Auto-shifted', $geminiChainRes['message']);
     }
+
+    public function test_ai_seo_optimization_saves_backup_and_can_be_reverted_with_full_training_context(): void
+    {
+        Setting::set('groq_api_key', Setting::encryptSecret('gsk_test_key_revert'));
+
+        Http::fake([
+            'https://api.groq.com/openai/v1/chat/completions' => Http::response([
+                'model' => 'openai/gpt-oss-20b',
+                'choices' => [[
+                    'message' => [
+                        'content' => json_encode([
+                            'short_description' => 'AI upgraded subtitle for ChatGPT Plus with instant PKR & USDT delivery.',
+                            'meta_title' => 'Buy ChatGPT Plus AI Upgraded | Instant Delivery',
+                            'meta_description' => 'Buy ChatGPT Plus for Rs 1,800 via Easypaisa, JazzCash & Binance USDT.',
+                            'meta_keywords' => 'chatgpt plus ai upgraded, buy chatgpt plus pakistan',
+                            'warranty' => 'AI upgraded 30-day warranty.',
+                            'description' => '<h3>Buy ChatGPT Plus Online</h3><p>Rich AI-written SEO description.</p>',
+                        ]),
+                    ],
+                ]],
+            ], 200),
+        ]);
+
+        $product = Product::create([
+            'category_id' => $this->category->id,
+            'name' => 'ChatGPT Plus 1 Month Official',
+            'price' => 1800,
+            'fixed_price' => 1800,
+            'short_description' => 'Original custom subtitle',
+            'description' => '<h3>Original Heading</h3><p>Original hand-written description.</p>',
+            'warranty' => 'Original 7-day warranty',
+            'meta_title' => 'Original Meta Title',
+            'meta_description' => 'Original meta description for Rs 1,800.',
+            'meta_keywords' => 'original tag 1, original tag 2',
+            'is_active' => true,
+            'stock_unlimited' => true,
+        ]);
+
+        $context = AiSeoAgent::buildStoreTrainingContext($product);
+        $this->assertArrayHasKey('top_selling_products', $context['store']);
+        $this->assertArrayHasKey('sellmetools_style_reference', $context);
+        $this->assertNotEmpty($context['sellmetools_style_reference']);
+        $this->assertSame('Unlimited Instant Stock', $context['product']['stock_status']);
+
+        $this->assertFalse($product->hasSeoBackup());
+
+        $res = AiSeoAgent::optimizeProduct($product, overwriteExisting: true, useLlm: true);
+        $this->assertSame('groq', $res['source']);
+
+        $product->refresh();
+        $this->assertTrue($product->hasSeoBackup());
+        $this->assertSame('Buy ChatGPT Plus AI Upgraded | Instant Delivery', $product->meta_title);
+        $this->assertStringContainsString('Rich AI-written SEO description', (string) $product->description);
+
+        $reverted = AiSeoAgent::revertProduct($product);
+        $this->assertTrue($reverted);
+
+        $product->refresh();
+        $this->assertFalse($product->hasSeoBackup());
+        $this->assertSame('Original Meta Title', $product->meta_title);
+        $this->assertSame('Original custom subtitle', $product->short_description);
+        $this->assertSame('<h3>Original Heading</h3><p>Original hand-written description.</p>', $product->description);
+        $this->assertSame('Original 7-day warranty', $product->warranty);
+        $this->assertSame('Original meta description for Rs 1,800.', $product->meta_description);
+        $this->assertSame('original tag 1, original tag 2', $product->meta_keywords);
+    }
 }
 

@@ -183,6 +183,10 @@ class AiSeoAgent
         $fields = $generated['fields'];
         $updated = [];
 
+        if ($product->exists) {
+            $product->snapshotSeoBackup($generated['source'], $generated['model']);
+        }
+
         foreach (['short_description', 'description', 'warranty', 'meta_title', 'meta_description', 'meta_keywords'] as $column) {
             $newValue = $fields[$column] ?? '';
             if ($newValue === '') {
@@ -205,6 +209,11 @@ class AiSeoAgent
             'updated_fields' => $updated,
             'error' => $generated['error'],
         ];
+    }
+
+    public static function revertProduct(Product $product): bool
+    {
+        return $product->revertSeoFromBackup();
     }
 
     /**
@@ -577,10 +586,11 @@ class AiSeoAgent
         $categories = Category::query()
             ->where('is_active', true)
             ->orderBy('sort')
-            ->get(['id', 'name', 'slug'])
+            ->get(['id', 'name', 'slug', 'meta_description'])
             ->map(fn (Category $c): array => [
                 'name' => $c->name,
                 'url' => url("/category/{$c->slug}"),
+                'focus' => Str::limit((string) ($c->meta_description ?? ''), 120),
             ])
             ->all();
 
@@ -599,6 +609,21 @@ class AiSeoAgent
             ])
             ->all();
 
+        $topSellingProducts = Product::query()
+            ->visible()
+            ->when($product->id, fn ($q) => $q->where('id', '!=', $product->id))
+            ->orderByDesc('sold_count')
+            ->orderByDesc('is_featured')
+            ->limit(5)
+            ->get(['name', 'slug', 'price', 'is_free'])
+            ->map(fn (Product $p): array => [
+                'name' => $p->name,
+                'url' => url("/products/{$p->slug}"),
+                'price_pkr' => $p->isFree() ? 'Free' : money($p->price),
+            ])
+            ->all();
+
+        $curatedExamples = static::curatedStyleExamples($product, $category?->slug);
         $customBrandInstructions = trim((string) Setting::get('ai_seo_brand_instructions', ''));
 
         return [
@@ -606,6 +631,9 @@ class AiSeoAgent
                 'name' => $storeName,
                 'url' => url('/'),
                 'tagline' => (string) Setting::get('store_tagline', ''),
+                'store_seo_title' => (string) Setting::get('seo_title', ''),
+                'store_seo_description' => (string) Setting::get('seo_description', ''),
+                'store_target_keywords' => Str::limit((string) Setting::get('seo_keywords', ''), 260),
                 'accepted_payments' => [
                     'Easypaisa',
                     'JazzCash',
@@ -615,47 +643,104 @@ class AiSeoAgent
                     'Binance Pay',
                     'USDT (TRC20)',
                 ],
+                'usdt_rate_pkr' => $usdtRate,
                 'whatsapp' => (string) Setting::get('support_whatsapp', ''),
                 'email' => (string) Setting::get('support_email', ''),
                 'custom_brand_instructions' => $customBrandInstructions,
                 'categories' => $categories,
+                'top_selling_products' => $topSellingProducts,
             ],
             'product' => [
                 'name' => ProductSeoOptimizer::cleanProductTitle((string) $product->name) ?: (string) $product->name,
+                'brand' => $product->brandName(),
                 'category' => $category?->name ?? 'Digital Subscriptions',
                 'price_pkr' => $product->is_free ? 'Free' : ($pricePkr > 0 ? money($pricePkr) : 'Check live price'),
                 'approx_usdt' => $priceUsd > 0 ? '$'.$priceUsd.' USDT' : null,
+                'stock_status' => $product->stock_unlimited
+                    ? 'Unlimited Instant Stock'
+                    : (((int) ($product->available_stock ?? 0) > 0) ? "{$product->available_stock} units in stock" : 'Check availability'),
                 'delivery_type' => (string) ($product->delivery_type ?: 'auto'),
                 'delivery_label' => Product::deliveryTypeOptions()[$product->delivery_type ?: 'auto'] ?? 'Automated Digital Delivery',
+                'customer_input_required' => trim((string) ($product->customer_input_label ?? '')),
                 'existing_summary' => ProductSeoOptimizer::cleanRawSupplierText((string) $product->short_description),
                 'existing_warranty' => ProductSeoOptimizer::cleanRawSupplierText((string) $product->warranty),
-                'existing_notes' => Str::limit(ProductSeoOptimizer::cleanRawSupplierText((string) $product->description), 600),
+                'existing_notes' => Str::limit(ProductSeoOptimizer::cleanRawSupplierText((string) $product->description), 750),
                 'related_store_products' => $relatedProducts,
             ],
+            'sellmetools_style_reference' => $curatedExamples,
         ];
+    }
+
+    /**
+     * Picks 1-2 curated SellMeTools reference entries matching the product category/slug
+     * so the LLM mirrors exact store formatting, warranty clarity, and keyword quality.
+     *
+     * @return array<int, array{short: string, warranty: string, keywords: string}>
+     */
+    protected static function curatedStyleExamples(Product $product, ?string $categorySlug): array
+    {
+        try {
+            $catalog = ProductSeoOptimizer::curatedCatalog();
+            if ($catalog === []) {
+                return [];
+            }
+
+            $searchSlug = Str::slug((string) ($product->slug ?: $product->name));
+            $picked = [];
+
+            foreach ($catalog as $slug => $entry) {
+                if ($searchSlug !== '' && (str_contains($slug, strtok($searchSlug, '-') ?: '') || ($categorySlug && str_contains($slug, strtok($categorySlug, '-') ?: '')))) {
+                    $picked[] = [
+                        'short' => (string) ($entry['short_description'] ?? ''),
+                        'warranty' => (string) ($entry['warranty'] ?? ''),
+                        'keywords' => (string) ($entry['meta_keywords'] ?? ''),
+                    ];
+                    if (count($picked) >= 1) {
+                        break;
+                    }
+                }
+            }
+
+            if ($picked === []) {
+                $first = reset($catalog);
+                if (is_array($first)) {
+                    $picked[] = [
+                        'short' => (string) ($first['short_description'] ?? ''),
+                        'warranty' => (string) ($first['warranty'] ?? ''),
+                        'keywords' => (string) ($first['meta_keywords'] ?? ''),
+                    ];
+                }
+            }
+
+            return $picked;
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     protected static function buildSystemPrompt(): string
     {
         return <<<'PROMPT'
-You are the dedicated E-commerce SEO & Product Copywriting Agent trained exclusively on SellMeTools.com's live store data.
+You are the Principal E-commerce SEO Architect, Conversion Copywriter & GEO (AI Search) Specialist trained specifically on SellMeTools.com's live database, catalog, pricing, payment methods, and high-ranking curated product style.
 
-Strict accuracy & SEO rules:
-1. Ground every claim strictly in the provided STORE_DATA JSON. Never invent fake payment gateways (do NOT mention PayPal, Stripe, or Visa unless listed), never invent fake lifetime guarantees, and never cite wrong prices.
-2. Write natural, conversion-focused, E-E-A-T compliant copy aimed at buyers in Pakistan and global USDT buyers.
-3. NEVER use em dashes (—) or en dashes (–). Use standard hyphens (-) or commas.
-4. Return ONLY a single valid JSON object (no markdown fences, no commentary outside JSON) with these exact 6 keys:
-   - "short_description": 115-165 chars punchy buyer subtitle with delivery & payment trust.
-   - "meta_title": 42-58 chars, keyword-frontloaded (e.g. "Buy {Tool} | Instant Delivery" or "Buy {Tool} in Pakistan").
-   - "meta_description": 135-155 chars, starts with action verb ("Buy..." / "Get..."), includes exact price_pkr if fixed price > 0, and mentions instant delivery / local wallets or USDT.
-   - "meta_keywords": 10-14 high-intent comma-separated SEO tags (price in Pakistan, Easypaisa/JazzCash, without credit card, USDT Binance, category, long-tail use cases).
-   - "warranty": clean 1-2 sentence warranty & activation guarantee matching existing_warranty if provided.
-   - "description": clean HTML (allowed tags ONLY: <h3>, <p>, <ul>, <li>, <strong>, <a href="...">). Structure into:
-     * <h3>Overview &amp; Who It Is For</h3> with 1-2 helpful paragraphs
-     * <h3>Key Features &amp; Benefits</h3> with 4-6 detailed <li><strong>Feature:</strong> explanation</li> items
-     * <h3>Instant Delivery &amp; Activation Process</h3> explaining the exact delivery_label and order vault tracking
-     * <h3>Accepted Payment Methods &amp; Related Tools</h3> mentioning Easypaisa, JazzCash, NayaPay, SadaPay, Raast & Binance USDT, and naturally linking 1-2 real URLs from related_store_products if non-empty.
-     Target 260-420 words total in "description".
+Mission: Produce search-dominating, E-E-A-T compliant, zero-fluff product metadata and copy engineered to rank #1 on Google Search, Bing/Copilot, Google Shopping, and AI Overviews for Pakistan PKR + Global USDT digital subscription buyers.
+
+Strict SEO, Accuracy & Quality Rules:
+1. STORE GROUNDING ONLY: Rely 100% on the provided STORE_DATA JSON (`store`, `product`, `sellmetools_style_reference`). Never invent unsupported payment methods (do NOT mention PayPal, Stripe, or Apple Pay unless explicitly present), never exaggerate warranty days beyond `existing_warranty`, and never change prices.
+2. NATURAL HELPFUL COPY (Anti-Fluff): Ban AI clichés ("unleash", "elevate", "game-changer", "delve", "revolutionary", "seamless synergy"). Write clear, concrete, buyer-first facts (account type, activation steps, device limits, warranty scope, delivery timeline).
+3. PUNCTUATION: NEVER use em dashes (—) or en dashes (–). Use standard hyphens (-) or commas.
+4. RETURN STRICT JSON ONLY: Output a single valid JSON object (no markdown fences, no prose outside JSON) with these exact 6 keys:
+   - "short_description": 120-165 chars punchy commercial subtitle stating exact delivery speed, activation/account type, and local PKR/USDT payment trust.
+   - "meta_title": 42-58 chars total. Front-load the exact core buyer keyword (tool name + duration/plan) followed by a high-CTR modifier (`Instant Delivery`, `Best Price Pakistan`, `Official`). Never truncate mid-word.
+   - "meta_description": 135-155 chars total. Start with an imperative buyer verb (`Buy...` / `Get...`), include exact `price_pkr` if fixed price > 0, highlight key benefit, and include local PKR wallets / Binance USDT trust.
+   - "meta_keywords": 12-15 high-intent comma-separated SEO tags (transactional `buy {tool} pakistan`, `{tool} price in pakistan`, `{tool} easypaisa jazzcash`, `{tool} without credit card`, `{tool} usdt binance`, `{brand} subscription`, category & real freelancer/creator/student use-cases).
+   - "warranty": concise, transparent 1-2 sentence warranty & account care rule faithfully preserving `existing_warranty` if provided.
+   - "description": structured semantic HTML (`300-480` words; allowed tags ONLY: `<h3>`, `<p>`, `<ul>`, `<li>`, `<strong>`, `<a href="...">` — never `<h1>` or `<h2>` so page heading hierarchy stays clean):
+     * `<h3>Buy {Product Name} Online - Plan Overview &amp; Value</h3>`: 2 crisp paragraphs covering what the buyer gets, exact plan scope, and why SellMeTools saves money vs USD card fees.
+     * `<h3>Key Features &amp; Included Benefits</h3>`: `<ul>` with 5-6 specific `<li><strong>Benefit:</strong> concrete detail tailored to this exact product</li>` bullets.
+     * `<h3>Instant Delivery &amp; Activation Guide</h3>`: clear step-by-step explanation matching `delivery_label` (and `customer_input_required` if non-empty) plus private order vault tracking.
+     * `<h3>Who Should Buy This Tool?</h3>`: targeted use-cases (freelancers, agencies, students, developers, content creators).
+     * `<h3>Accepted Payments, Warranty &amp; Related Tools</h3>`: mention Easypaisa, JazzCash, NayaPay, SadaPay, Raast Bank Transfer, Binance Pay &amp; USDT (TRC20), summarize warranty, and naturally link 1-2 real URLs from `related_store_products` or `top_selling_products` using `<a href="URL">Product Name</a>`.
 PROMPT;
     }
 

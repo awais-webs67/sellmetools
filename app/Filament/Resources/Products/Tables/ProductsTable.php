@@ -163,9 +163,20 @@ class ProductsTable
                             $res = AiSeoAgent::optimizeProduct($record, overwriteExisting: true, useLlm: true);
                             Notification::make()
                                 ->title("SEO Optimized ({$res['source']})")
-                                ->body('Updated description, tags & metadata; sitemap & IndexNow synced.')
+                                ->body('Updated description, tags & metadata (previous SEO backed up for 1-click revert).')
                                 ->success()
                                 ->send();
+                        }),
+                    Action::make('revertAiSeo')
+                        ->label('Revert AI SEO Backup')
+                        ->icon(Heroicon::OutlinedArrowUturnLeft)
+                        ->color('warning')
+                        ->visible(fn (Product $record): bool => $record->hasSeoBackup())
+                        ->requiresConfirmation()
+                        ->action(function (Product $record): void {
+                            if (AiSeoAgent::revertProduct($record)) {
+                                Notification::make()->title('Reverted to previous SEO')->success()->send();
+                            }
                         }),
                     Action::make('refresh')
                         ->label('Recalculate price & stock')
@@ -194,7 +205,26 @@ class ProductsTable
                             $total = min(20, $records->count());
                             Notification::make()
                                 ->title("Optimized {$total} product(s)")
-                                ->body("AI generated: {$aiCount} | Sitemap & IndexNow updated automatically.")
+                                ->body("AI generated: {$aiCount} | Previous SEO backed up for revert | Sitemap & IndexNow updated.")
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('revertAiSeoBulk')
+                        ->label('Revert AI SEO Backups')
+                        ->icon(Heroicon::OutlinedArrowUturnLeft)
+                        ->color('warning')
+                        ->requiresConfirmation()
+                        ->action(function (Collection $records): void {
+                            $reverted = 0;
+                            foreach ($records as $record) {
+                                if (AiSeoAgent::revertProduct($record)) {
+                                    $reverted++;
+                                }
+                            }
+                            Notification::make()
+                                ->title("Reverted {$reverted} product(s)")
+                                ->body('Restored previous SEO fields and synced sitemap.')
                                 ->success()
                                 ->send();
                         })
