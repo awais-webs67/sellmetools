@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Exceptions\StoreException;
 use App\Models\Order;
 use App\Models\PaymentMethod;
+use App\Models\Review;
 use App\Services\OrderService;
 use App\Services\PaymentService;
 use App\Services\ReceiptPdfGenerator;
@@ -179,6 +180,48 @@ class OrderController extends Controller
         }
 
         return redirect()->to($order->customerUrl())->with('success', 'Order cancelled.');
+    }
+
+    public function storeReview(Request $request, Order $order): RedirectResponse
+    {
+        $this->authorizeAccess($request, $order);
+
+        if ($order->status !== OrderStatus::Completed) {
+            return redirect()->to($order->customerUrl())->with('error', 'You can submit a verified review once your order is delivered.');
+        }
+
+        $data = $request->validate([
+            'product_id' => ['required', 'integer'],
+            'customer_name' => ['nullable', 'string', 'max:80'],
+            'rating' => ['required', 'integer', 'min:1', 'max:5'],
+            'comment' => ['required', 'string', 'min:3', 'max:600'],
+        ]);
+
+        $orderItem = $order->items()->where('product_id', (int) $data['product_id'])->first();
+        if (! $orderItem) {
+            return redirect()->to($order->customerUrl())->with('error', 'Product not found in this order.');
+        }
+
+        $alreadyReviewed = Review::query()
+            ->where('order_id', $order->id)
+            ->where('product_id', $orderItem->product_id)
+            ->exists();
+
+        if ($alreadyReviewed) {
+            return redirect()->to($order->customerUrl().'#review')->with('success', 'Thank you! Your verified review for this order is already published.');
+        }
+
+        Review::create([
+            'product_id' => $orderItem->product_id,
+            'order_id' => $order->id,
+            'user_id' => $order->user_id,
+            'customer_name' => trim((string) ($data['customer_name'] ?? '')) ?: ($order->customer_name ?: 'Verified Customer'),
+            'rating' => (int) $data['rating'],
+            'comment' => trim((string) $data['comment']),
+            'is_approved' => true,
+        ]);
+
+        return redirect()->to($order->customerUrl().'#review')->with('success', 'Thank you! Your verified review has been published.');
     }
 
     public function track(): View

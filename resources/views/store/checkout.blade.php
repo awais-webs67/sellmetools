@@ -346,4 +346,18 @@
             </aside>
         </form>
     </div>
+    @push('tracking_events')
+        <script>
+            if (typeof window.smtTrackEvent === 'function') {
+                window.smtTrackEvent('InitiateCheckout', {
+                    content_ids: [@json((string) $product->id)],
+                    content_name: @json($product->name),
+                    content_type: 'product',
+                    value: {{ number_format((float) $effectivePrice * max(1, (int) old('quantity', $quantity)), 2, '.', '') }},
+                    currency: 'PKR',
+                    num_items: {{ max(1, (int) old('quantity', $quantity)) }}
+                });
+            }
+        </script>
+    @endpush
 </x-layouts.store>

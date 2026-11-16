@@ -170,29 +170,141 @@
     <script type="application/ld+json">{!! json_encode($websiteSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
     @stack('seo')
 
-    @if ($gaId)
+    @php
+        $adsEnabled = (string) setting('ads_tracking_enabled', '0') === '1';
+        $metaPixelId = $adsEnabled ? preg_replace('/\D+/', '', (string) setting('meta_pixel_id', '')) : '';
+        $googleAdsId = $adsEnabled ? preg_replace('/[^A-Za-z0-9\-]/', '', trim((string) setting('google_ads_id', ''))) : '';
+        $googleAdsPurchaseLabel = $adsEnabled ? preg_replace('/[^A-Za-z0-9_\-]/', '', trim((string) setting('google_ads_purchase_label', ''))) : '';
+        $tiktokPixelId = $adsEnabled ? preg_replace('/[^A-Za-z0-9_\-]/', '', trim((string) setting('tiktok_pixel_id', ''))) : '';
+        $primaryGtagId = $gaId ?: $googleAdsId;
+    @endphp
+
+    @if ($primaryGtagId || $metaPixelId || $tiktokPixelId)
         <script>
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', @json($gaId));
+            window.SMT_TRACKING = {
+                gaId: @json($gaId ?: ''),
+                googleAdsId: @json($googleAdsId ?: ''),
+                googleAdsPurchaseLabel: @json($googleAdsPurchaseLabel ?: ''),
+                metaPixelId: @json($metaPixelId ?: ''),
+                tiktokPixelId: @json($tiktokPixelId ?: ''),
+                queue: [],
+                ready: false
+            };
+
+            @if ($primaryGtagId)
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                @if ($gaId)
+                    gtag('config', @json($gaId));
+                @endif
+                @if ($googleAdsId)
+                    gtag('config', @json($googleAdsId));
+                @endif
+            @endif
+
+            window.smtTrackEvent = function (name, payload) {
+                payload = payload || {};
+                const cfg = window.SMT_TRACKING;
+                if (!cfg.ready) {
+                    cfg.queue.push([name, payload]);
+                    return;
+                }
+                try {
+                    if (typeof window.gtag === 'function') {
+                        const gaMap = { ViewContent: 'view_item', InitiateCheckout: 'begin_checkout', Purchase: 'purchase' };
+                        if (cfg.gaId) {
+                            window.gtag('event', gaMap[name] || name, {
+                                currency: payload.currency || 'PKR',
+                                value: Number(payload.value || 0),
+                                transaction_id: payload.transaction_id || undefined,
+                                items: payload.content_name ? [{ item_id: String((payload.content_ids && payload.content_ids[0]) || ''), item_name: payload.content_name, price: Number(payload.value || 0) }] : undefined
+                            });
+                        }
+                        if (name === 'Purchase' && cfg.googleAdsId && cfg.googleAdsPurchaseLabel) {
+                            window.gtag('event', 'conversion', {
+                                send_to: cfg.googleAdsId + '/' + cfg.googleAdsPurchaseLabel,
+                                value: Number(payload.value || 0),
+                                currency: payload.currency || 'PKR',
+                                transaction_id: payload.transaction_id || ''
+                            });
+                        }
+                    }
+                    if (cfg.metaPixelId && typeof window.fbq === 'function') {
+                        window.fbq('track', name, {
+                            content_ids: payload.content_ids || [],
+                            content_name: payload.content_name || '',
+                            content_type: payload.content_type || 'product',
+                            value: Number(payload.value || 0),
+                            currency: payload.currency || 'PKR',
+                            num_items: payload.num_items || 1
+                        });
+                    }
+                    if (cfg.tiktokPixelId && window.ttq && typeof window.ttq.track === 'function') {
+                        const ttMap = { ViewContent: 'ViewContent', InitiateCheckout: 'InitiateCheckout', Purchase: 'CompletePayment' };
+                        window.ttq.track(ttMap[name] || name, {
+                            content_id: String((payload.content_ids && payload.content_ids[0]) || ''),
+                            content_name: payload.content_name || '',
+                            value: Number(payload.value || 0),
+                            currency: payload.currency || 'PKR'
+                        });
+                    }
+                } catch (e) {}
+            };
+
             (function () {
                 let loaded = false;
-                const loadGtag = () => {
+                const loadPixels = () => {
                     if (loaded) return;
                     loaded = true;
-                    const s = document.createElement('script');
-                    s.async = true;
-                    s.src = @json('https://www.googletagmanager.com/gtag/js?id='.urlencode($gaId));
-                    document.head.appendChild(s);
+                    const cfg = window.SMT_TRACKING;
+
+                    @if ($primaryGtagId)
+                        const gs = document.createElement('script');
+                        gs.async = true;
+                        gs.src = @json('https://www.googletagmanager.com/gtag/js?id='.urlencode($primaryGtagId));
+                        document.head.appendChild(gs);
+                    @endif
+
+                    @if ($metaPixelId)
+                        if (!window.fbq) {
+                            !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+                            n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+                            n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+                            t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}
+                            (window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
+                            window.fbq('init', cfg.metaPixelId);
+                            window.fbq('track', 'PageView');
+                        }
+                    @endif
+
+                    @if ($tiktokPixelId)
+                        if (!window.ttq) {
+                            !function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];
+                            ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"];
+                            ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};
+                            for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);
+                            ttq.load=function(e){var i="https://analytics.tiktok.com/i18n/pixel/events.js";
+                            var n=d.createElement("script");n.type="text/javascript";n.async=!0;n.src=i+"?sdkid="+e+"&lib="+t;
+                            var a=d.getElementsByTagName("script")[0];a.parentNode.insertBefore(n,a)};
+                            ttq.load(cfg.tiktokPixelId);ttq.page();}(window, document, 'ttq');
+                        }
+                    @endif
+
+                    cfg.ready = true;
+                    while (cfg.queue.length) {
+                        const ev = cfg.queue.shift();
+                        window.smtTrackEvent(ev[0], ev[1]);
+                    }
                 };
                 ['pointerdown', 'keydown', 'scroll', 'touchstart'].forEach((ev) =>
-                    window.addEventListener(ev, loadGtag, { once: true, passive: true })
+                    window.addEventListener(ev, loadPixels, { once: true, passive: true })
                 );
-                window.addEventListener('load', () => setTimeout(loadGtag, 1800), { once: true });
+                window.addEventListener('load', () => setTimeout(loadPixels, 1800), { once: true });
             })();
         </script>
     @endif
+    @stack('tracking_events')
 
     @fonts
     @vite(['resources/css/app.css', 'resources/js/app.js'])

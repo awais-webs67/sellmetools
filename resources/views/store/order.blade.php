@@ -158,6 +158,78 @@
                         <span>WhatsApp</span>
                     </a>
                 </div>
+
+                {{-- 4. Post-Delivery Real Verified Customer Review Collector --}}
+                @php
+                    $primaryItem = $order->items->first(fn ($i) => $i->product_id !== null);
+                    $hasVerifiedReview = $primaryItem
+                        ? \App\Models\Review::query()->where('order_id', $order->id)->where('product_id', $primaryItem->product_id)->exists()
+                        : false;
+                @endphp
+                @if ($primaryItem)
+                    <div id="review" class="border-t border-slate-200 pt-5">
+                        @if ($hasVerifiedReview)
+                            <div class="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <div class="text-xs text-emerald-900">
+                                    <p class="font-bold">✓ Verified Review Published!</p>
+                                    <p class="text-emerald-700 mt-0.5">Thank you for rating {{ $primaryItem->product_name }}.</p>
+                                </div>
+                                @if ($primaryItem->product)
+                                    <a href="{{ route('products.show', $primaryItem->product) }}#reviews" class="inline-flex items-center justify-center rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 transition shrink-0">
+                                        View on Product →
+                                    </a>
+                                @endif
+                            </div>
+                        @else
+                            <form method="post" action="{{ route('orders.review.store', $order) }}" class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3" x-data="{ rating: 5 }">
+                                @csrf
+                                <input type="hidden" name="token" value="{{ $token }}">
+                                <input type="hidden" name="product_id" value="{{ $primaryItem->product_id }}">
+                                <input type="hidden" name="rating" :value="rating">
+
+                                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                        <p class="text-xs font-bold text-slate-900">Rate {{ $primaryItem->product_name }}</p>
+                                        <p class="text-[11px] text-slate-500">Share quick feedback as a Verified Buyer.</p>
+                                    </div>
+                                    <div class="flex items-center gap-1" role="radiogroup" aria-label="Star rating">
+                                        @for ($star = 1; $star <= 5; $star++)
+                                            <button type="button"
+                                                    @click="rating = {{ $star }}"
+                                                    :class="rating >= {{ $star }} ? 'text-amber-500' : 'text-slate-300'"
+                                                    class="text-lg leading-none transition hover:scale-110 cursor-pointer"
+                                                    aria-label="{{ $star }} star">★</button>
+                                        @endfor
+                                    </div>
+                                </div>
+
+                                <div class="grid gap-2.5 sm:grid-cols-2">
+                                    <input name="customer_name"
+                                           type="text"
+                                           maxlength="80"
+                                           class="input py-2 text-xs bg-white"
+                                           value="{{ old('customer_name', $order->customer_name) }}"
+                                           placeholder="Your Name (optional)">
+                                    <input name="comment"
+                                           type="text"
+                                           required
+                                           minlength="3"
+                                           maxlength="600"
+                                           class="input py-2 text-xs bg-white"
+                                           value="{{ old('comment') }}"
+                                           placeholder="How was delivery speed &amp; product?">
+                                </div>
+                                @error('comment')<p class="field-error text-xs">{{ $message }}</p>@enderror
+
+                                <div class="flex justify-end">
+                                    <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer">
+                                        Submit Verified Review →
+                                    </button>
+                                </div>
+                            </form>
+                        @endif
+                    </div>
+                @endif
             </div>
         @else
 
@@ -651,4 +723,25 @@
         </div>
         @endif
     </div>
+    @if ($isPaid || $s === OrderStatus::Completed)
+        @push('tracking_events')
+            <script>
+                try {
+                    const key = @json('smt_tracked_purchase_'.$order->number);
+                    if (!localStorage.getItem(key) && typeof window.smtTrackEvent === 'function') {
+                        window.smtTrackEvent('Purchase', {
+                            transaction_id: @json($order->number),
+                            content_ids: @json($order->items->pluck('product_id')->filter()->map(fn ($id) => (string) $id)->values()->all()),
+                            content_name: @json($itemsSummary),
+                            content_type: 'product',
+                            value: {{ number_format((float) $order->total, 2, '.', '') }},
+                            currency: 'PKR',
+                            num_items: {{ max(1, (int) $order->items->sum('quantity')) }}
+                        });
+                        localStorage.setItem(key, '1');
+                    }
+                } catch (e) {}
+            </script>
+        @endpush
+    @endif
 </x-layouts.store>

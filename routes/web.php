@@ -110,6 +110,7 @@ Route::get('/orders/{order:number}/payment', fn (Order $order) => redirect()->to
 Route::post('/orders/{order:number}/payment', [OrderController::class, 'submitPayment'])->middleware('throttle:60,1')->name('orders.payment');
 Route::post('/orders/{order:number}/customer-input', [OrderController::class, 'submitCustomerInput'])->middleware('throttle:60,1')->name('orders.customer-input');
 Route::post('/orders/{order:number}/pay-wallet', [OrderController::class, 'payWithWallet'])->middleware(['auth', 'throttle:30,1'])->name('orders.pay-wallet');
+Route::post('/orders/{order:number}/review', [OrderController::class, 'storeReview'])->middleware('throttle:10,1')->name('orders.review.store');
 Route::post('/orders/{order:number}/cancel', [OrderController::class, 'cancel'])->middleware('throttle:60,1')->name('orders.cancel');
 Route::get('/track', [OrderController::class, 'track'])->name('orders.track');
 Route::get('/track-order', fn () => redirect()->route('orders.track', [], 301));

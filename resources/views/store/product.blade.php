@@ -225,6 +225,19 @@
     <script type="application/ld+json">{!! json_encode($breadcrumbSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
     <script type="application/ld+json">{!! json_encode($productFaqSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
 @endpush
+@push('tracking_events')
+    <script>
+        if (typeof window.smtTrackEvent === 'function') {
+            window.smtTrackEvent('ViewContent', {
+                content_ids: [@json((string) $product->id)],
+                content_name: @json($product->name),
+                content_type: 'product',
+                value: {{ number_format((float) $product->price, 2, '.', '') }},
+                currency: 'PKR'
+            });
+        }
+    </script>
+@endpush
 <x-layouts.store
     :title="$product->seoTitle()"
     :description="$product->seoDescription()"

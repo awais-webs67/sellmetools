@@ -207,6 +207,9 @@
                                     <td style="padding:12px 14px;text-align:center;font-size:12px;color:#A1A1AA;line-height:1.55;">
                                         Your delivered credentials are also permanently saved in your
                                         <a href="{{ route('account.orders') }}" style="color:#FDA4AF;font-weight:700;text-decoration:underline;">Customer Order Vault</a>.
+                                        <br>
+                                        Enjoyed instant delivery?
+                                        <a href="{{ $orderUrl }}#review" style="color:#FDA4AF;font-weight:700;text-decoration:underline;">Rate your order in 10 seconds &rarr;</a>
                                     </td>
                                 </tr>
                             </table>

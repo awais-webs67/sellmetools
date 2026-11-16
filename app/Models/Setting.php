@@ -68,6 +68,12 @@ class Setting extends Model
         'bing_site_verification' => '',
         'indexnow_key' => 'a7f9c2e4b8d106359a2c4e6f8b0d2e4a',
         'google_analytics_id' => 'G-CFGVMHWE3G',
+        // Paid Ads Pixels & Conversion Tracking:
+        'ads_tracking_enabled' => '0',
+        'meta_pixel_id' => '',
+        'google_ads_id' => '',
+        'google_ads_purchase_label' => '',
+        'tiktok_pixel_id' => '',
         // Site-Trained AI SEO Agent (Groq / OpenRouter / Gemini / Custom OpenAI-Compatible Free APIs):
         'ai_seo_auto_enabled' => '1',
         'ai_seo_provider' => 'auto',

@@ -57,6 +57,7 @@ class StoreSettings extends Page
         'telegram_bot_token', 'telegram_admin_chat_id', 'telegram_store_bot_enabled',
         'support_whatsapp', 'support_telegram', 'support_email', 'footer_phone_enabled', 'footer_email_enabled', 'footer_address_enabled', 'footer_address',
         'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id',
+        'ads_tracking_enabled', 'meta_pixel_id', 'google_ads_id', 'google_ads_purchase_label', 'tiktok_pixel_id',
         'ai_seo_auto_enabled', 'ai_seo_provider', 'groq_api_key', 'groq_model', 'openrouter_api_key', 'openrouter_model', 'gemini_api_key', 'gemini_model', 'custom_llm_base_url', 'custom_llm_api_key', 'custom_llm_model', 'ai_seo_brand_instructions',
         'mail_enabled', 'mail_send_order_delivered',
         'mail_host', 'mail_port', 'mail_username', 'mail_password',
@@ -99,7 +100,7 @@ class StoreSettings extends Page
     public ?array $data = [];
 
     /** Boolean toggles, stored as '1' / '0' strings. */
-    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered', 'telegram_store_bot_enabled', 'backup_enabled', 'promo_popup_enabled', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link', 'footer_phone_enabled', 'footer_email_enabled', 'footer_address_enabled', 'ai_seo_auto_enabled'];
+    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered', 'telegram_store_bot_enabled', 'backup_enabled', 'promo_popup_enabled', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link', 'footer_phone_enabled', 'footer_email_enabled', 'footer_address_enabled', 'ai_seo_auto_enabled', 'ads_tracking_enabled'];
 
     /** Encrypted secret keys never echoed back into HTML inputs. */
     protected const AI_SECRET_KEYS = ['groq_api_key', 'openrouter_api_key', 'gemini_api_key', 'custom_llm_api_key'];
@@ -109,7 +110,7 @@ class StoreSettings extends Page
         $values = array_intersect_key(Setting::values(), array_flip(self::KEYS));
 
         foreach (self::TOGGLE_KEYS as $key) {
-            $default = in_array($key, ['backup_enabled', 'promo_popup_enabled', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link'], true) ? '0' : '1';
+            $default = in_array($key, ['backup_enabled', 'promo_popup_enabled', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link', 'ads_tracking_enabled'], true) ? '0' : '1';
             $values[$key] = (string) ($values[$key] ?? $default) === '1';
         }
 
@@ -637,6 +638,43 @@ class StoreSettings extends Page
                                                         ->success()
                                                         ->send();
                                                 }),
+                                        ])->columnSpanFull(),
+                                    ]),
+
+                                Section::make('Paid Ads Pixels & Conversion Tracking (Meta / Google Ads / TikTok)')
+                                    ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
+                                    ->description('Track product views (ViewContent), checkout starts (InitiateCheckout), and paid orders (Purchase) with zero impact on initial page speed.')
+                                    ->columns(['default' => 1, 'sm' => 2])
+                                    ->schema([
+                                        Toggle::make('ads_tracking_enabled')
+                                            ->label('Enable Paid Ads Pixels & Conversion Events')
+                                            ->helperText('Turn ON when running Meta, Google Ads, or TikTok campaigns.')
+                                            ->default(false)
+                                            ->columnSpanFull(),
+                                        TextInput::make('meta_pixel_id')
+                                            ->label('Meta / Facebook Pixel ID')
+                                            ->placeholder('123456789012345')
+                                            ->maxLength(40),
+                                        TextInput::make('tiktok_pixel_id')
+                                            ->label('TikTok Pixel ID')
+                                            ->placeholder('CXXXXXXXXXXXXXXX')
+                                            ->maxLength(60),
+                                        TextInput::make('google_ads_id')
+                                            ->label('Google Ads Tag ID (AW-...)')
+                                            ->placeholder('AW-123456789')
+                                            ->maxLength(40),
+                                        TextInput::make('google_ads_purchase_label')
+                                            ->label('Google Ads Purchase Conversion Label (Optional)')
+                                            ->placeholder('AbCdEfGhIjKlMnOp')
+                                            ->maxLength(80),
+                                        Actions::make([
+                                            Action::make('saveAdsTrackingSection')
+                                                ->label('Save Ads Tracking Settings')
+                                                ->icon(Heroicon::OutlinedCheck)
+                                                ->color('primary')
+                                                ->action(fn () => $this->saveKeys([
+                                                    'ads_tracking_enabled', 'meta_pixel_id', 'google_ads_id', 'google_ads_purchase_label', 'tiktok_pixel_id',
+                                                ], 'Ads pixel & conversion tracking saved')),
                                         ])->columnSpanFull(),
                                     ]),
                             ]),
