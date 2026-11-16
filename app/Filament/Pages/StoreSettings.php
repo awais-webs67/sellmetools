@@ -114,10 +114,10 @@ class StoreSettings extends Page
             $values[$key] = (string) ($values[$key] ?? $default) === '1';
         }
 
-        // Never send stored secrets back to the browser.
+        // Never send the stored SMTP password back to the browser; keep SuperAdmin AI keys hydrated without password autofill.
         $values['mail_password'] = '';
         foreach (self::AI_SECRET_KEYS as $secretKey) {
-            $values[$secretKey] = '';
+            $values[$secretKey] = Setting::decryptSecret((string) ($values[$secretKey] ?? ''));
         }
         $values['test_mail_recipient'] = $values['support_email'] ?: (auth()->user()?->email ?? 'contact@sellmetools.com');
         if (empty($values['backup_email'])) {
@@ -546,25 +546,22 @@ class StoreSettings extends Page
                                             ->columnSpanFull(),
                                         TextInput::make('groq_api_key')
                                             ->label('Groq API Key (console.groq.com — Free & Ultra Fast)')
-                                            ->password()
-                                            ->revealable()
-                                            ->placeholder(fn (): string => filled(Setting::decryptSecret((string) Setting::get('groq_api_key'))) ? '✓ Saved securely — paste new key to replace' : 'gsk_...'),
+                                            ->autocomplete(false)
+                                            ->placeholder('gsk_...'),
                                         TextInput::make('groq_model')
                                             ->label('Groq Model (Auto-discovers working model on 404)')
                                             ->placeholder('openai/gpt-oss-20b'),
                                         TextInput::make('openrouter_api_key')
                                             ->label('OpenRouter API Key (openrouter.ai — Free :free Models)')
-                                            ->password()
-                                            ->revealable()
-                                            ->placeholder(fn (): string => filled(Setting::decryptSecret((string) Setting::get('openrouter_api_key'))) ? '✓ Saved securely — paste new key to replace' : 'sk-or-v1-...'),
+                                            ->autocomplete(false)
+                                            ->placeholder('sk-or-v1-...'),
                                         TextInput::make('openrouter_model')
                                             ->label('OpenRouter Model')
                                             ->placeholder('openrouter/free'),
                                         TextInput::make('gemini_api_key')
                                             ->label('Google Gemini API Key (aistudio.google.com — Free Tier)')
-                                            ->password()
-                                            ->revealable()
-                                            ->placeholder(fn (): string => filled(Setting::decryptSecret((string) Setting::get('gemini_api_key'))) ? '✓ Saved securely — paste new key to replace' : 'AIza...'),
+                                            ->autocomplete(false)
+                                            ->placeholder('AIza...'),
                                         TextInput::make('gemini_model')
                                             ->label('Gemini Model')
                                             ->placeholder('gemini-2.5-flash'),
@@ -574,9 +571,8 @@ class StoreSettings extends Page
                                             ->columnSpanFull(),
                                         TextInput::make('custom_llm_api_key')
                                             ->label('Custom Endpoint API Key')
-                                            ->password()
-                                            ->revealable()
-                                            ->placeholder(fn (): string => filled(Setting::decryptSecret((string) Setting::get('custom_llm_api_key'))) ? '✓ Saved securely — paste new key to replace' : 'Bearer API key'),
+                                            ->autocomplete(false)
+                                            ->placeholder('Bearer API key'),
                                         TextInput::make('custom_llm_model')
                                             ->label('Custom Endpoint Model Name')
                                             ->placeholder('gpt-4o-mini'),
@@ -1058,12 +1054,9 @@ class StoreSettings extends Page
             }
             if (in_array($key, self::AI_SECRET_KEYS, true)) {
                 $plain = trim((string) ($raw[$key] ?? ''));
-                if ($plain !== '') {
-                    $toSave[$key] = Setting::encryptSecret($plain);
-                    $this->data[$key] = '';
-                }
+                $toSave[$key] = $plain !== '' ? Setting::encryptSecret($plain) : '';
 
-                continue; // empty = keep the currently saved API key
+                continue;
             }
             $rawVal = $raw[$key] ?? null;
             if (is_array($rawVal)) {

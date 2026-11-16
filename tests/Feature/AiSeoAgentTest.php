@@ -140,7 +140,7 @@ class AiSeoAgentTest extends TestCase
         });
     }
 
-    public function test_store_settings_encrypts_llm_keys_and_never_exposes_them_to_browser(): void
+    public function test_store_settings_encrypts_llm_keys_and_hydrates_saved_keys_for_super_admin_only(): void
     {
         $this->actingAs($this->admin);
 
@@ -161,12 +161,12 @@ class AiSeoAgentTest extends TestCase
         $this->assertSame('sk_or_secret_888', Setting::decryptSecret((string) Setting::get('openrouter_api_key')));
         $this->assertSame('AIza_secret_777', Setting::decryptSecret((string) Setting::get('gemini_api_key')));
 
-        // Mounting StoreSettings again must keep secret inputs blank.
+        // Mounting StoreSettings again keeps saved keys visible & ready for testing in Super Admin form.
         Livewire::test(StoreSettings::class)
             ->assertSchemaStateSet([
-                'groq_api_key' => '',
-                'openrouter_api_key' => '',
-                'gemini_api_key' => '',
+                'groq_api_key' => 'gsk_super_secret_999',
+                'openrouter_api_key' => 'sk_or_secret_888',
+                'gemini_api_key' => 'AIza_secret_777',
             ], 'form');
     }
 
