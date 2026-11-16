@@ -26,11 +26,11 @@ class AiSeoAgent
     public static function providerOptions(): array
     {
         return [
-            self::PROVIDER_AUTO => 'Auto Fallback (Groq -> OpenRouter -> Gemini -> Custom -> Template)',
-            self::PROVIDER_GROQ => 'Groq (Free Fast Tier — Llama 3.3 70B / Mixtral)',
-            self::PROVIDER_OPENROUTER => 'OpenRouter (Free :free Models Router)',
-            self::PROVIDER_GEMINI => 'Google Gemini (Free AI Studio API — Flash)',
-            self::PROVIDER_CUSTOM => 'Custom OpenAI-Compatible Endpoint (AgentRouter / Together / Ollama)',
+            self::PROVIDER_AUTO => 'Auto-Shift (Groq -> OpenRouter -> Gemini -> Custom -> Template)',
+            self::PROVIDER_GROQ => 'Groq First (Auto-shifts to OpenRouter/Gemini if down)',
+            self::PROVIDER_OPENROUTER => 'OpenRouter First (Auto-shifts to Groq/Gemini if down)',
+            self::PROVIDER_GEMINI => 'Google Gemini First (Auto-shifts to Groq/OpenRouter if down)',
+            self::PROVIDER_CUSTOM => 'Custom Endpoint First (Auto-shifts to others if down)',
         ];
     }
 
@@ -40,16 +40,28 @@ class AiSeoAgent
     public static function hasConfiguredLlm(array $overrides = []): bool
     {
         foreach ([self::PROVIDER_GROQ, self::PROVIDER_OPENROUTER, self::PROVIDER_GEMINI, self::PROVIDER_CUSTOM] as $provider) {
-            if (static::resolveApiKey($provider, $overrides) !== '') {
-                if ($provider === self::PROVIDER_CUSTOM && static::resolveCustomBaseUrl($overrides) === '') {
-                    continue;
-                }
-
+            if (static::isProviderConfigured($provider, $overrides)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     */
+    public static function isProviderConfigured(string $provider, array $overrides = []): bool
+    {
+        if (static::resolveApiKey($provider, $overrides) === '') {
+            return false;
+        }
+
+        if ($provider === self::PROVIDER_CUSTOM && static::resolveCustomBaseUrl($overrides) === '') {
+            return false;
+        }
+
+        return true;
     }
 
     public static function shouldAutoRunOnSave(): bool
@@ -67,7 +79,8 @@ class AiSeoAgent
      *     fields: array{short_description: string, description: string, warranty: string, meta_title: string, meta_description: string, meta_keywords: string},
      *     source: string,
      *     model: string,
-     *     error: ?string
+     *     error: ?string,
+     *     attempts: array<string, string>
      * }
      */
     public static function generateForProduct(
@@ -75,17 +88,33 @@ class AiSeoAgent
         bool $useLlm = true,
         array $overrides = [],
         ?string $providerOverride = null,
-        int $timeoutSeconds = 12
+        int $timeoutSeconds = 12,
+        bool $allowAutoShift = true
     ): array {
         $fallbackFields = ProductSeoOptimizer::buildDynamicSeoFields($product);
         $fallbackFields = static::normalizeGeneratedFields($fallbackFields, $product, $fallbackFields);
 
-        if (! $useLlm || ! static::hasConfiguredLlm($overrides)) {
+        if (! $useLlm) {
             return [
                 'fields' => $fallbackFields,
                 'source' => 'template',
                 'model' => 'deterministic-store-optimizer',
                 'error' => null,
+                'attempts' => [],
+            ];
+        }
+
+        $providerChain = ($providerOverride !== null && ! $allowAutoShift)
+            ? (static::isProviderConfigured($providerOverride, $overrides) ? [$providerOverride] : [])
+            : static::resolveProviderChain($providerOverride, $overrides);
+
+        if ($providerChain === []) {
+            return [
+                'fields' => $fallbackFields,
+                'source' => 'template',
+                'model' => 'deterministic-store-optimizer',
+                'error' => null,
+                'attempts' => [],
             ];
         }
 
@@ -93,58 +122,26 @@ class AiSeoAgent
         $systemPrompt = static::buildSystemPrompt();
         $userPrompt = static::buildProductPrompt($context);
 
-        $providerChain = static::resolveProviderChain($providerOverride, $overrides);
-        $lastError = null;
+        $attempts = [];
 
         foreach ($providerChain as $provider) {
-            $result = match ($provider) {
-                self::PROVIDER_GROQ => static::callOpenAiCompatible(
-                    provider: self::PROVIDER_GROQ,
-                    endpoint: 'https://api.groq.com/openai/v1/chat/completions',
-                    apiKey: static::resolveApiKey(self::PROVIDER_GROQ, $overrides),
-                    model: static::resolveModel(self::PROVIDER_GROQ, $overrides),
-                    systemPrompt: $systemPrompt,
-                    userPrompt: $userPrompt,
-                    timeoutSeconds: $timeoutSeconds,
-                ),
-                self::PROVIDER_OPENROUTER => static::callOpenAiCompatible(
-                    provider: self::PROVIDER_OPENROUTER,
-                    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-                    apiKey: static::resolveApiKey(self::PROVIDER_OPENROUTER, $overrides),
-                    model: static::resolveModel(self::PROVIDER_OPENROUTER, $overrides),
-                    systemPrompt: $systemPrompt,
-                    userPrompt: $userPrompt,
-                    timeoutSeconds: $timeoutSeconds,
-                    extraHeaders: [
-                        'HTTP-Referer' => url('/'),
-                        'X-Title' => (string) Setting::get('store_name', 'SellMeTools'),
-                    ],
-                ),
-                self::PROVIDER_GEMINI => static::callGemini(
-                    apiKey: static::resolveApiKey(self::PROVIDER_GEMINI, $overrides),
-                    model: static::resolveModel(self::PROVIDER_GEMINI, $overrides),
-                    systemPrompt: $systemPrompt,
-                    userPrompt: $userPrompt,
-                    timeoutSeconds: $timeoutSeconds,
-                ),
-                self::PROVIDER_CUSTOM => static::callCustomOpenAiCompatible(
-                    overrides: $overrides,
-                    systemPrompt: $systemPrompt,
-                    userPrompt: $userPrompt,
-                    timeoutSeconds: $timeoutSeconds,
-                ),
-                default => ['ok' => false, 'content' => '', 'model' => '', 'error' => 'Unsupported provider.'],
-            };
+            $result = static::invokeProviderWithModelFallback(
+                provider: $provider,
+                overrides: $overrides,
+                systemPrompt: $systemPrompt,
+                userPrompt: $userPrompt,
+                timeoutSeconds: $timeoutSeconds,
+            );
 
             if (! $result['ok']) {
-                $lastError = $result['error'];
+                $attempts[$provider] = (string) ($result['error'] ?: 'Request failed.');
 
                 continue;
             }
 
             $parsed = static::parseAiJsonPayload($result['content']);
             if ($parsed === null) {
-                $lastError = "{$provider} returned non-JSON SEO output.";
+                $attempts[$provider] = ucfirst($provider).' returned non-JSON SEO output.';
 
                 continue;
             }
@@ -156,14 +153,22 @@ class AiSeoAgent
                 'source' => $provider,
                 'model' => $result['model'],
                 'error' => null,
+                'attempts' => $attempts,
             ];
         }
+
+        $summaryError = implode(' | ', array_map(
+            fn (string $prov, string $err): string => strtoupper($prov).": {$err}",
+            array_keys($attempts),
+            array_values($attempts)
+        ));
 
         return [
             'fields' => $fallbackFields,
             'source' => 'template',
             'model' => 'deterministic-store-optimizer',
-            'error' => $lastError,
+            'error' => $summaryError !== '' ? $summaryError : null,
+            'attempts' => $attempts,
         ];
     }
 
@@ -251,7 +256,7 @@ class AiSeoAgent
     }
 
     /**
-     * Tests the configured free LLM provider(s) using real SellMeTools catalog context.
+     * Tests the full auto-shift chain across all configured free LLM providers.
      *
      * @param  array<string, mixed>  $overrides
      * @return array{success: bool, source: string, model: string, message: string, sample?: array<string, string>}
@@ -267,18 +272,15 @@ class AiSeoAgent
             ];
         }
 
-        $sampleProduct = Product::query()->visible()->with('category')->first();
-        if (! $sampleProduct) {
-            $sampleProduct = new Product([
-                'name' => 'ChatGPT Plus 1 Month Subscription',
-                'price' => 1500,
-                'delivery_type' => 'auto',
-                'warranty' => 'Full 30-Day Replacement Warranty',
-            ]);
-        }
-
+        $sampleProduct = static::sampleProductForTest();
         $started = microtime(true);
-        $res = static::generateForProduct($sampleProduct, useLlm: true, overrides: $overrides, timeoutSeconds: 15);
+        $res = static::generateForProduct(
+            $sampleProduct,
+            useLlm: true,
+            overrides: $overrides,
+            timeoutSeconds: 15,
+            allowAutoShift: true
+        );
         $elapsedMs = (int) round((microtime(true) - $started) * 1000);
 
         if ($res['source'] === 'template') {
@@ -286,7 +288,63 @@ class AiSeoAgent
                 'success' => false,
                 'source' => 'template',
                 'model' => '',
-                'message' => 'LLM API request failed and fell back to template: '.($res['error'] ?: 'Unknown error'),
+                'message' => 'All configured APIs failed and fell back to template -> '.($res['error'] ?: 'Unknown error'),
+            ];
+        }
+
+        $shiftNote = $res['attempts'] !== []
+            ? ' (Auto-shifted after '.implode(', ', array_keys($res['attempts'])).' failed!)'
+            : '';
+
+        return [
+            'success' => true,
+            'source' => $res['source'],
+            'model' => $res['model'],
+            'message' => "Connected to {$res['source']} ({$res['model']}) in {$elapsedMs}ms{$shiftNote}. Sample title: \"{$res['fields']['meta_title']}\"",
+            'sample' => $res['fields'],
+        ];
+    }
+
+    /**
+     * Tests a single specific LLM provider directly (without auto-shifting to other providers).
+     *
+     * @param  array<string, mixed>  $overrides
+     * @return array{success: bool, source: string, model: string, message: string, sample?: array<string, string>}
+     */
+    public static function testProvider(string $provider, array $overrides = []): array
+    {
+        if (! static::isProviderConfigured($provider, $overrides)) {
+            $label = strtoupper($provider);
+            $missingMsg = $provider === self::PROVIDER_CUSTOM
+                ? 'Please enter both Custom Endpoint Base URL and API Key first.'
+                : "Please enter your {$label} API Key first (or save it) before testing {$label}.";
+
+            return [
+                'success' => false,
+                'source' => $provider,
+                'model' => '',
+                'message' => $missingMsg,
+            ];
+        }
+
+        $sampleProduct = static::sampleProductForTest();
+        $started = microtime(true);
+        $res = static::generateForProduct(
+            $sampleProduct,
+            useLlm: true,
+            overrides: $overrides,
+            providerOverride: $provider,
+            timeoutSeconds: 15,
+            allowAutoShift: false
+        );
+        $elapsedMs = (int) round((microtime(true) - $started) * 1000);
+
+        if ($res['source'] === 'template') {
+            return [
+                'success' => false,
+                'source' => $provider,
+                'model' => '',
+                'message' => $res['error'] ?: strtoupper($provider).' test failed.',
             ];
         }
 
@@ -294,9 +352,209 @@ class AiSeoAgent
             'success' => true,
             'source' => $res['source'],
             'model' => $res['model'],
-            'message' => "Connected to {$res['source']} ({$res['model']}) in {$elapsedMs}ms. Sample meta title: \"{$res['fields']['meta_title']}\"",
+            'message' => strtoupper($provider)." is working! Model: {$res['model']} ({$elapsedMs}ms). Sample title: \"{$res['fields']['meta_title']}\"",
             'sample' => $res['fields'],
         ];
+    }
+
+    protected static function sampleProductForTest(): Product
+    {
+        return Product::query()->visible()->with('category')->first()
+            ?: new Product([
+                'name' => 'ChatGPT Plus 1 Month Subscription',
+                'price' => 1500,
+                'delivery_type' => 'auto',
+                'warranty' => 'Full 30-Day Replacement Warranty',
+            ]);
+    }
+
+    /**
+     * Tries the configured model for a provider, and automatically falls back across other active
+     * models on that same provider if `model_not_found` / rate-limit occurs.
+     *
+     * @param  array<string, mixed>  $overrides
+     * @return array{ok: bool, content: string, model: string, error: ?string}
+     */
+    protected static function invokeProviderWithModelFallback(
+        string $provider,
+        array $overrides,
+        string $systemPrompt,
+        string $userPrompt,
+        int $timeoutSeconds
+    ): array {
+        $primaryModel = static::resolveModel($provider, $overrides);
+        $models = static::candidateModelsForProvider($provider, $primaryModel);
+        $discoveredGroq = false;
+        $lastResult = ['ok' => false, 'content' => '', 'model' => $primaryModel, 'error' => 'No models attempted.'];
+
+        for ($i = 0; $i < count($models); $i++) {
+            $model = $models[$i];
+
+            $res = match ($provider) {
+                self::PROVIDER_GROQ => static::callOpenAiCompatible(
+                    provider: self::PROVIDER_GROQ,
+                    endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+                    apiKey: static::resolveApiKey(self::PROVIDER_GROQ, $overrides),
+                    model: $model,
+                    systemPrompt: $systemPrompt,
+                    userPrompt: $userPrompt,
+                    timeoutSeconds: $timeoutSeconds,
+                ),
+                self::PROVIDER_OPENROUTER => static::callOpenAiCompatible(
+                    provider: self::PROVIDER_OPENROUTER,
+                    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+                    apiKey: static::resolveApiKey(self::PROVIDER_OPENROUTER, $overrides),
+                    model: $model,
+                    systemPrompt: $systemPrompt,
+                    userPrompt: $userPrompt,
+                    timeoutSeconds: $timeoutSeconds,
+                    extraHeaders: [
+                        'HTTP-Referer' => url('/'),
+                        'X-Title' => (string) Setting::get('store_name', 'SellMeTools'),
+                    ],
+                ),
+                self::PROVIDER_GEMINI => static::callGemini(
+                    apiKey: static::resolveApiKey(self::PROVIDER_GEMINI, $overrides),
+                    model: $model,
+                    systemPrompt: $systemPrompt,
+                    userPrompt: $userPrompt,
+                    timeoutSeconds: $timeoutSeconds,
+                ),
+                self::PROVIDER_CUSTOM => static::callCustomOpenAiCompatible(
+                    overrides: $overrides,
+                    model: $model,
+                    systemPrompt: $systemPrompt,
+                    userPrompt: $userPrompt,
+                    timeoutSeconds: $timeoutSeconds,
+                ),
+                default => ['ok' => false, 'content' => '', 'model' => $model, 'error' => 'Unsupported provider.'],
+            };
+
+            if ($res['ok']) {
+                return $res;
+            }
+
+            $lastResult = $res;
+            $errLower = strtolower((string) $res['error']);
+
+            // Stop immediately on invalid API key (401/403) so we auto-shift to the next provider fast.
+            if (str_contains($errLower, 'http 401') || str_contains($errLower, 'http 403') || str_contains($errLower, 'invalid_api_key')) {
+                return $res;
+            }
+
+            // On Groq model error/rate-limit, also query live /openai/v1/models for that exact API key once.
+            if ($provider === self::PROVIDER_GROQ && ! $discoveredGroq) {
+                $discoveredGroq = true;
+                $liveModels = static::discoverGroqChatModels(
+                    static::resolveApiKey(self::PROVIDER_GROQ, $overrides),
+                    min(6, $timeoutSeconds)
+                );
+                foreach ($liveModels as $liveModel) {
+                    if (! in_array($liveModel, $models, true)) {
+                        $models[] = $liveModel;
+                    }
+                }
+            }
+        }
+
+        return $lastResult;
+    }
+
+    /**
+     * @return string[]
+     */
+    protected static function candidateModelsForProvider(string $provider, string $primaryModel): array
+    {
+        $fallbacks = match ($provider) {
+            self::PROVIDER_GROQ => [
+                'openai/gpt-oss-20b',
+                'openai/gpt-oss-120b',
+                'llama-3.3-70b-versatile',
+                'meta-llama/llama-4-scout-17b-16e-instruct',
+                'llama-3.1-8b-instant',
+                'qwen/qwen3-32b',
+            ],
+            self::PROVIDER_OPENROUTER => [
+                'openrouter/free',
+                'meta-llama/llama-3.3-70b-instruct:free',
+                'google/gemma-3-27b-it:free',
+            ],
+            self::PROVIDER_GEMINI => [
+                'gemini-2.5-flash',
+                'gemini-2.5-flash-lite',
+                'gemini-2.0-flash',
+            ],
+            default => [],
+        };
+
+        return array_values(array_unique(array_filter(array_merge([$primaryModel], $fallbacks))));
+    }
+
+    /**
+     * Queries Groq's /openai/v1/models list using the user's API key so inaccessible/deprecated
+     * models never strand the SEO agent.
+     *
+     * @return string[]
+     */
+    public static function discoverGroqChatModels(string $apiKey, int $timeoutSeconds = 6): array
+    {
+        if ($apiKey === '') {
+            return [];
+        }
+
+        try {
+            $res = Http::timeout($timeoutSeconds)
+                ->withToken($apiKey)
+                ->acceptJson()
+                ->get('https://api.groq.com/openai/v1/models');
+
+            if (! $res->successful()) {
+                return [];
+            }
+
+            $rows = $res->json('data');
+            if (! is_array($rows)) {
+                return [];
+            }
+
+            $preferredOrder = [
+                'openai/gpt-oss-120b',
+                'openai/gpt-oss-20b',
+                'llama-3.3-70b-versatile',
+                'meta-llama/llama-4-scout-17b-16e-instruct',
+                'qwen/qwen3-32b',
+                'llama-3.1-8b-instant',
+            ];
+
+            $available = [];
+            foreach ($rows as $row) {
+                $id = trim((string) ($row['id'] ?? ''));
+                if ($id === '') {
+                    continue;
+                }
+                if (isset($row['active']) && $row['active'] === false) {
+                    continue;
+                }
+                $lower = strtolower($id);
+                if (preg_match('/whisper|tts|orpheus|guard|safeguard|embed|rerank|vision/', $lower)) {
+                    continue;
+                }
+                $available[] = $id;
+            }
+
+            usort($available, function (string $a, string $b) use ($preferredOrder): int {
+                $pa = array_search($a, $preferredOrder, true);
+                $pb = array_search($b, $preferredOrder, true);
+                $pa = $pa === false ? 999 : $pa;
+                $pb = $pb === false ? 999 : $pb;
+
+                return $pa <=> $pb;
+            });
+
+            return array_slice(array_values(array_unique($available)), 0, 5);
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     /**
@@ -424,16 +682,10 @@ PROMPT;
             ? $all
             : array_values(array_unique(array_merge([$selected], $all)));
 
-        return array_values(array_filter($ordered, function (string $provider) use ($overrides): bool {
-            if (static::resolveApiKey($provider, $overrides) === '') {
-                return false;
-            }
-            if ($provider === self::PROVIDER_CUSTOM && static::resolveCustomBaseUrl($overrides) === '') {
-                return false;
-            }
-
-            return true;
-        }));
+        return array_values(array_filter(
+            $ordered,
+            fn (string $provider): bool => static::isProviderConfigured($provider, $overrides)
+        ));
     }
 
     /**
@@ -472,8 +724,8 @@ PROMPT;
     protected static function resolveModel(string $provider, array $overrides = []): string
     {
         $defaults = [
-            self::PROVIDER_GROQ => ['groq_model', 'llama-3.3-70b-versatile'],
-            self::PROVIDER_OPENROUTER => ['openrouter_model', 'meta-llama/llama-3.3-70b-instruct:free'],
+            self::PROVIDER_GROQ => ['groq_model', 'openai/gpt-oss-20b'],
+            self::PROVIDER_OPENROUTER => ['openrouter_model', 'openrouter/free'],
             self::PROVIDER_GEMINI => ['gemini_model', 'gemini-2.5-flash'],
             self::PROVIDER_CUSTOM => ['custom_llm_model', 'gpt-4o-mini'],
         ];
@@ -527,6 +779,15 @@ PROMPT;
                 ->withHeaders(array_merge(['Accept' => 'application/json'], $extraHeaders))
                 ->post($endpoint, $payload);
 
+            // If Groq/OpenAI-compatible endpoint rejects `response_format` for a specific model, retry cleanly without it.
+            if ($res->status() === 400 && isset($payload['response_format']) && str_contains(strtolower($res->body()), 'response_format')) {
+                unset($payload['response_format']);
+                $res = Http::timeout($timeoutSeconds)
+                    ->withToken($apiKey)
+                    ->withHeaders(array_merge(['Accept' => 'application/json'], $extraHeaders))
+                    ->post($endpoint, $payload);
+            }
+
             if (! $res->successful()) {
                 return [
                     'ok' => false,
@@ -560,6 +821,7 @@ PROMPT;
      */
     protected static function callCustomOpenAiCompatible(
         array $overrides,
+        string $model,
         string $systemPrompt,
         string $userPrompt,
         int $timeoutSeconds = 12
@@ -573,7 +835,7 @@ PROMPT;
             provider: self::PROVIDER_CUSTOM,
             endpoint: $endpoint,
             apiKey: static::resolveApiKey(self::PROVIDER_CUSTOM, $overrides),
-            model: static::resolveModel(self::PROVIDER_CUSTOM, $overrides),
+            model: $model,
             systemPrompt: $systemPrompt,
             userPrompt: $userPrompt,
             timeoutSeconds: $timeoutSeconds,
@@ -758,4 +1020,3 @@ PROMPT;
         return $metaDesc;
     }
 }
-

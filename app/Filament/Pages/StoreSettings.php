@@ -549,8 +549,8 @@ class StoreSettings extends Page
                                             ->revealable()
                                             ->placeholder(fn (): string => filled(Setting::decryptSecret((string) Setting::get('groq_api_key'))) ? '✓ Saved securely — paste new key to replace' : 'gsk_...'),
                                         TextInput::make('groq_model')
-                                            ->label('Groq Model')
-                                            ->placeholder('llama-3.3-70b-versatile'),
+                                            ->label('Groq Model (Auto-discovers working model on 404)')
+                                            ->placeholder('openai/gpt-oss-20b'),
                                         TextInput::make('openrouter_api_key')
                                             ->label('OpenRouter API Key (openrouter.ai — Free :free Models)')
                                             ->password()
@@ -558,7 +558,7 @@ class StoreSettings extends Page
                                             ->placeholder(fn (): string => filled(Setting::decryptSecret((string) Setting::get('openrouter_api_key'))) ? '✓ Saved securely — paste new key to replace' : 'sk-or-v1-...'),
                                         TextInput::make('openrouter_model')
                                             ->label('OpenRouter Model')
-                                            ->placeholder('meta-llama/llama-3.3-70b-instruct:free'),
+                                            ->placeholder('openrouter/free'),
                                         TextInput::make('gemini_api_key')
                                             ->label('Google Gemini API Key (aistudio.google.com — Free Tier)')
                                             ->password()
@@ -586,6 +586,28 @@ class StoreSettings extends Page
                                             ->maxLength(1000)
                                             ->columnSpanFull(),
                                         Actions::make([
+                                            Action::make('testGroqApi')
+                                                ->label('Test Groq')
+                                                ->icon(Heroicon::OutlinedBeaker)
+                                                ->color('gray')
+                                                ->action(fn () => $this->runAiSeoTest(AiSeoAgent::PROVIDER_GROQ)),
+                                            Action::make('testOpenRouterApi')
+                                                ->label('Test OpenRouter')
+                                                ->icon(Heroicon::OutlinedBeaker)
+                                                ->color('gray')
+                                                ->action(fn () => $this->runAiSeoTest(AiSeoAgent::PROVIDER_OPENROUTER)),
+                                            Action::make('testGeminiApi')
+                                                ->label('Test Gemini')
+                                                ->icon(Heroicon::OutlinedBeaker)
+                                                ->color('gray')
+                                                ->action(fn () => $this->runAiSeoTest(AiSeoAgent::PROVIDER_GEMINI)),
+                                            Action::make('testCustomApi')
+                                                ->label('Test Custom API')
+                                                ->icon(Heroicon::OutlinedBeaker)
+                                                ->color('gray')
+                                                ->action(fn () => $this->runAiSeoTest(AiSeoAgent::PROVIDER_CUSTOM)),
+                                        ])->columnSpanFull(),
+                                        Actions::make([
                                             Action::make('saveAiSeoSection')
                                                 ->label('Save AI SEO Agent Settings')
                                                 ->icon(Heroicon::OutlinedCheck)
@@ -599,29 +621,10 @@ class StoreSettings extends Page
                                                     'ai_seo_brand_instructions',
                                                 ], 'AI SEO Agent settings saved')),
                                             Action::make('testAiSeoAgent')
-                                                ->label('Test AI SEO Agent Now')
+                                                ->label('Test Auto-Shift Chain (All APIs)')
                                                 ->icon(Heroicon::OutlinedSparkles)
                                                 ->color('success')
-                                                ->action(function (): void {
-                                                    $raw = is_array($this->data) ? $this->data : [];
-                                                    $res = AiSeoAgent::testConnection([
-                                                        'ai_seo_provider' => $raw['ai_seo_provider'] ?? null,
-                                                        'groq_api_key' => $raw['groq_api_key'] ?? '',
-                                                        'groq_model' => $raw['groq_model'] ?? '',
-                                                        'openrouter_api_key' => $raw['openrouter_api_key'] ?? '',
-                                                        'openrouter_model' => $raw['openrouter_model'] ?? '',
-                                                        'gemini_api_key' => $raw['gemini_api_key'] ?? '',
-                                                        'gemini_model' => $raw['gemini_model'] ?? '',
-                                                        'custom_llm_base_url' => $raw['custom_llm_base_url'] ?? '',
-                                                        'custom_llm_api_key' => $raw['custom_llm_api_key'] ?? '',
-                                                        'custom_llm_model' => $raw['custom_llm_model'] ?? '',
-                                                    ]);
-                                                    if ($res['success']) {
-                                                        Notification::make()->title('AI SEO Agent Connected!')->body($res['message'])->success()->send();
-                                                    } else {
-                                                        Notification::make()->title('AI SEO Agent Notice')->body($res['message'])->warning()->persistent()->send();
-                                                    }
-                                                }),
+                                                ->action(fn () => $this->runAiSeoTest()),
                                             Action::make('optimizeMissingProductsSeo')
                                                 ->label('Auto-Optimize Products Missing Rich SEO')
                                                 ->icon(Heroicon::OutlinedBolt)
@@ -1196,6 +1199,46 @@ class StoreSettings extends Page
             ->title("Telegram Error: {$err}")
             ->body($hint)
             ->danger()
+            ->persistent()
+            ->send();
+    }
+
+    public function runAiSeoTest(?string $provider = null): void
+    {
+        $raw = is_array($this->data) ? $this->data : [];
+        $overrides = [
+            'ai_seo_provider' => $raw['ai_seo_provider'] ?? null,
+            'groq_api_key' => $raw['groq_api_key'] ?? '',
+            'groq_model' => $raw['groq_model'] ?? '',
+            'openrouter_api_key' => $raw['openrouter_api_key'] ?? '',
+            'openrouter_model' => $raw['openrouter_model'] ?? '',
+            'gemini_api_key' => $raw['gemini_api_key'] ?? '',
+            'gemini_model' => $raw['gemini_model'] ?? '',
+            'custom_llm_base_url' => $raw['custom_llm_base_url'] ?? '',
+            'custom_llm_api_key' => $raw['custom_llm_api_key'] ?? '',
+            'custom_llm_model' => $raw['custom_llm_model'] ?? '',
+        ];
+
+        $res = $provider === null
+            ? AiSeoAgent::testConnection($overrides)
+            : AiSeoAgent::testProvider($provider, $overrides);
+
+        $label = $provider === null ? 'AI SEO Agent' : strtoupper($provider);
+
+        if ($res['success']) {
+            Notification::make()
+                ->title("{$label} Connected!")
+                ->body($res['message'])
+                ->success()
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->title("{$label} Test Failed")
+            ->body($res['message'])
+            ->warning()
             ->persistent()
             ->send();
     }
