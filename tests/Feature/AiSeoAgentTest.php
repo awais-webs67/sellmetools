@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Filament\Pages\StoreSettings;
+use App\Filament\Resources\Products\Pages\EditProduct;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\AiSeoAgent;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
@@ -343,6 +345,47 @@ class AiSeoAgentTest extends TestCase
             }
             throw $e;
         }
+    }
+
+    public function test_edit_product_generate_ai_seo_button_handles_formatted_price_text_entry(): void
+    {
+        $this->actingAs($this->admin);
+        Setting::set('groq_api_key', Setting::encryptSecret('gsk_edit_form_test'));
+
+        Http::fake([
+            'https://api.groq.com/openai/v1/chat/completions' => Http::response([
+                'model' => 'openai/gpt-oss-20b',
+                'choices' => [[
+                    'message' => [
+                        'content' => json_encode([
+                            'short_description' => 'Crunchyroll 1 Month Voucher via instant link.',
+                            'meta_title' => 'Buy Crunchyroll 1 Month Voucher | Instant',
+                            'meta_description' => 'Buy Crunchyroll 1 Month for Rs 100 via Easypaisa & JazzCash.',
+                            'meta_keywords' => 'crunchyroll pakistan, buy crunchyroll voucher',
+                            'warranty' => '24-hour activation support.',
+                            'description' => '<h3>Overview</h3><p>Watch anime ad-free.</p>',
+                        ]),
+                    ],
+                ]],
+            ], 200),
+        ]);
+
+        $product = Product::create([
+            'category_id' => $this->category->id,
+            'name' => 'CrunchyRoll 1 Month Voucher',
+            'pricing_mode' => 'fixed',
+            'price' => 100,
+            'fixed_price' => 100,
+            'is_active' => true,
+            'stock_unlimited' => true,
+        ]);
+
+        Livewire::test(EditProduct::class, ['record' => $product->slug])
+            ->callAction(TestAction::make('generateAiSeo')->schemaComponent())
+            ->assertHasNoErrors();
+
+        $product->refresh();
+        $this->assertTrue($product->hasSeoBackup());
     }
 }
 

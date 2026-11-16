@@ -575,7 +575,7 @@ class AiSeoAgent
     {
         $storeName = (string) Setting::get('store_name', 'SellMeTools');
         $usdtRate = max(1.0, Setting::usdtRate());
-        $pricePkr = max(0, (float) ($product->price ?: $product->fixed_price ?: 0));
+        $pricePkr = static::safeProductPrice($product);
         $priceUsd = $pricePkr > 0 ? round($pricePkr / $usdtRate, 2) : 0.0;
 
         $category = $product->category;
@@ -1086,7 +1086,7 @@ PROMPT;
 
     protected static function enforceMetaDescriptionPrice(string $metaDesc, Product $product): string
     {
-        $price = (float) ($product->price ?: $product->fixed_price ?: 0);
+        $price = static::safeProductPrice($product);
         if ($product->is_free || $price <= 0) {
             return $metaDesc;
         }
@@ -1103,5 +1103,34 @@ PROMPT;
         }
 
         return $metaDesc;
+    }
+
+    protected static function safeProductPrice(Product $product): float
+    {
+        if ($product->is_free) {
+            return 0.0;
+        }
+
+        $attrs = $product->getAttributes();
+        foreach (['price', 'fixed_price'] as $column) {
+            $raw = $attrs[$column] ?? null;
+            if ($raw === null || $raw === '') {
+                continue;
+            }
+            if (is_numeric($raw)) {
+                $val = (float) $raw;
+                if ($val > 0) {
+                    return $val;
+                }
+
+                continue;
+            }
+            $cleaned = preg_replace('/[^0-9.]/', '', (string) $raw);
+            if ($cleaned !== '' && is_numeric($cleaned) && (float) $cleaned > 0) {
+                return (float) $cleaned;
+            }
+        }
+
+        return 0.0;
     }
 }

@@ -357,11 +357,16 @@ class ProductForm
                                         return;
                                     }
 
+                                    $liveSellPrice = self::liveSellingPrice($record, $get);
+                                    $effectivePrice = $liveSellPrice > 0 ? $liveSellPrice : (float) ($record?->price ?? 0);
+                                    $rawFixed = $get('fixed_price') ?? $record?->fixed_price ?? 0;
+                                    $numericFixed = is_numeric($rawFixed) ? (float) $rawFixed : 0.0;
+
                                     $temp = new Product([
                                         'category_id' => $get('category_id') ?: $record?->category_id,
                                         'name' => $name,
-                                        'price' => $get('fixed_price') ?: $get('price') ?: $record?->price ?: 0,
-                                        'fixed_price' => $get('fixed_price') ?: $record?->fixed_price ?: 0,
+                                        'price' => $effectivePrice,
+                                        'fixed_price' => $numericFixed,
                                         'is_free' => (bool) ($get('is_free') ?? $record?->is_free ?? false),
                                         'delivery_type' => (string) ($get('delivery_type') ?: $record?->delivery_type ?: 'auto'),
                                         'short_description' => (string) ($get('short_description') ?: $record?->short_description ?: ''),
