@@ -504,6 +504,7 @@ Alpine.data('copy', (text) => ({
 
 /** In-place "Load More Products" & AJAX pagination controller (appends or swaps pages without full reload). */
 Alpine.data('loadMoreGrid', (initialNextUrl, initialShown, totalCount, initialPage = 1, lastPage = 1) => ({
+    rootEl: null,
     nextUrl: initialNextUrl || '',
     shown: Number(initialShown) || 0,
     total: Number(totalCount) || 0,
@@ -511,6 +512,17 @@ Alpine.data('loadMoreGrid', (initialNextUrl, initialShown, totalCount, initialPa
     lastPage: Number(lastPage) || 1,
     loadingMore: false,
     loadingPage: false,
+
+    init() {
+        this.rootEl = this.$el.closest('[data-load-more-region]') || this.$el;
+    },
+
+    getRegionEl() {
+        if (this.rootEl && document.contains(this.rootEl)) {
+            return this.rootEl;
+        }
+        return this.$el?.closest?.('[data-load-more-region]') || document.querySelector('[data-load-more-region]') || this.$el;
+    },
 
     handlePageClick(event) {
         const link = event.target?.closest?.('a[href]');
@@ -533,10 +545,11 @@ Alpine.data('loadMoreGrid', (initialNextUrl, initialShown, totalCount, initialPa
                 window.location.href = targetUrl;
                 return;
             }
+            const region = this.getRegionEl();
             const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
-            const regionId = this.$el.id ? `#${this.$el.id}` : '[data-load-more-region]';
-            const freshRegion = doc.querySelector(regionId);
-            const currentGrid = this.$el.querySelector('[data-grid-items]');
+            const regionId = region?.id ? `#${region.id}` : '[data-load-more-region]';
+            const freshRegion = doc.querySelector(regionId) || doc.querySelector('[data-load-more-region]');
+            const currentGrid = region?.querySelector('[data-grid-items]');
             const freshCards = freshRegion ? [...freshRegion.querySelectorAll('[data-grid-items] > *')] : [];
 
             if (currentGrid && freshCards.length) {
@@ -545,7 +558,7 @@ Alpine.data('loadMoreGrid', (initialNextUrl, initialShown, totalCount, initialPa
             }
 
             const freshPagination = freshRegion?.querySelector('[data-ajax-pagination]');
-            const currentPagination = this.$el.querySelector('[data-ajax-pagination]');
+            const currentPagination = region?.querySelector('[data-ajax-pagination]');
             if (freshPagination && currentPagination) {
                 currentPagination.innerHTML = freshPagination.innerHTML;
             }
@@ -564,8 +577,13 @@ Alpine.data('loadMoreGrid', (initialNextUrl, initialShown, totalCount, initialPa
 
     async goToPage(url, pushHistory = true) {
         if (!url || this.loadingPage || this.loadingMore) return;
+        const region = this.getRegionEl();
+        if (!region) {
+            window.location.href = url;
+            return;
+        }
         this.loadingPage = true;
-        this.$el.classList.add('opacity-55', 'pointer-events-none', 'transition-opacity', 'duration-150');
+        region.classList.add('opacity-55', 'pointer-events-none', 'transition-opacity', 'duration-150');
 
         try {
             const res = await fetch(url, {
@@ -577,14 +595,14 @@ Alpine.data('loadMoreGrid', (initialNextUrl, initialShown, totalCount, initialPa
                 return;
             }
             const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
-            const regionId = this.$el.id ? `#${this.$el.id}` : '[data-load-more-region]';
-            const freshRegion = doc.querySelector(regionId);
+            const regionId = region.id ? `#${region.id}` : '[data-load-more-region]';
+            const freshRegion = doc.querySelector(regionId) || doc.querySelector('[data-load-more-region]');
             if (!freshRegion) {
                 window.location.href = url;
                 return;
             }
 
-            this.$el.replaceWith(freshRegion);
+            region.replaceWith(freshRegion);
             if (pushHistory) {
                 window.history.pushState({ smtShopPage: url }, '', url);
             }
@@ -594,7 +612,7 @@ Alpine.data('loadMoreGrid', (initialNextUrl, initialShown, totalCount, initialPa
             window.location.href = url;
         } finally {
             this.loadingPage = false;
-            this.$el?.classList?.remove('opacity-55', 'pointer-events-none');
+            region?.classList?.remove('opacity-55', 'pointer-events-none');
         }
     },
 }));

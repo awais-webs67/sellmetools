@@ -21,13 +21,13 @@
         ->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))
         ->implode('');
 @endphp
-<article class="group relative flex flex-col overflow-hidden rounded-xl border border-line bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition duration-150 ease-out hover:-translate-y-0.5 hover:border-brand/45 hover:shadow-[0_12px_24px_-8px_rgba(20,23,26,0.16)] active:scale-[0.98] active:opacity-85 select-none"
+<article class="group relative cursor-pointer flex flex-col overflow-hidden rounded-xl border border-line bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition duration-150 ease-out hover:-translate-y-0.5 hover:border-brand/45 hover:shadow-[0_12px_24px_-8px_rgba(20,23,26,0.16)] active:scale-[0.98] active:opacity-85 select-none"
          x-data="stockBadge({{ $product->id }}, {{ (int) $product->available_stock }}, {{ $product->stock_unlimited ? 'true' : 'false' }}, @js($isFree ? 'FREE' : money($effectivePrice)), {{ (float) $effectivePrice }})"
          data-stock-id="{{ $product->id }}"
          data-category-slug="{{ $product->category?->slug ?? '' }}"
          data-search-text="{{ mb_strtolower($product->name.' '.($product->category?->name ?? '').' '.($product->short_description ?? '')) }}">
     {{-- Media Box: Full uncropped image (object-contain) with soft ambient backdrop --}}
-    <div class="surface-dark-solid relative block h-36 sm:h-40 overflow-hidden">
+    <div class="surface-dark-solid pointer-events-none relative block h-36 sm:h-40 overflow-hidden">
         @if ($img = $product->imageUrl())
             {{-- Ambient blurred backdrop uses loading="lazy" cleanly (CSS background-image bypasses lazy loading!) --}}
             <img src="{{ $img }}" alt="" aria-hidden="true" width="400" height="250" @if ($priority) fetchpriority="high" @else loading="lazy" @endif decoding="async" class="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-md" :class="!inStock && 'grayscale'">
@@ -54,7 +54,7 @@
         @endif
 
         {{-- Top Badges Overlay --}}
-        <div class="absolute inset-x-2 top-2 z-20 flex items-center justify-between gap-1.5">
+        <div class="pointer-events-none absolute inset-x-2 top-2 z-20 flex items-center justify-between gap-1.5">
             @if ($isFree)
                 <span class="rounded bg-success px-2 py-0.5 text-[10px] font-bold tracking-wide text-white shadow-xs">🎁 FREE</span>
             @elseif ($discount)
@@ -76,7 +76,7 @@
     {{-- Compact Card Body --}}
     <div class="flex flex-1 flex-col p-3 sm:p-3.5">
         <h3 class="line-clamp-1 text-[13px] sm:text-[15px] font-bold leading-snug text-ink transition group-hover:text-brand" title="{{ $product->name }}">
-            <a href="{{ route('products.show', $product) }}" class="after:absolute after:inset-0">{{ $product->name }}</a>
+            <a href="{{ route('products.show', $product) }}" class="after:absolute after:inset-0 after:z-30">{{ $product->name }}</a>
         </h3>
 
         <div class="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted">
