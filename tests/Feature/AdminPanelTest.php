@@ -444,4 +444,46 @@ class AdminPanelTest extends TestCase
             ->assertSee('.smt-cred-pre', false)
             ->assertSee('window.smtCopyFromBox', false);
     }
+
+    public function test_footer_contact_email_and_address_can_be_configured_and_toggled(): void
+    {
+        $this->actingAs($this->admin);
+
+        Livewire::test(StoreSettings::class)
+            ->fillForm([
+                'support_email' => 'hello@sellmetools.com',
+                'footer_email_enabled' => true,
+                'footer_address' => 'Office 12, Gulberg III, Lahore',
+                'footer_address_enabled' => true,
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame('hello@sellmetools.com', Setting::get('support_email'));
+        $this->assertSame('1', Setting::get('footer_email_enabled'));
+        $this->assertSame('Office 12, Gulberg III, Lahore', Setting::get('footer_address'));
+        $this->assertSame('1', Setting::get('footer_address_enabled'));
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('mailto:hello@sellmetools.com', false)
+            ->assertSee('hello@sellmetools.com')
+            ->assertSee('Office 12, Gulberg III, Lahore');
+
+        Livewire::test(StoreSettings::class)
+            ->fillForm([
+                'footer_email_enabled' => false,
+                'footer_address_enabled' => false,
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame('0', Setting::get('footer_email_enabled'));
+        $this->assertSame('0', Setting::get('footer_address_enabled'));
+
+        $response = $this->get('/');
+        $response->assertOk();
+        $response->assertDontSee('mailto:hello@sellmetools.com', false);
+        $response->assertDontSee('Office 12, Gulberg III, Lahore');
+    }
 }

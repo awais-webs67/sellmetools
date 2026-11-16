@@ -441,13 +441,25 @@
                     @endforeach
                 </div>
                 @php
+                    $footerEmailEnabled = (string) setting('footer_email_enabled', '1') === '1';
+                    $footerEmail = trim((string) setting('support_email', ''));
                     $footerAddressEnabled = (string) setting('footer_address_enabled', '1') === '1';
                     $footerAddress = trim((string) setting('footer_address', 'Vilage Dongray Kalan Post Office Pindi Purbian city Zafarwal district narowal'));
                 @endphp
-                @if ($footerAddressEnabled && $footerAddress !== '')
-                    <div data-nosnippet class="mt-4 flex items-start gap-2 text-xs text-white/60 max-w-md leading-relaxed">
-                        <svg class="h-4 w-4 shrink-0 text-white/50 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-                        <span>{{ $footerAddress }}</span>
+                @if (($footerEmailEnabled && $footerEmail !== '') || ($footerAddressEnabled && $footerAddress !== ''))
+                    <div class="mt-4 space-y-2 text-xs text-white/75 max-w-md leading-relaxed">
+                        @if ($footerEmailEnabled && $footerEmail !== '')
+                            <div class="flex items-center gap-2">
+                                <svg class="h-4 w-4 shrink-0 text-white/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                                <a href="mailto:{{ $footerEmail }}" class="hover:text-white underline-offset-2 hover:underline">{{ $footerEmail }}</a>
+                            </div>
+                        @endif
+                        @if ($footerAddressEnabled && $footerAddress !== '')
+                            <div data-nosnippet class="flex items-start gap-2 text-white/70">
+                                <svg class="h-4 w-4 shrink-0 text-white/55 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                                <span>{{ $footerAddress }}</span>
+                            </div>
+                        @endif
                     </div>
                 @endif
             </div>
