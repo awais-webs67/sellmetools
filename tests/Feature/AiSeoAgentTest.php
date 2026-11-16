@@ -329,5 +329,20 @@ class AiSeoAgentTest extends TestCase
         $this->assertSame('Original meta description for Rs 1,800.', $product->meta_description);
         $this->assertSame('original tag 1, original tag 2', $product->meta_keywords);
     }
+
+    public function test_ensure_columns_skips_ddl_inside_active_transaction(): void
+    {
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            Product::ensureFreeAndStockColumnsExist();
+            $this->assertGreaterThan(0, \Illuminate\Support\Facades\DB::transactionLevel());
+            \Illuminate\Support\Facades\DB::commit();
+        } catch (\Throwable $e) {
+            if (\Illuminate\Support\Facades\DB::transactionLevel() > 0) {
+                \Illuminate\Support\Facades\DB::rollBack();
+            }
+            throw $e;
+        }
+    }
 }
 

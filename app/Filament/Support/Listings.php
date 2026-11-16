@@ -49,6 +49,8 @@ final class Listings
      */
     public static function createFromSupplierProduct(SupplierProduct $source, array $data): Product
     {
+        Product::ensureFreeAndStockColumnsExist();
+
         $product = DB::transaction(function () use ($source, $data): Product {
             $product = Product::create([
                 'name' => $data['name'] ?? $source->name,

@@ -295,11 +295,19 @@ class Product extends Model
         if ($checked) {
             return;
         }
-        $checked = true;
 
         if (! app()->runningUnitTests() && is_file(storage_path('framework/schema_v9_ready.flag'))) {
+            $checked = true;
+
             return;
         }
+
+        // MySQL implicitly commits open transactions on ALTER TABLE; skip DDL until outside any transaction.
+        if (DB::transactionLevel() > 0) {
+            return;
+        }
+
+        $checked = true;
 
         try {
             if (! Schema::hasColumn('products', 'legacy_slugs')) {
