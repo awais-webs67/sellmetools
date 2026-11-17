@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Enums\PricingMode;
 use App\Enums\StockStatus;
 use App\Enums\SupplierOrderStatus;
+use App\Filament\Pages\GoogleAnalytics;
 use App\Filament\Pages\SalesStatement;
 use App\Filament\Pages\StoreSettings;
 use App\Filament\Resources\Categories\CategoryResource;
@@ -39,6 +40,7 @@ use App\Models\SupplierProduct;
 use App\Models\User;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -664,5 +666,118 @@ class AdminPanelTest extends TestCase
         ]);
         $this->actingAs($seoStaff);
         $this->assertFalse(SupplierOrderResource::canAccess());
+    }
+
+    public function test_google_analytics_admin_page_and_settings_configure_ga4_gtm_and_live_data_api(): void
+    {
+        $this->actingAs($this->admin);
+
+        Livewire::test(GoogleAnalytics::class)
+            ->callAction('configureGa4', [
+                'google_analytics_enabled' => true,
+                'google_analytics_id' => '<script async src="https://www.googletagmanager.com/gtag/js?id=G-LIVE2026GA"></script>',
+                'gtm_container_id' => '<!-- Google Tag Manager --> GTM-987XYZ',
+                'ga4_property_id' => 'properties/412345678',
+                'ga4_service_account_json' => '',
+            ])
+            ->assertHasNoActionErrors();
+
+        $this->assertSame('1', Setting::get('google_analytics_enabled'));
+        $this->assertSame('G-LIVE2026GA', Setting::get('google_analytics_id'));
+        $this->assertSame('GTM-987XYZ', Setting::get('gtm_container_id'));
+        $this->assertSame('412345678', Setting::get('ga4_property_id'));
+
+        $homeHtml = $this->get(route('home'))->assertOk()->getContent();
+        $this->assertStringContainsString('G-LIVE2026GA', $homeHtml);
+        $this->assertStringContainsString('GTM-987XYZ', $homeHtml);
+
+        // Turning GA4 toggle OFF disables both GA4 and GTM on the storefront
+        Livewire::test(StoreSettings::class)
+            ->fillForm([
+                'google_analytics_enabled' => false,
+            ])
+            ->call('saveKeys', ['google_analytics_enabled'])
+            ->assertHasNoFormErrors();
+
+        $disabledHtml = $this->get(route('home'))->assertOk()->getContent();
+        $this->assertStringNotContainsString('G-LIVE2026GA', $disabledHtml);
+        $this->assertStringNotContainsString('GTM-987XYZ', $disabledHtml);
+
+        // Re-enable & connect live GA4 Data API with mocked Google OAuth + Analytics Data v1 endpoints
+        $sslArgs = array_filter([
+            'private_key_bits' => 1024,
+            'private_key_type' => OPENSSL_KEYTYPE_RSA,
+            'config' => is_file('C:/xampp/php/extras/ssl/openssl.cnf') ? 'C:/xampp/php/extras/ssl/openssl.cnf' : null,
+        ]);
+        $resKey = openssl_pkey_new($sslArgs);
+        $pem = '';
+        openssl_pkey_export($resKey, $pem, null, $sslArgs);
+
+        $saJson = (string) json_encode([
+            'type' => 'service_account',
+            'client_email' => 'ga4-bot@sellmetools.iam.gserviceaccount.com',
+            'private_key' => $pem,
+        ]);
+
+        Http::fake([
+            'https://oauth2.googleapis.com/token' => Http::response(['access_token' => 'mock-ga4-token'], 200),
+            'https://analyticsdata.googleapis.com/v1beta/properties/412345678:runRealtimeReport' => Http::response([
+                'rows' => [['metricValues' => [['value' => '14']]]],
+            ], 200),
+            'https://analyticsdata.googleapis.com/v1beta/properties/412345678:batchRunReports' => Http::response([
+                'reports' => [
+                    [
+                        'rows' => [[
+                            'metricValues' => [
+                                ['value' => '820'],
+                                ['value' => '640'],
+                                ['value' => '1150'],
+                                ['value' => '3420'],
+                                ['value' => '890'],
+                                ['value' => '19'],
+                                ['value' => '48500'],
+                            ],
+                        ]],
+                    ],
+                    [
+                        'rows' => [[
+                            'dimensionValues' => [['value' => '20261117']],
+                            'metricValues' => [['value' => '120'], ['value' => '490']],
+                        ]],
+                    ],
+                    [
+                        'rows' => [[
+                            'dimensionValues' => [['value' => '/products/chatgpt-plus'], ['value' => 'ChatGPT Plus Pakistan']],
+                            'metricValues' => [['value' => '910'], ['value' => '410']],
+                        ]],
+                    ],
+                    [
+                        'rows' => [[
+                            'dimensionValues' => [['value' => 'google / organic']],
+                            'metricValues' => [['value' => '740'], ['value' => '590']],
+                        ]],
+                    ],
+                    [
+                        'rows' => [[
+                            'dimensionValues' => [['value' => 'mobile']],
+                            'metricValues' => [['value' => '615']],
+                        ]],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        Setting::setMany([
+            'google_analytics_enabled' => '1',
+            'ga4_property_id' => '412345678',
+            'ga4_service_account_json' => Setting::encryptSecret($saJson),
+        ]);
+
+        $this->get('/admin/google-analytics')
+            ->assertOk()
+            ->assertSee('14 Live Visitor(s) Now')
+            ->assertSee('3,420')
+            ->assertSee('google / organic')
+            ->assertSee('/products/chatgpt-plus');
     }
 }

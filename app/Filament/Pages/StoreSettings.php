@@ -10,6 +10,7 @@ use App\Models\Setting;
 use App\Services\AiSeoAgent;
 use App\Services\DatabaseBackupService;
 use App\Services\EmailNotifier;
+use App\Services\GoogleAnalyticsService;
 use App\Services\OrderService;
 use App\Services\TelegramNotifier;
 use App\Services\WhatsAppNotifier;
@@ -56,7 +57,8 @@ class StoreSettings extends Page
         'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
         'telegram_bot_token', 'telegram_admin_chat_id', 'telegram_store_bot_enabled',
         'support_whatsapp', 'support_telegram', 'support_email', 'footer_phone_enabled', 'footer_email_enabled', 'footer_address_enabled', 'footer_address',
-        'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id',
+        'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key',
+        'google_analytics_enabled', 'google_analytics_id', 'gtm_container_id', 'ga4_property_id', 'ga4_service_account_json',
         'ads_tracking_enabled', 'meta_pixel_id', 'google_ads_id', 'google_ads_purchase_label', 'tiktok_pixel_id',
         'ai_seo_auto_enabled', 'ai_seo_provider', 'groq_api_key', 'groq_model', 'openrouter_api_key', 'openrouter_model', 'gemini_api_key', 'gemini_model', 'custom_llm_base_url', 'custom_llm_api_key', 'custom_llm_model', 'ai_seo_brand_instructions',
         'mail_enabled', 'mail_send_order_delivered',
@@ -71,7 +73,8 @@ class StoreSettings extends Page
         'promo_popup_enabled', 'promo_popup_type', 'promo_popup_badge', 'promo_popup_title', 'promo_popup_body', 'promo_popup_image', 'promo_popup_cta_text', 'promo_popup_cta_url', 'promo_popup_version',
         'home_hero_badge', 'home_hero_title', 'home_hero_subtitle', 'home_about_heading', 'home_guide_heading', 'home_seo_content',
         'shop_seo_title', 'shop_seo_description',
-        'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id',
+        'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key',
+        'google_analytics_enabled', 'google_analytics_id', 'gtm_container_id',
     ];
 
     /** Changing these re-prices or re-stocks every supplier-sourced product. */
@@ -100,7 +103,7 @@ class StoreSettings extends Page
     public ?array $data = [];
 
     /** Boolean toggles, stored as '1' / '0' strings. */
-    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered', 'telegram_store_bot_enabled', 'backup_enabled', 'promo_popup_enabled', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link', 'footer_phone_enabled', 'footer_email_enabled', 'footer_address_enabled', 'ai_seo_auto_enabled', 'ads_tracking_enabled'];
+    protected const TOGGLE_KEYS = ['mail_enabled', 'mail_send_order_delivered', 'telegram_store_bot_enabled', 'backup_enabled', 'promo_popup_enabled', 'whatsapp_send_customer_receipt', 'whatsapp_include_customer_chat_link', 'footer_phone_enabled', 'footer_email_enabled', 'footer_address_enabled', 'ai_seo_auto_enabled', 'ads_tracking_enabled', 'google_analytics_enabled'];
 
     /** Encrypted secret keys never echoed back into HTML inputs. */
     protected const AI_SECRET_KEYS = ['groq_api_key', 'openrouter_api_key', 'gemini_api_key', 'custom_llm_api_key'];
@@ -114,8 +117,9 @@ class StoreSettings extends Page
             $values[$key] = (string) ($values[$key] ?? $default) === '1';
         }
 
-        // Never send the stored SMTP password back to the browser; keep SuperAdmin AI keys hydrated without password autofill.
+        // Never send the stored SMTP password or GA4 service account key back to the browser; keep SuperAdmin AI keys hydrated without password autofill.
         $values['mail_password'] = '';
+        $values['ga4_service_account_json'] = '';
         foreach (self::AI_SECRET_KEYS as $secretKey) {
             $values[$secretKey] = Setting::decryptSecret((string) ($values[$secretKey] ?? ''));
         }
@@ -494,22 +498,20 @@ class StoreSettings extends Page
                                         TextInput::make('indexnow_key')
                                             ->label('IndexNow API Key (Instant Bing / Copilot / ChatGPT Indexing)')
                                             ->placeholder('a7f9c2e4b8d106359a2c4e6f8b0d2e4a')
-                                            ->helperText('Automatically served at '.url('/'.Setting::get('indexnow_key', 'a7f9c2e4b8d106359a2c4e6f8b0d2e4a').'.txt')),
-                                        TextInput::make('google_analytics_id')
-                                            ->label('Google Analytics 4 ID (Optional)')
-                                            ->placeholder('G-XXXXXXXXXX'),
+                                            ->helperText('Automatically served at '.url('/'.Setting::get('indexnow_key', 'a7f9c2e4b8d106359a2c4e6f8b0d2e4a').'.txt'))
+                                            ->columnSpanFull(),
                                         Actions::make([
                                             Action::make('saveSeoSection')
                                                 ->label('Save SEO Settings')
                                                 ->icon(Heroicon::OutlinedCheck)
                                                 ->color('primary')
-                                                ->action(fn () => $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id'], 'SEO settings saved')),
+                                                ->action(fn () => $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key'], 'SEO settings saved')),
                                             Action::make('pingIndexNow')
                                                 ->label('Submit All Site URLs to Bing & ChatGPT (IndexNow)')
                                                 ->icon(Heroicon::OutlinedPaperAirplane)
                                                 ->color('gray')
                                                 ->action(function (): void {
-                                                    $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key', 'google_analytics_id'], 'SEO settings saved');
+                                                    $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key'], 'SEO settings saved');
                                                     $res = SeoController::submitAllToIndexNow();
                                                     if ($res['success']) {
                                                         Notification::make()
@@ -526,6 +528,62 @@ class StoreSettings extends Page
                                                             ->send();
                                                     }
                                                 }),
+                                        ])->columnSpanFull(),
+                                    ]),
+
+                                Section::make('Google Analytics 4 (GA4) & Google Tag Manager')
+                                    ->description('Track visitors, traffic sources, product views (view_item), checkouts (begin_checkout), and paid orders (purchase) with zero page-speed penalty. Optionally connect GA4 Data API to view live traffic charts on the Google Analytics page.')
+                                    ->icon(Heroicon::OutlinedChartBarSquare)
+                                    ->columns(['default' => 1, 'sm' => 2])
+                                    ->schema([
+                                        Toggle::make('google_analytics_enabled')
+                                            ->label('Enable Google Analytics 4 (GA4) & E-Commerce Tracking on Storefront')
+                                            ->helperText('Turn ON to load gtag.js (and optional GTM) asynchronously after first interaction so Core Web Vitals stay fast.')
+                                            ->default(true)
+                                            ->columnSpanFull(),
+                                        TextInput::make('google_analytics_id')
+                                            ->label('GA4 Measurement ID (or Paste Full gtag.js Code)')
+                                            ->placeholder('G-XXXXXXXXXX')
+                                            ->helperText('Paste G-XXXXXXXXXX or the full <script> tag from GA4 → Admin → Data Streams.'),
+                                        TextInput::make('gtm_container_id')
+                                            ->label('Google Tag Manager Container ID (Optional)')
+                                            ->placeholder('GTM-XXXXXXX')
+                                            ->helperText('Optional GTM container (leave empty if using GA4 Measurement ID directly).'),
+                                        TextInput::make('ga4_property_id')
+                                            ->label('GA4 Numeric Property ID (Optional — for Live Admin Dashboard)')
+                                            ->placeholder('412345678')
+                                            ->helperText('Found in Google Analytics → Admin → Property Details.')
+                                            ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
+                                            ->columnSpanFull(),
+                                        Textarea::make('ga4_service_account_json')
+                                            ->label('Google Cloud Service Account JSON (Optional — Encrypted, for Live Admin Charts)')
+                                            ->rows(3)
+                                            ->placeholder(fn (): string => filled(Setting::decryptSecret((string) Setting::get('ga4_service_account_json', '')))
+                                                ? '✓ Service Account JSON saved securely — paste new JSON here only to replace'
+                                                : '{"type":"service_account","project_id":"...","private_key":"-----BEGIN PRIVATE KEY-----...","client_email":"..."}')
+                                            ->helperText('Enable Google Analytics Data API in Google Cloud & add client_email as Viewer in GA4 Property Access Management.')
+                                            ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
+                                            ->columnSpanFull(),
+                                        Actions::make([
+                                            Action::make('saveGa4Section')
+                                                ->label('Save Google Analytics Settings')
+                                                ->icon(Heroicon::OutlinedCheck)
+                                                ->color('primary')
+                                                ->action(fn () => $this->saveKeys([
+                                                    'google_analytics_enabled', 'google_analytics_id', 'gtm_container_id',
+                                                    'ga4_property_id', 'ga4_service_account_json',
+                                                ], 'Google Analytics settings saved')),
+                                            Action::make('testGa4LiveApi')
+                                                ->label('Test GA4 Live API')
+                                                ->icon(Heroicon::OutlinedSignal)
+                                                ->color('gray')
+                                                ->visible(fn (): bool => (bool) auth()->user()?->isSuperAdmin())
+                                                ->action(fn () => $this->runGa4ConnectionTest()),
+                                            Action::make('openAdminGaPage')
+                                                ->label('Open Google Analytics Dashboard')
+                                                ->icon(Heroicon::OutlinedChartBarSquare)
+                                                ->color('success')
+                                                ->url(fn (): string => GoogleAnalytics::getUrl()),
                                         ])->columnSpanFull(),
                                     ]),
 
@@ -1052,6 +1110,17 @@ class StoreSettings extends Page
 
                 continue; // empty = keep the currently saved password
             }
+            if ($key === 'ga4_service_account_json') {
+                $plain = trim((string) ($raw[$key] ?? ''));
+                if ($plain !== '') {
+                    if (GoogleAnalyticsService::parseServiceAccount($plain) !== null) {
+                        $toSave[$key] = Setting::encryptSecret($plain);
+                        $this->data['ga4_service_account_json'] = '';
+                    }
+                }
+
+                continue; // empty = keep the currently saved service account JSON
+            }
             if (in_array($key, self::AI_SECRET_KEYS, true)) {
                 $plain = trim((string) ($raw[$key] ?? ''));
                 $toSave[$key] = $plain !== '' ? Setting::encryptSecret($plain) : '';
@@ -1070,6 +1139,18 @@ class StoreSettings extends Page
             if ($key === 'support_whatsapp' && $val !== null && $val !== '') {
                 $val = format_whatsapp($val);
                 $this->data['support_whatsapp'] = $val;
+            }
+            if ($key === 'google_analytics_id' && $val !== null) {
+                $val = GoogleAnalyticsService::normalizeMeasurementId($val);
+                $this->data['google_analytics_id'] = $val;
+            }
+            if ($key === 'gtm_container_id' && $val !== null) {
+                $val = GoogleAnalyticsService::normalizeGtmId($val);
+                $this->data['gtm_container_id'] = $val;
+            }
+            if ($key === 'ga4_property_id' && $val !== null) {
+                $val = GoogleAnalyticsService::normalizePropertyId($val);
+                $this->data['ga4_property_id'] = $val;
             }
             if ($val === '' && isset(Setting::DEFAULTS[$key]) && in_array($key, ['store_name', 'currency_symbol', 'usdt_rate', 'price_rounding', 'supplier_unlimited_stock_qty', 'order_expiry_minutes', 'sms_webhook_secret', 'admin_quick_pin', 'backup_frequency'], true)) {
                 $val = Setting::DEFAULTS[$key];
@@ -1268,6 +1349,32 @@ class StoreSettings extends Page
 
         Notification::make()
             ->title("{$label} Test Failed")
+            ->body($res['message'])
+            ->warning()
+            ->persistent()
+            ->send();
+    }
+
+    public function runGa4ConnectionTest(): void
+    {
+        $raw = is_array($this->data) ? $this->data : [];
+        $res = app(GoogleAnalyticsService::class)->testConnection([
+            'ga4_property_id' => $raw['ga4_property_id'] ?? '',
+            'ga4_service_account_json' => $raw['ga4_service_account_json'] ?? '',
+        ]);
+
+        if ($res['success']) {
+            Notification::make()
+                ->title('GA4 Live Data API Connected!')
+                ->body($res['message'])
+                ->success()
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->title('GA4 API Check')
             ->body($res['message'])
             ->warning()
             ->persistent()

@@ -67,7 +67,11 @@ class Setting extends Model
         'google_site_verification' => '',
         'bing_site_verification' => '',
         'indexnow_key' => 'a7f9c2e4b8d106359a2c4e6f8b0d2e4a',
+        'google_analytics_enabled' => '1',
         'google_analytics_id' => 'G-CFGVMHWE3G',
+        'gtm_container_id' => '',
+        'ga4_property_id' => '',
+        'ga4_service_account_json' => '',
         // Paid Ads Pixels & Conversion Tracking:
         'ads_tracking_enabled' => '0',
         'meta_pixel_id' => '',

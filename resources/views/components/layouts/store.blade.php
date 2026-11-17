@@ -42,8 +42,11 @@
     $googleVerify = preg_match('/content=["\']([^"\']+)["\']/i', $rawGoogleVerify, $m) ? trim($m[1]) : $rawGoogleVerify;
     $rawBingVerify = trim((string) setting('bing_site_verification'));
     $bingVerify = preg_match('/content=["\']([^"\']+)["\']/i', $rawBingVerify, $bm) ? trim($bm[1]) : $rawBingVerify;
-    $rawGaId = trim((string) setting('google_analytics_id', 'G-CFGVMHWE3G'));
-    $gaId = preg_match('/\b(G-[A-Z0-9]+|UA-[0-9-]+|GT-[A-Z0-9]+)\b/i', $rawGaId, $gaMatch) ? strtoupper($gaMatch[1]) : $rawGaId;
+    $gaEnabled = (string) setting('google_analytics_enabled', '1') === '1';
+    $rawGaId = $gaEnabled ? trim((string) setting('google_analytics_id', 'G-CFGVMHWE3G')) : '';
+    $gaId = $rawGaId !== '' ? \App\Services\GoogleAnalyticsService::normalizeMeasurementId($rawGaId) : '';
+    $rawGtmId = $gaEnabled ? trim((string) setting('gtm_container_id', '')) : '';
+    $gtmId = $rawGtmId !== '' ? \App\Services\GoogleAnalyticsService::normalizeGtmId($rawGtmId) : '';
     $storeTheme = (string) setting('store_theme', 'black');
     $themeColorHex = $storeTheme === 'crimson' ? '#9B1B30' : '#000000';
 
@@ -179,10 +182,11 @@
         $primaryGtagId = $gaId ?: $googleAdsId;
     @endphp
 
-    @if ($primaryGtagId || $metaPixelId || $tiktokPixelId)
+    @if ($primaryGtagId || $gtmId || $metaPixelId || $tiktokPixelId)
         <script>
             window.SMT_TRACKING = {
                 gaId: @json($gaId ?: ''),
+                gtmId: @json($gtmId ?: ''),
                 googleAdsId: @json($googleAdsId ?: ''),
                 googleAdsPurchaseLabel: @json($googleAdsPurchaseLabel ?: ''),
                 metaPixelId: @json($metaPixelId ?: ''),
@@ -264,6 +268,15 @@
                         gs.async = true;
                         gs.src = @json('https://www.googletagmanager.com/gtag/js?id='.urlencode($primaryGtagId));
                         document.head.appendChild(gs);
+                    @endif
+
+                    @if ($gtmId)
+                        window.dataLayer = window.dataLayer || [];
+                        window.dataLayer.push({'gtm.start': new Date().getTime(), event: 'gtm.js'});
+                        const gtms = document.createElement('script');
+                        gtms.async = true;
+                        gtms.src = @json('https://www.googletagmanager.com/gtm.js?id='.urlencode($gtmId));
+                        document.head.appendChild(gtms);
                     @endif
 
                     @if ($metaPixelId)
