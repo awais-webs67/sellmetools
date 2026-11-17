@@ -4,20 +4,26 @@ namespace App\Filament\Resources\SupplierOrders;
 
 use App\Enums\OrderStatus;
 use App\Enums\SupplierOrderStatus;
+use App\Filament\Pages\SalesStatement;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\SupplierOrders\Pages\ListSupplierOrders;
 use App\Filament\Support\Listings;
 use App\Filament\Support\Money;
+use App\Models\Order;
+use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\SupplierOrder;
 use App\Models\SupplierProduct;
 use App\Services\FulfillmentService;
+use App\Services\OrderService;
 use App\Services\Suppliers\SupplierManager;
 use App\Services\SupplierSyncService;
+use App\Services\WhatsAppNotifier;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
@@ -561,6 +567,196 @@ class SupplierOrderResource extends Resource
                     ->body(implode("\n", $res->items).$profitLine)
                     ->persistent()
                     ->success()
+                    ->send();
+            });
+    }
+
+    /**
+     * Reusable Admin "Create Manual Order" header action (shown alongside Direct Supplier Order,
+     * on Orders, and on Sales & Profit Reports). Creates a Completed Order recorded in the ledger
+     * and dispatches the standard Order Delivered email when customer email is provided.
+     */
+    public static function manualOrderAction(): Action
+    {
+        return Action::make('createManualOrder')
+            ->label('Create Manual Order')
+            ->icon(Heroicon::OutlinedPlusCircle)
+            ->color('success')
+            ->visible(function (): bool {
+                $user = auth()->user();
+
+                return (bool) ($user?->isSuperAdmin() || $user?->isSalesStaff());
+            })
+            ->modalWidth('2xl')
+            ->modalHeading('Create Manual Customer Order (Ledger + Email)')
+            ->modalDescription('Record any direct/WhatsApp/off-site customer order into Sales & Profit Reports. Customer Email & WhatsApp are optional — when Email is entered, the customer receives the exact standard Order Delivered email with receipt & credentials.')
+            ->modalSubmitActionLabel('Create Order & Save to Ledger')
+            ->fillForm([
+                'quantity' => 1,
+                'paid_price' => 0,
+                'cost' => 0,
+                'send_email' => true,
+            ])
+            ->schema([
+                Select::make('product_id')
+                    ->label('Catalog Product (Optional — Auto-fills fields below)')
+                    ->placeholder('Custom / Off-Catalog Product (type name manually below)')
+                    ->options(fn (): array => Product::query()->orderBy('name')->pluck('name', 'id')->all())
+                    ->searchable()
+                    ->live()
+                    ->afterStateUpdated(function ($state, Get $get, Set $set): void {
+                        if (! $state) {
+                            return;
+                        }
+                        $product = Product::with('activeSources.supplier')->find($state);
+                        if (! $product) {
+                            return;
+                        }
+                        $qty = max(1, (int) ($get('quantity') ?: 1));
+                        $set('product_name', $product->name);
+                        $unitSell = (float) $product->price > 0
+                            ? (float) $product->price
+                            : (float) ($product->fixed_price ?? 0);
+                        $cheapestSource = $product->activeSources
+                            ->sortBy(fn (SupplierProduct $sp): float => $sp->costPkr())
+                            ->first();
+                        $unitCost = (float) $product->cost_price > 0
+                            ? (float) $product->cost_price
+                            : ($cheapestSource ? round($cheapestSource->costPkr(), 0) : 0.0);
+                        $set('paid_price', round($unitSell * $qty, 0));
+                        $set('cost', round($unitCost * $qty, 0));
+                    }),
+                Grid::make(['default' => 1, 'sm' => 3])->schema([
+                    TextInput::make('product_name')
+                        ->label('Product Name')
+                        ->placeholder('e.g. ChatGPT Plus 1 Month Private')
+                        ->required()
+                        ->maxLength(255)
+                        ->columnSpan(['default' => 1, 'sm' => 2]),
+                    TextInput::make('quantity')
+                        ->label('Quantity')
+                        ->numeric()
+                        ->minValue(1)
+                        ->default(1)
+                        ->required()
+                        ->live(debounce: 200),
+                ]),
+                Grid::make(['default' => 1, 'sm' => 3])->schema([
+                    TextInput::make('paid_price')
+                        ->label('Paid Price / Sale Amount (PKR)')
+                        ->prefix('Rs')
+                        ->numeric()
+                        ->minValue(0)
+                        ->required()
+                        ->live(debounce: 200),
+                    TextInput::make('cost')
+                        ->label('Your Cost (PKR)')
+                        ->prefix('Rs')
+                        ->numeric()
+                        ->minValue(0)
+                        ->default(0)
+                        ->required()
+                        ->live(debounce: 200),
+                    Select::make('payment_method_id')
+                        ->label('Payment Channel (Optional)')
+                        ->placeholder('Manual / Direct')
+                        ->options(fn (): array => PaymentMethod::query()
+                            ->where('is_active', true)
+                            ->orderBy('sort')
+                            ->pluck('name', 'id')
+                            ->all()),
+                ]),
+                TextEntry::make('manual_profit_preview')
+                    ->label('Live Profit & Ledger Preview')
+                    ->state(function (Get $get): string {
+                        $paid = round(max(0.0, (float) ($get('paid_price') ?: 0)), 0);
+                        $cost = round(max(0.0, (float) ($get('cost') ?: 0)), 0);
+                        $profit = $paid - $cost;
+                        $margin = $paid > 0 ? round(($profit / $paid) * 100, 1) : 0.0;
+                        $sign = $profit >= 0 ? '+' : '';
+
+                        return sprintf(
+                            'Paid Sale: Rs %s  |  Cost: Rs %s  |  Net Profit: %sRs %s (%s%%)',
+                            number_format($paid, 0),
+                            number_format($cost, 0),
+                            $sign,
+                            number_format($profit, 0),
+                            number_format($margin, 1),
+                        );
+                    }),
+                Textarea::make('delivered_credentials')
+                    ->label('Delivered Credentials / Access Details (Optional)')
+                    ->placeholder("Paste login email:password, invite link, voucher code, or activation note.\n(Shown inside the customer's Order Delivered email & live receipt page)")
+                    ->rows(3),
+                Grid::make(['default' => 1, 'sm' => 3])->schema([
+                    TextInput::make('customer_email')
+                        ->label('Customer Email (Optional)')
+                        ->placeholder('customer@gmail.com')
+                        ->email()
+                        ->maxLength(255)
+                        ->live(debounce: 250),
+                    TextInput::make('customer_phone')
+                        ->label('Customer WhatsApp (Optional)')
+                        ->placeholder('03001234567')
+                        ->maxLength(32),
+                    TextInput::make('customer_name')
+                        ->label('Customer Name (Optional)')
+                        ->placeholder('e.g. Ali Raza')
+                        ->maxLength(255),
+                ]),
+                Toggle::make('send_email')
+                    ->label('Send standard "Order Delivered" email to customer automatically')
+                    ->default(true)
+                    ->visible(fn (Get $get): bool => filled(trim((string) ($get('customer_email') ?? '')))),
+                TextInput::make('admin_note')
+                    ->label('Internal Admin Note (Optional)')
+                    ->placeholder('e.g. Paid on SadaPay via WhatsApp deal')
+                    ->maxLength(500),
+            ])
+            ->action(function (array $data): void {
+                $res = app(OrderService::class)->createManualCompletedOrder($data);
+                /** @var Order $order */
+                $order = $res['order'];
+                $profit = round((float) $order->total - (float) $order->total_cost, 0);
+                $sign = $profit >= 0 ? '+' : '';
+
+                $emailLine = ! $res['has_valid_email']
+                    ? 'Email skipped (no customer email entered).'
+                    : (! (bool) ($data['send_email'] ?? true)
+                        ? 'Email skipped (toggle turned off).'
+                        : ($res['email_sent']
+                            ? "Order Delivered email sent to {$order->email}."
+                            : "Order saved, but email could not be sent to {$order->email} (check SMTP settings)."));
+
+                $actions = [
+                    Action::make('viewManualOrder')
+                        ->label('Open Order')
+                        ->url(OrderResource::getUrl('view', ['record' => $order])),
+                    Action::make('openSalesLedger')
+                        ->label('Open Ledger')
+                        ->url(SalesStatement::getUrl()),
+                ];
+
+                if (filled($order->phone)) {
+                    $waText = WhatsAppNotifier::buildCustomerReceiptMessage($order);
+                    $actions[] = Action::make('sendWhatsAppManual')
+                        ->label('Send on WhatsApp')
+                        ->url('https://wa.me/'.$order->phone.'?text='.urlencode($waText), shouldOpenInNewTab: true);
+                }
+
+                Notification::make()
+                    ->title("Manual Order #{$order->number} Created!")
+                    ->body(sprintf(
+                        "Sale: Rs %s · Cost: Rs %s · Profit: %sRs %s (Added to Ledger)\n%s",
+                        number_format((float) $order->total, 0),
+                        number_format((float) $order->total_cost, 0),
+                        $sign,
+                        number_format($profit, 0),
+                        $emailLine,
+                    ))
+                    ->persistent()
+                    ->success()
+                    ->actions($actions)
                     ->send();
             });
     }

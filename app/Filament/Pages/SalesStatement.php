@@ -115,6 +115,7 @@ class SalesStatement extends Page
     protected function getHeaderActions(): array
     {
         return [
+            SupplierOrderResource::manualOrderAction(),
             Action::make('exportCsv')
                 ->label('Export CSV')
                 ->icon(Heroicon::OutlinedArrowDownTray)
@@ -440,14 +441,14 @@ class SalesStatement extends Page
 
         $itemsCost = 0.0;
         foreach ($order->items as $item) {
-            if ($item->cost !== null && (float) $item->cost > 0) {
+            $successSo = $item->supplierOrders
+                ->firstWhere('status', SupplierOrderStatus::Success);
+
+            if ($item->cost !== null && ((float) $item->cost > 0 || ! $successSo)) {
                 $itemsCost += (float) $item->cost;
 
                 continue;
             }
-
-            $successSo = $item->supplierOrders
-                ->firstWhere('status', SupplierOrderStatus::Success);
 
             if ($successSo && $successSo->supplier) {
                 $itemsCost += $successSo->supplier->toPkr((float) $successSo->cost);

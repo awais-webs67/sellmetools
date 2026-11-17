@@ -4,14 +4,23 @@ namespace App\Filament\Resources\Orders\Pages;
 
 use App\Enums\OrderStatus;
 use App\Filament\Resources\Orders\OrderResource;
+use App\Filament\Resources\SupplierOrders\SupplierOrderResource;
 use App\Models\Order;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 
 class ListOrders extends ListRecords
 {
     protected static string $resource = OrderResource::class;
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            SupplierOrderResource::manualOrderAction(),
+        ];
+    }
 
     public function getTabs(): array
     {
@@ -23,7 +32,7 @@ class ListOrders extends ListRecords
 
         $counts = app()->runningUnitTests()
             ? $fetchCounts()
-            : \Illuminate\Support\Facades\Cache::remember('smt_admin_tab_counts_orders', 5, $fetchCounts);
+            : Cache::remember('smt_admin_tab_counts_orders', 5, $fetchCounts);
 
         $countFor = function (array $statuses) use ($counts): int {
             $sum = 0;

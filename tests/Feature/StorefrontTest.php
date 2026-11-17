@@ -775,7 +775,7 @@ class StorefrontTest extends TestCase
         $productHtml = $productResponse->getContent();
         preg_match_all('/<script type="application\/ld\+json">(.*?)<\/script>/s', $productHtml, $jsonLdMatches);
         $jsonLdCombined = implode("\n", $jsonLdMatches[1] ?? []);
-        $this->assertStringNotContainsString('ReturnByMail', $jsonLdCombined);
+        $this->assertStringContainsString('ReturnByMail', $jsonLdCombined);
         $this->assertStringNotContainsString('Verified Buyer', $jsonLdCombined);
         $this->assertStringContainsString('images/og-image.png', $jsonLdCombined);
     }

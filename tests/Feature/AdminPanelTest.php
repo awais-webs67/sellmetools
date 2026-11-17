@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Enums\PricingMode;
 use App\Enums\StockStatus;
 use App\Enums\SupplierOrderStatus;
+use App\Filament\Pages\SalesStatement;
 use App\Filament\Pages\StoreSettings;
 use App\Filament\Resources\Categories\CategoryResource;
 use App\Filament\Resources\Orders\OrderResource;
@@ -21,6 +22,7 @@ use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\Products\RelationManagers\SourcesRelationManager;
 use App\Filament\Resources\Products\RelationManagers\StockItemsRelationManager;
 use App\Filament\Resources\SupplierOrders\Pages\ListSupplierOrders;
+use App\Filament\Resources\SupplierOrders\SupplierOrderResource;
 use App\Filament\Resources\SupplierProducts\Pages\ListSupplierProducts;
 use App\Filament\Resources\SupplierProducts\SupplierProductResource;
 use App\Filament\Resources\Suppliers\Pages\EditSupplier;
@@ -37,6 +39,7 @@ use App\Models\SupplierProduct;
 use App\Models\User;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\Concerns\CreatesStore;
@@ -532,5 +535,134 @@ class AdminPanelTest extends TestCase
         $response->assertDontSee('tel:+923001234567', false);
         $response->assertDontSee('mailto:hello@sellmetools.com', false);
         $response->assertDontSee('Office 12, Gulberg III, Lahore');
+    }
+
+    public function test_product_page_merchant_return_policy_includes_return_method(): void
+    {
+        $response = $this->get(route('products.show', $this->product));
+        $response->assertOk();
+
+        preg_match_all('/<script type="application\/ld\+json">(.*?)<\/script>/s', $response->getContent(), $matches);
+        $this->assertNotEmpty($matches[1]);
+
+        $productSchema = null;
+        foreach ($matches[1] as $jsonBlock) {
+            $decoded = json_decode($jsonBlock, true);
+            if (($decoded['@type'] ?? null) === 'Product') {
+                $productSchema = $decoded;
+                break;
+            }
+        }
+
+        $this->assertNotNull($productSchema, 'Product JSON-LD block should exist on product page.');
+        $returnPolicy = $productSchema['offers']['hasMerchantReturnPolicy'] ?? null;
+        $this->assertIsArray($returnPolicy);
+        $this->assertSame('MerchantReturnPolicy', $returnPolicy['@type']);
+        $this->assertSame('https://schema.org/ReturnByMail', $returnPolicy['returnMethod']);
+        $this->assertSame('https://schema.org/FreeReturn', $returnPolicy['returnFees']);
+        $this->assertSame(7, $returnPolicy['merchantReturnDays']);
+    }
+
+    public function test_manual_order_creates_completed_order_sends_email_and_records_ledger_profit(): void
+    {
+        $this->actingAs($this->admin);
+
+        Setting::set('mail_enabled', '1');
+        Setting::set('mail_send_order_delivered', '1');
+        Setting::set('mail_host', 'smtp.sellmetools.com');
+        Setting::set('mail_port', '465');
+        Setting::set('mail_encryption', 'ssl');
+        Setting::set('mail_username', 'orders@sellmetools.com');
+        Setting::set('mail_password', 'secret-smtp-pass');
+
+        Livewire::test(ListSupplierOrders::class)
+            ->callAction('createManualOrder', [
+                'product_name' => 'ChatGPT Plus 1 Month Private',
+                'quantity' => 1,
+                'paid_price' => 3500,
+                'cost' => 1800,
+                'delivered_credentials' => 'vip_buyer@example.com:StrongPass#2026',
+                'customer_email' => 'buyer@example.com',
+                'customer_phone' => '03001234567',
+                'customer_name' => 'Hamza Ali',
+                'send_email' => true,
+                'admin_note' => 'WhatsApp SadaPay deal',
+            ])
+            ->assertHasNoActionErrors();
+
+        /** @var Order $order */
+        $order = Order::query()->latest('id')->firstOrFail();
+        $this->assertSame(OrderStatus::Completed, $order->status);
+        $this->assertSame('buyer@example.com', $order->email);
+        $this->assertSame('923001234567', $order->phone);
+        $this->assertSame('Hamza Ali', $order->customer_name);
+        $this->assertEquals(3500.00, (float) $order->total);
+        $this->assertEquals(1800.00, (float) $order->total_cost);
+        $this->assertEquals(1700.00, (float) $order->profit());
+
+        $item = $order->items()->firstOrFail();
+        $this->assertSame('ChatGPT Plus 1 Month Private', $item->product_name);
+        $this->assertSame(1, $item->delivered_qty);
+        $this->assertEquals(1800.00, (float) $item->cost);
+        $this->assertSame('vip_buyer@example.com:StrongPass#2026', $item->deliveries()->firstOrFail()->content);
+
+        $sentMessages = Mail::mailer('store_smtp')->getSymfonyTransport()->messages();
+        $this->assertCount(1, $sentMessages);
+        $rawMessage = $sentMessages[0]->getOriginalMessage();
+        $this->assertStringContainsString("Order #{$order->number} Delivered", (string) $rawMessage->getSubject());
+        $this->assertStringContainsString('Order Delivered Successfully', (string) $rawMessage->getHtmlBody());
+        $this->assertStringContainsString('vip_buyer@example.com:StrongPass#2026', (string) $rawMessage->getHtmlBody());
+        $this->assertStringContainsString($order->customerUrl(), (string) $rawMessage->getHtmlBody());
+
+        /** @var SalesStatement $statementPage */
+        $statementPage = app(SalesStatement::class);
+        $statementPage->mount();
+        $statement = $statementPage->getStatementData();
+        $this->assertEquals(3500.00, $statement['gross_sales_pkr']);
+        $this->assertEquals(1800.00, $statement['order_cost_pkr']);
+        $this->assertEquals(1700.00, $statement['sales_net_profit_pkr']);
+    }
+
+    public function test_manual_order_works_without_optional_email_or_whatsapp_and_hides_from_seo_role(): void
+    {
+        $this->actingAs($this->admin);
+
+        $this->product->update(['cost_price' => 500]);
+
+        Livewire::test(ListOrders::class)
+            ->callAction('createManualOrder', [
+                'product_id' => $this->product->id,
+                'product_name' => $this->product->name,
+                'quantity' => 2,
+                'paid_price' => 2400,
+                'cost' => 0,
+                'customer_email' => '',
+                'customer_phone' => '',
+                'customer_name' => '',
+            ])
+            ->assertHasNoActionErrors();
+
+        /** @var Order $order */
+        $order = Order::query()->latest('id')->firstOrFail();
+        $this->assertSame(OrderStatus::Completed, $order->status);
+        $this->assertSame('Manual Customer', $order->email);
+        $this->assertNull($order->phone);
+        $this->assertEquals(2400.00, (float) $order->total);
+        $this->assertEquals(0.00, (float) $order->total_cost);
+
+        /** @var SalesStatement $statementPage */
+        $statementPage = app(SalesStatement::class);
+        $statementPage->mount();
+        $statement = $statementPage->getStatementData();
+        $this->assertEquals(2400.00, $statement['gross_sales_pkr']);
+        $this->assertEquals(0.00, $statement['order_cost_pkr']);
+        $this->assertEquals(2400.00, $statement['sales_net_profit_pkr']);
+
+        $seoStaff = User::factory()->create([
+            'is_admin' => true,
+            'admin_role' => User::ROLE_SEO,
+        ]);
+        $this->actingAs($seoStaff);
+        $this->assertFalse(SupplierOrderResource::canAccess());
     }
 }

@@ -345,12 +345,13 @@ class ExecutiveCommandCenter extends Widget
 
         $cost = 0.0;
         foreach ($order->items as $item) {
-            if ($item->cost !== null && (float) $item->cost > 0) {
+            $so = $item->supplierOrders->firstWhere('status', SupplierOrderStatus::Success);
+
+            if ($item->cost !== null && ((float) $item->cost > 0 || ! $so)) {
                 $cost += (float) $item->cost;
 
                 continue;
             }
-            $so = $item->supplierOrders->firstWhere('status', SupplierOrderStatus::Success);
             if ($so && $so->supplier) {
                 $cost += $so->supplier->toPkr((float) $so->cost);
 

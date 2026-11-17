@@ -16,6 +16,7 @@ class ListSupplierOrders extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            SupplierOrderResource::manualOrderAction(),
             SupplierOrderResource::directBuyAction(),
         ];
     }

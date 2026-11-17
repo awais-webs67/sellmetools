@@ -107,6 +107,7 @@
                 'applicableCountry' => ['PK', 'US', 'GB', 'AE', 'CA', 'SA', 'AU'],
                 'returnPolicyCategory' => 'https://schema.org/MerchantReturnFiniteReturnWindow',
                 'merchantReturnDays' => 7,
+                'returnMethod' => 'https://schema.org/ReturnByMail',
                 'returnFees' => 'https://schema.org/FreeReturn',
                 'merchantReturnLink' => route('pages.show', 'refund'),
             ],

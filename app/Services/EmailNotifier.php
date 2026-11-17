@@ -91,10 +91,11 @@ class EmailNotifier
             }
         }
         $fromName = $get('mail_from_name') ?: (string) Setting::get('store_name', 'SellMeTools');
+        $transport = (app()->runningUnitTests() && config('mail.default') === 'array') ? 'array' : 'smtp';
 
         config([
             'mail.mailers.'.self::MAILER => [
-                'transport' => 'smtp',
+                'transport' => $transport,
                 'scheme' => $scheme,
                 'host' => $host,
                 'port' => $port,
@@ -116,9 +117,10 @@ class EmailNotifier
 
     /**
      * Email delivered credentials to the customer (when enabled in settings).
-     * Sending happens after the HTTP response so customers never wait on SMTP.
+     * Sending happens after the HTTP response by default so storefront customers never wait on SMTP,
+     * or immediately when $immediate is true (e.g. Admin Manual Order creation).
      */
-    public function sendOrderDelivered(Order $order): bool
+    public function sendOrderDelivered(Order $order, bool $immediate = false): bool
     {
         if (! $this->isEnabled() || (string) Setting::get('mail_send_order_delivered', '1') !== '1') {
             return false;
@@ -132,15 +134,13 @@ class EmailNotifier
             return false;
         }
 
-        $send = function () use ($order): void {
-            $this->deliverOrderEmail($order);
-        };
-
-        if (app()->runningInConsole() && ! app()->runningUnitTests()) {
-            $send();
-        } else {
-            app()->terminating($send);
+        if ($immediate || (app()->runningInConsole() && ! app()->runningUnitTests())) {
+            return $this->deliverOrderEmail($order);
         }
+
+        app()->terminating(function () use ($order): void {
+            $this->deliverOrderEmail($order);
+        });
 
         return true;
     }
