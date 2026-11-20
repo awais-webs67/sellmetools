@@ -886,5 +886,27 @@ class StorefrontTest extends TestCase
         $claude->refresh();
         $this->assertSame('claude-100-api-30-days', $claude->slug);
         $this->assertContains('claude-0-api-30-days', $claude->legacy_slugs ?? []);
+
+        // 7. General Subscription naming strips micro-specs (500 credit, Admin 3000 invite) & standardizes to Subscription
+        $this->assertSame('CapCut Pro 7 Days Subscription', ProductSeoOptimizer::generalizeProductName('CapCut Pro 7 Days 500 credit'));
+        $this->assertSame('Autodesk Subscription', ProductSeoOptimizer::generalizeProductName('Autodesk Admin 3000 invite'));
+        $this->assertSame('YouTube Premium 3 Months Subscription', ProductSeoOptimizer::generalizeProductName('YouTube Premium 3 Months Voucher'));
+        $this->assertSame('NordVPN 3 Months Subscription', ProductSeoOptimizer::generalizeProductName('Nord VPN 3 Months Ready made Accounts'));
+        $this->assertSame('LinkedIn Sales Navigator Advanced 1 Month Voucher', ProductSeoOptimizer::generalizeProductName('LinkedIn Sales Navigator Advance 1 Months Voucher'));
+        $this->assertSame('Windows Lifetime Activation Key', ProductSeoOptimizer::generalizeProductName('Windows Activation key | Lifetime'));
+
+        $capcut = Product::create([
+            'category_id' => $aiCat->id,
+            'name' => 'CapCut Pro 7 Days 500 credit',
+            'slug' => 'capcut-pro-7-days-500-credit',
+            'price' => 300,
+            'fixed_price' => 300,
+            'is_active' => true,
+        ]);
+        $this->assertTrue(ProductSeoOptimizer::syncGeneralSubscriptionUpgradeNow());
+        $capcut->refresh();
+        $this->assertSame('CapCut Pro 7 Days Subscription', $capcut->name);
+        $this->assertSame('capcut-pro-7-days-subscription', $capcut->slug);
+        $this->assertContains('capcut-pro-7-days-500-credit', $capcut->legacy_slugs ?? []);
     }
 }

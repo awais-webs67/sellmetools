@@ -43,6 +43,136 @@ class ProductSeoOptimizer
         static::syncNewCuratedOnce();
         static::syncAuditMetaOnce();
         static::syncRankingUpgradeOnce();
+        static::syncGeneralSubscriptionUpgradeOnce();
+    }
+
+    /**
+     * One-time upgrade to convert specific/jargon product titles & slugs (e.g. "500 Credits", "Admin 3000 Invites",
+     * "Voucher Link", "Ready-Made Account") into broad, high-search-volume "Subscription" names & clean slugs
+     * (keeping LinkedIn as Voucher, Windows/HMA as Key, Courses as Course, APIs as API) with 301 legacy_slugs.
+     */
+    public static function syncGeneralSubscriptionUpgradeOnce(): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+
+        $flagFile = storage_path('framework/product_seo_v20_general_subscription.flag');
+        if (is_file($flagFile)) {
+            return;
+        }
+
+        if (static::syncGeneralSubscriptionUpgradeNow()) {
+            @file_put_contents($flagFile, '1');
+        }
+    }
+
+    public static function generalizeProductName(string $rawName): string
+    {
+        $name = static::cleanProductTitle($rawName);
+        $lower = strtolower($name);
+
+        // Strip micro-spec & supplier noise so the product title ranks for broad buyer queries
+        $noisePatterns = [
+            '/\b\d+\s*Credits?\b/iu',
+            '/\bAdmin\s+\d+\s*Invites?\b/iu',
+            '/\bPanel\s+\d+\s*Invites?\b/iu',
+            '/\bSlot\s+x\d+\b/iu',
+            '/\bReady[-\s]*Made\b/iu',
+            '/\b5\s*Devices\b/iu',
+        ];
+        foreach ($noisePatterns as $pat) {
+            $name = preg_replace($pat, ' ', $name) ?? $name;
+        }
+
+        $isLinkedIn = str_contains($lower, 'linkedin');
+        $isKey = str_contains($lower, 'key') && (str_contains($lower, 'windows') || str_contains($lower, 'hma') || str_contains($lower, 'activation') || str_contains($lower, 'license'));
+        $isCourse = str_contains($lower, 'course') || str_contains($lower, 'apna college');
+        $isApi = str_contains($lower, 'api');
+
+        if (! $isLinkedIn && ! $isKey && ! $isCourse && ! $isApi) {
+            // Convert non-LinkedIn "Voucher Link", "Voucher", "Coupon", "Account", "Link", "Plan" into clean "Subscription"
+            $name = preg_replace('/\b(?:Voucher\s+Links?|Redeem\s+Links?|Vouchers?|Coupons?|Accounts?|Links?|Plans?)\b/iu', ' ', $name) ?? $name;
+            $name = preg_replace('/\bReady\s+Mails?\b/iu', 'Mail', $name) ?? $name;
+            $name = preg_replace('/\s+/u', ' ', trim($name)) ?? trim($name);
+
+            if ($name !== '' && ! preg_match('/\b(?:Subscription|Bundle)\b/iu', $name)) {
+                $name .= ' Subscription';
+            }
+        } elseif ($isLinkedIn) {
+            $name = preg_replace('/\s+/u', ' ', trim($name)) ?? trim($name);
+            if ($name !== '' && ! preg_match('/\bVoucher\b/iu', $name)) {
+                $name .= ' Voucher';
+            }
+        }
+
+        $name = preg_replace('/\s+[-|\/]\s*$/u', '', $name) ?? $name;
+        $name = preg_replace('/\s+/u', ' ', trim($name)) ?? trim($name);
+
+        return $name !== '' ? $name : static::cleanProductTitle($rawName);
+    }
+
+    public static function syncGeneralSubscriptionUpgradeNow(): bool
+    {
+        try {
+            Product::ensureFreeAndStockColumnsExist();
+
+            if (! Schema::hasTable('products')) {
+                return false;
+            }
+
+            $products = Product::withTrashed()->with('category')->get();
+
+            foreach ($products as $product) {
+                $oldSlug = (string) $product->slug;
+                $generalName = static::generalizeProductName((string) $product->name);
+
+                $product->name = $generalName;
+                $slugSource = preg_replace('/\$(\d+)/', '$1', $generalName) ?? $generalName;
+                $newSlug = Product::uniqueSlug($slugSource, (int) $product->id);
+
+                $metaTitle = "Buy {$generalName} | Best Price in Pakistan";
+                if (mb_strlen($metaTitle) > 60) {
+                    $metaTitle = "Buy {$generalName} | Instant Delivery";
+                }
+                if (mb_strlen($metaTitle) > 60) {
+                    $metaTitle = static::trimAtWordBoundary("Buy {$generalName}", 60);
+                }
+
+                $rawDesc = static::stripBotCodesFromCopy(static::stripEmDashes((string) ($product->meta_description ?: $product->short_description)));
+                $cleanMetaDesc = $rawDesc !== ''
+                    ? static::trimAtWordBoundary($rawDesc, 154)
+                    : static::trimAtWordBoundary("Buy {$generalName} at the cheapest price in Pakistan with instant automated delivery via Easypaisa, JazzCash & USDT.", 154);
+
+                $fill = [
+                    'name' => $generalName,
+                    'meta_title' => Str::limit($metaTitle, 250, ''),
+                    'meta_description' => $cleanMetaDesc,
+                    'meta_keywords' => static::capKeywords($product->seoKeywords(), 240),
+                ];
+
+                if ($newSlug !== '' && $newSlug !== $oldSlug) {
+                    $legacySlugs = is_array($product->legacy_slugs) ? $product->legacy_slugs : [];
+                    $legacySlugs[] = $oldSlug;
+                    $fill['slug'] = $newSlug;
+                    $fill['legacy_slugs'] = array_values(array_unique(array_filter(
+                        $legacySlugs,
+                        fn ($s): bool => is_string($s) && $s !== '' && $s !== $newSlug
+                    )));
+                }
+
+                $product->forceFill($fill)->saveQuietly();
+            }
+
+            Cache::forget('smt_search_catalog_v1');
+            Cache::forget('smt_active_categories_v2');
+
+            return true;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return false;
+        }
     }
 
     /**

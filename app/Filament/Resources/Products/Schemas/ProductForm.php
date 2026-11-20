@@ -26,6 +26,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 
 class ProductForm
@@ -437,16 +438,24 @@ class ProductForm
                         TextInput::make('meta_title')
                             ->label('Custom SEO Meta Title')
                             ->placeholder('Auto: Buy ChatGPT Plus Subscription Online | Instant Delivery')
+                            ->live(debounce: 400)
                             ->maxLength(255),
                         TextInput::make('meta_keywords')
-                            ->label('Custom SEO Keywords')
-                            ->placeholder('chatgpt plus subscription, buy chatgpt plus online')
+                            ->label('Focus Keyword & SEO Tags (1st Keyword = Focus Keyword)')
+                            ->placeholder('chatgpt plus price in pakistan, buy chatgpt plus, cheapest ai tools in pakistan')
+                            ->helperText('Put your #1 Focus Keyword FIRST (comma-separated). The live SEO Score Analyzer below checks Title, Slug, Meta Description & Full Description — just like Rank Math / Yoast SEO.')
+                            ->live(debounce: 400)
                             ->maxLength(500),
                         Textarea::make('meta_description')
                             ->label('Custom SEO Meta Description')
                             ->rows(2)
+                            ->live(debounce: 400)
                             ->maxLength(500)
                             ->columnSpanFull(),
+                        TextEntry::make('seo_score_analyzer')
+                            ->label('Live SEO Score & Google SERP Preview (Rank Math / Yoast Style)')
+                            ->columnSpanFull()
+                            ->state(fn (?Product $record, Get $get): HtmlString => self::renderLiveSeoAnalyzerHtml($record, $get)),
                     ]),
             ]);
     }
@@ -523,5 +532,130 @@ class ProductForm
             $get('fixed_price'),
             $get('markup_value'),
         );
+    }
+
+    /**
+     * Renders a WordPress Rank Math / Yoast-style Live SEO Score & Focus Keyword Analyzer + Google SERP preview.
+     */
+    protected static function renderLiveSeoAnalyzerHtml(?Product $record, Get $get): HtmlString
+    {
+        $name = trim((string) ($get('name') ?? $record?->name ?? ''));
+        $slug = trim((string) ($get('slug') ?? $record?->slug ?? Str::slug($name)));
+        $metaTitle = trim((string) ($get('meta_title') ?? $record?->meta_title ?? ($name !== '' ? "Buy {$name} | Best Price in Pakistan" : '')));
+        $metaDesc = trim((string) ($get('meta_description') ?? $record?->meta_description ?? $get('short_description') ?? $record?->short_description ?? ''));
+        $rawDesc = (string) ($get('description') ?? $record?->description ?? '');
+        $plainDesc = trim(preg_replace('/\s+/u', ' ', strip_tags($rawDesc)) ?? '');
+        $rawKw = trim((string) ($get('meta_keywords') ?? $record?->meta_keywords ?? ''));
+
+        $kwList = array_values(array_filter(array_map('trim', explode(',', $rawKw)), fn (string $k): bool => $k !== ''));
+        $focusKw = $kwList[0] ?? $name;
+        $focusTokens = array_values(array_filter(
+            preg_split('/[\s\-\/]+/', strtolower($focusKw)) ?: [],
+            fn (string $t): bool => mb_strlen($t) >= 2 && ! in_array($t, ['in', 'of', 'to', 'for', 'the', 'and', 'buy'], true)
+        ));
+
+        $matchesFocus = function (string $haystack) use ($focusKw, $focusTokens): bool {
+            if ($focusKw === '' || $haystack === '') {
+                return false;
+            }
+            $h = strtolower($haystack);
+            if (str_contains($h, strtolower($focusKw))) {
+                return true;
+            }
+            if ($focusTokens === []) {
+                return false;
+            }
+            $hits = 0;
+            foreach ($focusTokens as $tok) {
+                if (str_contains($h, $tok)) {
+                    $hits++;
+                }
+            }
+
+            return ($hits / count($focusTokens)) >= 0.7;
+        };
+
+        $titleLen = mb_strlen($metaTitle);
+        $descLen = mb_strlen($metaDesc);
+        $wordCount = $plainDesc !== '' ? str_word_count($plainDesc) : 0;
+        $hasHeadings = (bool) preg_match('/<h[23]\b/i', $rawDesc);
+        $kwCount = count($kwList);
+
+        $checks = [
+            [
+                'pts' => 20,
+                'ok' => $matchesFocus($metaTitle) && $titleLen >= 30 && $titleLen <= 62,
+                'label' => "Focus Keyword in SEO Title ({$titleLen}/60 chars)",
+                'hint' => 'Keep SEO Title 35-60 chars and include your Focus Keyword.',
+            ],
+            [
+                'pts' => 15,
+                'ok' => $matchesFocus(str_replace('-', ' ', $slug)) && $slug !== '' && mb_strlen($slug) <= 60,
+                'label' => "Focus Keyword in Clean URL Slug (/{$slug})",
+                'hint' => 'Use clean hyphenated keywords in the slug (under 60 chars).',
+            ],
+            [
+                'pts' => 15,
+                'ok' => $matchesFocus($metaDesc) && $descLen >= 100 && $descLen <= 156,
+                'label' => "Focus Keyword in Meta Description ({$descLen}/155 chars)",
+                'hint' => 'Write 115-155 chars with Focus Keyword, price/warranty & CTA.',
+            ],
+            [
+                'pts' => 20,
+                'ok' => $matchesFocus($plainDesc),
+                'label' => 'Focus Keyword inside Product Description',
+                'hint' => 'Google ranks visible page copy — include your Focus Keyword naturally in the description.',
+            ],
+            [
+                'pts' => 15,
+                'ok' => $wordCount >= 80 && $hasHeadings,
+                'label' => "Description Depth & Structure ({$wordCount} words".($hasHeadings ? ', H2/H3 headings ✓' : ', add H2/H3 heading').')',
+                'hint' => 'Aim for 100+ words with H2/H3 headings and bullet points.',
+            ],
+            [
+                'pts' => 15,
+                'ok' => $kwCount >= 3 && $kwCount <= 12,
+                'label' => "Focused Target Keywords ({$kwCount} tags)",
+                'hint' => 'Use 3-10 unique, relevant keywords (avoid stuffing 15+ repetitive tags).',
+            ],
+        ];
+
+        $score = 0;
+        $itemsHtml = '';
+        foreach ($checks as $c) {
+            if ($c['ok']) {
+                $score += $c['pts'];
+            }
+            $icon = $c['ok'] ? '✅' : '⚠️';
+            $color = $c['ok'] ? '#047857' : '#b45309';
+            $itemsHtml .= '<div style="display:flex;align-items:flex-start;gap:0.45rem;font-size:0.78rem;line-height:1.45;padding:0.22rem 0;">'
+                .'<span>'.$icon.'</span>'
+                .'<div><strong style="color:'.$color.';">'.e($c['label']).'</strong>'
+                .($c['ok'] ? '' : '<div style="font-size:0.72rem;color:#64748b;">'.e($c['hint']).'</div>')
+                .'</div></div>';
+        }
+
+        $badgeBg = $score >= 80 ? '#ecfdf5' : ($score >= 55 ? '#fffbeb' : '#fef2f2');
+        $badgeColor = $score >= 80 ? '#047857' : ($score >= 55 ? '#b45309' : '#b91c1c');
+        $badgeLabel = $score >= 80 ? 'Great SEO' : ($score >= 55 ? 'Needs Polish' : 'Weak SEO');
+        $serpUrl = rtrim((string) url('/'), '/').'/products/'.($slug ?: 'your-product-slug');
+
+        $html = '<div style="border:1px solid #e2e8f0;border-radius:0.75rem;padding:0.95rem 1.05rem;background:#f8fafc;">'
+            .'<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.7rem;">'
+            .'<div style="font-size:0.84rem;font-weight:700;color:#0f172a;">Focus Keyword: <span style="color:#4f46e5;">'.e($focusKw ?: '(Enter Product Name / Keyword)').'</span></div>'
+            .'<span style="display:inline-flex;align-items:center;gap:0.35rem;padding:0.22rem 0.65rem;border-radius:999px;font-size:0.76rem;font-weight:800;background:'.$badgeBg.';color:'.$badgeColor.';">'
+            .'SEO Score: '.$score.'/100 · '.$badgeLabel
+            .'</span>'
+            .'</div>'
+            .'<div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:0.55rem;padding:0.7rem 0.85rem;margin-bottom:0.75rem;">'
+            .'<div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;font-weight:700;margin-bottom:0.25rem;">Google Search Preview</div>'
+            .'<div style="font-size:0.73rem;color:#0f766e;word-break:break-all;">'.e($serpUrl).'</div>'
+            .'<div style="font-size:0.95rem;font-weight:700;color:#1d4ed8;margin-top:0.12rem;">'.e($metaTitle ?: 'Product SEO Title').'</div>'
+            .'<div style="font-size:0.77rem;color:#475569;margin-top:0.15rem;line-height:1.45;">'.e($metaDesc ?: 'Add a clear meta description (115-155 chars) with PKR price & instant delivery details.').'</div>'
+            .'</div>'
+            .'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0.2rem 1rem;">'.$itemsHtml.'</div>'
+            .'</div>';
+
+        return new HtmlString($html);
     }
 }
