@@ -108,6 +108,7 @@ class SeoController extends Controller
 
         $categories = Category::query()
             ->where('is_active', true)
+            ->whereHas('products', fn ($q) => $q->visible())
             ->orderBy('sort')
             ->get();
 
@@ -139,6 +140,7 @@ class SeoController extends Controller
 
         $categories = Category::query()
             ->where('is_active', true)
+            ->whereHas('products', fn ($q) => $q->visible())
             ->orderBy('sort')
             ->get();
 
@@ -428,8 +430,7 @@ class SeoController extends Controller
             'Amazonbot',
         ];
 
-        $lines = [
-            'User-agent: *',
+        $sharedRules = [
             'Allow: /',
             $signal,
             'Disallow: /admin',
@@ -437,19 +438,28 @@ class SeoController extends Controller
             'Disallow: /orders/',
             'Disallow: /account/',
             'Allow: /api/agent-catalog.json',
+            'Allow: /api/search',
             'Disallow: /api/',
             'Disallow: /webhooks/',
             'Disallow: /track',
             'Disallow: /login',
             'Disallow: /register',
-            '',
-            '# Welcome AI Search & Answer Engines (AEO / GEO) + Bing / Copilot',
         ];
+
+        $lines = array_merge(
+            ['User-agent: *'],
+            $sharedRules,
+            [
+                '',
+                '# Welcome AI Search & Answer Engines (AEO / GEO) + Bing / Copilot',
+            ]
+        );
 
         foreach ($namedBots as $bot) {
             $lines[] = "User-agent: {$bot}";
-            $lines[] = 'Allow: /';
-            $lines[] = $signal;
+            foreach ($sharedRules as $rule) {
+                $lines[] = $rule;
+            }
         }
 
         $lines[] = 'User-agent: Googlebot-Image';

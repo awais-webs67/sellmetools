@@ -8,14 +8,16 @@
     $productUrl = route('products.show', $product);
     $productImage = $product->imageUrl() ?: asset('images/og-image.png');
     $storeName = (string) setting('store_name', 'SellMeTools');
-    $rawSchemaPrice = (float) $product->price > 0
-        ? (float) $product->price
-        : ((float) $product->fixed_price > 0
-            ? (float) $product->fixed_price
-            : ((float) $product->compare_at_price > 0 ? (float) $product->compare_at_price : 0.0));
-    $formattedSchemaPrice = $rawSchemaPrice > 0
-        ? number_format($rawSchemaPrice, 2, '.', '')
-        : ($product->isFree() ? '0.00' : '500.00');
+    $rawSchemaPrice = $product->isFree()
+        ? 0.0
+        : ((float) $product->price > 0
+            ? (float) $product->price
+            : ((float) $product->fixed_price > 0
+                ? (float) $product->fixed_price
+                : ((float) $product->compare_at_price > 0 ? (float) $product->compare_at_price : 0.0)));
+    $formattedSchemaPrice = $product->isFree()
+        ? '0.00'
+        : ($rawSchemaPrice > 0 ? number_format($rawSchemaPrice, 2, '.', '') : '500.00');
     $offerValidFrom = ($product->created_at ?? now()->subMonth())->toDateString();
     $offerValidUntil = now()->addMonths(6)->toDateString();
 

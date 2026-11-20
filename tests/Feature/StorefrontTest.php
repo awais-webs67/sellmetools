@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Models\Category;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\ResellerProductPrice;
 use App\Models\Setting;
 use App\Models\User;
@@ -715,7 +716,8 @@ class StorefrontTest extends TestCase
 
         $this->get('/sitemap.xml')
             ->assertOk()
-            ->assertSee(route('categories.show', $emptyCategory->slug), false);
+            ->assertDontSee(route('categories.show', $emptyCategory->slug), false)
+            ->assertSee(route('categories.show', $aiCategory->slug), false);
 
         foreach (['/.well-known/ard.json', '/.well-known/ai-catalog.json'] as $ardUrl) {
             $this->get($ardUrl)
@@ -817,5 +819,72 @@ class StorefrontTest extends TestCase
 
         $this->assertStringContainsString('loading="lazy"', $homeHtml);
         $this->assertStringContainsString('https:\/\/www.googletagmanager.com\/gtag\/js?id=G-TEST12345', $homeHtml);
+    }
+
+    public function test_ranking_seo_upgrade_fixes_claude_dollar_slug_keywords_robots_and_free_schema(): void
+    {
+        $aiCat = Category::create(['name' => 'AI Tools', 'slug' => 'ai-tools', 'is_active' => true]);
+        $seoCat = Category::create(['name' => 'SEO', 'slug' => 'seo', 'is_active' => true]);
+        $emptyCat = Category::create(['name' => 'Empty Category', 'slug' => 'empty-cat', 'is_active' => true]);
+
+        // 1. Clean product title preserves $100 API instead of stripping $10 via preg_replace backreference
+        $this->assertSame('Claude $100 API 30 Days', ProductSeoOptimizer::cleanProductTitle('Claude 100$ API 30 Days'));
+        $this->assertSame('Claude $100 API 30 Days', ProductSeoOptimizer::cleanProductTitle('Claude 0 API 30 Days'));
+        $this->assertSame('Gemini Plus 6 Months', ProductSeoOptimizer::cleanProductTitle('GEMINI PLUS 6 Months'));
+        $this->assertSame('Ahrefs 1 Month Bundle', ProductSeoOptimizer::cleanProductTitle('AHREFS 1 Month with free gifts'));
+        $this->assertSame('LinkedIn Sales Navigator Advanced 1 Month Voucher', ProductSeoOptimizer::cleanProductTitle('LinkedIn Sales Navigator Advance 1 Months Voucher'));
+
+        // 2. Product keywords have no "AI Tools tools", no case-duplicates, and smart item type
+        $claude = Product::create([
+            'category_id' => $aiCat->id,
+            'name' => 'Claude 100$ API 30 Days',
+            'slug' => 'claude-0-api-30-days',
+            'price' => 2500,
+            'fixed_price' => 2500,
+            'is_active' => true,
+            'meta_keywords' => 'Claude $100 API 30 Days, claude $100 api 30 days, buy Claude $100 API 30 Days',
+        ]);
+        $this->assertSame('Claude $100 API 30 Days', $claude->name);
+        $kw = $claude->seoKeywords();
+        $this->assertStringNotContainsString('AI Tools tools', $kw);
+        $this->assertStringContainsString('cheapest AI Tools in Pakistan', $kw);
+        $kwItems = array_map(fn (string $v): string => strtolower(trim($v)), explode(',', $kw));
+        $this->assertSame(count($kwItems), count(array_unique($kwItems)));
+        $this->assertLessThanOrEqual(10, count($kwItems));
+
+        // 3. Free product JSON-LD emits 0.00 instead of compare_at_price
+        $freeCourse = Product::create([
+            'category_id' => $seoCat->id,
+            'name' => 'AI ML Course by Apna College',
+            'slug' => 'ai-ml-course-free',
+            'price' => 0,
+            'fixed_price' => 0,
+            'compare_at_price' => 30000,
+            'is_free' => true,
+            'is_active' => true,
+        ]);
+        $freeHtml = $this->get(route('products.show', $freeCourse->slug))->assertOk()->getContent();
+        $this->assertStringContainsString('"price":"0.00"', $freeHtml);
+        $this->assertStringNotContainsString('"price":"30000.00"', $freeHtml);
+
+        // 4. Empty category gets noindex, follow and is omitted from sitemap.xml
+        $this->get(route('categories.show', $emptyCat->slug))
+            ->assertOk()
+            ->assertSee('content="noindex, follow"', false);
+
+        $sitemap = $this->get(route('sitemap'))->assertOk()->getContent();
+        $this->assertStringNotContainsString('/category/empty-cat', $sitemap);
+        $this->assertStringContainsString('/category/ai-tools', $sitemap);
+
+        // 5. robots.txt includes Allow: /api/search and applies Disallow to named bots
+        $robots = $this->get('/robots.txt')->assertOk()->getContent();
+        $this->assertStringContainsString('Allow: /api/search', $robots);
+        $this->assertGreaterThan(5, substr_count($robots, 'Disallow: /admin'));
+
+        // 6. Ranking upgrade sync cleans slug & stores old slug in legacy_slugs
+        $this->assertTrue(ProductSeoOptimizer::syncRankingUpgradeNow());
+        $claude->refresh();
+        $this->assertSame('claude-100-api-30-days', $claude->slug);
+        $this->assertContains('claude-0-api-30-days', $claude->legacy_slugs ?? []);
     }
 }

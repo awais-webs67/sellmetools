@@ -42,6 +42,144 @@ class ProductSeoOptimizer
 
         static::syncNewCuratedOnce();
         static::syncAuditMetaOnce();
+        static::syncRankingUpgradeOnce();
+    }
+
+    /**
+     * One-time safe production upgrade: fixes mangled product names/slugs (preserving 301 legacy_slugs),
+     * assigns Design items to the Design category, upgrades category SEO for "cheapest AI/SEO tools in Pakistan",
+     * and cleans mid-word truncated meta descriptions & duplicate keywords.
+     */
+    public static function syncRankingUpgradeOnce(): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+
+        $flagFile = storage_path('framework/product_seo_v19_ranking_upgrade.flag');
+        if (is_file($flagFile)) {
+            return;
+        }
+
+        if (static::syncRankingUpgradeNow()) {
+            @file_put_contents($flagFile, '1');
+        }
+    }
+
+    public static function syncRankingUpgradeNow(): bool
+    {
+        try {
+            Product::ensureFreeAndStockColumnsExist();
+
+            if (Schema::hasTable('settings')) {
+                foreach (['seo_description', 'seo_keywords', 'shop_seo_description'] as $seoKey) {
+                    if (isset(Setting::DEFAULTS[$seoKey])) {
+                        Setting::set($seoKey, Setting::DEFAULTS[$seoKey]);
+                    }
+                }
+            }
+
+            $categoryMap = [];
+            if (Schema::hasTable('categories')) {
+                $curatedCatSeo = Category::curatedSeoMap();
+                foreach (Category::query()->get() as $cat) {
+                    $slug = trim((string) $cat->slug);
+                    if (isset($curatedCatSeo[$slug])) {
+                        $cat->forceFill([
+                            'meta_title' => $curatedCatSeo[$slug]['title'],
+                            'meta_description' => $curatedCatSeo[$slug]['description'],
+                        ])->saveQuietly();
+                    }
+                    $categoryMap[$slug] = (int) $cat->id;
+                }
+            }
+
+            if (! Schema::hasTable('products')) {
+                return false;
+            }
+
+            $designCatId = $categoryMap['design'] ?? null;
+            $products = Product::withTrashed()->with('category')->get();
+
+            foreach ($products as $product) {
+                $oldSlug = (string) $product->slug;
+                $cleanName = static::cleanProductTitle((string) $product->name);
+
+                // Recover mangled Claude $100 API name/slug if it was previously saved as "Claude 0 API"
+                if (preg_match('/^claude\s+0\s+api/iu', $cleanName) || $oldSlug === 'claude-0-api-30-days') {
+                    $cleanName = preg_replace('/\bClaude\s+0\s+API\b/iu', 'Claude $100 API', $cleanName) ?: 'Claude $100 API 30 Days';
+                }
+
+                $product->name = $cleanName;
+                $newSlug = static::resolveCleanSlug($cleanName, $oldSlug, (int) $product->id);
+
+                $metaTitle = filled($product->meta_title)
+                    ? static::cleanProductTitle((string) $product->meta_title)
+                    : "Buy {$cleanName} | Best Price in Pakistan";
+                if (preg_match('/Claude\s+0\s+API/iu', $metaTitle)) {
+                    $metaTitle = preg_replace('/\bClaude\s+0\s+API\b/iu', 'Claude $100 API', $metaTitle) ?: $metaTitle;
+                }
+                if (mb_strlen($metaTitle) > 60) {
+                    $metaTitle = "Buy {$cleanName} | Instant Delivery";
+                }
+                if (mb_strlen($metaTitle) > 60) {
+                    $metaTitle = static::trimAtWordBoundary("Buy {$cleanName}", 60);
+                }
+
+                $rawMetaDesc = static::stripBotCodesFromCopy(static::stripEmDashes((string) ($product->meta_description ?: $product->short_description)));
+                $cleanMetaDesc = $rawMetaDesc !== ''
+                    ? static::trimAtWordBoundary($rawMetaDesc, 154)
+                    : static::trimAtWordBoundary("Buy {$cleanName} at the cheapest price in Pakistan with instant automated delivery via Easypaisa, JazzCash & USDT.", 154);
+
+                $fill = [
+                    'name' => $cleanName,
+                    'meta_title' => Str::limit($metaTitle, 250, ''),
+                    'meta_description' => $cleanMetaDesc,
+                    'meta_keywords' => static::capKeywords($product->seoKeywords(), 240),
+                ];
+
+                if ($newSlug !== '' && $newSlug !== $oldSlug) {
+                    $legacySlugs = is_array($product->legacy_slugs) ? $product->legacy_slugs : [];
+                    $legacySlugs[] = $oldSlug;
+                    $fill['slug'] = $newSlug;
+                    $fill['legacy_slugs'] = array_values(array_unique(array_filter(
+                        $legacySlugs,
+                        fn ($s): bool => is_string($s) && $s !== '' && $s !== $newSlug
+                    )));
+                }
+
+                if ($designCatId && preg_match('/\b(canva|figma|adobe\s+express|envato|freepik)\b/i', $cleanName)) {
+                    $fill['category_id'] = $designCatId;
+                }
+
+                $product->forceFill($fill)->saveQuietly();
+            }
+
+            Cache::forget('smt_search_catalog_v1');
+            Cache::forget('smt_active_categories_v2');
+
+            return true;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return false;
+        }
+    }
+
+    /** Trims text cleanly on a word boundary so meta descriptions never cut words in half. */
+    public static function trimAtWordBoundary(string $text, int $maxLength = 154): string
+    {
+        $clean = trim(preg_replace('/\s+/u', ' ', str_replace(['—', '–'], '-', $text)) ?? $text);
+        $clean = rtrim((string) preg_replace('/\.{2,}$/u', '', $clean));
+        if (mb_strlen($clean) <= $maxLength) {
+            return $clean;
+        }
+
+        $cut = mb_substr($clean, 0, $maxLength);
+        $wordSafe = preg_replace('/\s+\S*$/u', '', $cut);
+        $result = rtrim($wordSafe !== '' ? $wordSafe : $cut, ' .,;:-/|');
+
+        return $result;
     }
 
     public static function syncAuditMetaOnce(): void
@@ -287,9 +425,12 @@ class ProductSeoOptimizer
         $title = preg_replace('/([a-z])(w\d+[dhmyw]|\d+[dhmy]w)\b/iu', '$1 $2', $title) ?? $title;
         $title = preg_replace('/\b(\d+)(Million|Billion)\b/iu', '$1 $2', $title) ?? $title;
 
-        // 2. Remove parenthesized or bracketed supplier warranty/credit codes like (FW), (1HW), (5DW), (20DW), (W25D), (NW), ( 0 Credit )
-        $title = preg_replace('/[\(\[\{]\s*(?:FW|NW|\d+\s*[HDMWY]W|W\d+\s*[HDMWY]|Full\s+Warranty|Non?\s+Warranty|0\s*Credits?)\s*[\)\]\}]/iu', ' ', $title) ?? $title;
+        // 2. Remove parenthesized or bracketed supplier warranty/credit codes & operational notes like (FW), (1HW), (Need Extension)
+        $title = preg_replace('/[\(\[\{]\s*(?:FW|NW|\d+\s*[HDMWY]W|W\d+\s*[HDMWY]|Full\s+Warranty|Non?\s+Warranty|0\s*Credits?|Need\s+Extension)\s*[\)\]\}]/iu', ' ', $title) ?? $title;
         $title = preg_replace('/\b0\s*Credits?\b/iu', ' ', $title) ?? $title;
+        $title = preg_replace('/\bOne\s+Month\b/iu', '1 Month', $title) ?? $title;
+        $title = preg_replace('/\bAdvance\b/iu', 'Advanced', $title) ?? $title;
+        $title = preg_replace('/\bClaude\s+0\s+API\b/iu', 'Claude \\$100 API', $title) ?? $title;
 
         // 2b. Convert leading [KEY] or Key prefix into a trailing "Key" token and strip "- 24H warranty" style notes
         if (preg_match('/^\s*(Buy\s+)?(?:\[\s*KEY\s*\]|Key\b)\s*(.+)$/iu', $title, $keyMatch)) {
@@ -335,9 +476,13 @@ class ProductSeoOptimizer
             '/\bAcc\b/iu' => 'Account',
             '/\bMicrosoft\b/iu' => 'Microsoft',
             '/\bOffice\s*365\b/iu' => 'Office 365',
+            '/\bOffice365\b/iu' => 'Microsoft Office 365',
             '/\bMs\s*365\b/iu' => 'Microsoft 365',
             '/\bHma(?!\s+VPN)\b/iu' => 'HMA VPN',
             '/\bHma\s+Vpn\b/iu' => 'HMA VPN',
+            '/\bNord\s*Vpn\b/iu' => 'NordVPN',
+            '/\bExpress\s*Vpn\b/iu' => 'ExpressVPN',
+            '/\bSurf\s*Shark\b/iu' => 'Surfshark',
             '/\bAndroid\s*\/?\s*pc\b/iu' => 'Android & PC',
             '/\bChatgpt\b/iu' => 'ChatGPT',
             '/\bGpt\b/iu' => 'GPT',
@@ -355,7 +500,20 @@ class ProductSeoOptimizer
             '/\bHeygen\b/iu' => 'HeyGen',
             '/\bQuillbot\b/iu' => 'QuillBot',
             '/\bN8n\b/iu' => 'n8n',
-            '/\b100\$\s*API\b/iu' => '$100 API',
+            '/\bGEMINI\s+PLUS\b/' => 'Gemini Plus',
+            '/\bSCRIBD\s+PREMIUM\b/' => 'Scribd Premium',
+            '/\bAHREFS\b/' => 'Ahrefs',
+            '/\bCrunchyRoll\b/iu' => 'Crunchyroll',
+            '/\bGrammarly\s+pro\b/' => 'Grammarly Pro',
+            '/\biLovePdf\b/i' => 'iLovePDF',
+            '/\ball\s+Apps\b/' => 'All Apps',
+            '/\bReady\s+made\s+Accounts?\b/iu' => 'Account',
+            '/\bActivation\s+key\s*\|\s*Lifetime\b/iu' => 'Lifetime Activation Key',
+            '/\bfull\s+warranty\b/' => 'Full Warranty',
+            '/\bwith\s+free\s+gifts\b/i' => 'Bundle',
+            '/\b([2-9]\d*|\d{2,})\s+credit\b/i' => '$1 Credits',
+            '/\b([2-9]\d*|\d{2,})\s+invite\b/i' => '$1 Invites',
+            '/\b(\d+)\$\s*API\b/iu' => '\\$$1 API',
         ];
         foreach ($brandNormalizations as $pattern => $replacement) {
             $title = preg_replace($pattern, $replacement, $title) ?? $title;
@@ -370,21 +528,26 @@ class ProductSeoOptimizer
     }
 
     /**
-     * Checks whether a product slug still contains supplier bot codes or compressed shorthand tokens
+     * Checks whether a product slug still contains supplier bot codes, typos, or messy suffixes
      * and upgrades it to a clean, human-readable SEO URL slug while ensuring uniqueness.
      */
     public static function resolveCleanSlug(string $cleanName, string $currentSlug, ?int $productId = null): string
     {
         $needsCleanup = preg_match(
-            '/(?:^|-)(?:fw|nw|\d+[hdmy]w|w\d+[hdmy]|key-hma|ms365|androidpc|0-credit|24h-warranty|1000-creditsw1d|\d+(?:m|d|y|month|months|day|days|year|years|million)(?=-|$))/i',
+            '/(?:^|-)(?:fw|nw|\d+[hdmy]w|w\d+[hdmy]|key-hma|ms365|androidpc|0-credit|24h-warranty|1000-creditsw1d|claude-0-api|one-month|1-months|advance|need-extension|ready-made-accounts|nord-vpn|express-vpn|office365|500-credit|100-invite|3000-invite|with-free-gifts|\d+(?:m|d|y|month|months|day|days|year|years|million)(?=-|$))/i',
             $currentSlug
-        ) === 1 || str_contains($currentSlug, '10million') || str_contains($currentSlug, '100million');
+        ) === 1
+            || preg_match('/-2$/', $currentSlug) === 1
+            || str_contains($currentSlug, '10million')
+            || str_contains($currentSlug, '100million');
 
         if (! $needsCleanup) {
             return $currentSlug;
         }
 
-        return Product::uniqueSlug($cleanName, $productId);
+        $slugSource = preg_replace('/\$(\d+)/', '$1', $cleanName) ?? $cleanName;
+
+        return Product::uniqueSlug($slugSource, $productId);
     }
 
     /**
@@ -462,26 +625,25 @@ HTML;
             $metaTitle = Str::limit("Buy {$name}", 58, '');
         }
 
-        $metaDesc = Str::limit(
-            "Buy {$name} online at the best price. {$shortDesc} Instant delivery & verified warranty support.",
-            152,
-            '...'
+        $metaDesc = static::trimAtWordBoundary(
+            "Buy {$name} online at the cheapest price in Pakistan. {$shortDesc} Instant delivery & verified warranty support.",
+            154
         );
 
-        $metaKeywords = static::capKeywords(implode(', ', array_unique(array_filter([
+        $catKeyword = str_ends_with(strtolower($categoryName), 'tools')
+            ? "cheapest {$categoryName} in Pakistan"
+            : "cheapest {$categoryName} tools in Pakistan";
+
+        $metaKeywords = static::capKeywords(implode(', ', array_filter([
             "buy {$name}",
-            "{$name} subscription",
-            "{$name} price",
-            "cheap {$name}",
-            "{$name} plan",
-            "{$name} instant delivery",
-            "{$brand} subscription",
-            "buy {$brand} online",
             "{$name} price in Pakistan",
-            "{$categoryName} tools",
-            'digital software subscriptions',
+            "cheap {$name} Pakistan",
+            "{$name} instant delivery",
+            "{$brand} Pakistan",
+            $catKeyword,
+            'Easypaisa JazzCash digital tools',
             'SellMeTools',
-        ]))), 240);
+        ])), 240);
 
         return [
             'short_description' => $shortDesc,
@@ -493,10 +655,21 @@ HTML;
         ];
     }
 
-    /** Joins comma-separated SEO keywords up to $maxLength without cutting a keyword mid-phrase. */
+    /** Joins comma-separated SEO keywords up to $maxLength with case-insensitive deduplication. */
     public static function capKeywords(string $keywords, int $maxLength = 240): string
     {
-        $parts = array_values(array_unique(array_filter(array_map('trim', explode(',', $keywords)), fn (string $p): bool => $p !== '')));
+        $rawParts = array_filter(array_map('trim', explode(',', $keywords)), fn (string $p): bool => $p !== '');
+        $seen = [];
+        $parts = [];
+        foreach ($rawParts as $part) {
+            $norm = strtolower(preg_replace('/\s+/', ' ', $part) ?? $part);
+            if (isset($seen[$norm])) {
+                continue;
+            }
+            $seen[$norm] = true;
+            $parts[] = $part;
+        }
+
         if ($parts === []) {
             return '';
         }

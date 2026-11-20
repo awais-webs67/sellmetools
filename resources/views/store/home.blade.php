@@ -21,7 +21,7 @@
     $canonicalUrl = $baseCanonicalUrl;
     $prevPageUrl = null;
     $nextPageUrl = null;
-    $robotsDirective = ($search !== '' || $currentPageNum > 1 || request()->filled('category'))
+    $robotsDirective = ($search !== '' || $currentPageNum > 1 || request()->filled('category') || ($activeCategory && $products->isEmpty()))
         ? 'noindex, follow'
         : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
 
@@ -116,7 +116,9 @@
     ] : null;
 @endphp
 @push('seo')
-    <script type="application/ld+json">{!! json_encode($itemListSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    @if ($products->isNotEmpty())
+        <script type="application/ld+json">{!! json_encode($itemListSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    @endif
     @if ($isLanding)
         <script type="application/ld+json">{!! json_encode($faqSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
     @elseif ($categoryBreadcrumbSchema)
@@ -491,21 +493,26 @@
                             </div>
                         </div>
 
+                        @php
+                            $catLink = fn (string $slug): string => $categories->contains('slug', $slug)
+                                ? route('categories.show', $slug)
+                                : route('shop');
+                        @endphp
                         <div class="mt-6 rounded-xl border border-line bg-grey-soft/40 p-4">
                             <p class="text-[11px] font-bold uppercase tracking-wider text-muted">Popular Searches in Pakistan</p>
                             <div class="mt-2 flex flex-wrap gap-1.5 text-xs">
                                 @foreach ([
-                                    ['ChatGPT Plus in Pakistan', route('shop', ['q' => 'ChatGPT'])],
-                                    ['CapCut Pro Price in Pakistan', route('shop', ['q' => 'CapCut'])],
-                                    ['Canva Pro 1 Year', route('shop', ['q' => 'Canva'])],
-                                    ['LinkedIn Premium Vouchers', route('shop', ['q' => 'LinkedIn'])],
-                                    ['Ahrefs & Semrush SEO Tools', route('shop', ['q' => 'Ahrefs'])],
-                                    ['Claude API & Pro', route('shop', ['q' => 'Claude'])],
-                                    ['Google Gemini Pro', route('shop', ['q' => 'Gemini'])],
-                                    ['Surfshark & ExpressVPN', route('shop', ['q' => 'VPN'])],
-                                    ['YouTube Premium & Prime Video', route('shop', ['q' => 'Prime'])],
-                                    ['Coursera & Grammarly Pro', route('shop', ['q' => 'Coursera'])],
-                                    ['Windows 11 Pro Activation Key', route('shop', ['q' => 'Windows'])],
+                                    ['Cheapest AI Tools in Pakistan', $catLink('ai-tools')],
+                                    ['Cheapest SEO Tools in Pakistan', $catLink('seo')],
+                                    ['ChatGPT Plus & Claude Pro', $catLink('ai-tools')],
+                                    ['CapCut Pro Price in Pakistan', $catLink('video-editing')],
+                                    ['Canva Pro & Figma Design', $catLink('design')],
+                                    ['LinkedIn Premium Vouchers', $catLink('linkedin')],
+                                    ['Ahrefs & Semrush Group Buy', $catLink('seo')],
+                                    ['Surfshark & ExpressVPN', $catLink('vpn-security')],
+                                    ['YouTube Premium & Prime Video', $catLink('entertainment')],
+                                    ['Coursera & Grammarly Pro', $catLink('education')],
+                                    ['Windows 11 Pro & Cloud Tools', $catLink('cloud-dev')],
                                 ] as [$kwLabel, $kwUrl])
                                     <a href="{{ $kwUrl }}" class="rounded-lg border border-line bg-white px-2.5 py-1 text-[11px] font-semibold text-body transition hover:border-brand hover:text-brand">
                                         {{ $kwLabel }}

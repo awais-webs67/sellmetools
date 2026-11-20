@@ -21,9 +21,9 @@ class Category extends Model
     {
         return [
             'ai-tools' => [
-                'title' => 'Buy AI Tools in Pakistan - ChatGPT Plus, Claude, Gemini',
-                'description' => 'Buy genuine ChatGPT Plus, Claude Pro, Gemini Pro, HeyGen & ElevenLabs in Pakistan with instant delivery via Easypaisa, JazzCash & USDT.',
-                'keywords' => 'buy AI tools in Pakistan, ChatGPT Plus price in Pakistan, buy ChatGPT Plus with Easypaisa JazzCash, Claude Pro price in Pakistan, Claude API key Pakistan, Gemini Advanced subscription Pakistan, HeyGen Creator, Kling AI, ElevenLabs, Midjourney Pro Pakistan, SellMeTools',
+                'title' => 'Cheapest AI Tools in Pakistan - ChatGPT Plus, Claude & Gemini',
+                'description' => 'Buy the cheapest AI tools in Pakistan: ChatGPT Plus, Claude Pro, Gemini Pro, HeyGen & ElevenLabs with instant Easypaisa, JazzCash & USDT delivery.',
+                'keywords' => 'cheapest AI tools in Pakistan, cheap AI tools Pakistan, buy AI tools in Pakistan, ChatGPT Plus price in Pakistan, buy ChatGPT Plus with Easypaisa JazzCash, Claude Pro price in Pakistan, Claude API key Pakistan, Gemini Pro subscription Pakistan, SellMeTools',
             ],
             'linkedin' => [
                 'title' => 'Buy LinkedIn Premium & Sales Navigator Vouchers in Pakistan',
@@ -31,9 +31,9 @@ class Category extends Model
                 'keywords' => 'LinkedIn Premium price in Pakistan, buy LinkedIn Career voucher Pakistan, LinkedIn Business 12 months price in Pakistan, LinkedIn Sales Navigator Core Advanced voucher, buy LinkedIn Premium with Easypaisa JazzCash, SellMeTools',
             ],
             'seo' => [
-                'title' => 'Buy SEO Tools in Pakistan - Ahrefs, Semrush & Moz Pro Bundle',
-                'description' => 'Buy Ahrefs, Semrush, Moz Pro & 30+ SEO group buy tools online in Pakistan at cheap prices with instant Easypaisa, JazzCash & USDT checkout.',
-                'keywords' => 'Ahrefs price in Pakistan, Semrush price in Pakistan, buy SEO tools in Pakistan, SEO group buy tools Pakistan, Semrush Moz Pro bundle Easypaisa JazzCash, cheap Ahrefs subscription online, SellMeTools',
+                'title' => 'Cheapest SEO Tools in Pakistan - Ahrefs, Semrush & Moz Pro',
+                'description' => 'Buy the cheapest SEO tools in Pakistan: Ahrefs, Semrush, Moz Pro & 30+ SEO group buy tools with instant Easypaisa, JazzCash & USDT delivery.',
+                'keywords' => 'cheapest SEO tools in Pakistan, cheap SEO tools Pakistan, SEO group buy tools Pakistan, Ahrefs price in Pakistan, Semrush price in Pakistan, buy SEO tools in Pakistan Easypaisa JazzCash, SellMeTools',
             ],
             'design' => [
                 'title' => 'Buy Canva Pro, Figma & Envato Subscriptions in Pakistan',

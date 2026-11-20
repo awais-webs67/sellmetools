@@ -18,7 +18,7 @@
 
     <h2>2. When You Are Eligible for a Replacement or Refund</h2>
     <ul>
-        <li>The delivered credentials or activation link do not work upon first use and you report the issue within the stated warranty window with your Order ID (`SMT-XXXXXX`).</li>
+        <li>The delivered credentials or activation link do not work upon first use and you report the issue within the stated warranty window with your Order ID (<code>SMT-XXXXXX</code>).</li>
         <li>A Full Warranty (FW) product experiences a subscription interruption during the covered period and our team is unable to restore or replace it within a reasonable time.</li>
         <li>Your payment was verified, but stock became unavailable before delivery could be completed.</li>
         <li>You accidentally sent a duplicate payment for the same order.</li>

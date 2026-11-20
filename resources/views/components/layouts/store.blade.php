@@ -50,6 +50,7 @@
     $storeTheme = (string) setting('store_theme', 'black');
     $themeColorHex = $storeTheme === 'crimson' ? '#9B1B30' : '#000000';
 
+    $storeSchemaDesc = (string) (setting('seo_description') ?: setting('store_tagline'));
     $orgSchema = array_filter([
         '@context' => 'https://schema.org',
         '@type' => 'OnlineStore',
@@ -57,7 +58,7 @@
         'name' => $storeName,
         'url' => url('/'),
         'logo' => $logoSetting ? $defaultOgImage : asset('images/logo.png'),
-        'description' => $metaDescription,
+        'description' => $storeSchemaDesc,
         'currenciesAccepted' => 'USD, USDT, PKR',
         'paymentAccepted' => 'Binance Pay, USDT (TRC20), Cryptocurrency, Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer',
         'priceRange' => '$1 - $100 / PKR 100 - PKR 25000',
@@ -94,7 +95,7 @@
         'url' => url('/'),
         'name' => $storeName,
         'alternateName' => ['SellMeTools.com', 'Sell Me Tools'],
-        'description' => $metaDescription,
+        'description' => $storeSchemaDesc,
         'publisher' => ['@id' => url('/').'#organization'],
         'potentialAction' => [
             '@type' => 'SearchAction',
@@ -557,7 +558,7 @@
         <div class="container-x grid gap-10 py-14 md:grid-cols-2 lg:grid-cols-4">
             <div class="lg:col-span-2">
                 <a href="{{ route('home') }}" class="flex items-center">
-                    <img src="{{ asset('images/logo-white.png') }}?v=4" alt="{{ $storeName }}" width="230" height="40" decoding="async" fetchpriority="low" class="h-8 sm:h-9 md:h-10 w-auto object-contain">
+                    <img src="{{ asset('images/logo-white.png') }}?v=4" alt="{{ $storeName }}" width="230" height="40" loading="lazy" decoding="async" fetchpriority="low" class="h-8 sm:h-9 md:h-10 w-auto object-contain">
                 </a>
                 <p class="mt-4 max-w-md text-sm leading-6">{{ setting('store_tagline') }} Pay with Easypaisa, JazzCash, NayaPay, SadaPay or Binance and receive your product automatically after verification.</p>
                 <div class="mt-5 flex flex-wrap gap-2">

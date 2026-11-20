@@ -722,6 +722,7 @@ class Product extends Model
             'coursera' => 'Coursera',
             'udemy' => 'Udemy',
             'apna college' => 'Apna College',
+            'crunchyroll' => 'Crunchyroll',
             'muse ai' => 'Muse AI',
             'linkedin' => 'LinkedIn',
             'discord' => 'Discord',
@@ -1169,18 +1170,35 @@ class Product extends Model
     {
         $cleanName = ProductSeoOptimizer::cleanProductTitle((string) $this->name);
         $brand = $this->brandName();
+        $lowerName = strtolower($cleanName);
+
+        $itemType = match (true) {
+            str_contains($lowerName, 'course') || str_contains($lowerName, 'apna college') => 'course',
+            str_contains($lowerName, 'activation key') || str_contains($lowerName, 'license key') => 'activation key',
+            str_contains($lowerName, 'voucher') => 'voucher',
+            str_contains($lowerName, 'api') => 'API key',
+            default => 'subscription',
+        };
+
+        $categoryKeyword = null;
+        if ($this->category) {
+            $catName = trim((string) $this->category->name);
+            $categoryKeyword = str_ends_with(strtolower($catName), 'tools')
+                ? "cheapest {$catName} in Pakistan"
+                : "cheapest {$catName} tools in Pakistan";
+        }
+
+        $storeName = (string) Setting::get('store_name', 'SellMeTools');
         $baseKeywords = [
             "buy {$cleanName}",
-            "{$cleanName} subscription",
-            "{$cleanName} price",
-            "cheap {$cleanName}",
-            "buy {$cleanName} online",
-            "{$cleanName} instant delivery",
-            "{$brand} subscription",
             "{$cleanName} price in Pakistan",
-            "buy {$cleanName} without credit card",
-            $this->category ? $this->category->name.' tools' : null,
-            (string) Setting::get('store_name', 'SellMeTools'),
+            "cheap {$cleanName} Pakistan",
+            "{$cleanName} {$itemType}",
+            "{$cleanName} instant delivery",
+            strtolower($brand) !== strtolower($storeName) ? "{$brand} {$itemType} Pakistan" : null,
+            $categoryKeyword,
+            "buy {$cleanName} Easypaisa JazzCash",
+            $storeName,
         ];
 
         if (filled($this->meta_keywords)) {
@@ -1188,7 +1206,26 @@ class Product extends Model
             $baseKeywords = array_merge($existing, $baseKeywords);
         }
 
-        return implode(', ', array_values(array_unique(array_filter($baseKeywords))));
+        // Case-insensitive deduplication & cap to prevent keyword stuffing
+        $seen = [];
+        $unique = [];
+        foreach ($baseKeywords as $kw) {
+            $kw = trim((string) $kw);
+            if ($kw === '') {
+                continue;
+            }
+            $norm = strtolower(preg_replace('/\s+/', ' ', $kw) ?? $kw);
+            if (isset($seen[$norm])) {
+                continue;
+            }
+            $seen[$norm] = true;
+            $unique[] = $kw;
+            if (count($unique) >= 10) {
+                break;
+            }
+        }
+
+        return implode(', ', $unique);
     }
 
     public function hasSeoBackup(): bool
