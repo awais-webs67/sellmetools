@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\Setting;
 use App\Services\AiSeoAgent;
 use App\Services\PriceCalculator;
+use App\Services\ProductSeoOptimizer;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\RichEditor;
@@ -539,93 +540,24 @@ class ProductForm
      */
     protected static function renderLiveSeoAnalyzerHtml(?Product $record, Get $get): HtmlString
     {
-        $name = trim((string) ($get('name') ?? $record?->name ?? ''));
-        $slug = trim((string) ($get('slug') ?? $record?->slug ?? Str::slug($name)));
-        $metaTitle = trim((string) ($get('meta_title') ?? $record?->meta_title ?? ($name !== '' ? "Buy {$name} | Best Price in Pakistan" : '')));
-        $metaDesc = trim((string) ($get('meta_description') ?? $record?->meta_description ?? $get('short_description') ?? $record?->short_description ?? ''));
-        $rawDesc = (string) ($get('description') ?? $record?->description ?? '');
-        $plainDesc = trim(preg_replace('/\s+/u', ' ', strip_tags($rawDesc)) ?? '');
-        $rawKw = trim((string) ($get('meta_keywords') ?? $record?->meta_keywords ?? ''));
+        $analysis = ProductSeoOptimizer::analyzeProductSeo([
+            'name' => (string) ($get('name') ?? $record?->name ?? ''),
+            'slug' => (string) ($get('slug') ?? $record?->slug ?? ''),
+            'meta_title' => (string) ($get('meta_title') ?? $record?->meta_title ?? ''),
+            'meta_description' => (string) ($get('meta_description') ?? $record?->meta_description ?? ''),
+            'short_description' => (string) ($get('short_description') ?? $record?->short_description ?? ''),
+            'description' => (string) ($get('description') ?? $record?->description ?? ''),
+            'meta_keywords' => (string) ($get('meta_keywords') ?? $record?->meta_keywords ?? ''),
+        ]);
 
-        $kwList = array_values(array_filter(array_map('trim', explode(',', $rawKw)), fn (string $k): bool => $k !== ''));
-        $focusKw = $kwList[0] ?? $name;
-        $focusTokens = array_values(array_filter(
-            preg_split('/[\s\-\/]+/', strtolower($focusKw)) ?: [],
-            fn (string $t): bool => mb_strlen($t) >= 2 && ! in_array($t, ['in', 'of', 'to', 'for', 'the', 'and', 'buy'], true)
-        ));
+        $score = $analysis['score'];
+        $focusKw = $analysis['focus_keyword'];
+        $metaTitle = $analysis['meta_title'];
+        $metaDesc = $analysis['meta_description'];
+        $slug = $analysis['slug'];
 
-        $matchesFocus = function (string $haystack) use ($focusKw, $focusTokens): bool {
-            if ($focusKw === '' || $haystack === '') {
-                return false;
-            }
-            $h = strtolower($haystack);
-            if (str_contains($h, strtolower($focusKw))) {
-                return true;
-            }
-            if ($focusTokens === []) {
-                return false;
-            }
-            $hits = 0;
-            foreach ($focusTokens as $tok) {
-                if (str_contains($h, $tok)) {
-                    $hits++;
-                }
-            }
-
-            return ($hits / count($focusTokens)) >= 0.7;
-        };
-
-        $titleLen = mb_strlen($metaTitle);
-        $descLen = mb_strlen($metaDesc);
-        $wordCount = $plainDesc !== '' ? str_word_count($plainDesc) : 0;
-        $hasHeadings = (bool) preg_match('/<h[23]\b/i', $rawDesc);
-        $kwCount = count($kwList);
-
-        $checks = [
-            [
-                'pts' => 20,
-                'ok' => $matchesFocus($metaTitle) && $titleLen >= 30 && $titleLen <= 62,
-                'label' => "Focus Keyword in SEO Title ({$titleLen}/60 chars)",
-                'hint' => 'Keep SEO Title 35-60 chars and include your Focus Keyword.',
-            ],
-            [
-                'pts' => 15,
-                'ok' => $matchesFocus(str_replace('-', ' ', $slug)) && $slug !== '' && mb_strlen($slug) <= 60,
-                'label' => "Focus Keyword in Clean URL Slug (/{$slug})",
-                'hint' => 'Use clean hyphenated keywords in the slug (under 60 chars).',
-            ],
-            [
-                'pts' => 15,
-                'ok' => $matchesFocus($metaDesc) && $descLen >= 100 && $descLen <= 156,
-                'label' => "Focus Keyword in Meta Description ({$descLen}/155 chars)",
-                'hint' => 'Write 115-155 chars with Focus Keyword, price/warranty & CTA.',
-            ],
-            [
-                'pts' => 20,
-                'ok' => $matchesFocus($plainDesc),
-                'label' => 'Focus Keyword inside Product Description',
-                'hint' => 'Google ranks visible page copy — include your Focus Keyword naturally in the description.',
-            ],
-            [
-                'pts' => 15,
-                'ok' => $wordCount >= 80 && $hasHeadings,
-                'label' => "Description Depth & Structure ({$wordCount} words".($hasHeadings ? ', H2/H3 headings ✓' : ', add H2/H3 heading').')',
-                'hint' => 'Aim for 100+ words with H2/H3 headings and bullet points.',
-            ],
-            [
-                'pts' => 15,
-                'ok' => $kwCount >= 3 && $kwCount <= 12,
-                'label' => "Focused Target Keywords ({$kwCount} tags)",
-                'hint' => 'Use 3-10 unique, relevant keywords (avoid stuffing 15+ repetitive tags).',
-            ],
-        ];
-
-        $score = 0;
         $itemsHtml = '';
-        foreach ($checks as $c) {
-            if ($c['ok']) {
-                $score += $c['pts'];
-            }
+        foreach ($analysis['checks'] as $c) {
             $icon = $c['ok'] ? '✅' : '⚠️';
             $color = $c['ok'] ? '#047857' : '#b45309';
             $itemsHtml .= '<div style="display:flex;align-items:flex-start;gap:0.45rem;font-size:0.78rem;line-height:1.45;padding:0.22rem 0;">'
@@ -637,7 +569,7 @@ class ProductForm
 
         $badgeBg = $score >= 80 ? '#ecfdf5' : ($score >= 55 ? '#fffbeb' : '#fef2f2');
         $badgeColor = $score >= 80 ? '#047857' : ($score >= 55 ? '#b45309' : '#b91c1c');
-        $badgeLabel = $score >= 80 ? 'Great SEO' : ($score >= 55 ? 'Needs Polish' : 'Weak SEO');
+        $badgeLabel = $analysis['label'];
         $serpUrl = rtrim((string) url('/'), '/').'/products/'.($slug ?: 'your-product-slug');
 
         $html = '<div style="border:1px solid #e2e8f0;border-radius:0.75rem;padding:0.95rem 1.05rem;background:#f8fafc;">'

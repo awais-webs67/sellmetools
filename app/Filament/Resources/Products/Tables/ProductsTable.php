@@ -7,6 +7,7 @@ use App\Filament\Support\Money;
 use App\Models\Product;
 use App\Models\Setting;
 use App\Services\AiSeoAgent;
+use App\Services\ProductSeoOptimizer;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
@@ -103,6 +104,22 @@ class ProductsTable
                         default => 'success',
                     })
                     ->sortable(),
+                TextColumn::make('seo_score')
+                    ->label('SEO')
+                    ->badge()
+                    ->state(fn (Product $record): string => ProductSeoOptimizer::scoreForProduct($record)['score'].'/100')
+                    ->color(function (Product $record): string {
+                        $score = ProductSeoOptimizer::scoreForProduct($record)['score'];
+
+                        return $score >= 80 ? 'success' : ($score >= 55 ? 'warning' : 'danger');
+                    })
+                    ->tooltip(function (Product $record): string {
+                        $res = ProductSeoOptimizer::scoreForProduct($record);
+
+                        return $res['missing'] === []
+                            ? "100/100 Great SEO (Focus: {$res['focus_keyword']})"
+                            : 'Needs: '.implode(' | ', $res['missing']);
+                    }),
                 ToggleColumn::make('is_active')
                     ->label('Live')
                     ->afterStateUpdated(function (Product $record, bool $state): void {

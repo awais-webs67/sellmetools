@@ -312,6 +312,138 @@ class ProductSeoOptimizer
         return $result;
     }
 
+    /**
+     * Computes a WordPress Rank Math / Yoast-style 0-100 SEO score & check breakdown for any product.
+     *
+     * @param  array{name?: string, slug?: string, meta_title?: string, meta_description?: string, short_description?: string, description?: string, meta_keywords?: string}  $fields
+     * @return array{score: int, label: string, focus_keyword: string, meta_title: string, meta_description: string, slug: string, checks: array<int, array{pts: int, ok: bool, label: string, hint: string}>, missing: string[]}
+     */
+    public static function analyzeProductSeo(array $fields): array
+    {
+        $name = trim((string) ($fields['name'] ?? ''));
+        $slug = trim((string) ($fields['slug'] ?? Str::slug($name)));
+        $metaTitle = trim((string) ($fields['meta_title'] ?? ''));
+        if ($metaTitle === '' && $name !== '') {
+            $metaTitle = "Buy {$name} | Best Price in Pakistan";
+        }
+        $metaDesc = trim((string) ($fields['meta_description'] ?? ''));
+        if ($metaDesc === '') {
+            $metaDesc = trim((string) ($fields['short_description'] ?? ''));
+        }
+        $rawDesc = (string) ($fields['description'] ?? '');
+        $plainDesc = trim(preg_replace('/\s+/u', ' ', strip_tags($rawDesc)) ?? '');
+        $rawKw = trim((string) ($fields['meta_keywords'] ?? ''));
+
+        $kwList = array_values(array_filter(array_map('trim', explode(',', $rawKw)), fn (string $k): bool => $k !== ''));
+        $focusKw = $kwList[0] ?? $name;
+        $focusTokens = array_values(array_filter(
+            preg_split('/[\s\-\/]+/', strtolower($focusKw)) ?: [],
+            fn (string $t): bool => mb_strlen($t) >= 2 && ! in_array($t, ['in', 'of', 'to', 'for', 'the', 'and', 'buy'], true)
+        ));
+
+        $matchesFocus = function (string $haystack) use ($focusKw, $focusTokens): bool {
+            if ($focusKw === '' || $haystack === '') {
+                return false;
+            }
+            $h = strtolower($haystack);
+            if (str_contains($h, strtolower($focusKw))) {
+                return true;
+            }
+            if ($focusTokens === []) {
+                return false;
+            }
+            $hits = 0;
+            foreach ($focusTokens as $tok) {
+                if (str_contains($h, $tok)) {
+                    $hits++;
+                }
+            }
+
+            return ($hits / count($focusTokens)) >= 0.7;
+        };
+
+        $titleLen = mb_strlen($metaTitle);
+        $descLen = mb_strlen($metaDesc);
+        $wordCount = $plainDesc !== '' ? str_word_count($plainDesc) : 0;
+        $hasHeadings = (bool) preg_match('/<h[23]\b/i', $rawDesc);
+        $kwCount = count($kwList);
+
+        $checks = [
+            [
+                'pts' => 20,
+                'ok' => $matchesFocus($metaTitle) && $titleLen >= 30 && $titleLen <= 62,
+                'label' => "Focus Keyword in SEO Title ({$titleLen}/60 chars)",
+                'hint' => 'Keep SEO Title 35-60 chars and include your Focus Keyword.',
+            ],
+            [
+                'pts' => 15,
+                'ok' => $matchesFocus(str_replace('-', ' ', $slug)) && $slug !== '' && mb_strlen($slug) <= 60,
+                'label' => "Focus Keyword in Clean URL Slug (/{$slug})",
+                'hint' => 'Use clean hyphenated keywords in the slug (under 60 chars).',
+            ],
+            [
+                'pts' => 15,
+                'ok' => $matchesFocus($metaDesc) && $descLen >= 100 && $descLen <= 156,
+                'label' => "Focus Keyword in Meta Description ({$descLen}/155 chars)",
+                'hint' => 'Write 115-155 chars with Focus Keyword, price/warranty & CTA.',
+            ],
+            [
+                'pts' => 20,
+                'ok' => $matchesFocus($plainDesc),
+                'label' => 'Focus Keyword inside Product Description',
+                'hint' => 'Google ranks visible page copy — include your Focus Keyword naturally in the description.',
+            ],
+            [
+                'pts' => 15,
+                'ok' => $wordCount >= 80 && $hasHeadings,
+                'label' => "Description Depth & Structure ({$wordCount} words".($hasHeadings ? ', H2/H3 headings ✓' : ', add H2/H3 heading').')',
+                'hint' => 'Aim for 100+ words with H2/H3 headings and bullet points.',
+            ],
+            [
+                'pts' => 15,
+                'ok' => $kwCount >= 3 && $kwCount <= 12,
+                'label' => "Focused Target Keywords ({$kwCount} tags)",
+                'hint' => 'Use 3-10 unique, relevant keywords (avoid stuffing 15+ repetitive tags).',
+            ],
+        ];
+
+        $score = 0;
+        $missing = [];
+        foreach ($checks as $c) {
+            if ($c['ok']) {
+                $score += $c['pts'];
+            } else {
+                $missing[] = $c['label'];
+            }
+        }
+
+        $label = $score >= 80 ? 'Great SEO' : ($score >= 55 ? 'Needs Polish' : 'Weak SEO');
+
+        return [
+            'score' => $score,
+            'label' => $label,
+            'focus_keyword' => $focusKw,
+            'meta_title' => $metaTitle,
+            'meta_description' => $metaDesc,
+            'slug' => $slug,
+            'checks' => $checks,
+            'missing' => $missing,
+        ];
+    }
+
+    public static function scoreForProduct(Product $product): array
+    {
+        return static::analyzeProductSeo([
+            'name' => (string) $product->name,
+            'slug' => (string) $product->slug,
+            'meta_title' => (string) ($product->meta_title ?? ''),
+            'meta_description' => (string) ($product->meta_description ?? ''),
+            'short_description' => (string) ($product->short_description ?? ''),
+            'description' => (string) ($product->description ?? ''),
+            'meta_keywords' => (string) ($product->meta_keywords ?? ''),
+        ]);
+    }
+
     public static function syncAuditMetaOnce(): void
     {
         if (app()->runningUnitTests()) {
