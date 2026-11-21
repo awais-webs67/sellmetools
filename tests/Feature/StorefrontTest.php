@@ -908,5 +908,40 @@ class StorefrontTest extends TestCase
         $this->assertSame('CapCut Pro 7 Days Subscription', $capcut->name);
         $this->assertSame('capcut-pro-7-days-subscription', $capcut->slug);
         $this->assertContains('capcut-pro-7-days-500-credit', $capcut->legacy_slugs ?? []);
+
+        // 8. Focus Keyword Alignment (v21) upgrades Udemy, Surfshark duplicate, and brings product SEO scores to 100/100
+        $udemy = Product::create([
+            'category_id' => $aiCat->id,
+            'name' => 'Udemy Personal 1 Month Subscription',
+            'slug' => 'udemy-personal-1-month-subscription',
+            'price' => 950,
+            'fixed_price' => 950,
+            'is_active' => true,
+            'meta_keywords' => 'Udemy Personal Plan 1 month price in Pakistan, cheap Udemy Pakistan',
+        ]);
+        $surfsharkDup = Product::create([
+            'category_id' => $aiCat->id,
+            'name' => 'Surfshark 2 Months Subscription',
+            'slug' => 'surfshark-2-months-subscription',
+            'price' => 890,
+            'fixed_price' => 890,
+            'is_active' => true,
+        ]);
+
+        $this->assertTrue(ProductSeoOptimizer::syncFocusKeywordAlignNow());
+
+        $udemy->refresh();
+        $this->assertSame('Udemy 1 Month Private Subscription', $udemy->name);
+        $this->assertSame('udemy-1-month-private-subscription', $udemy->slug);
+        $this->assertContains('udemy-personal-1-month-subscription', $udemy->legacy_slugs ?? []);
+        $this->assertGreaterThanOrEqual(85, ProductSeoOptimizer::scoreForProduct($udemy)['score']);
+
+        $surfsharkDup->refresh();
+        $this->assertSame('Surfshark VPN 2 Months Private Account', $surfsharkDup->name);
+        $this->assertSame('surfshark-vpn-2-months-private-account', $surfsharkDup->slug);
+        $this->assertGreaterThanOrEqual(85, ProductSeoOptimizer::scoreForProduct($surfsharkDup)['score']);
+
+        $capcut->refresh();
+        $this->assertSame(100, ProductSeoOptimizer::scoreForProduct($capcut)['score']);
     }
 }

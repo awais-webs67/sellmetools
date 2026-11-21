@@ -44,6 +44,141 @@ class ProductSeoOptimizer
         static::syncAuditMetaOnce();
         static::syncRankingUpgradeOnce();
         static::syncGeneralSubscriptionUpgradeOnce();
+        static::syncFocusKeywordAlignOnce();
+    }
+
+    /**
+     * One-time catalog-wide SEO alignment: sets clean Primary Focus Keyword as Tag #1 (keeping Pakistan commercial
+     * modifiers as Tag #2/#3), polishes Udemy/Surfshark/Canva/Google Flow/Kling names, ensures Meta Title, Meta Description,
+     * and HTML Description headings match the Focus Keyword so all catalog products reach 85-100/100 SEO quality.
+     */
+    public static function syncFocusKeywordAlignOnce(): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+
+        $flagFile = storage_path('framework/product_seo_v21_focus_keyword_align.flag');
+        if (is_file($flagFile)) {
+            return;
+        }
+
+        if (static::syncFocusKeywordAlignNow()) {
+            @file_put_contents($flagFile, '1');
+        }
+    }
+
+    public static function syncFocusKeywordAlignNow(): bool
+    {
+        try {
+            Product::ensureFreeAndStockColumnsExist();
+
+            if (! Schema::hasTable('products')) {
+                return false;
+            }
+
+            $products = Product::withTrashed()->with('category')->get();
+
+            foreach ($products as $product) {
+                $oldSlug = (string) $product->slug;
+                $cleanName = static::cleanProductTitle((string) $product->name);
+
+                // Targeted catalog name & duplicate polish
+                $cleanName = preg_replace('/\s+-\s+Subscription$/iu', ' Subscription', $cleanName) ?? $cleanName;
+                $cleanName = preg_replace('/\bcanva\s+edu\s+pro\b/i', 'Canva Edu Pro', $cleanName) ?? $cleanName;
+                $cleanName = preg_replace('/\bGoogle\s+Flow\s+unlimited\b/i', 'Google Flow Unlimited', $cleanName) ?? $cleanName;
+
+                if (in_array($oldSlug, ['udemy-personal-1-month-subscription', 'udemy-personal-plan-1month'], true)
+                    || preg_match('/^Udemy\s+Personal\s+1\s+Month/iu', $cleanName)) {
+                    $cleanName = 'Udemy 1 Month Private Subscription';
+                }
+
+                if ($oldSlug === 'surfshark-2-months-subscription') {
+                    $cleanName = 'Surfshark VPN 2 Months Private Account';
+                }
+
+                $product->name = $cleanName;
+                $slugSource = preg_replace('/\$(\d+)/', '$1', $cleanName) ?? $cleanName;
+                $newSlug = $oldSlug;
+                if (in_array($oldSlug, ['udemy-personal-1-month-subscription', 'udemy-personal-plan-1month', 'surfshark-2-months-subscription'], true)) {
+                    $newSlug = Product::uniqueSlug($slugSource, (int) $product->id);
+                }
+
+                // Build SEO Title (30-60 chars) containing Focus Keyword
+                $metaTitle = "Buy {$cleanName} | Best Price in Pakistan";
+                if (mb_strlen($metaTitle) > 60) {
+                    $metaTitle = "Buy {$cleanName} | Instant Delivery";
+                }
+                if (mb_strlen($metaTitle) > 60) {
+                    $metaTitle = static::trimAtWordBoundary("Buy {$cleanName}", 60);
+                }
+
+                // Build clean Meta Description (110-154 chars) containing Focus Keyword
+                $rawDesc = static::stripBotCodesFromCopy(static::stripEmDashes((string) ($product->meta_description ?: $product->short_description)));
+                $baseDesc = $rawDesc !== '' ? $rawDesc : 'Instant automated delivery in Pakistan & worldwide via Easypaisa, JazzCash & USDT with warranty support.';
+                $metaDesc = static::trimAtWordBoundary($baseDesc, 154);
+
+                $checkMeta = static::analyzeProductSeo([
+                    'name' => $cleanName,
+                    'slug' => $newSlug,
+                    'meta_title' => $metaTitle,
+                    'meta_description' => $metaDesc,
+                    'description' => (string) ($product->description ?? ''),
+                    'meta_keywords' => $cleanName,
+                ]);
+                if (! $checkMeta['checks'][2]['ok']) {
+                    $metaDesc = static::trimAtWordBoundary("Buy {$cleanName} at the best price in Pakistan. {$baseDesc}", 154);
+                }
+
+                // Ensure HTML Description has H3 heading containing Focus Keyword and >= 80 words
+                $descHtml = static::stripEmDashes((string) ($product->description ?? ''));
+                $safeName = e($cleanName);
+                if (! preg_match('/<h[23]\b/i', $descHtml)) {
+                    $descHtml = "<h3>Buy {$safeName} Online in Pakistan</h3>\n".$descHtml;
+                } else {
+                    $plainCheck = strip_tags($descHtml);
+                    if (! str_contains(strtolower($plainCheck), strtolower($cleanName))) {
+                        $descHtml = "<h3>Buy {$safeName} at the Best Price in Pakistan</h3>\n".$descHtml;
+                    }
+                }
+                if (str_word_count(strip_tags($descHtml)) < 85) {
+                    $descHtml .= "\n<p>Order your verified <strong>{$safeName}</strong> online in Pakistan with instant automated delivery on your private order page. Pay securely in PKR via Easypaisa, JazzCash, NayaPay, SadaPay, or Bank Transfer (Raast), or globally via Binance USDT, backed by responsive WhatsApp support and clear replacement warranty terms.</p>";
+                }
+
+                // Put $cleanName as #1 Focus Keyword + high-intent Pakistan tags cleanly capped (6-9 tags)
+                $product->meta_keywords = '';
+                $alignedKeywords = static::capKeywords($product->seoKeywords(), 240);
+
+                $fill = [
+                    'name' => $cleanName,
+                    'meta_title' => Str::limit($metaTitle, 250, ''),
+                    'meta_description' => $metaDesc,
+                    'description' => $descHtml,
+                    'meta_keywords' => $alignedKeywords,
+                ];
+
+                if ($newSlug !== '' && $newSlug !== $oldSlug) {
+                    $legacySlugs = is_array($product->legacy_slugs) ? $product->legacy_slugs : [];
+                    $legacySlugs[] = $oldSlug;
+                    $fill['slug'] = $newSlug;
+                    $fill['legacy_slugs'] = array_values(array_unique(array_filter(
+                        $legacySlugs,
+                        fn ($s): bool => is_string($s) && $s !== '' && $s !== $newSlug
+                    )));
+                }
+
+                $product->forceFill($fill)->saveQuietly();
+            }
+
+            Cache::forget('smt_search_catalog_v1');
+            Cache::forget('smt_active_categories_v2');
+
+            return true;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return false;
+        }
     }
 
     /**

@@ -1190,8 +1190,9 @@ class Product extends Model
 
         $storeName = (string) Setting::get('store_name', 'SellMeTools');
         $baseKeywords = [
-            "buy {$cleanName}",
+            $cleanName,
             "{$cleanName} price in Pakistan",
+            "buy {$cleanName}",
             "cheap {$cleanName} Pakistan",
             "{$cleanName} {$itemType}",
             "{$cleanName} instant delivery",
@@ -1203,7 +1204,8 @@ class Product extends Model
 
         if (filled($this->meta_keywords)) {
             $existing = array_map('trim', explode(',', ProductSeoOptimizer::cleanProductTitle((string) $this->meta_keywords)));
-            $baseKeywords = array_merge($existing, $baseKeywords);
+            // Keep $cleanName first as #1 Focus Keyword, then preserve custom tags, then fill remaining high-intent tags
+            $baseKeywords = array_merge([$cleanName], $existing, $baseKeywords);
         }
 
         // Case-insensitive deduplication & cap to prevent keyword stuffing
