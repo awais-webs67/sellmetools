@@ -59,9 +59,6 @@
         'url' => url('/'),
         'logo' => $logoSetting ? $defaultOgImage : asset('images/logo.png'),
         'description' => $storeSchemaDesc,
-        'currenciesAccepted' => 'USD, USDT, PKR',
-        'paymentAccepted' => 'Binance Pay, USDT (TRC20), Cryptocurrency, Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer',
-        'priceRange' => '$1 - $100 / PKR 100 - PKR 25000',
         'areaServed' => ['PK', 'US', 'GB', 'AE', 'SA', 'CA', 'AU', 'Worldwide'],
         'knowsAbout' => [
             'AI Tools Subscriptions in Pakistan',
@@ -129,9 +126,11 @@
     @if ($nextUrl)
         <link rel="next" href="{{ $nextUrl }}">
     @endif
-    <link rel="alternate" hreflang="en" href="{{ $canonicalUrl }}">
-    <link rel="alternate" hreflang="en-pk" href="{{ $canonicalUrl }}">
-    <link rel="alternate" hreflang="x-default" href="{{ $canonicalUrl }}">
+    @if (! str_starts_with(strtolower((string) $robots), 'noindex') && rtrim((string) $canonicalUrl, '/') === rtrim((string) url()->current(), '/'))
+        <link rel="alternate" hreflang="en" href="{{ $canonicalUrl }}">
+        <link rel="alternate" hreflang="en-pk" href="{{ $canonicalUrl }}">
+        <link rel="alternate" hreflang="x-default" href="{{ $canonicalUrl }}">
+    @endif
 
     {{-- Open Graph / Facebook / WhatsApp Preview --}}
     <meta property="og:site_name" content="{{ $storeName }}">
