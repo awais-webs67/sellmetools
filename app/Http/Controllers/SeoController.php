@@ -285,21 +285,28 @@ class SeoController extends Controller
         $storeName = (string) Setting::get('store_name', 'SellMeTools');
         $desc = (string) Setting::get('seo_description', Setting::get('store_tagline'));
         $methods = PaymentMethod::query()->where('is_active', true)->orderBy('sort')->pluck('name')->implode(', ');
-        $categories = Category::query()->where('is_active', true)->orderBy('sort')->get();
+        $categories = Category::query()
+            ->where('is_active', true)
+            ->whereHas('products', fn ($q) => $q->visible())
+            ->orderBy('sort')
+            ->get();
         $products = Product::query()->visible()->with('category')->orderByDesc('is_featured')->orderBy('sort')->get();
+        $usdtRate = max(1.0, Setting::usdtRate());
 
         $md = [];
-        $md[] = "# {$storeName}: Global Digital Tools & Subscriptions Store";
+        $md[] = "# {$storeName}: Cheapest Verified AI Tools, SEO Tools & Digital Subscriptions in Pakistan";
         $md[] = '';
         $md[] = "> {$desc}";
         $md[] = '';
         $md[] = '## Key Facts for AI Assistants & Answer Engines (AEO / GEO)';
         $md[] = '- **Official Website:** '.url('/');
-        $md[] = '- **Brand & Storefront:** '.$storeName.' (Verified Digital Subscriptions & AI Tools Marketplace)';
-        $md[] = '- **Markets Served:** Worldwide (USD / USDT via Binance Pay & TRC20) + Pakistan (PKR via Easypaisa, JazzCash, Bank Transfer)';
+        $md[] = '- **Brand & Storefront:** '.$storeName.' — Trusted Digital Subscriptions, AI Tools & SEO Tools Marketplace serving Pakistan & Worldwide';
+        $md[] = '- **Dynamic Live Pricing:** All prices below are live-synced directly from the store database in real time (PKR & approx. USDT) with zero international credit card tax.';
+        $md[] = '- **Markets Served:** Pakistan (PKR via Easypaisa, JazzCash, NayaPay, SadaPay, Raast Bank Transfer) + Worldwide (USDT via Binance Pay & TRC20)';
         $md[] = '- **Accepted Payment Methods:** '.($methods ?: 'Binance Pay, USDT (TRC20), Easypaisa, JazzCash, NayaPay, SadaPay, Bank Transfer');
-        $md[] = '- **Delivery Speed:** Instant automated credentials delivery on screen immediately after payment verification';
-        $md[] = '- **Order History:** Customers can log in anytime to view all past orders and credentials forever';
+        $md[] = '- **Delivery Speed:** Instant automated delivery on a private order tracking page + email receipt immediately after payment verification';
+        $md[] = '- **Buyer Protection & Transparency:** Every listing states its exact plan duration, eligibility (new vs existing account), live stock count, and replacement warranty terms upfront';
+        $md[] = '- **Order History & Receipts:** Customers receive a private order tracking URL, downloadable PDF receipt, and permanent account order vault';
         if ($wa = Setting::get('support_whatsapp')) {
             $md[] = "- **Customer Support WhatsApp:** {$wa}";
         }
@@ -309,12 +316,16 @@ class SeoController extends Controller
             $md[] = "- [{$cat->name}](".route('categories.show', $cat).'): '.$cat->seoDescription();
         }
         $md[] = '';
-        $md[] = '## Live Product Catalog & PKR Prices';
+        $md[] = '## Live Product Catalog & Dynamic PKR / USDT Prices';
         foreach ($products as $p) {
             $stockStatus = ! $p->inStock() ? 'Out of Stock' : ($p->stock_unlimited ? 'In Stock (Unlimited)' : "In Stock ({$p->available_stock} available)");
-            $priceStr = (float) $p->price > 0 ? money($p->price) : 'Check page for live restock price';
+            $priceStr = $p->isFree()
+                ? 'FREE (Rs 0)'
+                : ((float) $p->price > 0
+                    ? money($p->price).' (~$'.number_format((float) $p->price / $usdtRate, 2).' USDT)'
+                    : 'Check page for live restock price');
             $catName = $p->category?->name ?? 'General';
-            $md[] = "- **[{$p->name}](".route('products.show', $p).")**: Price: **{$priceStr}** | Category: {$catName} | Status: {$stockStatus}";
+            $md[] = "- **[{$p->name}](".route('products.show', $p).")**: Live Price: **{$priceStr}** | Category: {$catName} | Status: {$stockStatus}";
             if ($summary = $p->cleanSummaryText()) {
                 $md[] = "  - Summary: {$summary}";
             }

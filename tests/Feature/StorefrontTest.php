@@ -943,5 +943,23 @@ class StorefrontTest extends TestCase
 
         $capcut->refresh();
         $this->assertSame(100, ProductSeoOptimizer::scoreForProduct($capcut)['score']);
+
+        // 9. v23 Rich SEO Descriptions & LinkedIn clean Subscription titles
+        $li = Product::create([
+            'category_id' => $aiCat->id,
+            'name' => 'LinkedIn Career 3 Months via Login (All users) Voucher',
+            'slug' => 'linkedin-career-3-months-via-login-all-users-voucher',
+            'price' => 2499,
+            'fixed_price' => 2499,
+            'is_active' => true,
+        ]);
+        $this->assertTrue(ProductSeoOptimizer::syncRichDescriptionsAndLinkedinNow());
+        $li->refresh();
+        $this->assertSame('LinkedIn Career 3 Months All Users Subscription', $li->name);
+        $this->assertSame('linkedin-career-3-months-all-users-subscription', $li->slug);
+        $this->assertContains('linkedin-career-3-months-via-login-all-users-voucher', $li->legacy_slugs ?? []);
+        $this->assertStringContainsString('Activation &amp; Account Eligibility', (string) $li->description);
+        $this->assertStringContainsString('How to Buy', (string) $li->description);
+        $this->assertSame(100, ProductSeoOptimizer::scoreForProduct($li)['score']);
     }
 }

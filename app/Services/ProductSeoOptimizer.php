@@ -46,6 +46,203 @@ class ProductSeoOptimizer
         static::syncGeneralSubscriptionUpgradeOnce();
         static::syncFocusKeywordAlignOnce();
         static::syncVpnSpacingOnce();
+        static::syncRichDescriptionsAndLinkedinOnce();
+    }
+
+    /**
+     * One-time catalog-wide rich SEO description & LinkedIn clean-title upgrade (v23):
+     * - Standardizes LinkedIn titles to clean "LinkedIn ... Subscription" (preserving Voucher/Login/New-vs-Old rules inside description)
+     * - Removes stray dashes (e.g. "ChatGPT Plus 1 Month - Full Warranty Subscription")
+     * - Enhances every product description with structured SEO sections, Pakistan buyer intent keywords & concise Q&As
+     * - Keeps all old slugs as 301 redirects in legacy_slugs and maintains 100/100 SEO scores.
+     */
+    public static function syncRichDescriptionsAndLinkedinOnce(): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+
+        $flagFile = storage_path('framework/product_seo_v23_rich_seo_descriptions.flag');
+        if (is_file($flagFile)) {
+            return;
+        }
+
+        if (static::syncRichDescriptionsAndLinkedinNow()) {
+            @file_put_contents($flagFile, '1');
+        }
+    }
+
+    public static function syncRichDescriptionsAndLinkedinNow(): bool
+    {
+        try {
+            Product::ensureFreeAndStockColumnsExist();
+
+            if (! Schema::hasTable('products')) {
+                return false;
+            }
+
+            $linkedinMap = [
+                'linkedin-career-2-months-voucher' => [
+                    'name' => 'LinkedIn Career 2 Months Subscription',
+                    'slug' => 'linkedin-career-2-months-subscription',
+                    'eligibility' => 'Official voucher redeem link for eligible / new LinkedIn accounts (no password required).',
+                ],
+                'linkedin-career-3-months-voucher' => [
+                    'name' => 'LinkedIn Career 3 Months Subscription',
+                    'slug' => 'linkedin-career-3-months-subscription',
+                    'eligibility' => 'Official voucher redeem link for fresh / eligible LinkedIn accounts (no password required).',
+                ],
+                'linkedin-career-3-months-via-login-all-users-voucher' => [
+                    'name' => 'LinkedIn Career 3 Months All Users Subscription',
+                    'slug' => 'linkedin-career-3-months-all-users-subscription',
+                    'eligibility' => 'Activated via login — works for ALL LinkedIn users (both new accounts and old/previously upgraded accounts).',
+                ],
+                'linkedin-career-12-months-via-login-voucher' => [
+                    'name' => 'LinkedIn Career 12 Months Subscription',
+                    'slug' => 'linkedin-career-12-months-subscription',
+                    'eligibility' => '12-Month individual activation via login — supports both new and existing/old LinkedIn accounts.',
+                ],
+                'linkedin-career-duo-12-months-voucher' => [
+                    'name' => 'LinkedIn Career Duo 12 Months Subscription',
+                    'slug' => 'linkedin-career-duo-12-months-subscription',
+                    'eligibility' => '12-Month Duo plan activated on your LinkedIn email — ideal for long-term job seekers & professionals.',
+                ],
+                'linkedin-business-2-months-voucher' => [
+                    'name' => 'LinkedIn Business 2 Months Subscription',
+                    'slug' => 'linkedin-business-2-months-subscription',
+                    'eligibility' => 'Official voucher redeem link for eligible / new LinkedIn accounts (no password sharing required).',
+                ],
+                'linkedin-business-3-months-via-login-all-users-voucher' => [
+                    'name' => 'LinkedIn Business 3 Months Subscription',
+                    'slug' => 'linkedin-business-3-months-subscription',
+                    'eligibility' => 'Activated via login — works for ALL users (both new and old/existing LinkedIn accounts).',
+                ],
+                'linkedin-business-12-months-via-login-voucher' => [
+                    'name' => 'LinkedIn Business 12 Months Subscription',
+                    'slug' => 'linkedin-business-12-months-subscription',
+                    'eligibility' => '12-Month LinkedIn Business activation via login — works for both new and existing accounts.',
+                ],
+                'linkedin-business-duo-12-months-voucher' => [
+                    'name' => 'LinkedIn Business Duo 12 Months Subscription',
+                    'slug' => 'linkedin-business-duo-12-months-subscription',
+                    'eligibility' => '12-Month Business Duo plan activated via your LinkedIn email with full 1-year coverage.',
+                ],
+                'linkedin-sales-navigator-core-2-months-voucher' => [
+                    'name' => 'LinkedIn Sales Navigator Core 2 Months Subscription',
+                    'slug' => 'linkedin-sales-navigator-core-2-months-subscription',
+                    'eligibility' => 'Official 2-Month Sales Navigator Core voucher link for eligible LinkedIn accounts.',
+                ],
+                'linkedin-sales-navigator-advanced-1-month-voucher' => [
+                    'name' => 'LinkedIn Sales Navigator Advanced 1 Month Subscription',
+                    'slug' => 'linkedin-sales-navigator-advanced-1-month-subscription',
+                    'eligibility' => 'Official 1-Month Sales Navigator Advanced activation via your LinkedIn email (6 to 30 hours processing).',
+                ],
+            ];
+
+            $products = Product::withTrashed()->with('category')->get();
+
+            foreach ($products as $product) {
+                $oldSlug = (string) $product->slug;
+                $cleanName = static::cleanProductTitle((string) $product->name);
+                $cleanName = preg_replace('/\s+-\s+Full\s+Warranty/iu', ' Full Warranty', $cleanName) ?? $cleanName;
+                $newSlug = $oldSlug;
+                $extraEligibility = null;
+
+                if (isset($linkedinMap[$oldSlug])) {
+                    $cleanName = $linkedinMap[$oldSlug]['name'];
+                    $newSlug = Product::uniqueSlug($linkedinMap[$oldSlug]['slug'], (int) $product->id);
+                    $extraEligibility = $linkedinMap[$oldSlug]['eligibility'];
+                }
+
+                $product->name = $cleanName;
+
+                $metaTitle = "Buy {$cleanName} | Best Price in Pakistan";
+                if (mb_strlen($metaTitle) > 60) {
+                    $metaTitle = "Buy {$cleanName} | Instant Delivery";
+                }
+                if (mb_strlen($metaTitle) > 60) {
+                    $metaTitle = static::trimAtWordBoundary("Buy {$cleanName}", 60);
+                }
+
+                $rawDesc = static::stripBotCodesFromCopy(static::stripEmDashes((string) ($product->meta_description ?: $product->short_description)));
+                $baseDesc = $extraEligibility
+                    ? "Buy {$cleanName} in Pakistan. {$extraEligibility} Pay via Easypaisa, JazzCash & USDT."
+                    : ($rawDesc !== '' ? $rawDesc : "Buy {$cleanName} at the cheapest price in Pakistan with instant automated delivery via Easypaisa, JazzCash & USDT.");
+                $metaDesc = static::trimAtWordBoundary($baseDesc, 154);
+
+                $checkMeta = static::analyzeProductSeo([
+                    'name' => $cleanName,
+                    'slug' => $newSlug,
+                    'meta_title' => $metaTitle,
+                    'meta_description' => $metaDesc,
+                    'description' => (string) ($product->description ?? ''),
+                    'meta_keywords' => $cleanName,
+                ]);
+                if (! $checkMeta['checks'][2]['ok']) {
+                    $metaDesc = static::trimAtWordBoundary("Buy {$cleanName} in Pakistan at the best price. {$baseDesc}", 154);
+                }
+
+                $descHtml = static::stripEmDashes((string) ($product->description ?? ''));
+                $safeName = e($cleanName);
+                $brand = e($product->brandName());
+                $warrantySafe = e($product->cleanWarrantyText() ?: 'Verified activation & replacement warranty support included.');
+                $catLabel = e(trim((string) ($product->category?->name ?: 'Digital Tools')));
+
+                if ($extraEligibility && ! str_contains($descHtml, 'Activation &amp; Account Eligibility')) {
+                    $eligSafe = e($extraEligibility);
+                    $descHtml = "<h3>Buy {$safeName} in Pakistan (Activation &amp; Eligibility)</h3>\n"
+                        ."<p><strong>Activation &amp; Account Eligibility:</strong> {$eligSafe}</p>\n"
+                        .$descHtml;
+                } elseif (! str_contains(strtolower(strip_tags($descHtml)), strtolower($cleanName))) {
+                    $descHtml = "<h3>Buy {$safeName} at the Best Price in Pakistan</h3>\n".$descHtml;
+                }
+
+                if (! str_contains($descHtml, 'How to Buy in Pakistan')) {
+                    $descHtml .= "\n<h3>How to Buy {$safeName} in Pakistan (No Credit Card Needed)</h3>\n"
+                        ."<ul>\n"
+                        ."<li><strong>Cheapest Verified Pricing:</strong> Live wholesale-linked PKR &amp; USDT pricing on {$catLabel} without international bank card taxes.</li>\n"
+                        ."<li><strong>Local &amp; Global Payments:</strong> Pay securely via <strong>Easypaisa, JazzCash, NayaPay, SadaPay, Raast Bank Transfer</strong>, or <strong>Binance Pay (USDT)</strong>.</li>\n"
+                        ."<li><strong>Instant Automated Delivery:</strong> Access credentials, redeem links, or activation details directly on your private order tracking page &amp; email.</li>\n"
+                        ."<li><strong>Warranty Coverage:</strong> {$warrantySafe}</li>\n"
+                        ."</ul>\n"
+                        ."<h3>Quick FAQs — {$safeName}</h3>\n"
+                        ."<p><strong>How fast is delivery for {$safeName}?</strong> In-stock orders are delivered automatically right after payment verification, with 24/7 WhatsApp support if you need assistance.</p>\n"
+                        ."<p><strong>Can I buy {$brand} in Pakistan without a credit card?</strong> Yes — simply pay in Pakistani Rupees (PKR) using Easypaisa, JazzCash, NayaPay, SadaPay, or local bank transfer.</p>";
+                }
+
+                $product->meta_keywords = '';
+                $alignedKeywords = static::capKeywords($product->seoKeywords(), 240);
+
+                $fill = [
+                    'name' => $cleanName,
+                    'meta_title' => Str::limit($metaTitle, 250, ''),
+                    'meta_description' => $metaDesc,
+                    'description' => $descHtml,
+                    'meta_keywords' => $alignedKeywords,
+                ];
+
+                if ($newSlug !== '' && $newSlug !== $oldSlug) {
+                    $legacySlugs = is_array($product->legacy_slugs) ? $product->legacy_slugs : [];
+                    $legacySlugs[] = $oldSlug;
+                    $fill['slug'] = $newSlug;
+                    $fill['legacy_slugs'] = array_values(array_unique(array_filter(
+                        $legacySlugs,
+                        fn ($s): bool => is_string($s) && $s !== '' && $s !== $newSlug
+                    )));
+                }
+
+                $product->forceFill($fill)->saveQuietly();
+            }
+
+            Cache::forget('smt_search_catalog_v1');
+            Cache::forget('smt_active_categories_v2');
+
+            return true;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return false;
+        }
     }
 
     /**
