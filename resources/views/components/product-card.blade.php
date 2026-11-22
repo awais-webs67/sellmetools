@@ -104,7 +104,7 @@
             </div>
 
             <span class="relative z-10 inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] sm:px-3 sm:py-1.5 sm:text-xs font-bold transition pointer-events-none"
-                  :class="inStock ? 'bg-brand text-white shadow-xs group-hover:bg-brand-dark' : 'border border-line-strong text-muted opacity-70'">
+                  :class="inStock ? 'bg-brand text-white shadow-xs group-hover:bg-brand-dark' : 'border border-line-strong text-muted'">
                 <span x-text="inStock ? '{{ $isFree ? 'Get Free' : 'Buy Now' }}' : 'View'">{{ $product->inStock() ? ($isFree ? 'Get Free' : 'Buy Now') : 'View' }}</span>
                 <svg class="h-3 w-3 hidden sm:inline transition-transform group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
             </span>
