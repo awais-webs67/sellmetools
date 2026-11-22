@@ -45,6 +45,83 @@ class ProductSeoOptimizer
         static::syncRankingUpgradeOnce();
         static::syncGeneralSubscriptionUpgradeOnce();
         static::syncFocusKeywordAlignOnce();
+        static::syncVpnSpacingOnce();
+    }
+
+    /**
+     * One-time sync to separate "ExpressVPN" -> "Express VPN" and "NordVPN" -> "Nord VPN" (with 301 legacy_slugs).
+     */
+    public static function syncVpnSpacingOnce(): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+
+        $flagFile = storage_path('framework/product_seo_v22_vpn_spacing.flag');
+        if (is_file($flagFile)) {
+            return;
+        }
+
+        try {
+            if (! Schema::hasTable('products')) {
+                return;
+            }
+
+            $products = Product::withTrashed()
+                ->where(function ($q): void {
+                    $q->where('name', 'like', '%ExpressVPN%')
+                        ->orWhere('name', 'like', '%NordVPN%')
+                        ->orWhere('slug', 'like', 'expressvpn-%')
+                        ->orWhere('slug', 'like', 'nordvpn-%');
+                })
+                ->get();
+
+            foreach ($products as $product) {
+                $oldSlug = (string) $product->slug;
+                $cleanName = static::cleanProductTitle((string) $product->name);
+                $product->name = $cleanName;
+                $newSlug = Product::uniqueSlug($cleanName, (int) $product->id);
+
+                $metaTitle = "Buy {$cleanName} | Best Price in Pakistan";
+                if (mb_strlen($metaTitle) > 60) {
+                    $metaTitle = "Buy {$cleanName} | Instant Delivery";
+                }
+                if (mb_strlen($metaTitle) > 60) {
+                    $metaTitle = static::trimAtWordBoundary("Buy {$cleanName}", 60);
+                }
+
+                $metaDesc = preg_replace(['/\bExpressVPN\b/i', '/\bNordVPN\b/i'], ['Express VPN', 'Nord VPN'], (string) ($product->meta_description ?? '')) ?: (string) $product->meta_description;
+                $descHtml = preg_replace(['/\bExpressVPN\b/i', '/\bNordVPN\b/i'], ['Express VPN', 'Nord VPN'], (string) ($product->description ?? '')) ?: (string) $product->description;
+
+                $product->meta_keywords = '';
+                $alignedKeywords = static::capKeywords($product->seoKeywords(), 240);
+
+                $fill = [
+                    'name' => $cleanName,
+                    'meta_title' => Str::limit($metaTitle, 250, ''),
+                    'meta_description' => static::trimAtWordBoundary($metaDesc, 154),
+                    'description' => $descHtml,
+                    'meta_keywords' => $alignedKeywords,
+                ];
+
+                if ($newSlug !== '' && $newSlug !== $oldSlug) {
+                    $legacySlugs = is_array($product->legacy_slugs) ? $product->legacy_slugs : [];
+                    $legacySlugs[] = $oldSlug;
+                    $fill['slug'] = $newSlug;
+                    $fill['legacy_slugs'] = array_values(array_unique(array_filter(
+                        $legacySlugs,
+                        fn ($s): bool => is_string($s) && $s !== '' && $s !== $newSlug
+                    )));
+                }
+
+                $product->forceFill($fill)->saveQuietly();
+            }
+
+            Cache::forget('smt_search_catalog_v1');
+            @file_put_contents($flagFile, '1');
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     /**
@@ -877,8 +954,8 @@ class ProductSeoOptimizer
             '/\bMs\s*365\b/iu' => 'Microsoft 365',
             '/\bHma(?!\s+VPN)\b/iu' => 'HMA VPN',
             '/\bHma\s+Vpn\b/iu' => 'HMA VPN',
-            '/\bNord\s*Vpn\b/iu' => 'NordVPN',
-            '/\bExpress\s*Vpn\b/iu' => 'ExpressVPN',
+            '/\bNord\s*Vpn\b/iu' => 'Nord VPN',
+            '/\bExpress\s*Vpn\b/iu' => 'Express VPN',
             '/\bSurf\s*Shark\b/iu' => 'Surfshark',
             '/\bAndroid\s*\/?\s*pc\b/iu' => 'Android & PC',
             '/\bChatgpt\b/iu' => 'ChatGPT',
@@ -931,7 +1008,7 @@ class ProductSeoOptimizer
     public static function resolveCleanSlug(string $cleanName, string $currentSlug, ?int $productId = null): string
     {
         $needsCleanup = preg_match(
-            '/(?:^|-)(?:fw|nw|\d+[hdmy]w|w\d+[hdmy]|key-hma|ms365|androidpc|0-credit|24h-warranty|1000-creditsw1d|claude-0-api|one-month|1-months|advance|need-extension|ready-made-accounts|nord-vpn|express-vpn|office365|500-credit|100-invite|3000-invite|with-free-gifts|\d+(?:m|d|y|month|months|day|days|year|years|million)(?=-|$))/i',
+            '/(?:^|-)(?:fw|nw|\d+[hdmy]w|w\d+[hdmy]|key-hma|ms365|androidpc|0-credit|24h-warranty|1000-creditsw1d|claude-0-api|one-month|1-months|advance|need-extension|ready-made-accounts|office365|500-credit|100-invite|3000-invite|with-free-gifts|\d+(?:m|d|y|month|months|day|days|year|years|million)(?=-|$))/i',
             $currentSlug
         ) === 1
             || preg_match('/-2$/', $currentSlug) === 1
