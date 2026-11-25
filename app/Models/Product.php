@@ -262,6 +262,7 @@ class Product extends Model
 
             Cache::forget('smt_search_catalog_v1');
             Cache::forget('smt_active_categories_v2');
+            Cache::forget('smt_llms_txt_v1');
 
             if (! app()->runningUnitTests() && $product->is_active && ($product->wasRecentlyCreated || $product->wasChanged(['name', 'slug', 'is_active', 'price', 'short_description', 'description']))) {
                 defer(function () use ($product): void {
@@ -282,6 +283,7 @@ class Product extends Model
         static::deleted(function () {
             Cache::forget('smt_search_catalog_v1');
             Cache::forget('smt_active_categories_v2');
+            Cache::forget('smt_llms_txt_v1');
         });
     }
 
@@ -615,8 +617,11 @@ class Product extends Model
     public function imageSeoAlt(): string
     {
         $pricePart = (float) $this->price > 0 ? ' ('.money($this->price).')' : '';
+        $name = trim((string) $this->name);
+        $hasQualifier = (bool) preg_match('/\b(subscription|account|plan|voucher|bundle|license|key|course|credits?|tokens?|api)\b/i', $name);
+        $label = $hasQualifier ? $name : "{$name} Subscription";
 
-        return str_replace(['—', '–'], '-', "Buy {$this->name} Subscription in Pakistan{$pricePart} - Instant Delivery | SellMeTools");
+        return str_replace(['—', '–'], '-', "Buy {$label} in Pakistan{$pricePart} - Instant Delivery | SellMeTools");
     }
 
     public function imageSeoTitle(): string

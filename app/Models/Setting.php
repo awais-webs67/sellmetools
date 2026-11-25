@@ -64,6 +64,7 @@ class Setting extends Model
         'seo_title' => 'Buy AI Tools, Premium Software & Digital Subscriptions Online',
         'seo_description' => 'Buy the cheapest AI tools, SEO tools, creative suites, VPNs & digital subscriptions in Pakistan & worldwide with instant PKR & USDT delivery.',
         'seo_keywords' => 'cheapest ai tools in pakistan, cheapest seo tools in pakistan, buy ai tools in pakistan, chatgpt plus price in pakistan, capcut pro price in pakistan, canva pro price in pakistan, ahrefs semrush group buy pakistan, claude pro price in pakistan, gemini pro subscription pakistan, linkedin premium voucher pakistan, surfshark expressvpn pakistan, cheap digital subscriptions easypaisa jazzcash, sellmetools',
+        'seo_same_as_urls' => '',
         'google_site_verification' => '',
         'bing_site_verification' => '',
         'indexnow_key' => 'a7f9c2e4b8d106359a2c4e6f8b0d2e4a',
@@ -155,6 +156,7 @@ class Setting extends Model
         static::query()->updateOrCreate(['key' => $key], ['value' => $value]);
         self::$memoized = null;
         Cache::forget(self::CACHE_KEY);
+        Cache::forget('smt_llms_txt_v1');
     }
 
     public static function setMany(array $values): void
@@ -164,6 +166,7 @@ class Setting extends Model
         }
         self::$memoized = null;
         Cache::forget(self::CACHE_KEY);
+        Cache::forget('smt_llms_txt_v1');
     }
 
     public static function usdtRate(): float

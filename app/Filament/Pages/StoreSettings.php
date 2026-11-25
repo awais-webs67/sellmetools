@@ -57,7 +57,7 @@ class StoreSettings extends Page
         'whatsapp_callmebot_apikey', 'whatsapp_admin_webhook_url',
         'telegram_bot_token', 'telegram_admin_chat_id', 'telegram_store_bot_enabled',
         'support_whatsapp', 'support_telegram', 'support_email', 'footer_phone_enabled', 'footer_email_enabled', 'footer_address_enabled', 'footer_address',
-        'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key',
+        'seo_title', 'seo_description', 'seo_keywords', 'seo_same_as_urls', 'google_site_verification', 'bing_site_verification', 'indexnow_key',
         'google_analytics_enabled', 'google_analytics_id', 'gtm_container_id', 'ga4_property_id', 'ga4_service_account_json',
         'ads_tracking_enabled', 'meta_pixel_id', 'google_ads_id', 'google_ads_purchase_label', 'tiktok_pixel_id',
         'ai_seo_auto_enabled', 'ai_seo_provider', 'groq_api_key', 'groq_model', 'openrouter_api_key', 'openrouter_model', 'gemini_api_key', 'gemini_model', 'custom_llm_base_url', 'custom_llm_api_key', 'custom_llm_model', 'ai_seo_brand_instructions',
@@ -73,7 +73,7 @@ class StoreSettings extends Page
         'promo_popup_enabled', 'promo_popup_type', 'promo_popup_badge', 'promo_popup_title', 'promo_popup_body', 'promo_popup_image', 'promo_popup_cta_text', 'promo_popup_cta_url', 'promo_popup_version',
         'home_hero_badge', 'home_hero_title', 'home_hero_subtitle', 'home_about_heading', 'home_guide_heading', 'home_seo_content',
         'shop_seo_title', 'shop_seo_description',
-        'seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key',
+        'seo_title', 'seo_description', 'seo_keywords', 'seo_same_as_urls', 'google_site_verification', 'bing_site_verification', 'indexnow_key',
         'google_analytics_enabled', 'google_analytics_id', 'gtm_container_id',
     ];
 
@@ -489,6 +489,13 @@ class StoreSettings extends Page
                                             ->rows(2)
                                             ->maxLength(500)
                                             ->columnSpanFull(),
+                                        Textarea::make('seo_same_as_urls')
+                                            ->label('Brand Trust & Social Profile URLs (sameAs JSON-LD — one per line)')
+                                            ->placeholder("https://www.trustpilot.com/review/sellmetools.com\nhttps://www.youtube.com/@sellmetools\nhttps://www.linkedin.com/company/sellmetools")
+                                            ->helperText('Adds verified entity links to your OnlineStore schema so Google, Bing & AI engines connect your official brand profiles.')
+                                            ->rows(3)
+                                            ->maxLength(2000)
+                                            ->columnSpanFull(),
                                         TextInput::make('google_site_verification')
                                             ->label('Google Search Console Verification Code (Optional)')
                                             ->placeholder('Paste token or meta tag'),
@@ -505,13 +512,13 @@ class StoreSettings extends Page
                                                 ->label('Save SEO Settings')
                                                 ->icon(Heroicon::OutlinedCheck)
                                                 ->color('primary')
-                                                ->action(fn () => $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key'], 'SEO settings saved')),
+                                                ->action(fn () => $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'seo_same_as_urls', 'google_site_verification', 'bing_site_verification', 'indexnow_key'], 'SEO settings saved')),
                                             Action::make('pingIndexNow')
                                                 ->label('Submit All Site URLs to Bing & ChatGPT (IndexNow)')
                                                 ->icon(Heroicon::OutlinedPaperAirplane)
                                                 ->color('gray')
                                                 ->action(function (): void {
-                                                    $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'google_site_verification', 'bing_site_verification', 'indexnow_key'], 'SEO settings saved');
+                                                    $this->saveKeys(['seo_title', 'seo_description', 'seo_keywords', 'seo_same_as_urls', 'google_site_verification', 'bing_site_verification', 'indexnow_key'], 'SEO settings saved');
                                                     $res = SeoController::submitAllToIndexNow();
                                                     if ($res['success']) {
                                                         Notification::make()

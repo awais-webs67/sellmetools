@@ -763,7 +763,7 @@ class StorefrontTest extends TestCase
         $this->get(route('categories.show', $aiCategory->slug))->assertOk()->assertDontSee('tools tools');
         $this->get(route('pages.show', 'privacy'))->assertOk()->assertDontSee('AivraSol');
         $this->get(route('pages.show', 'contact'))->assertOk()->assertSee('autocomplete="name"', false);
-        $this->get(route('home'))->assertOk()->assertSee('width="230" height="40"', false);
+        $this->get(route('home'))->assertOk()->assertSee('width="925" height="161"', false);
 
         Setting::set('support_whatsapp', '923001234567');
 
@@ -961,5 +961,14 @@ class StorefrontTest extends TestCase
         $this->assertStringContainsString('Activation &amp; Account Eligibility', (string) $li->description);
         $this->assertStringContainsString('How to Buy', (string) $li->description);
         $this->assertSame(100, ProductSeoOptimizer::scoreForProduct($li)['score']);
+
+        // 10. Agentic & GEO fixes: no duplicated "Subscription Subscription" in alt text, exact logo dimensions, OnlineStore sameAs
+        $this->assertStringNotContainsString('Subscription Subscription', $li->imageSeoAlt());
+        $this->assertStringContainsString('Buy LinkedIn Career 3 Months All Users Subscription in Pakistan', $li->imageSeoAlt());
+
+        Setting::set('seo_same_as_urls', "https://www.trustpilot.com/review/sellmetools.com\nhttps://www.youtube.com/@sellmetools");
+        $homeGeoHtml = $this->get(route('home'))->assertOk()->getContent();
+        $this->assertStringContainsString('width="925" height="161"', $homeGeoHtml);
+        $this->assertStringContainsString('"sameAs":["https://www.trustpilot.com/review/sellmetools.com","https://www.youtube.com/@sellmetools"]', $homeGeoHtml);
     }
 }

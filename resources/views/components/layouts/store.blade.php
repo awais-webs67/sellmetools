@@ -51,6 +51,18 @@
     $themeColorHex = $storeTheme === 'crimson' ? '#9B1B30' : '#000000';
 
     $storeSchemaDesc = (string) (setting('seo_description') ?: setting('store_tagline'));
+    $sameAsRaw = preg_split('/[\r\n,]+/', (string) setting('seo_same_as_urls', '')) ?: [];
+    $telegramSupport = trim((string) setting('support_telegram', ''));
+    if ($telegramSupport !== '' && preg_match('#^https?://#i', $telegramSupport)) {
+        $sameAsRaw[] = $telegramSupport;
+    } elseif ($telegramSupport !== '' && str_starts_with($telegramSupport, '@')) {
+        $sameAsRaw[] = 'https://t.me/'.ltrim($telegramSupport, '@');
+    }
+    $sameAsUrls = array_values(array_unique(array_filter(array_map(
+        static fn (string $u): string => trim($u),
+        $sameAsRaw
+    ), static fn (string $u): bool => (bool) filter_var($u, FILTER_VALIDATE_URL) && preg_match('#^https?://#i', $u))));
+
     $orgSchema = array_filter([
         '@context' => 'https://schema.org',
         '@type' => 'OnlineStore',
@@ -59,6 +71,7 @@
         'url' => url('/'),
         'logo' => $logoSetting ? $defaultOgImage : asset('images/logo.png'),
         'description' => $storeSchemaDesc,
+        'sameAs' => $sameAsUrls !== [] ? $sameAsUrls : null,
         'areaServed' => ['PK', 'US', 'GB', 'AE', 'SA', 'CA', 'AU', 'Worldwide'],
         'knowsAbout' => [
             'AI Tools Subscriptions in Pakistan',
@@ -403,7 +416,7 @@
 
         <div class="container-x flex h-14 sm:h-16 lg:h-[74px] items-center justify-between gap-2.5 sm:gap-4 lg:gap-5 xl:gap-6 min-w-0">
             <a href="{{ route('home') }}" class="flex shrink-0 items-center transition active:scale-95" aria-label="{{ $storeName }} home">
-                <img src="{{ asset('images/logo.png') }}?v=6" alt="{{ $storeName }}" width="180" height="40" fetchpriority="high" decoding="async" class="h-6 sm:h-7 lg:h-8 xl:h-9 w-auto shrink-0 object-contain">
+                <img src="{{ asset('images/logo.png') }}?v=6" alt="{{ $storeName }}" width="925" height="161" fetchpriority="high" decoding="async" class="h-6 sm:h-7 lg:h-8 xl:h-9 w-auto shrink-0 object-contain">
             </a>
 
             <form action="{{ route('shop') }}" method="get" class="relative hidden flex-1 min-w-0 max-w-md xl:max-w-lg md:block" role="search"
@@ -557,7 +570,7 @@
         <div class="container-x grid gap-10 py-14 md:grid-cols-2 lg:grid-cols-4">
             <div class="lg:col-span-2">
                 <a href="{{ route('home') }}" class="flex items-center">
-                    <img src="{{ asset('images/logo-white.png') }}?v=4" alt="{{ $storeName }}" width="230" height="40" loading="lazy" decoding="async" fetchpriority="low" class="h-8 sm:h-9 md:h-10 w-auto object-contain">
+                    <img src="{{ asset('images/logo-white.png') }}?v=4" alt="{{ $storeName }}" width="925" height="161" loading="lazy" decoding="async" fetchpriority="low" class="h-8 sm:h-9 md:h-10 w-auto object-contain">
                 </a>
                 <p class="mt-4 max-w-md text-sm leading-6">{{ setting('store_tagline') }} Pay with Easypaisa, JazzCash, NayaPay, SadaPay or Binance and receive your product automatically after verification.</p>
                 <div class="mt-5 flex flex-wrap gap-2">
